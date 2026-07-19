@@ -861,6 +861,11 @@ def municipal_projects_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
+    from datetime import date
+    current_year = date.today().year
+    year_choices = list(range(current_year, current_year - 15, -1))
+    active_filters_count = sum(1 for val in [project_type, status, year, barangay_id] if val)
+
     context = {
         'per_page': per_page,
         'page_obj': page_obj,
@@ -872,6 +877,8 @@ def municipal_projects_view(request):
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'barangays': Barangay.objects.all(),
+        'year_choices': year_choices,
+        'active_filters_count': active_filters_count,
         'module_title': 'Municipal Projects',
         'module_scope': 'Municipal',
         'active_tab': 'municipal',
@@ -911,6 +918,11 @@ def barangay_projects_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
+    from datetime import date
+    current_year = date.today().year
+    year_choices = list(range(current_year, current_year - 15, -1))
+    active_filters_count = sum(1 for val in [project_type, status, year, barangay_id] if val)
+
     context = {
         'per_page': per_page,
         'page_obj': page_obj,
@@ -922,6 +934,8 @@ def barangay_projects_view(request):
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'barangays': Barangay.objects.all(),
+        'year_choices': year_choices,
+        'active_filters_count': active_filters_count,
         'module_title': 'Barangay Projects',
         'module_scope': 'Barangay',
         'active_tab': 'barangay',
@@ -971,6 +985,11 @@ def permit_records_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
+    from datetime import date
+    current_year = date.today().year
+    year_choices = list(range(current_year, current_year - 15, -1))
+    active_filters_count = sum(1 for val in [permit_type, status, year, barangay_id] if val)
+
     context = {
         'per_page': per_page,
         'page_obj': page_obj,
@@ -982,6 +1001,8 @@ def permit_records_view(request):
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'barangays': Barangay.objects.all(),
+        'year_choices': year_choices,
+        'active_filters_count': active_filters_count,
         'module_title': 'Permit Applications',
         'active_tab': 'permits',
         'pending_count': pending_count,

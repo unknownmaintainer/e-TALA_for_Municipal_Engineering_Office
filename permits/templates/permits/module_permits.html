@@ -34,53 +34,96 @@
 </div>
 
 <!-- ══ FILTER BAR ══════════════════════════════════════════════════════════ -->
-<div class="content-card section-gap">
-    <div class="content-card-body" style="padding: 16px 20px;">
-        <form method="GET" class="d-flex flex-wrap gap-2 align-items-center">
-            <!-- Search -->
-            <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-                <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
-                <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-                <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+<form method="GET" class="mb-4">
+    <!-- Sleek persistent search row -->
+    <div class="filter-bar mb-3">
+        <!-- Always visible Search input -->
+        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+            <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ q|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            {% if q %}
+            <a href="{% url 'permit_records' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
+                <i data-lucide="x" style="width:16px;height:16px;"></i>
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Filter Toggle button -->
+        <button class="action-btn action-btn-secondary action-btn-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" style="height: 38px;" title="Toggle filters">
+            <i data-lucide="sliders-horizontal"></i>
+            Filters
+            {% if active_filters_count > 0 %}
+            <span class="tag" style="background: var(--primary-brand); color: #fff; margin-left: 4px;">{{ active_filters_count }} Active</span>
+            {% endif %}
+        </button>
+
+        {% if q or selected_barangay or selected_permit_type or selected_status or selected_year %}
+        <a href="{% url 'permit_records' %}"
+           class="action-btn action-btn-ghost action-btn-sm ms-auto" style="height: 38px;" title="Reset all filters">
+            Reset All
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Collapsible filters panel (Dropdown select options) -->
+    <div class="collapse {% if selected_barangay or selected_permit_type or selected_status or selected_year %}show{% endif %}" id="advancedFiltersCollapse">
+        <div class="filter-panel-unified mt-3">
+            <div class="row g-3">
+                <!-- Barangay filter -->
+                <div class="col-md-3 col-6">
+                    <label class="form-label small fw-semibold text-muted mb-1">Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm" style="cursor: pointer;">
+                        <option value="">All Barangays</option>
+                        {% for b in barangays %}
+                        <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:'s' %}selected{% endif %}>{{ b.barangay_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Permit type filter -->
+                <div class="col-md-3 col-6">
+                    <label class="form-label small fw-semibold text-muted mb-1">Permit Type</label>
+                    <select name="permit_type" class="form-select form-select-sm" style="cursor: pointer;">
+                        <option value="">All Permit Types</option>
+                        {% for val, label in permit_types %}
+                        <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Status filter -->
+                <div class="col-md-3 col-6">
+                    <label class="form-label small fw-semibold text-muted mb-1">Status</label>
+                    <select name="status" class="form-select form-select-sm" style="cursor: pointer;">
+                        <option value="">All Status</option>
+                        {% for val, label in status_choices %}
+                        <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Year filter -->
+                <div class="col-md-3 col-6">
+                    <label class="form-label small fw-semibold text-muted mb-1">Year</label>
+                    <select name="year" class="form-select form-select-sm" style="cursor: pointer;">
+                        <option value="">All Years</option>
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if selected_year == y|stringformat:'s' %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
 
-            <!-- Barangay filter -->
-            <select name="barangay" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:160px; max-width:180px; cursor: pointer;">
-                <option value="">All Barangays</option>
-                {% for b in barangays %}
-                <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:'s' %}selected{% endif %}>{{ b.barangay_name }}</option>
-                {% endfor %}
-            </select>
-
-            <!-- Permit Type filter -->
-            <select name="permit_type" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:150px; max-width:170px; cursor: pointer;">
-                <option value="">All Permit Types</option>
-                {% for val, label in permit_types %}
-                <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-
-            <!-- Status filter -->
-            <select name="status" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:130px; max-width:150px; cursor: pointer;">
-                <option value="">All Status</option>
-                {% for val, label in status_choices %}
-                <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-
-            <!-- Year filter -->
-            <input type="number" name="year" value="{{ selected_year }}" class="form-control rounded-3"
-                   placeholder="Year" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); width:90px;">
-
-            <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 38px;">
-                Filter
-            </button>
-            {% if q or selected_barangay or selected_permit_type or selected_status or selected_year %}
-            <a href="{% url 'permit_records' %}" class="action-btn action-btn-secondary action-btn-sm" style="height: 38px;">Clear</a>
-            {% endif %}
-        </form>
+            <div class="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
+                <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 36px;" title="Apply selected filters">
+                    Apply Filters
+                </button>
+            </div>
+        </div>
     </div>
-</div>
+</form>
 
 <!-- ══ RECORDS CARDS GRID ═══════════════════════════════════════════════════ -->
 {% if page_obj.object_list %}
