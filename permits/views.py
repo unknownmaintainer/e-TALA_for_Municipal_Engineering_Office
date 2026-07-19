@@ -537,13 +537,17 @@ def records_browse_view(request):
         project_type = request.GET.get('project_type', '')
 
     if query:
-        base_records = base_records.filter(
+        search_filter = (
             Q(title__icontains=query) |
             Q(description__icontains=query) |
+            Q(barangay__barangay_name__icontains=query) |
             Q(permit_detail__permit_number__icontains=query) |
             Q(permit_detail__applicant_name__icontains=query) |
             Q(project_detail__contractor__icontains=query)
-        ).distinct()
+        )
+        if query.isdigit():
+            search_filter |= Q(year=int(query))
+        base_records = base_records.filter(search_filter).distinct()
     
     if barangay_id:
         base_records = base_records.filter(barangay_id=barangay_id)
@@ -843,11 +847,14 @@ def municipal_projects_view(request):
     barangay_id = request.GET.get('barangay', '')
 
     if query:
-        records = records.filter(
+        search_filter = (
             Q(title__icontains=query) |
             Q(barangay__barangay_name__icontains=query) |
             Q(project_detail__contractor__icontains=query)
-        ).distinct()
+        )
+        if query.isdigit():
+            search_filter |= Q(year=int(query))
+        records = records.filter(search_filter).distinct()
     if project_type:
         records = records.filter(project_detail__project_type=project_type)
     if status:
@@ -900,11 +907,14 @@ def barangay_projects_view(request):
     barangay_id = request.GET.get('barangay', '')
 
     if query:
-        records = records.filter(
+        search_filter = (
             Q(title__icontains=query) |
             Q(barangay__barangay_name__icontains=query) |
             Q(project_detail__contractor__icontains=query)
-        ).distinct()
+        )
+        if query.isdigit():
+            search_filter |= Q(year=int(query))
+        records = records.filter(search_filter).distinct()
     if project_type:
         records = records.filter(project_detail__project_type=project_type)
     if status:
@@ -957,12 +967,15 @@ def permit_records_view(request):
     barangay_id = request.GET.get('barangay', '')
 
     if query:
-        records = records.filter(
+        search_filter = (
             Q(title__icontains=query) |
             Q(permit_detail__applicant_name__icontains=query) |
             Q(permit_detail__permit_number__icontains=query) |
             Q(barangay__barangay_name__icontains=query)
-        ).distinct()
+        )
+        if query.isdigit():
+            search_filter |= Q(year=int(query))
+        records = records.filter(search_filter).distinct()
     if permit_type:
         records = records.filter(permit_detail__permit_type=permit_type)
     if status:
