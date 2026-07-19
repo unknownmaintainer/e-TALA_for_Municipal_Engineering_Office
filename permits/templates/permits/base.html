@@ -420,7 +420,7 @@
                                 data-lucide="{% if message.tags == 'error' %}alert-circle{% elif message.tags == 'warning' %}alert-triangle{% elif message.tags == 'info' %}info{% else %}check-circle{% endif %}"></i>
                             <span>{{ message }}</span>
                         </div>
-                        <button type="button" class="toast-close" data-bs-dismiss="toast">&times;</button>
+                        <button type="button" class="toast-close" aria-label="Close">&times;</button>
                     </div>
                     {% endfor %}
                 </div>
@@ -468,7 +468,7 @@
                 <div class="toast-body-content">
                     <span>{{ message }}</span>
                 </div>
-                <button type="button" class="toast-close" data-bs-dismiss="toast">&times;</button>
+                <button type="button" class="toast-close" aria-label="Close">&times;</button>
             </div>
             {% endfor %}
         </div>
@@ -482,13 +482,26 @@
     <script>
         lucide.createIcons();
 
-        // Auto-fade toasts
+        // Auto-fade and manual close toasts smoothly
         document.querySelectorAll('.erarms-toast').forEach(toast => {
-            setTimeout(() => {
+            const closeToast = () => {
                 toast.style.opacity = '0';
-                toast.style.transform = 'translateX(20px)';
+                toast.style.transform = 'translateX(30px)';
                 setTimeout(() => toast.remove(), 400);
-            }, 4500);
+            };
+
+            // Auto-fade after 4.5 seconds
+            const fadeTimeout = setTimeout(closeToast, 4500);
+
+            // Manual close
+            const closeBtn = toast.querySelector('.toast-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    clearTimeout(fadeTimeout);
+                    closeToast();
+                });
+            }
         });
 
         // Character counter for textareas

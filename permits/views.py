@@ -1205,6 +1205,7 @@ def toggle_requirement_waived_view(request, req_id):
     req.save()
     
     action_str = "marked as N/A" if req.is_waived else "marked as required"
+    messages.success(request, f"Requirement '{req.requirement_item.name}' successfully {action_str}.")
     log_audit(
         request.user, 
         f"Requirement '{req.requirement_item.name}' {action_str} for record '{req.record.title}'", 
