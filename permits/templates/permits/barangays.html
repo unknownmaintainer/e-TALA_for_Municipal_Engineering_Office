@@ -10,6 +10,19 @@
     .custom-map-marker:hover {
         transform: scale(1.2);
     }
+    .workspace-link-btn {
+        color: #64748b !important;
+    }
+    .workspace-link-btn:hover {
+        color: #0d9488 !important;
+    }
+    .brgy-card:hover .workspace-link-btn {
+        color: #0d9488 !important;
+    }
+    .brgy-card:hover .brgy-card-arrow {
+        color: #0d9488 !important;
+        transform: translateX(2px);
+    }
     @media (min-width: 992px) {
         .sticky-lg-top {
             top: 90px;
@@ -161,8 +174,8 @@
                             </div>
                         </div>
 
-                        <!-- Card Body link (Covers the text and details cleanly) -->
-                        <a href="{% url 'barangay_workspace' b.barangay_id %}" class="text-decoration-none d-flex flex-column flex-grow-1" style="color: inherit;">
+                        <!-- Card Body (Covers the text and details cleanly) -->
+                        <div class="d-flex flex-column flex-grow-1" style="color: inherit; cursor: pointer;">
                             <div class="brgy-card-title mt-1" style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-bottom: 12px;">
                                 {{ b.barangay_name }}
                             </div>
@@ -189,11 +202,11 @@
                                 {% endif %}
                             </div>
                             
-                            <div class="mt-3 pt-2 border-top d-flex align-items-center justify-content-between text-muted" style="font-size: 0.72rem; font-weight: 600; transition: color 0.2s;">
+                            <a href="{% url 'barangay_workspace' b.barangay_id %}" class="mt-3 pt-2 border-top d-flex align-items-center justify-content-between text-muted text-decoration-none workspace-link-btn" style="font-size: 0.72rem; font-weight: 600; transition: color 0.2s; color: inherit;" onclick="event.stopPropagation();">
                                 <span class="workspace-hint">Go to Workspace</span>
                                 <i class="fa-solid fa-arrow-right brgy-card-arrow" style="font-size: 10px;"></i>
-                            </div>
-                        </a>
+                            </a>
+                        </div>
                         <div class="brgy-card-accent" style="height: 3px; background: linear-gradient(90deg, #0d9488, #3b82f6);"></div>
                     </div>
             </div>
@@ -664,10 +677,29 @@ document.addEventListener('DOMContentLoaded', function() {
             
             markersMap.set(id, marker);
             
-            // Sync card hover to show pin dynamically
+            // Sync card hover and click to show pin dynamically
             const cardContainer = card.querySelector('.brgy-card');
             if (cardContainer) {
+                cardContainer.style.cursor = 'pointer';
                 cardContainer.addEventListener('mouseenter', () => {
+                    highlightBarangay(id, coords);
+                });
+                
+                cardContainer.addEventListener('click', (e) => {
+                    // Prevent redirecting/triggering if clicking dropdown, buttons, or links
+                    if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.dropdown') || e.target.closest('.dropdown-menu')) {
+                        return;
+                    }
+                    
+                    // Automatically show the map if it's currently hidden
+                    const mapColumn = document.getElementById('mapColumn');
+                    if (mapColumn && mapColumn.classList.contains('d-none')) {
+                        const toggleMapBtn = document.getElementById('toggleMapBtn');
+                        if (toggleMapBtn) {
+                            toggleMapBtn.click();
+                        }
+                    }
+                    
                     highlightBarangay(id, coords);
                 });
             }

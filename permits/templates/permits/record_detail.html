@@ -21,7 +21,11 @@
             <span class="tag tag-id">ID: #{{ record.record_id }}</span>
         </div>
         <h1>
-            {{ record.title }}
+            {% if record.record_type == 'Permit' %}
+                {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
+            {% else %}
+                {{ record.title }}
+            {% endif %}
         </h1>
         <p class="page-subtitle">
             Archive category: <strong>{{ record.project_scope|default:record.record_type }}</strong> · Created by {{ record.created_by.full_name|default:record.created_by.username }}
@@ -297,8 +301,16 @@
                 
                 <div class="d-flex flex-column gap-3">
                     <div class="detail-row-unified border-bottom pb-2">
-                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Project Name</span>
-                        <span class="detail-value-u fw-bold text-dark">{{ record.title }}</span>
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">
+                            {% if record.record_type == 'Project' %}Project Name{% else %}Applicant Name{% endif %}
+                        </span>
+                        <span class="detail-value-u fw-bold text-dark">
+                            {% if record.record_type == 'Permit' and permit_detail %}
+                                {{ permit_detail.applicant_name }}
+                            {% else %}
+                                {{ record.title }}
+                            {% endif %}
+                        </span>
                     </div>
                     <div class="detail-row-unified border-bottom pb-2">
                         <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Type</span>

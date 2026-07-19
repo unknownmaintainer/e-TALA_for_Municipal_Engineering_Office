@@ -52,8 +52,21 @@
                 {% for record in page_obj %}
                 <tr onclick="window.location='{% url 'record_detail' record.record_id %}'">
                     <td>
-                        <div class="cell-title">{{ record.title|truncatechars:55 }}</div>
-                        <div class="cell-subtitle">
+                        <div class="cell-title">
+                            {% if record.record_type == 'Permit' %}
+                                {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
+                            {% else %}
+                                {{ record.title }}
+                            {% endif %}
+                        </div>
+                        <div class="cell-subtitle" style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
+                            {% if record.record_type == 'Permit' and record.permit_detail %}
+                                Applicant: {{ record.permit_detail.applicant_name }}
+                                <span style="color: #cbd5e1; margin: 0 4px;">•</span>
+                            {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
+                                Contractor: {{ record.project_detail.contractor }}
+                                <span style="color: #cbd5e1; margin: 0 4px;">•</span>
+                            {% endif %}
                             Encoded by: {{ record.created_by.full_name|default:record.created_by.username }}
                         </div>
                     </td>
