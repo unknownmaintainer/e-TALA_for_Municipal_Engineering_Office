@@ -29,6 +29,15 @@ logger = logging.getLogger('permits')
 
 
 def log_audit(user, action, target_record_id=None, request=None):
+    # Prevent logging repetitive routine activities to keep AuditLogs clean and readable
+    ignored_actions = [
+        "Logged out",
+        "Logged in successfully",
+        "Logged in successfully from a new IP/device"
+    ]
+    if action in ignored_actions:
+        return
+        
     ip = get_client_ip(request) if request else None
     AuditLog.objects.create(
         user=user,

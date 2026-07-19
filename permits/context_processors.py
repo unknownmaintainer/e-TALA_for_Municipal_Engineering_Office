@@ -6,17 +6,7 @@ from .models import AuditLog, Document, LoginAttempt
 
 def recent_notifications(request):
     if request.user.is_authenticated:
-        # 1. Fetch latest 5 audit logs as system logs (exclude regular repeat logins/logouts to prevent clutter)
-        logs = AuditLog.objects.select_related('user').exclude(
-            action="Logged out"
-        ).exclude(
-            action="Logged in successfully"
-        )
-        if request.user.role != 'admin':
-            logs = logs.filter(user=request.user)
-        logs = logs.order_by('-performed_at')[:5]
-        
-        # 2. Gather active system-wide warning/alert items
+        # Gather active system-wide warning/alert items (only most important events)
         alerts = []
         
         # Security failed login alert for admins
@@ -70,26 +60,9 @@ def recent_notifications(request):
                 'performed_at': None,
             })
             
-        # Standard logs formatting
-        formatted_logs = []
-        for l in logs:
-            formatted_logs.append({
-                'type': 'log',
-                'action': l.action,
-                'user': l.user.full_name if l.user else None,
-                'username': l.user.username if l.user else 'System',
-                'url': f"{reverse('settings')}?tab=logs",
-                'time': None,
-                'badge': None,
-                'performed_at': l.performed_at,
-            })
-            
-        # Combine alerts and logs (alerts first, then logs)
-        combined_notifications = alerts + formatted_logs
-        
         return {
-            'recent_notifications': combined_notifications,
-            'notifications_count': len(combined_notifications),
+            'recent_notifications': alerts,
+            'notifications_count': len(alerts),
             'has_urgent_alerts': len(alerts) > 0,
         }
         
