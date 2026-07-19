@@ -266,7 +266,10 @@ def dashboard_view(request):
     ).order_by('-created_at')[:8]
 
     # Activity feed
-    activity_feed = AuditLog.objects.select_related('user').order_by('-performed_at')[:15]
+    if request.user.role == 'admin':
+        activity_feed = AuditLog.objects.select_related('user').order_by('-performed_at')[:15]
+    else:
+        activity_feed = AuditLog.objects.filter(user=request.user).select_related('user').order_by('-performed_at')[:15]
 
     # Recent Uploads
     recent_uploads = Document.objects.select_related('engineering_record', 'uploaded_by').order_by('-uploaded_at')[:5]
@@ -1902,10 +1905,12 @@ def reports_view(request):
 
 @login_required
 def activity_logs_view(request):
-    if request.user.role != 'admin':
-        raise PermissionDenied("Only Administrators can view activity logs.")
+    if request.user.role not in ['admin', 'staff', 'engineer']:
+        raise PermissionDenied("You do not have permission to view activity logs.")
 
     if request.method == 'POST':
+        if request.user.role != 'admin':
+            return HttpResponseForbidden("Unauthorized action.")
         action = request.POST.get('action')
         if action == 'block_ip':
             ip = request.POST.get('ip_address')
@@ -1924,6 +1929,9 @@ def activity_logs_view(request):
 
     # 1. Audit Logs (System Activity Log)
     audit_logs = AuditLog.objects.select_related('user').order_by('-performed_at')
+    if request.user.role != 'admin':
+        audit_logs = audit_logs.filter(user=request.user)
+
     query = request.GET.get('q', '').strip()
     if query:
         audit_logs = audit_logs.filter(
@@ -1935,23 +1943,28 @@ def activity_logs_view(request):
     log_page_obj = audit_paginator.get_page(request.GET.get('log_page'))
 
     # 2. Login History Attempts
-    login_attempts = LoginAttempt.objects.all().order_by('-timestamp')
-    if query:
-        login_attempts = login_attempts.filter(
-            Q(email_attempted__icontains=query) | Q(ip_address__icontains=query)
-        )
+    login_page_obj = None
+    status_filter = 'all'
+    if request.user.role == 'admin':
+        login_attempts = LoginAttempt.objects.all().order_by('-timestamp')
+        if query:
+            login_attempts = login_attempts.filter(
+                Q(email_attempted__icontains=query) | Q(ip_address__icontains=query)
+            )
 
-    status_filter = request.GET.get('status', 'all').strip()
-    if status_filter == 'success':
-        login_attempts = login_attempts.filter(success=True)
-    elif status_filter == 'failed':
-        login_attempts = login_attempts.filter(success=False)
+        status_filter = request.GET.get('status', 'all').strip()
+        if status_filter == 'success':
+            login_attempts = login_attempts.filter(success=True)
+        elif status_filter == 'failed':
+            login_attempts = login_attempts.filter(success=False)
 
-    login_paginator = Paginator(login_attempts, per_page)
-    login_page_obj = login_paginator.get_page(request.GET.get('login_page'))
+        login_paginator = Paginator(login_attempts, per_page)
+        login_page_obj = login_paginator.get_page(request.GET.get('login_page'))
 
     # Fetch currently blocked IP addresses
-    blocked_ips = list(BlockedIP.objects.values_list('ip_address', flat=True))
+    blocked_ips = []
+    if request.user.role == 'admin':
+        blocked_ips = list(BlockedIP.objects.values_list('ip_address', flat=True))
 
     context = {
         'per_page': per_page,
@@ -1974,13 +1987,15 @@ class Echo:
 
 @login_required
 def export_activity_logs_view(request):
-    if request.user.role != 'admin':
-        raise PermissionDenied("Only Administrators can export activity logs.")
+    if request.user.role not in ['admin', 'staff', 'engineer']:
+        raise PermissionDenied("You do not have permission to export activity logs.")
         
     tab = request.GET.get('tab', 'audit').strip()
     query = request.GET.get('q', '').strip()
     
     if tab == 'login':
+        if request.user.role != 'admin':
+            raise PermissionDenied("Only Administrators can export login history.")
         attempts = LoginAttempt.objects.all().order_by('-timestamp')
         if query:
             attempts = attempts.filter(
@@ -2009,6 +2024,8 @@ def export_activity_logs_view(request):
         
     else:
         logs = AuditLog.objects.select_related('user').order_by('-performed_at')
+        if request.user.role != 'admin':
+            logs = logs.filter(user=request.user)
         if query:
             logs = logs.filter(
                 Q(action__icontains=query) | Q(user__username__icontains=query) | Q(user__email__icontains=query)

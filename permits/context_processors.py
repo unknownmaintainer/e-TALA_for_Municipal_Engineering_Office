@@ -11,7 +11,10 @@ def recent_notifications(request):
             action="Logged out"
         ).exclude(
             action="Logged in successfully"
-        ).order_by('-performed_at')[:5]
+        )
+        if request.user.role != 'admin':
+            logs = logs.filter(user=request.user)
+        logs = logs.order_by('-performed_at')[:5]
         
         # 2. Gather active system-wide warning/alert items
         alerts = []

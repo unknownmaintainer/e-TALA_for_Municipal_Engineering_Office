@@ -24,9 +24,19 @@
     <div>
         <h1>
             <i data-lucide="history" class="text-navy me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+            {% if request.user.role == 'admin' %}
             System Activity Logs
+            {% else %}
+            My Activity Logs
+            {% endif %}
         </h1>
-        <p class="page-subtitle">Audit trail of admin operations and user authentication attempts for security compliance</p>
+        <p class="page-subtitle">
+            {% if request.user.role == 'admin' %}
+            Audit trail of admin operations and user authentication attempts for security compliance
+            {% else %}
+            Audit trail of your personal operations and actions performed on the platform
+            {% endif %}
+        </p>
     </div>
 </div>
 
@@ -41,9 +51,11 @@
                 <button class="logs-tab-btn active" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button">
                     <i data-lucide="list-checks" class="me-2" style="width: 18px; height: 18px; vertical-align: -3px;"></i>Audit Trail
                 </button>
+                {% if request.user.role == 'admin' %}
                 <button class="logs-tab-btn" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button">
                     <i data-lucide="shield-alert" class="me-2" style="width: 18px; height: 18px; vertical-align: -3px;"></i>Login History
                 </button>
+                {% endif %}
             </div>
             
             <!-- Right: Search & Export -->
@@ -156,6 +168,7 @@
         </div>
 
         <!-- ══ SUB-TAB 2: LOGIN HISTORY ══ -->
+        {% if request.user.role == 'admin' %}
         <div id="log-tab-content-login" class="tab-pane-custom" style="display:none;">
             
             <!-- Status Filter Buttons -->
@@ -291,6 +304,7 @@
                 </div>
             {% endif %}
         </div>
+        {% endif %}
 
     </div>
 </div>
@@ -429,6 +443,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        {% if request.user.role == 'admin' %}
         const urlParams = new URLSearchParams(window.location.search);
         const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
         if (urlParams.has('login_page') || urlParams.has('status')) {
@@ -436,6 +451,9 @@
         } else {
             switchLogTab(activeSubTab, true);
         }
+        {% else %}
+        switchLogTab('audit', true);
+        {% endif %}
         updateSettingsExportUrl();
     });
 </script>
