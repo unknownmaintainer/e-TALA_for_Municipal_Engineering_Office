@@ -1,0 +1,43 @@
+# Phase 3 UI/UX Enhancements
+
+- `[x]` Task 1: Checklist Completion Widget (Dashboard Donut Chart)
+  - `[x]` Query digitization compliance stats in views.py `dashboard_view`
+  - `[x]` Integrate Chart.js donut widget in `dashboard.html`
+- `[x]` Task 2: Batch Upload Modal in Record Detail
+  - `[x]` Create Batch Upload trigger button and modal markup in `record_detail.html`
+  - `[x]` Implement batch upload UI logic with dropdown mapping to missing checklist slots
+  - `[x]` Implement sequential asynchronous AJAX multi-file upload with progress tracking
+- `[x]` Task 3: Document Expiry Tracking & Alerts
+  - `[x]` Add `expiry_date` date field to `Document` model in `models.py`
+  - `[x]` Create and execute database migrations
+  - `[x]` Add expiry date input in document upload modal
+  - `[x]` Display warning badges for expiring/expired documents in checklist cards
+  - `[x]` Update `permits/views.py` to count and slice alerts, and add the dynamic JSON alert view
+- `[x]` Update `permits/urls.py` to route requests to the JSON alert list endpoint
+- `[x]` Task 4: Interactive Map Heatmap Toggle on Barangay Map
+  - `[x]` Add heatmap toggle checkbox to map card header in `barangays.html`
+  - `[x]` Implement heatmap overlay layer toggle using circle density overlays
+- `[x]` Task 5: Export Activity Logs (CSV)
+  - `[x]` Add Export Logs action button in `activity_logs.html`
+  - `[x]` Implement `export_logs_csv_view` in `views.py` and register in `urls.py`
+- [x] Modify `permits/templates/permits/barangays.html`
+    - [x] Set search group wrapper style to `max-width: 320px; width: 100%;`
+- [x] Modify `permits/templates/permits/users.html`
+    - [x] Set search group wrapper style to `max-width: 320px; width: 100%;`
+    - [x] Remove the redundant Search button
+- [x] Modify `permits/templates/permits/archive.html`
+    - [x] Set search group wrapper style to `max-width: 320px; width: 100%;`
+    - `[x]` Update `assets/css/erarms.css` to fix header font clipping globally
+- `[x]` Redesign `permits/templates/permits/edit_record.html` layout (move buttons to bottom of form, fix header alignment)
+- `[x]` Clean up duplicate status fields (hide record status for projects, sync in backend)
+- `[x]` Verify changes and test edit form behavior
+- [x] Modify `permits/templates/permits/module_projects.html`
+    - [x] Set search group wrapper style to `max-width: 320px; width: 100%;`
+- [x] Modify `permits/templates/permits/module_permits.html`
+    - [x] Set search group wrapper style to `max-width: 320px; width: 100%;`
+- [x] Modify `permits/templates/permits/barangay_workspace.html`
+    - [x] Set search form wrapper style to `max-width: 320px;`
+- [x] Verify changes
+    - [x] Run Django check to verify code compiles correctly
+    - [x] Manually check search bar layouts on all updated pages
+- `[x]` Verify everything works

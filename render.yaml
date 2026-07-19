@@ -1,0 +1,32 @@
+databases:
+  - name: etala-db
+    databaseName: etala_db
+    user: etala_user
+    plan: free
+
+services:
+  - type: web
+    name: etala-web
+    env: python
+    plan: free
+    buildCommand: "bash build.sh"
+    startCommand: "python manage.py migrate && python seed_permits.py && python manage.py axes_reset && gunicorn etala_project.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: etala-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DEBUG
+        value: "False"
+      # These must be set manually in the Render dashboard:
+      # - key: ALLOWED_HOSTS
+      #   value: "your-app.onrender.com"
+      # - key: CSRF_TRUSTED_ORIGINS
+      #   value: "https://your-app.onrender.com"
+      # - key: CLOUDINARY_CLOUD_NAME
+      # - key: CLOUDINARY_API_KEY
+      # - key: CLOUDINARY_API_SECRET

@@ -1,0 +1,442 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Activity Logs — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Activity Logs</span>
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3 d-print-none">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size: var(--text-base);">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
+<div class="page-title-row d-print-none">
+    <div>
+        <h1>
+            <i data-lucide="history" class="text-navy me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+            System Activity Logs
+        </h1>
+        <p class="page-subtitle">Audit trail of admin operations and user authentication attempts for security compliance</p>
+    </div>
+</div>
+
+<!-- ══ ACTIVITY LOGS PANEL ═════════════════════════════════════════════ -->
+<div class="content-card">
+    <div class="content-card-body" style="padding: 24px;">
+        
+        <!-- Toolbar: Sub-Tabs & Filters -->
+        <div class="d-flex flex-column flex-md-row gap-3 justify-content-between align-items-md-center mb-4 pb-3 border-bottom d-print-none">
+            <!-- Left: Sub-Tab Buttons -->
+            <div class="d-flex gap-2">
+                <button class="logs-tab-btn active" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button">
+                    <i data-lucide="list-checks" class="me-2" style="width: 18px; height: 18px; vertical-align: -3px;"></i>Audit Trail
+                </button>
+                <button class="logs-tab-btn" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button">
+                    <i data-lucide="shield-alert" class="me-2" style="width: 18px; height: 18px; vertical-align: -3px;"></i>Login History
+                </button>
+            </div>
+            
+            <!-- Right: Search & Export -->
+            <form method="GET" action="{% url 'activity_logs' %}" class="d-flex gap-2 flex-nowrap align-items-center">
+                <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 280px; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+                    <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+                    <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+                    <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ query|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+                </div>
+                <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 38px;">Filter</button>
+                <a id="exportLogsBtn" href="#" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center gap-1.5" style="height: 38px; text-decoration: none;" title="Export CSV">
+                    <i data-lucide="download" style="width: 14px; height: 14px;"></i> Export
+                </a>
+                {% if query or status_filter != 'all' %}
+                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;" title="Clear filters">
+                        <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                    </a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
+        <div id="log-tab-content-audit" class="tab-pane-custom">
+            {% if log_page_obj %}
+                <div class="table-responsive mb-4">
+                    <table class="data-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="px-3" style="width: 180px;">Date &amp; Time</th>
+                                <th>Staff Member</th>
+                                <th>Action Performed</th>
+                                <th style="width: 140px;">IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in log_page_obj %}
+                            <tr>
+                                <td class="px-3 cell-muted font-monospace" style="font-size: 0.78rem;">
+                                    {{ log.performed_at|date:"Y-m-d H:i:s" }}
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ log.user.full_name|default:log.user.username }}</span>
+                                    <span class="text-muted" style="font-size: 0.72rem; margin-left: 6px;">({{ log.user.get_role_display }})</span>
+                                </td>
+                                <td style="font-size: 0.84rem; color: var(--gray-700); white-space: normal; word-wrap: break-word;">
+                                    {{ log.action }}
+                                </td>
+                                <td class="font-monospace cell-muted" style="font-size: 0.78rem;">
+                                    <code>{{ log.ip_address|default:"—" }}</code>
+                                    {% if log.ip_address and log.ip_address in blocked_ips %}
+                                        <span class="badge bg-danger text-white ms-1" style="font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background-color: #ef4444;">Blocked</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination for Audit Events -->
+                <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3 d-print-none">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="pagination-info m-0">
+                            Showing {{ log_page_obj.start_index }}–{{ log_page_obj.end_index }} of {{ log_page_obj.paginator.count }} events
+                        </span>
+                        <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                            <span>Show:</span>
+                            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                                <option value="15" {% if per_page == 15 %}selected{% endif %}>15</option>
+                                <option value="30" {% if per_page == 30 %}selected{% endif %}>30</option>
+                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-3">
+                        <!-- Page Jump Input -->
+                        <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                            <span>Go to:</span>
+                            <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ log_page_obj.paginator.num_pages }}, 'log_page')">
+                            <span>/ {{ log_page_obj.paginator.num_pages }}</span>
+                        </div>
+
+                        {% if log_page_obj.has_other_pages %}
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0 gap-1">
+                                {% if log_page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link border rounded" href="?log_page={{ log_page_obj.previous_page_number }}&q={{ query }}&per_page={{ per_page }}" style="font-size: var(--text-xs); border-radius: 4px;">‹ Prev</a>
+                                    </li>
+                                {% endif %}
+                                {% if log_page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link border rounded" href="?log_page={{ log_page_obj.next_page_number }}&q={{ query }}&per_page={{ per_page }}" style="font-size: var(--text-xs); border-radius: 4px;">Next ›</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="empty-state-unified py-5 bg-light rounded-3" style="border-radius: 8px !important;">
+                    <i data-lucide="folder-open"></i>
+                    <h6>No Audit Log Found</h6>
+                    <p>No audit trail records match the search filters.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- ══ SUB-TAB 2: LOGIN HISTORY ══ -->
+        <div id="log-tab-content-login" class="tab-pane-custom" style="display:none;">
+            
+            <!-- Status Filter Buttons -->
+            <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2 d-print-none">
+                <div class="d-flex align-items-center gap-1 bg-white p-1 rounded-3 border" style="width: fit-content; border-radius: 8px !important;">
+                    <a href="?status=all&q={{ query }}" class="pill-tab {% if status_filter == 'all' or not status_filter %}active{% endif %}" onclick="saveLogTabState('login')">All Attempts</a>
+                    <a href="?status=success&q={{ query }}" class="pill-tab {% if status_filter == 'success' %}active{% endif %}" onclick="saveLogTabState('login')">Successful</a>
+                    <a href="?status=failed&q={{ query }}" class="pill-tab {% if status_filter == 'failed' %}active{% endif %}" onclick="saveLogTabState('login')">Failed</a>
+                </div>
+            </div>
+
+            {% if login_page_obj %}
+                <div class="table-responsive mb-4">
+                    <table class="data-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="px-3" style="width: 180px;">Date &amp; Time</th>
+                                <th>Email Attempted</th>
+                                <th>Status</th>
+                                <th style="width: 140px;">IP Address</th>
+                                {% if request.user.role == 'admin' %}
+                                <th class="text-end px-3" style="width: 120px;">Action</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attempt in login_page_obj %}
+                            <tr>
+                                <td class="px-3 cell-muted font-monospace" style="font-size: 0.78rem;">
+                                    {{ attempt.timestamp|date:"Y-m-d H:i:s" }}
+                                </td>
+                                <td class="fw-bold text-dark" style="font-size: 0.85rem;">
+                                    {{ attempt.email_attempted }}
+                                </td>
+                                <td>
+                                    {% if attempt.success %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 4px;">
+                                            Success
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 4px;">
+                                            Failed
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="font-monospace cell-muted" style="font-size: 0.78rem;">
+                                    <code>{{ attempt.ip_address|default:"127.0.0.1" }}</code>
+                                    {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
+                                        <span class="badge bg-danger text-white ms-1" style="font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background-color: #ef4444;">Blocked</span>
+                                    {% endif %}
+                                </td>
+                                {% if request.user.role == 'admin' %}
+                                <td class="text-end px-3">
+                                    {% if attempt.ip_address %}
+                                        {% if attempt.ip_address in blocked_ips %}
+                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to unblock this IP address?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="unblock_ip">
+                                                <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                <button type="submit" class="action-btn action-btn-secondary action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
+                                                    Unblock
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to block this IP address?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="block_ip">
+                                                <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                <button type="submit" class="action-btn action-btn-danger action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; background-color: #ef4444; border-color: #ef4444; color: #fff;">
+                                                    Block
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted small" style="font-size: 0.72rem;">—</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination for Login History -->
+                <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3 d-print-none">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="pagination-info m-0">
+                            Showing {{ login_page_obj.start_index }}–{{ login_page_obj.end_index }} of {{ login_page_obj.paginator.count }} attempts
+                        </span>
+                        <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                            <span>Show:</span>
+                            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                                <option value="15" {% if per_page == 15 %}selected{% endif %}>15</option>
+                                <option value="30" {% if per_page == 30 %}selected{% endif %}>30</option>
+                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-3">
+                        <!-- Page Jump Input -->
+                        <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                            <span>Go to:</span>
+                            <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ login_page_obj.paginator.num_pages }}, 'login_page')">
+                            <span>/ {{ login_page_obj.paginator.num_pages }}</span>
+                        </div>
+
+                        {% if login_page_obj.has_other_pages %}
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0 gap-1">
+                                {% if login_page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link border rounded" href="?login_page={{ login_page_obj.previous_page_number }}&q={{ query }}&per_page={{ per_page }}" style="font-size: var(--text-xs); border-radius: 4px;">‹ Prev</a>
+                                    </li>
+                                {% endif %}
+                                {% if login_page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link border rounded" href="?login_page={{ login_page_obj.next_page_number }}&q={{ query }}&per_page={{ per_page }}" style="font-size: var(--text-xs); border-radius: 4px;">Next ›</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="empty-state-unified py-5 bg-light rounded-3" style="border-radius: 8px !important;">
+                    <i data-lucide="shield"></i>
+                    <h6>No Login Records Found</h6>
+                    <p>No authentication history matches the search filters.</p>
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+<style>
+    /* Inner Logs Tab Navigation Styling */
+    .logs-tab-btn {
+        background: transparent;
+        border: none;
+        padding: 0.5rem 1.25rem;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--gray-500);
+        position: relative;
+        transition: all 0.22s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        border-radius: 6px 6px 0 0;
+        border-bottom: 2px solid transparent;
+    }
+    .logs-tab-btn:hover {
+        color: var(--navy);
+        background-color: var(--gray-100);
+    }
+    .logs-tab-btn.active {
+        color: var(--navy);
+        background-color: transparent !important;
+        border-bottom: 2px solid var(--navy) !important;
+    }
+    .tab-pane-custom {
+        transition: opacity 0.15s ease-in-out;
+    }
+</style>
+
+<script>
+    function saveLogTabState(tabName) {
+        localStorage.setItem('active_settings_log_tab', tabName);
+    }
+
+    function updateSettingsExportUrl() {
+        const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
+        const urlParams = new URLSearchParams(window.location.search);
+        const query = urlParams.get('q') || '';
+        const exportBtn = document.getElementById('exportLogsBtn');
+        if (exportBtn) {
+            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + activeSubTab + "&q=" + encodeURIComponent(query);
+        }
+    }
+
+    function switchLogTab(tabName, isInitial = false) {
+        saveLogTabState(tabName);
+        updateSettingsExportUrl();
+        
+        const tabAudit = document.getElementById('log-tab-content-audit');
+        const tabLogin = document.getElementById('log-tab-content-login');
+        const btnAudit = document.getElementById('log-tab-btn-audit');
+        const btnLogin = document.getElementById('log-tab-btn-login');
+
+        if (tabName === 'audit') {
+            if (btnAudit) btnAudit.classList.add('active');
+            if (btnLogin) btnLogin.classList.remove('active');
+            
+            if (isInitial) {
+                if (tabLogin) {
+                    tabLogin.style.display = 'none';
+                    tabLogin.style.opacity = '0';
+                }
+                if (tabAudit) {
+                    tabAudit.style.display = 'block';
+                    tabAudit.style.opacity = '1';
+                }
+            } else {
+                if (tabLogin) {
+                    tabLogin.style.opacity = '0';
+                    setTimeout(() => {
+                        tabLogin.style.display = 'none';
+                        if (tabAudit) {
+                            tabAudit.style.display = 'block';
+                            tabAudit.offsetHeight; // force reflow
+                            tabAudit.style.opacity = '1';
+                        }
+                    }, 150);
+                } else if (tabAudit) {
+                    tabAudit.style.display = 'block';
+                    tabAudit.style.opacity = '1';
+                }
+            }
+        } else {
+            if (btnAudit) btnAudit.classList.remove('active');
+            if (btnLogin) btnLogin.classList.add('active');
+            
+            if (isInitial) {
+                if (tabAudit) {
+                    tabAudit.style.display = 'none';
+                    tabAudit.style.opacity = '0';
+                }
+                if (tabLogin) {
+                    tabLogin.style.display = 'block';
+                    tabLogin.style.opacity = '1';
+                }
+            } else {
+                if (tabAudit) {
+                    tabAudit.style.opacity = '0';
+                    setTimeout(() => {
+                        tabAudit.style.display = 'none';
+                        if (tabLogin) {
+                            tabLogin.style.display = 'block';
+                            tabLogin.offsetHeight; // force reflow
+                            tabLogin.style.opacity = '1';
+                        }
+                    }, 150);
+                } else if (tabLogin) {
+                    tabLogin.style.display = 'block';
+                    tabLogin.style.opacity = '1';
+                }
+            }
+        }
+    }
+
+    function changePerPage(val) {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('per_page', val);
+        window.location.search = urlParams.toString();
+    }
+
+    function jumpToPage(pageVal, maxPage, pageParamName) {
+        const pageNum = parseInt(pageVal);
+        if (isNaN(pageNum) || pageNum < 1 || pageNum > maxPage) {
+            alert("Please enter a valid page number between 1 and " + maxPage);
+            return;
+        }
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set(pageParamName, pageNum);
+        window.location.search = urlParams.toString();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
+        if (urlParams.has('login_page') || urlParams.has('status')) {
+            switchLogTab('login', true);
+        } else {
+            switchLogTab(activeSubTab, true);
+        }
+        updateSettingsExportUrl();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,489 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}New Record — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none" style="color:#64748b;">Records</a>
+<span class="breadcrumb-item">New Record</span>
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size:0.85rem;">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div style="max-width: 720px;">
+
+    <h4 class="fw-bold mb-1 text-dark" style="font-size:1.15rem;">New Engineering Record</h4>
+    <p class="text-muted mb-4" style="font-size:0.8rem;">Follow the steps below. You can add more details (budget, contractor, dates) from the record page after saving.</p>
+
+    <!-- ══ PROGRESS STEPS ═══════════════════════════════════════════════ -->
+    <div class="d-flex align-items-center gap-0 mb-4" id="progressBar">
+        <div class="create-step active" data-step="1">
+            <div class="create-step-num">1</div>
+            <span class="create-step-label d-none d-sm-inline">Type</span>
+        </div>
+        <div class="create-step-line"></div>
+        <div class="create-step" data-step="2">
+            <div class="create-step-num">2</div>
+            <span class="create-step-label d-none d-sm-inline">Details</span>
+        </div>
+        <div class="create-step-line"></div>
+        <div class="create-step" data-step="3">
+            <div class="create-step-num">3</div>
+            <span class="create-step-label d-none d-sm-inline">Location</span>
+        </div>
+    </div>
+
+    <form method="POST" action="{% url 'create_record' %}" id="quickCreateForm" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="category" id="selectedCategory" required>
+
+        <!-- ══ STEP 1: RECORD TYPE ══════════════════════════════════════ -->
+        <div class="create-form-step" id="step1" style="display:block;">
+            <div class="card border-0 shadow-sm" style="border-radius:8px; border: 1px solid #e2e8f0 !important;">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold text-dark mb-1" style="font-size:0.95rem;">What type of record are you creating?</h6>
+                    <p class="text-muted mb-3" style="font-size:0.75rem;">Select one to continue.</p>
+
+                    <div class="d-flex flex-column gap-2" id="categoryTabs">
+                        <button type="button" class="cat-btn btn text-start d-flex align-items-center gap-3 px-3 py-3" data-cat="municipal" style="border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; transition: all .2s;">
+                            <div class="d-flex align-items-center justify-content-center flex-shrink-0" style="width:40px; height:40px; border-radius:8px; background:#eff6ff;">
+                                <i data-lucide="landmark" style="width:20px;height:20px;color:#1e40af;"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold text-dark" style="font-size:0.88rem;">Municipal Project</div>
+                                <div class="text-muted" style="font-size:0.72rem;">Municipal-level infrastructure projects</div>
+                            </div>
+                            <i data-lucide="chevron-right" class="ms-auto text-muted cat-arrow" style="width:16px;height:16px; opacity:0; transition: opacity .2s;"></i>
+                        </button>
+
+                        <button type="button" class="cat-btn btn text-start d-flex align-items-center gap-3 px-3 py-3" data-cat="barangay" style="border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; transition: all .2s;">
+                            <div class="d-flex align-items-center justify-content-center flex-shrink-0" style="width:40px; height:40px; border-radius:8px; background:#ecfdf5;">
+                                <i data-lucide="map-pin" style="width:20px;height:20px;color:#059669;"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold text-dark" style="font-size:0.88rem;">Barangay Project</div>
+                                <div class="text-muted" style="font-size:0.72rem;">Barangay-level community projects</div>
+                            </div>
+                            <i data-lucide="chevron-right" class="ms-auto text-muted cat-arrow" style="width:16px;height:16px; opacity:0; transition: opacity .2s;"></i>
+                        </button>
+
+                        <button type="button" class="cat-btn btn text-start d-flex align-items-center gap-3 px-3 py-3" data-cat="permit" style="border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; transition: all .2s;">
+                            <div class="d-flex align-items-center justify-content-center flex-shrink-0" style="width:40px; height:40px; border-radius:8px; background:#fdf4ff;">
+                                <i data-lucide="file-check" style="width:20px;height:20px;color:#7c3aed;"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold text-dark" style="font-size:0.88rem;">Permit Application</div>
+                                <div class="text-muted" style="font-size:0.72rem;">Building, electrical, occupancy, and other permits</div>
+                            </div>
+                            <i data-lucide="chevron-right" class="ms-auto text-muted cat-arrow" style="width:16px;height:16px; opacity:0; transition: opacity .2s;"></i>
+                        </button>
+                    </div>
+
+                    <div id="step1Error" class="text-danger mt-2 d-none" style="font-size:0.78rem;">
+                        <i data-lucide="alert-circle" style="width:13px;height:13px;vertical-align:-2px;"></i> Please select a record type to continue.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ STEP 2: DETAILS ══════════════════════════════════════════ -->
+        <div class="create-form-step" id="step2" style="display:none;">
+            <div class="card border-0 shadow-sm" style="border-radius:8px; border: 1px solid #e2e8f0 !important;">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <div class="d-flex align-items-center justify-content-center flex-shrink-0" id="step2Icon" style="width:32px; height:32px; border-radius:6px; background:#eff6ff;">
+                            <i data-lucide="landmark" style="width:16px;height:16px;color:#1e40af;"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-0" id="step2Title" style="font-size:0.95rem;">Project Details</h6>
+                            <div class="text-muted" id="step2Subtitle" style="font-size:0.72rem;">Fill in the information below</div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-type -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Sub-type <span class="text-danger">*</span></label>
+                        <select name="subtype" id="subtypeSelect" class="form-select form-select-sm" required style="border-radius:6px; padding: 0.5rem 0.75rem;">
+                            <option value="" disabled selected>— Select sub-type —</option>
+                        </select>
+                    </div>
+
+                    <!-- Title (project only) -->
+                    <div class="mb-3" id="titleRow" style="display:none;">
+                        <label class="form-label fw-semibold text-muted small" id="titleLabel">Project Title <span class="text-danger">*</span></label>
+                        <input type="text" name="title" id="titleInput" class="form-control form-control-sm" placeholder="e.g. Concreting of Brgy. Road, Sitio Mahayag" style="border-radius:6px; padding: 0.5rem 0.75rem;" autocomplete="off">
+                        <div class="form-text text-muted" style="font-size:0.7rem;">Descriptive project title for easy identification</div>
+                    </div>
+
+                    <!-- Permit-only: Applicant + Permit Number -->
+                    <div id="permitRow" style="display:none;">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-7">
+                                <label class="form-label fw-semibold text-muted small">Applicant Name <span class="text-danger">*</span></label>
+                                <input type="text" name="applicant_name" id="applicantInput" class="form-control form-control-sm" placeholder="Full name of applicant" style="border-radius:6px; padding: 0.5rem 0.75rem;" autocomplete="off">
+                                <input type="hidden" name="permit_title" id="permitTitleHidden">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold text-muted small">Permit No. <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" name="permit_number" id="permitNumInput" class="form-control form-control-sm" placeholder="e.g. BP-2026-001" style="border-radius:6px; padding: 0.5rem 0.75rem;" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="step2Error" class="text-danger mt-2 d-none" style="font-size:0.78rem;">
+                        <i data-lucide="alert-circle" style="width:13px;height:13px;vertical-align:-2px;"></i> <span id="step2ErrorMsg">Please fill in all required fields.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ STEP 3: LOCATION ═════════════════════════════════════════ -->
+        <div class="create-form-step" id="step3" style="display:none;">
+            <div class="card border-0 shadow-sm" style="border-radius:8px; border: 1px solid #e2e8f0 !important;">
+                <div class="card-body p-4">
+                    <h6 class="fw-bold text-dark mb-1" style="font-size:0.95rem;">Location & Year</h6>
+                    <p class="text-muted mb-3" style="font-size:0.72rem;">Where is this record located?</p>
+
+                    <div class="row g-2 mb-0">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold text-muted small">Barangay <span class="text-danger">*</span></label>
+                            <select name="barangay" id="barangaySelect" class="form-select form-select-sm" required style="border-radius:6px; padding: 0.5rem 0.75rem;">
+                                <option value="" disabled selected>— Select barangay —</option>
+                                {% for b in barangays %}
+                                <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-muted small">Year <span class="text-danger">*</span></label>
+                            <input type="number" name="year" id="yearInput" class="form-control form-control-sm" value="{{ current_year }}" min="1990" max="2099" style="border-radius:6px; padding: 0.5rem 0.75rem;">
+                        </div>
+                    </div>
+
+                    <div id="step3Error" class="text-danger mt-2 d-none" style="font-size:0.78rem;">
+                        <i data-lucide="alert-circle" style="width:13px;height:13px;vertical-align:-2px;"></i> Please select a barangay.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary preview -->
+            <div class="card border-0 mt-3" style="border-radius:8px; background:#f0fdf4; border:1px solid #bbf7d0 !important;">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i data-lucide="check-circle-2" style="width:16px;height:16px;color:#16a34a;"></i>
+                        <span class="fw-semibold text-dark" style="font-size:0.82rem;">Ready to create</span>
+                    </div>
+                    <div id="summaryPreview" style="font-size:0.78rem; color:#374151;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ NAVIGATION BUTTONS ═══════════════════════════════════════ -->
+        <div class="d-flex justify-content-between align-items-center mt-4" id="navButtons">
+            <button type="button" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 d-none" id="prevBtn">
+                <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back
+            </button>
+            <div class="ms-auto d-flex gap-2">
+                <a href="{% url 'records_browse' %}" class="action-btn action-btn-secondary action-btn-sm text-decoration-none">Cancel</a>
+                <button type="button" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 d-none" id="nextBtn">
+                    Next <i data-lucide="arrow-right" style="width:14px;height:14px;"></i>
+                </button>
+                <button type="submit" class="action-btn action-btn-teal action-btn-sm d-inline-flex align-items-center gap-1.5 d-none" id="submitBtn">
+                    <i data-lucide="save" style="width:14px;height:14px;"></i> Save &amp; Open Record
+                </button>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<!-- ══ SCOPED STYLES ════════════════════════════════════════════════════ -->
+<style>
+    .create-step {
+        display: flex; align-items: center; gap: 6px; cursor: default;
+    }
+    .create-step-num {
+        width: 28px; height: 28px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.75rem; font-weight: 700;
+        background: #e2e8f0; color: #94a3b8;
+        transition: all .3s ease;
+    }
+    .create-step.active .create-step-num {
+        background: var(--primary-brand); color: #fff;
+        box-shadow: 0 0 0 4px rgba(15,118,110,.15);
+    }
+    .create-step.completed .create-step-num {
+        background: #059669; color: #fff;
+    }
+    .create-step-label {
+        font-size: 0.75rem; font-weight: 600; color: #94a3b8;
+        transition: color .3s;
+    }
+    .create-step.active .create-step-label { color: #1e293b; }
+    .create-step.completed .create-step-label { color: #059669; }
+    .create-step-line {
+        flex: 1; height: 2px; background: #e2e8f0;
+        margin: 0 8px; transition: background .3s;
+    }
+    .create-step-line.done { background: #059669; }
+
+    .cat-btn:hover {
+        border-color: var(--primary-brand) !important;
+        background: var(--gray-50) !important;
+    }
+    .cat-btn:hover .cat-arrow { opacity: 1 !important; }
+    .cat-btn.selected {
+        border-color: var(--primary-brand) !important;
+        background: #f0fdf4 !important;
+        box-shadow: 0 0 0 3px rgba(15,118,110,.1);
+    }
+    .cat-btn.selected .cat-arrow { opacity: 1 !important; color: var(--primary-brand) !important; }
+
+    .create-form-step {
+        animation: stepFadeIn .3s ease;
+    }
+    @keyframes stepFadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<script>
+const SUBTYPES = {
+    municipal: ['Road & Bridge', 'Vertical Structure', 'Flood Control', 'Potable Water'],
+    barangay: ['Road & Bridge', 'Vertical Structure', 'Flood Control', 'Potable Water'],
+    permit: ['Building', 'Electrical', 'Occupancy', 'Fencing']
+};
+
+let currentStep = 1;
+const totalSteps = 3;
+
+// DOM elements
+const catBtns = document.querySelectorAll('.cat-btn');
+const categoryInput = document.getElementById('selectedCategory');
+const subtypeSelect = document.getElementById('subtypeSelect');
+const titleRow = document.getElementById('titleRow');
+const titleInput = document.getElementById('titleInput');
+const permitRow = document.getElementById('permitRow');
+const applicantInput = document.getElementById('applicantInput');
+const permitNumInput = document.getElementById('permitNumInput');
+const permitTitleHidden = document.getElementById('permitTitleHidden');
+const barangaySelect = document.getElementById('barangaySelect');
+const yearInput = document.getElementById('yearInput');
+
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const submitBtn = document.getElementById('submitBtn');
+const steps = document.querySelectorAll('.create-step');
+const lines = document.querySelectorAll('.create-step-line');
+
+// ── Category selection ──────────────────────────────────────────────
+catBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+        const cat = this.dataset.cat;
+        categoryInput.value = cat;
+
+        catBtns.forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+
+        // Populate subtypes
+        subtypeSelect.innerHTML = '<option value="" disabled selected>— Select sub-type —</option>';
+        SUBTYPES[cat].forEach(t => {
+            const o = document.createElement('option');
+            o.value = t; o.textContent = t;
+            subtypeSelect.appendChild(o);
+        });
+
+        // Toggle permit vs project fields
+        if (cat === 'permit') {
+            permitRow.style.display = '';
+            titleRow.style.display = 'none';
+            titleInput.required = false;
+            applicantInput.required = true;
+            document.getElementById('step2Title').textContent = 'Permit Details';
+            document.getElementById('step2Subtitle').textContent = 'Enter the permit application details';
+            document.getElementById('step2Icon').style.background = '#fdf4ff';
+            document.getElementById('step2Icon').innerHTML = '<i data-lucide="file-check" style="width:16px;height:16px;color:#7c3aed;"></i>';
+        } else {
+            permitRow.style.display = 'none';
+            titleRow.style.display = '';
+            titleInput.required = true;
+            applicantInput.required = false;
+            const isM = cat === 'municipal';
+            document.getElementById('step2Title').textContent = (isM ? 'Municipal' : 'Barangay') + ' Project Details';
+            document.getElementById('step2Subtitle').textContent = 'Enter the project information below';
+            document.getElementById('step2Icon').style.background = isM ? '#eff6ff' : '#ecfdf5';
+            document.getElementById('step2Icon').innerHTML = isM
+                ? '<i data-lucide="landmark" style="width:16px;height:16px;color:#1e40af;"></i>'
+                : '<i data-lucide="map-pin" style="width:16px;height:16px;color:#059669;"></i>';
+        }
+
+        lucide.createIcons();
+        hideError('step1Error');
+
+        // Auto-advance to step 2 after a short delay
+        setTimeout(() => goToStep(2), 250);
+    });
+});
+
+// ── Step navigation ─────────────────────────────────────────────────
+function goToStep(step) {
+    // Hide all steps
+    document.querySelectorAll('.create-form-step').forEach(s => s.style.display = 'none');
+    // Show target step
+    document.getElementById('step' + step).style.display = 'block';
+    currentStep = step;
+
+    // Update progress bar
+    steps.forEach((s, i) => {
+        s.classList.remove('active', 'completed');
+        if (i + 1 < step) s.classList.add('completed');
+        else if (i + 1 === step) s.classList.add('active');
+    });
+    lines.forEach((l, i) => {
+        l.classList.toggle('done', i + 1 < step);
+    });
+
+    // Toggle buttons
+    if (step > 1) {
+        prevBtn.classList.remove('d-none');
+    } else {
+        prevBtn.classList.add('d-none');
+    }
+
+    if (step === 1) {
+        nextBtn.classList.add('d-none'); // Hide Next button on step 1 since card selection auto-advances
+        submitBtn.classList.add('d-none');
+    } else if (step === 2) {
+        nextBtn.classList.remove('d-none');
+        submitBtn.classList.add('d-none');
+    } else {
+        nextBtn.classList.add('d-none');
+        submitBtn.classList.remove('d-none');
+    }
+
+    // Build summary on last step
+    if (step === 3) buildSummary();
+
+    lucide.createIcons();
+}
+
+nextBtn.addEventListener('click', function() {
+    if (currentStep === 1 && !validateStep1()) return;
+    if (currentStep === 2 && !validateStep2()) return;
+    goToStep(currentStep + 1);
+});
+
+prevBtn.addEventListener('click', function() {
+    if (currentStep > 1) goToStep(currentStep - 1);
+});
+
+// ── Validation ──────────────────────────────────────────────────────
+function validateStep1() {
+    if (!categoryInput.value) {
+        showError('step1Error');
+        return false;
+    }
+    hideError('step1Error');
+    return true;
+}
+
+function validateStep2() {
+    const cat = categoryInput.value;
+    if (!subtypeSelect.value) {
+        showError('step2Error', 'Please select a sub-type.');
+        return false;
+    }
+    if (cat === 'permit' && !applicantInput.value.trim()) {
+        showError('step2Error', 'Please enter the applicant name.');
+        applicantInput.focus();
+        return false;
+    }
+    if (cat !== 'permit' && !titleInput.value.trim()) {
+        showError('step2Error', 'Please enter the project title.');
+        titleInput.focus();
+        return false;
+    }
+    hideError('step2Error');
+    return true;
+}
+
+function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.classList.remove('d-none');
+    if (msg) {
+        const span = el.querySelector('span');
+        if (span) span.textContent = msg;
+    }
+    el.style.animation = 'none';
+    el.offsetHeight; // trigger reflow
+    el.style.animation = 'stepFadeIn .2s ease';
+}
+
+function hideError(id) {
+    document.getElementById(id).classList.add('d-none');
+}
+
+// ── Submit validation ───────────────────────────────────────────────
+document.getElementById('quickCreateForm').addEventListener('submit', function(e) {
+    if (!barangaySelect.value) {
+        e.preventDefault();
+        showError('step3Error');
+        barangaySelect.focus();
+        return false;
+    }
+    // Disable button to prevent double submit
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving…';
+});
+
+// ── Summary builder ─────────────────────────────────────────────────
+function buildSummary() {
+    const cat = categoryInput.value;
+    const subtype = subtypeSelect.value || '—';
+    let title = '';
+    if (cat === 'permit') {
+        title = applicantInput.value.trim() || '—';
+    } else {
+        title = titleInput.value.trim() || '—';
+    }
+    const catLabel = cat === 'municipal' ? 'Municipal Project' : (cat === 'barangay' ? 'Barangay Project' : 'Permit');
+
+    document.getElementById('summaryPreview').innerHTML =
+        '<strong>' + catLabel + '</strong> → ' + subtype + '<br>' +
+        '<span class="text-muted">Title:</span> ' + title;
+}
+
+// ── Permit title sync ───────────────────────────────────────────────
+function syncPermitTitle() {
+    const num = permitNumInput.value.trim();
+    const name = applicantInput.value.trim();
+    permitTitleHidden.value = name ? (num ? num + ' — ' + name : name) : '';
+}
+applicantInput.addEventListener('input', syncPermitTitle);
+permitNumInput.addEventListener('input', syncPermitTitle);
+
+// ── Pre-select category from URL query param ────────────────────────
+const urlParams = new URLSearchParams(window.location.search);
+const preselectCat = urlParams.get('cat');
+if (preselectCat) {
+    const targetBtn = document.querySelector(`.cat-btn[data-cat="${preselectCat}"]`);
+    if (targetBtn) {
+        // Use a tiny timeout to let Lucide icons initialize
+        setTimeout(() => targetBtn.click(), 50);
+    }
+}
+</script>
+
+{% endblock %}

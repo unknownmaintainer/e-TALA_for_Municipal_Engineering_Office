@@ -1,0 +1,256 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Edit Record — {{ record.title }} — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none">Records</a>
+<a href="{% url 'record_detail' record.record_id %}" class="breadcrumb-item text-decoration-none">#{{ record.record_id }}</a>
+<span class="breadcrumb-item">Edit</span>
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size:0.85rem;">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="tag tag-workspace">{% if record.record_type == 'Project' %}Project Record{% else %}Permit Record{% endif %}</span>
+            <span class="tag tag-id">ID: #{{ record.record_id }}</span>
+        </div>
+        <h1>Edit Record</h1>
+        <p class="page-subtitle">Modify fields and details for {{ record.title }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-secondary">
+            <i data-lucide="arrow-left"></i> Back to Detail
+        </a>
+    </div>
+</div>
+
+<!-- ══ EDIT FORM ════════════════════════════════════════════════════════ -->
+<form method="POST" action="{% url 'edit_record' record.record_id %}" class="section-gap">
+    {% csrf_token %}
+    <div class="row g-4">
+
+        <!-- LEFT COLUMN: Core Fields -->
+        <div class="col-lg-8">
+
+            <!-- Core Record Info -->
+            <div class="content-card mb-4">
+                <div class="content-card-body" style="padding: 24px;">
+                    <div class="content-card-header">
+                        <h5 class="content-card-title">
+                            <i class="text-teal" data-lucide="file-text"></i>
+                            Core Record Information
+                        </h5>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold">Record Title <span class="text-danger">*</span></label>
+                            <input type="text" name="title" class="form-control" value="{{ record.title }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold">Description / Notes</label>
+                            <textarea name="description" class="form-control char-counted" rows="3" maxlength="250" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">{{ record.description }}</textarea>
+                            <div class="text-end text-muted small mt-1 char-counter-lbl" style="font-size: 0.72rem;">0 / 250 characters</div>
+                        </div>
+                        {% if record.record_type == 'Permit' %}
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Status <span class="text-danger">*</span></label>
+                            <select name="status" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px; cursor: pointer;">
+                                {% for val, label in status_choices %}
+                                <option value="{{ val }}" {% if record.status == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Barangay</label>
+                            <select name="barangay" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px; cursor: pointer;">
+                                <option value="" disabled>— Select barangay —</option>
+                                {% for b in barangays %}
+                                <option value="{{ b.barangay_id }}" {% if record.barangay and record.barangay.barangay_id == b.barangay_id %}selected{% endif %}>{{ b.barangay_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% else %}
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold">Barangay</label>
+                            <select name="barangay" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px; cursor: pointer;">
+                                <option value="" disabled>— Select barangay —</option>
+                                {% for b in barangays %}
+                                <option value="{{ b.barangay_id }}" {% if record.barangay and record.barangay.barangay_id == b.barangay_id %}selected{% endif %}>{{ b.barangay_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Date Started</label>
+                            <input type="date" name="date_started" class="form-control" value="{{ record.date_started|date:'Y-m-d'|default:'' }}" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Date Completed</label>
+                            <input type="date" name="date_completed" class="form-control" value="{{ record.date_completed|date:'Y-m-d'|default:'' }}" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conditional: Permit Detail Fields -->
+            {% if record.record_type == 'Permit' %}
+            <div class="content-card mb-4">
+                <div class="content-card-body" style="padding: 24px;">
+                    <div class="content-card-header">
+                        <h5 class="content-card-title">
+                            <i class="text-teal" data-lucide="clipboard-list"></i>
+                            Permit Details
+                        </h5>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Permit Type</label>
+                            <select name="permit_type" class="form-select" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px; cursor: pointer;">
+                                <option value="">— Select type —</option>
+                                {% for val, label in permit_types %}
+                                <option value="{{ val }}" {% if permit_detail and permit_detail.permit_type == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Building Type</label>
+                            <select name="building_type" class="form-select" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px; cursor: pointer;">
+                                <option value="">— Select type —</option>
+                                {% for val, label in building_types %}
+                                <option value="{{ val }}" {% if permit_detail and permit_detail.building_type == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Permit Number</label>
+                            <input type="text" name="permit_number" class="form-control" value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2025-001" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Applicant Name</label>
+                            <input type="text" name="applicant_name" class="form-control" value="{{ permit_detail.applicant_name|default:'' }}" placeholder="Full name of applicant" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold">Remarks</label>
+                            <textarea name="remarks" class="form-control char-counted" rows="2" maxlength="250" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">{{ permit_detail.remarks|default:'' }}</textarea>
+                            <div class="text-end text-muted small mt-1 char-counter-lbl" style="font-size: 0.72rem;">0 / 250 characters</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="checkbox" name="resolution_required" class="form-check-input" id="chkResolutionRequired"
+                                    {% if permit_detail and permit_detail.resolution_required %}checked{% endif %}>
+                                <label for="chkResolutionRequired" class="form-check-label small text-muted fw-semibold">Resolution / Sangguniang Bayan Approval Required</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Conditional: Project Detail Fields -->
+            {% if record.record_type == 'Project' %}
+            <div class="content-card mb-4">
+                <div class="content-card-body" style="padding: 24px;">
+                    <div class="content-card-header">
+                        <h5 class="content-card-title">
+                            <i class="text-teal" data-lucide="hard-hat"></i>
+                            Project Details
+                        </h5>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Project Type</label>
+                            <select name="project_type" class="form-select" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px; cursor: pointer;">
+                                <option value="">— Select type —</option>
+                                {% for val, label in project_types %}
+                                <option value="{{ val }}" {% if project_detail and project_detail.project_type == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Project Status</label>
+                            <select name="project_status" class="form-select" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px; cursor: pointer;">
+                                <option value="">— Select status —</option>
+                                {% for val, label in project_statuses %}
+                                <option value="{{ val }}" {% if project_detail and project_detail.project_status == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Funding Source</label>
+                            <input type="text" name="funding_source" class="form-control" value="{{ project_detail.funding_source|default:'' }}" placeholder="e.g. DPWH, LGU Fund, SEF" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-semibold">Project Cost (₱)</label>
+                            <input type="number" name="project_cost" class="form-control" value="{{ project_detail.project_cost|default:'' }}" placeholder="0.00" step="0.01" min="0" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold">Contractor / Implementing Agency</label>
+                            <input type="text" name="contractor" class="form-control" value="{{ project_detail.contractor|default:'' }}" placeholder="Name of contractor or implementing office" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; height: 38px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <!-- Form Actions (Standard Bottom Placement) -->
+            <div class="d-flex align-items-center gap-3 mt-4">
+                <button type="submit" class="action-btn action-btn-primary px-4" style="height: 40px; border-radius: 8px;">
+                    <i data-lucide="save"></i> Save Changes
+                </button>
+                <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-secondary px-4" style="height: 40px; border-radius: 8px;">
+                    <i data-lucide="x"></i> Cancel
+                </a>
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: Summary + Actions -->
+        <div class="col-lg-4">
+            <div class="content-card" style="position:sticky; top:80px;">
+                <div class="content-card-body" style="padding: 24px;">
+                    <div class="content-card-header">
+                        <h5 class="content-card-title">
+                            <i class="text-teal" data-lucide="info"></i>
+                            Record Summary
+                        </h5>
+                    </div>
+                    <dl class="row gy-1.5 mb-0" style="font-size:0.78rem;">
+                        <dt class="col-5 text-muted fw-normal">Record ID</dt>
+                        <dd class="col-7 fw-semibold text-dark mb-1">{{ record.record_id }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal">Type</dt>
+                        <dd class="col-7 fw-semibold text-dark mb-1">{{ record.record_type }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal">Subtype</dt>
+                        <dd class="col-7 fw-semibold text-dark mb-1">{{ record.subtype|default:"—" }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal">Encoded By</dt>
+                        <dd class="col-7 fw-semibold text-dark mb-1">{{ record.created_by.full_name|default:record.created_by.username }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal">Encoded</dt>
+                        <dd class="col-7 fw-semibold text-dark mb-1">{{ record.created_at|date:"M d, Y" }}</dd>
+
+                        <dt class="col-5 text-muted fw-normal">Last Updated</dt>
+                        <dd class="col-7 fw-semibold text-dark mb-1">{{ record.updated_at|date:"M d, Y" }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</form>
+
+{% endblock %}

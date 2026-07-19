@@ -1,0 +1,114 @@
+{% extends "permits/base.html" %}
+{% block title %}New Record — Step 1{% endblock %}
+
+{% block content %}
+<div class="py-4" style="max-width: 780px; margin: 0 auto;">
+
+    <!-- Step indicator -->
+    <div class="d-flex align-items-center gap-2 mb-4" style="font-size: 0.78rem; color: #94a3b8;">
+        <span class="badge rounded-pill px-3 py-2" style="background:#002855; color:#fff; font-size:0.75rem;">Step 1 of 3</span>
+        <span>Select Category</span>
+        <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+        <span style="opacity:.5;">Select Type</span>
+        <i data-lucide="chevron-right" style="width:14px;height:14px;opacity:.4;"></i>
+        <span style="opacity:.5;">Record Details</span>
+    </div>
+
+    <h1 class="fw-bold mb-1" style="font-size:1.6rem;">New Engineering Record</h1>
+    <p class="text-muted mb-5">What type of record are you archiving?</p>
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="row g-4">
+
+            <!-- Municipal Project -->
+            <div class="col-md-4">
+                <label class="d-block h-100" style="cursor:pointer;">
+                    <input type="radio" name="category" value="municipal" class="d-none category-radio">
+                    <div class="category-card h-100 p-4 text-center border rounded-4 shadow-sm" style="transition: all .2s; border-color: #e2e8f0 !important;">
+                        <div class="mb-3 mx-auto d-flex align-items-center justify-content-center rounded-3"
+                             style="width:60px;height:60px;background:linear-gradient(135deg,#002855,#0d3b6f);">
+                            <i data-lucide="landmark" style="width:28px;height:28px;color:#fff;"></i>
+                        </div>
+                        <h5 class="fw-bold mb-1" style="font-size:1rem;">Municipal Project</h5>
+                        <p class="text-muted small mb-0">Roads, structures, flood control, and water systems funded by the municipality.</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Barangay Project -->
+            <div class="col-md-4">
+                <label class="d-block h-100" style="cursor:pointer;">
+                    <input type="radio" name="category" value="barangay" class="d-none category-radio">
+                    <div class="category-card h-100 p-4 text-center border rounded-4 shadow-sm" style="transition: all .2s; border-color: #e2e8f0 !important;">
+                        <div class="mb-3 mx-auto d-flex align-items-center justify-content-center rounded-3"
+                             style="width:60px;height:60px;background:linear-gradient(135deg,#0369a1,#0ea5e9);">
+                            <i data-lucide="map" style="width:28px;height:28px;color:#fff;"></i>
+                        </div>
+                        <h5 class="fw-bold mb-1" style="font-size:1rem;">Barangay Project</h5>
+                        <p class="text-muted small mb-0">Infrastructure projects at the barangay level across all 49 barangays of Carigara.</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Permit Record -->
+            <div class="col-md-4">
+                <label class="d-block h-100" style="cursor:pointer;">
+                    <input type="radio" name="category" value="permit" class="d-none category-radio">
+                    <div class="category-card h-100 p-4 text-center border rounded-4 shadow-sm" style="transition: all .2s; border-color: #e2e8f0 !important;">
+                        <div class="mb-3 mx-auto d-flex align-items-center justify-content-center rounded-3"
+                             style="width:60px;height:60px;background:linear-gradient(135deg,#7c3aed,#a855f7);">
+                            <i data-lucide="file-check" style="width:28px;height:28px;color:#fff;"></i>
+                        </div>
+                        <h5 class="fw-bold mb-1" style="font-size:1rem;">Permit Record</h5>
+                        <p class="text-muted small mb-0">Building permits, occupancy certificates, electrical permits, and fencing permits.</p>
+                    </div>
+                </label>
+            </div>
+
+        </div>
+
+        <!-- Error message -->
+        {% if messages %}
+        <div class="mt-4">
+            {% for message in messages %}
+            <div class="alert alert-danger rounded-3 border-0">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-between align-items-center mt-5">
+            <a href="{% url 'records_browse' %}" class="btn btn-outline-secondary px-4" style="border-radius:10px;">
+                Cancel
+            </a>
+            <button type="submit" id="nextBtn" class="btn px-5 py-2 fw-semibold" disabled
+                    style="background:#002855;color:#fff;border-radius:10px;font-size:0.9rem;">
+                Next — Select Type <i data-lucide="arrow-right" style="width:16px;height:16px;vertical-align:-2px;margin-left:4px;"></i>
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.category-card:hover {
+    border-color: #002855 !important;
+    box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.12), 0 4px 20px rgba(0,0,0,0.08) !important;
+    transform: translateY(-2px);
+}
+.category-card.selected {
+    border-color: #002855 !important;
+    box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.2), 0 4px 20px rgba(0,0,0,0.1) !important;
+    background: #eff6ff;
+}
+</style>
+
+<script>
+document.querySelectorAll('.category-radio').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('.category-card').forEach(c => c.classList.remove('selected'));
+        this.closest('label').querySelector('.category-card').classList.add('selected');
+        document.getElementById('nextBtn').disabled = false;
+    });
+});
+</script>
+{% endblock %}

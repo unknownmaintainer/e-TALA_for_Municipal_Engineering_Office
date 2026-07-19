@@ -1,0 +1,974 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+{% load permit_filters %}
+
+{% block title %}Record Detail — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Records</a>
+<span class="breadcrumb-item">#{{ record.record_id }}</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ PAGE HEADER — Modern layout replacing bulky side panel ══════════ -->
+<div class="page-title-row">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="tag tag-workspace">
+                {% if record.record_type == 'Project' %}Project Record{% else %}Permit Record{% endif %}
+            </span>
+            <span class="tag tag-id">ID: #{{ record.record_id }}</span>
+        </div>
+        <h1>
+            {{ record.title }}
+        </h1>
+        <p class="page-subtitle">
+            Archive category: <strong>{{ record.project_scope|default:record.record_type }}</strong> · Created by {{ record.created_by.full_name|default:record.created_by.username }}
+        </p>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'records_browse' %}" class="action-btn action-btn-secondary">
+            <i data-lucide="arrow-left"></i>
+            Back to Records
+        </a>
+        
+        {% if can_edit and record.status != 'archived' %}
+        <a href="{% url 'edit_record' record.record_id %}" class="action-btn action-btn-teal text-decoration-none">
+            <i data-lucide="edit-3"></i> Edit Record
+        </a>
+        {% endif %}
+        
+        <!-- More Actions Dropdown -->
+        <div class="dropdown">
+            <button class="action-btn action-btn-secondary px-2" type="button" id="moreActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
+                <i data-lucide="more-vertical" style="width: 16px; height: 16px;"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end erarms-dropdown shadow border" aria-labelledby="moreActionsDropdown" style="border-radius: 8px; border-color: var(--border-default) !important; padding: 4px; min-width: 170px;">
+                <li>
+                    <a href="#" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: var(--text-sm); border-radius: 6px;">
+                        <i data-lucide="download" style="width: 14px; height: 14px; color: var(--gray-500);"></i>
+                        Download All
+                    </a>
+                </li>
+                <li>
+                    <button onclick="window.print();" class="dropdown-item d-flex align-items-center gap-2 py-2 w-100 text-start" style="font-size: var(--text-sm); border-radius: 6px; border: none; background: transparent;">
+                        <i data-lucide="printer" style="width: 14px; height: 14px; color: var(--gray-500);"></i>
+                        Print Record
+                    </button>
+                </li>
+                {% if can_archive and record.status != 'archived' %}
+                <li><hr class="dropdown-divider my-1" style="opacity: 0.08;"></li>
+                <li>
+                    <a href="{% url 'archive_record' record.record_id %}" class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" onclick="return confirm('Archive this record?')" style="font-size: var(--text-sm); border-radius: 6px;">
+                        <i data-lucide="archive" style="width: 14px; height: 14px; color: #dc2626;"></i>
+                        Archive Record
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MAIN LAYOUT SECTION ════════════════════════════════════════════════ -->
+<div class="row g-4 mb-5">
+    <!-- LEFT COLUMN: Checklist & Documents (Takes col-lg-8) -->
+    <div class="col-lg-8">
+        <!-- Checklist Card Wrapper -->
+        <div class="content-card">
+            <div class="content-card-body" style="padding: 24px;">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h3 class="section-heading mb-0" style="font-size: var(--text-md); font-weight: 700;">
+                        <i data-lucide="clipboard-list" class="me-2 text-teal" style="width: 18px; height: 18px; vertical-align: -3px; color: #0d9488;"></i>
+                        Document Checklist Requirements
+                    </h3>
+                    {% if can_edit and record.status != 'archived' and requirements and not record.completion_stats.is_complete %}
+                    <button type="button" class="action-btn action-btn-teal action-btn-xs text-decoration-none" onclick="openBatchUploadModal()" style="font-size: 11px;">
+                        <i data-lucide="layers" style="width:12px;height:12px;"></i> Batch Upload
+                    </button>
+                    {% endif %}
+                </div>
+
+                <!-- Checklist Progress Bar -->
+                {% if requirements %}
+                {% with stats=record.completion_stats %}
+                
+                {% if stats.is_complete %}
+                <div class="alert alert-success d-flex align-items-start gap-3 p-3 mb-4 rounded-3 border-0" style="background: #f0fdf4; border: 1px solid #bbf7d0 !important; border-radius: 8px;">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle p-1" style="background: #dcfce7; color: #15803d; width: 32px; height: 32px; flex-shrink: 0; margin-top: 2px;">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-1" style="color: #166534; font-size: var(--text-base);">Checklist Fully Digitized & Stored</h6>
+                        <p class="mb-0 text-muted" style="font-size: var(--text-xs); line-height: 1.5;">
+                            All required documents for this record have been successfully uploaded, verified, and securely archived. No further action is required.
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="checklist-progress mb-4">
+                    <div class="checklist-progress-info">
+                        <div class="checklist-progress-label">Uploaded</div>
+                        <div class="checklist-progress-count">{{ stats.fulfilled }} <span>of {{ stats.total }}</span></div>
+                    </div>
+                    <div class="checklist-progress-bar-wrapper">
+                        <div class="checklist-progress-track">
+                            {% if stats.total > 0 %}
+                            <div class="checklist-progress-fill {% if stats.fulfilled == stats.total %}complete{% elif stats.fulfilled == 0 %}danger{% else %}warning{% endif %}"
+                                 style="width: {% widthratio stats.fulfilled stats.total 100 %}%;"></div>
+                            {% endif %}
+                        </div>
+                        <div class="checklist-progress-percent">
+                            {% if stats.total > 0 %}{% widthratio stats.fulfilled stats.total 100 %}% complete{% endif %}
+                            {% if stats.fulfilled == stats.total %} — ✓ All documents uploaded{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+                {% endif %}
+
+                <!-- Document Checklist Cards -->
+                <div class="doc-checklist-scroll-wrap">
+                    <div class="doc-checklist d-flex flex-column gap-3">
+                    {% for req in requirements %}
+                    {% if req.is_fulfilled and req.document %}
+                        {% if req.document.expiry_date and req.document.expiry_date < today %}
+                        <!-- ⚠️ Expired document slot (needs re-upload/renewal) -->
+                        <div class="doc-checklist-item expired p-3 border rounded-3 d-flex align-items-center justify-content-between" style="background: #fff5f5; border-color: #fecaca !important; border-radius: 8px !important;">
+                            <div class="d-flex align-items-center gap-3 min-w-0">
+                                <div class="doc-checklist-icon expired rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; background: #fee2e2; color: #dc2626; border-radius: 50% !important;">
+                                    <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
+                                </div>
+                                <div class="doc-checklist-content min-w-0">
+                                    <div class="doc-checklist-name fw-bold text-danger text-truncate" style="font-size: var(--text-sm);">{{ req.requirement_item.name }}</div>
+                                    <div class="doc-checklist-file text-truncate text-muted" style="font-size: var(--text-xs); max-width: 320px;" title="{{ req.document.file_name }}">{{ req.document.file_name }}</div>
+                                    <div class="doc-checklist-meta text-muted mt-1" style="font-size: var(--text-2xs);">
+                                        <span class="text-danger fw-bold" style="background: #fecaca; padding: 2px 6px; border-radius: 4px; font-size: 10px; border: 1px solid #fca5a5;">⚠️ Expired on {{ req.document.expiry_date|date:"d M Y" }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="doc-checklist-actions d-flex gap-2 align-items-center flex-shrink-0">
+                                <div class="dropdown">
+                                    <button class="row-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" style="border: 1px solid var(--border-default); background: #ffffff; border-radius: 6px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; color: var(--gray-600); cursor: pointer; transition: all 0.2s;">
+                                        <i data-lucide="more-vertical" style="width: 15px; height: 15px;"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:140px; font-size: var(--text-xs); border-radius:8px; padding: 4px; border-color: var(--border-default) !important;">
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ doc_url_map|dict_get:req.document.document_id }}" target="_blank" style="border-radius: 6px;"><i data-lucide="eye" style="width:14px;height:14px;"></i> View</a></li>
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ doc_url_map|dict_get:req.document.document_id }}" download style="border-radius: 6px;"><i data-lucide="download" style="width:14px;height:14px;"></i> Download</a></li>
+                                        {% if can_edit and record.status != 'archived' %}
+                                        <li><button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 w-100 text-start" onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')" style="border-radius: 6px; border: none; background: transparent;"><i data-lucide="file-up" style="width:14px;height:14px;"></i> Re-upload</button></li>
+                                        {% endif %}
+                                        {% if request.user.role == 'admin' %}
+                                        <li><hr class="dropdown-divider my-1" style="opacity: 0.08;"></li>
+                                        <li>
+                                            <form method="POST" action="{% url 'delete_document' record.record_id req.document.document_id %}" onsubmit="return confirm('Are you sure you want to delete this document? This cannot be undone.');" class="m-0">
+                                                {% csrf_token %}
+                                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger w-100 text-start" style="border-radius: 6px; border: none; background: transparent;"><i data-lucide="trash-2" style="width:14px;height:14px; color: #dc2626;"></i> Delete</button>
+                                            </form>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- ✓ Active / Fulfilled document -->
+                        <div class="doc-checklist-item fulfilled p-3 border rounded-3 d-flex align-items-center justify-content-between" style="background: #ffffff; border-color: var(--border-default) !important; border-radius: 8px !important;">
+                            <div class="d-flex align-items-center gap-3 min-w-0">
+                                <div class="doc-checklist-icon fulfilled rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; background: #e6f4ea; color: #137333; border-radius: 50% !important;">
+                                    <i data-lucide="check-circle" style="width: 20px; height: 20px;"></i>
+                                </div>
+                                <div class="doc-checklist-content min-w-0">
+                                    <div class="doc-checklist-name fw-bold text-dark text-truncate" style="font-size: var(--text-sm);">{{ req.requirement_item.name }}</div>
+                                    <div class="doc-checklist-file text-truncate text-muted" style="font-size: var(--text-xs); max-width: 320px;" title="{{ req.document.file_name }}">{{ req.document.file_name }}</div>
+                                    <div class="doc-checklist-meta text-muted mt-1" style="font-size: var(--text-2xs);">
+                                        <span>{{ req.document.file_size|filesizeformat }}</span>
+                                        <span class="mx-1">·</span>
+                                        <span>Uploaded {{ req.document.uploaded_at|date:"d M Y" }}</span>
+                                        {% if req.fulfilled_by.role == 'admin' %}
+                                        <span class="mx-1">·</span>
+                                        <span class="text-success fw-semibold">✓ Verified by Admin</span>
+                                        {% endif %}
+                                        {% if req.document.expiry_date %}
+                                        <span class="mx-1">·</span>
+                                        {% if req.document.expiry_date <= thirty_days_later %}
+                                        <span class="text-warning fw-bold" style="background: #fef3c7; padding: 2px 6px; border-radius: 4px; font-size: 10px; border: 1px solid #fde047; color: #b45309;">⚠️ Expiring Soon ({{ req.document.expiry_date|date:"d M Y" }})</span>
+                                        {% else %}
+                                        <span class="text-muted">Expires {{ req.document.expiry_date|date:"d M Y" }}</span>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="doc-checklist-actions d-flex gap-2 align-items-center flex-shrink-0">
+                                <div class="dropdown">
+                                    <button class="row-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" style="border: 1px solid var(--border-default); background: #ffffff; border-radius: 6px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; color: var(--gray-600); cursor: pointer; transition: all 0.2s;">
+                                        <i data-lucide="more-vertical" style="width: 15px; height: 15px;"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:140px; font-size: var(--text-xs); border-radius:8px; padding: 4px; border-color: var(--border-default) !important;">
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ doc_url_map|dict_get:req.document.document_id }}" target="_blank" style="border-radius: 6px;"><i data-lucide="eye" style="width:14px;height:14px;"></i> View</a></li>
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ doc_url_map|dict_get:req.document.document_id }}" download style="border-radius: 6px;"><i data-lucide="download" style="width:14px;height:14px;"></i> Download</a></li>
+                                        {% if can_edit and record.status != 'archived' %}
+                                        <li><button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 w-100 text-start" onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')" style="border-radius: 6px; border: none; background: transparent;"><i data-lucide="file-up" style="width:14px;height:14px;"></i> Re-upload</button></li>
+                                        {% endif %}
+                                        {% if request.user.role == 'admin' %}
+                                        <li><hr class="dropdown-divider my-1" style="opacity: 0.08;"></li>
+                                        <li>
+                                            <form method="POST" action="{% url 'delete_document' record.record_id req.document.document_id %}" onsubmit="return confirm('Are you sure you want to delete this document? This cannot be undone.');" class="m-0">
+                                                {% csrf_token %}
+                                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger w-100 text-start" style="border-radius: 6px; border: none; background: transparent;"><i data-lucide="trash-2" style="width:14px;height:14px; color: #dc2626;"></i> Delete</button>
+                                            </form>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% elif req.is_waived %}
+                    <!-- ⚪ Waived / Not Applicable (N/A) document slot -->
+                    <div class="doc-checklist-item waived p-3 border rounded-3 d-flex align-items-center justify-content-between" style="background: #f8fafc; border-color: var(--border-default) !important; border-radius: 8px !important; opacity: 0.85;">
+                        <div class="d-flex align-items-center gap-3 min-w-0">
+                            <div class="doc-checklist-icon waived rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; background: #e2e8f0; color: #64748b; border-radius: 50% !important;">
+                                <i data-lucide="minus-circle" style="width: 20px; height: 20px;"></i>
+                            </div>
+                            <div class="doc-checklist-content min-w-0">
+                                <div class="doc-checklist-name fw-bold text-muted text-truncate text-decoration-line-through" style="font-size: var(--text-sm);">{{ req.requirement_item.name }}</div>
+                                <div class="doc-missing-label text-muted mt-1" style="font-size: var(--text-2xs);">Not Applicable (N/A)</div>
+                            </div>
+                        </div>
+                        <div class="doc-checklist-actions d-flex gap-2 align-items-center flex-shrink-0">
+                            {% if can_edit and record.status != 'archived' %}
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-toggle-waive d-flex align-items-center gap-1.5" data-req-id="{{ req.req_id }}" style="font-size: 11px; padding: 4px 10px; border-radius: 6px; border-color: var(--border-default); background: transparent;">
+                                <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i> Make Required
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- ✗ Missing document -->
+                    <div class="doc-checklist-item missing p-3 border rounded-3 d-flex align-items-center justify-content-between" style="background: #fafafa; border-color: var(--border-default) !important; border-radius: 8px !important;">
+                        <div class="d-flex align-items-center gap-3 min-w-0">
+                            <div class="doc-checklist-icon missing rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; background: #feedd0; color: #b06000; border-radius: 50% !important;">
+                                <i data-lucide="alert-circle" style="width: 20px; height: 20px;"></i>
+                            </div>
+                            <div class="doc-checklist-content min-w-0">
+                                <div class="doc-checklist-name fw-bold text-dark text-truncate" style="font-size: var(--text-sm);">{{ req.requirement_item.name }}</div>
+                                <div class="doc-missing-label text-muted mt-1" style="font-size: var(--text-2xs);">Not yet uploaded</div>
+                            </div>
+                        </div>
+                        <div class="doc-checklist-actions d-flex gap-2 align-items-center flex-shrink-0">
+                            {% if can_edit and record.status != 'archived' %}
+                            <button type="button" class="btn btn-outline-secondary btn-sm btn-toggle-waive d-flex align-items-center gap-1.5" data-req-id="{{ req.req_id }}" style="font-size: 11px; padding: 4px 10px; border-radius: 6px; border-color: var(--border-default); background: transparent;">
+                                Mark N/A
+                            </button>
+                            <button type="button" class="action-btn action-btn-primary action-btn-xs" onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')">
+                                <i data-lucide="file-up"></i> Upload
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% empty %}
+                    <div class="empty-state-unified py-5">
+                        <i data-lucide="clipboard-list"></i>
+                        <h6>No checklist requirements</h6>
+                        <p>This record has no document requirements configured.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Record details and Actions (Takes col-lg-4) -->
+    <div class="col-lg-4">
+        <!-- Details Card -->
+        <div class="content-card mb-4">
+            <div class="content-card-body" style="padding: 20px;">
+                <h6 class="section-heading mb-3 d-flex align-items-center">
+                    <i data-lucide="info" class="me-2 text-muted" style="width: 16px; height: 16px;"></i>
+                    Record Information
+                </h6>
+                
+                <div class="d-flex flex-column gap-3">
+                    <div class="detail-row-unified border-bottom pb-2">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Project Name</span>
+                        <span class="detail-value-u fw-bold text-dark">{{ record.title }}</span>
+                    </div>
+                    <div class="detail-row-unified border-bottom pb-2">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Type</span>
+                        <span class="detail-value-u text-dark">
+                            {% if record.record_type == 'Permit' and permit_detail %}{{ permit_detail.permit_type }} Permit
+                            {% elif record.record_type == 'Project' and project_detail %}{{ project_detail.project_type }}
+                            {% else %}{{ record.record_type }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="detail-row-unified border-bottom pb-2">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Category</span>
+                        <span class="detail-value-u text-dark">
+                            {% if record.record_type == 'Project' %}{{ record.project_scope }} Scope
+                            {% else %}Permit Record
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="detail-row-unified border-bottom pb-2" style="align-items: center;">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Status</span>
+                        <span class="detail-value-u">
+                            <span class="status-indicator status-indicator-{{ record.status }}">{{ record.get_status_display }}</span>
+                        </span>
+                    </div>
+                    <div class="detail-row-unified border-bottom pb-2">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Year Filed</span>
+                        <span class="detail-value-u text-dark">{{ record.year|default:"—" }}</span>
+                    </div>
+                    <div class="detail-row-unified border-bottom pb-2">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Created On</span>
+                        <span class="detail-value-u text-muted small">
+                            {{ record.created_at|date:"d M Y" }} by {{ record.created_by.full_name|default:record.created_by.username }}
+                        </span>
+                    </div>
+                    <div class="detail-row-unified">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Last Updated</span>
+                        <span class="detail-value-u text-muted small">{{ record.updated_at|timesince }} ago</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions card removed, secondary options placed inside header dropdown -->
+    </div>
+</div>
+
+<!-- ══ UPLOAD MODAL ════════════════════════════════════════════════════ -->
+{% if can_edit and record.status != 'archived' %}
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true" data-bs-backdrop="false" style="backdrop-filter: blur(4px); background: rgba(15, 23, 42, 0.25);">
+    <div class="modal-dialog" style="margin-top: 60px; margin-bottom: 60px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08) !important;">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <div>
+                    <h5 class="modal-title fw-bold mb-1" style="color: var(--gray-900); font-size: 1.15rem;" id="uploadModalLabel">Upload Document</h5>
+                    <p class="mb-0" style="font-size: var(--text-xs); color: var(--gray-500);">
+                        Uploading for: <strong id="uploadModalItemName" style="color: var(--primary-brand);"></strong>
+                    </p>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close" onclick="clearFile()"></button>
+            </div>
+            <div class="modal-body px-4 pb-4 pt-3">
+                <form method="POST" action="{% url 'upload_document' record.record_id %}" enctype="multipart/form-data" id="checklistUploadForm" onsubmit="event.preventDefault();">
+                    {% csrf_token %}
+                    <input type="hidden" name="requirement_item_id" id="uploadItemId">
+
+                    <!-- Step indicator -->
+                    <div class="d-flex align-items-center gap-2 mb-3.5" style="font-size: var(--text-xs); color: var(--gray-400);">
+                        <span class="d-flex align-items-center gap-1.5" id="stepSelectLabel" style="color: var(--primary-brand); font-weight: 600;">
+                            <span class="step-num-icon" style="width:18px;height:18px;border-radius:50%;background:var(--primary-brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">1</span>
+                            Select file
+                        </span>
+                        <span style="flex-grow:1;height:1px;background:var(--border-default);"></span>
+                        <span class="d-flex align-items-center gap-1.5" id="stepUploadLabel">
+                            <span class="step-num-icon" style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);color:var(--gray-500);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">2</span>
+                            Upload
+                        </span>
+                    </div>
+
+                    <!-- Optional Expiry Date Input (Step 1) -->
+                    <div class="mb-3.5" id="expiryDateContainer">
+                        <label class="form-label fw-semibold text-muted mb-1" style="font-size: var(--text-xs);">
+                            Document Expiry Date <span class="text-muted fw-normal">(optional)</span>
+                        </label>
+                        <div class="d-flex align-items-center px-3" style="border: 1px solid var(--border-default); border-radius: 8px; background: #ffffff; height: 38px; transition: border-color 0.2s, box-shadow 0.2s;" onfocusin="this.style.borderColor='var(--primary-brand)'; this.style.boxShadow='0 0 0 3px rgba(30, 58, 138, 0.12)';" onfocusout="this.style.borderColor='var(--border-default)'; this.style.boxShadow='none';">
+                            <i data-lucide="calendar" class="me-2 text-muted" style="width: 16px; height: 16px; flex-shrink: 0;"></i>
+                            <input type="date" name="expiry_date" id="modalExpiryDateInput" class="border-0 p-0 w-100" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent; cursor: pointer; color: var(--gray-800);">
+                        </div>
+                    </div>
+
+                    <!-- Drag and drop zone -->
+                    <div class="p-4 text-center mb-3" id="dropZone" 
+                         onclick="document.getElementById('modalFileInput').click()" 
+                         ondragover="event.preventDefault(); this.style.borderColor='var(--primary-brand)'; this.style.background='#f0f9ff';" 
+                         ondragleave="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';" 
+                         ondrop="handleDrop(event)" 
+                         style="border: 2px dashed #cbd5e1; cursor: pointer; background: #f8fafc; border-radius: 12px; transition: all 0.25s ease-in-out; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);">
+                        <div class="mb-2 d-flex justify-content-center">
+                            <div class="d-flex align-items-center justify-content-center rounded-circle" style="width: 52px; height: 52px; background: rgba(30, 58, 138, 0.05); color: var(--primary-brand); transition: all 0.25s;">
+                                <i data-lucide="upload-cloud" style="width: 24px; height: 24px;"></i>
+                            </div>
+                        </div>
+                        <div class="fw-bold mb-1" style="font-size: var(--text-base); color: var(--gray-900);">
+                            Drag & drop your file here
+                        </div>
+                        <div class="mb-2" style="font-size: var(--text-xs); color: var(--gray-400);">or</div>
+                        <span class="action-btn action-btn-secondary action-btn-xs" style="pointer-events: none; border-radius: 6px; padding: 6px 14px; font-weight: 600;">
+                            Browse Files
+                        </span>
+                        <div class="mt-2.5" style="font-size: var(--text-2xs); color: var(--gray-400);">
+                            PDF, JPG, PNG, DOCX — max 10MB
+                        </div>
+                        <input type="file" name="document_file" id="modalFileInput" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc" class="d-none" onchange="showSelectedFile(this)">
+                    </div>
+
+                    <!-- Selected file preview & progress tracker -->
+                    <div id="selectedFileInfo" class="d-none mb-3 p-3 d-flex align-items-center gap-3" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;">
+                        <div style="width:40px;height:40px;border-radius:8px;background:#dcfce7;color:#15803d;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i data-lucide="file-check" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div class="min-w-0 flex-grow-1">
+                            <div class="fw-semibold text-truncate text-dark" id="selectedFileName" style="font-size: var(--text-sm);"></div>
+                            <div id="selectedFileSize" style="font-size: var(--text-2xs); color: var(--gray-500); margin-top: 1px;">0 KB</div>
+                            <!-- Progress bar -->
+                            <div class="progress mt-2" style="height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" id="uploadProgressBar" role="progressbar" style="width: 0%; background-color: #10b981; transition: width 0.1s linear;"></div>
+                            </div>
+                        </div>
+                        <button type="button" class="action-btn action-btn-ghost action-btn-xs flex-shrink-0 text-muted hover-danger" onclick="clearFile()" title="Cancel and remove file" style="border: none; background: transparent;">
+                            <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ BATCH UPLOAD TEMPLATE SELECT ═════════════════════════════════════ -->
+<select id="batchSlotTemplate" class="d-none">
+    <option value="" disabled selected>— Select Checklist Slot —</option>
+    {% for req in requirements %}
+        {% if not req.is_fulfilled %}
+            <option value="{{ req.requirement_item.item_id }}">{{ req.requirement_item.name }}</option>
+        {% endif %}
+    {% endfor %}
+    <option value="">Other (General Document)</option>
+</select>
+
+<!-- ══ BATCH UPLOAD MODAL ═══════════════════════════════════════════════ -->
+<div class="modal fade" id="batchUploadModal" tabindex="-1" aria-labelledby="batchUploadModalLabel" aria-hidden="true" data-bs-backdrop="false" style="backdrop-filter: blur(2.5px); background: rgba(15, 23, 42, 0.35);">
+    <div class="modal-dialog modal-lg" style="margin-top: 50px; margin-bottom: 50px;">
+        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <div>
+                    <h5 class="modal-title fw-bold mb-1" style="color: var(--gray-900);" id="batchUploadModalLabel">Batch Upload Documents</h5>
+                    <p class="mb-0" style="font-size: var(--text-xs); color: var(--gray-500);">
+                        Select multiple documents to map and upload simultaneously to checklist slots.
+                    </p>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close" onclick="resetBatchUpload()"></button>
+            </div>
+            <div class="modal-body px-4 pb-4 pt-3">
+                
+                <!-- Drag and drop zone -->
+                <div class="p-4 text-center mb-3" id="batchDropZone" 
+                     onclick="document.getElementById('batchFilesInput').click()" 
+                     ondragover="event.preventDefault(); this.style.borderColor='var(--primary-brand)'; this.style.background='#f0fdf4';" 
+                     ondragleave="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';" 
+                     ondrop="handleBatchDrop(event)" 
+                     style="border: 2px dashed #cbd5e1; cursor: pointer; background: #f8fafc; border-radius: 10px; transition: border-color 0.2s, background 0.2s;">
+                    <i data-lucide="files" class="mb-2" style="width: 42px; height: 42px; color: var(--primary-brand);"></i>
+                    <div class="fw-semibold mb-1" style="font-size: var(--text-base); color: var(--gray-900);">
+                        Drag & drop multiple files here
+                    </div>
+                    <div class="mb-2" style="font-size: var(--text-xs); color: var(--gray-400);">or</div>
+                    <span class="action-btn action-btn-secondary action-btn-xs" style="pointer-events: none;">
+                        <i data-lucide="file-plus"></i> Select Files
+                    </span>
+                    <input type="file" id="batchFilesInput" multiple accept=".pdf,.jpg,.jpeg,.png,.docx,.doc" class="d-none" onchange="handleBatchFileSelect(this)">
+                </div>
+
+                <!-- Selected Files List -->
+                <div id="batchFilesListContainer" class="d-none">
+                    <h6 class="fw-bold mb-3 text-dark" style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.5px;">Files to Upload (<span id="batchCountSpan">0</span>)</h6>
+                    <div class="d-flex flex-column gap-3 mb-4" id="batchFilesQueue" style="max-height: 320px; overflow-y: auto; padding-right: 4px;">
+                        <!-- Selected file rows injected here -->
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 border-top pt-3">
+                        <button type="button" class="action-btn action-btn-secondary action-btn-sm" onclick="resetBatchUpload()">Clear All</button>
+                        <button type="button" class="action-btn action-btn-teal action-btn-sm" id="batchStartUploadBtn" onclick="startBatchUpload()">
+                            <i data-lucide="upload-cloud"></i> Start Batch Upload
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentXHR = null;
+
+function openUploadModal(itemId, itemName) {
+    document.getElementById('uploadItemId').value = itemId;
+    document.getElementById('uploadModalItemName').textContent = itemName;
+    document.getElementById('checklistUploadForm').reset();
+    
+    if (currentXHR) {
+        currentXHR.abort();
+        currentXHR = null;
+    }
+    
+    document.getElementById('selectedFileInfo').classList.add('d-none');
+    document.getElementById('dropZone').style.display = '';
+    
+    // Reset optional expiry container
+    document.getElementById('expiryDateContainer').classList.remove('d-none');
+    document.getElementById('modalExpiryDateInput').value = '';
+
+    const bar = document.getElementById('uploadProgressBar');
+    if (bar) bar.style.width = '0%';
+
+    // Reset step indicator
+    const step1 = document.getElementById('stepSelectLabel');
+    const step2 = document.getElementById('stepUploadLabel');
+    if (step1) { 
+        step1.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--primary-brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">1</span>Select file`;
+        step1.style.color = 'var(--primary-brand)'; 
+        step1.style.fontWeight = '600'; 
+    }
+    if (step2) { 
+        step2.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);color:var(--gray-500);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">2</span>Upload`;
+        step2.style.color = ''; 
+        step2.style.fontWeight = ''; 
+    }
+
+    lucide.createIcons();
+    var modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+    modal.show();
+}
+
+function showSelectedFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    if (file.size > 10 * 1024 * 1024) {
+        alert('File is too large. Maximum allowed size is 10MB.');
+        input.value = '';
+        return;
+    }
+    
+    const allowed = /\.(pdf|jpg|jpeg|png|docx|doc)$/i;
+    if (!allowed.test(file.name)) {
+        alert('Only PDF, JPG, PNG, and DOCX files are allowed.');
+        input.value = '';
+        return;
+    }
+    
+    document.getElementById('selectedFileName').textContent = file.name;
+    document.getElementById('selectedFileSize').textContent = `Preparing to upload ${formatBytes(file.size)}...`;
+    document.getElementById('selectedFileInfo').classList.remove('d-none');
+    document.getElementById('dropZone').style.display = 'none';
+    
+    // Hide optional expiry container during progress
+    document.getElementById('expiryDateContainer').classList.add('d-none');
+
+    // Move step indicators visually
+    const step1 = document.getElementById('stepSelectLabel');
+    const step2 = document.getElementById('stepUploadLabel');
+    if (step1) { 
+        step1.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:#15803d;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">✓</span>Select file`;
+        step1.style.color = '#15803d'; 
+    }
+    if (step2) { 
+        step2.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--primary-brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">2</span>Uploading...`;
+        step2.style.color = 'var(--primary-brand)'; 
+        step2.style.fontWeight = '600'; 
+    }
+
+    lucide.createIcons();
+    uploadFileAJAX();
+}
+
+function uploadFileAJAX() {
+    const form = document.getElementById('checklistUploadForm');
+    const fileInput = document.getElementById('modalFileInput');
+    const file = fileInput.files[0];
+    if (!form || !file) return;
+
+    const xhr = new XMLHttpRequest();
+    currentXHR = xhr;
+
+    const formData = new FormData(form);
+
+    const bar = document.getElementById('uploadProgressBar');
+    const statusLabel = document.getElementById('selectedFileSize');
+
+    // Track active upload progress
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            if (bar) bar.style.width = percent + '%';
+            if (statusLabel) {
+                statusLabel.textContent = `Uploading: ${formatBytes(e.loaded)} of ${formatBytes(e.total)} (${percent}%)`;
+            }
+        }
+    });
+
+    // Check complete state
+    xhr.addEventListener('load', function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            if (statusLabel) statusLabel.textContent = 'Upload complete! Finalizing...';
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            alert('Upload failed. Please try again.');
+            clearFile();
+        }
+    });
+
+    xhr.addEventListener('error', function() {
+        alert('An error occurred during upload. Please check your network connection.');
+        clearFile();
+    });
+
+    xhr.addEventListener('abort', function() {
+        // Safe reset
+    });
+
+    xhr.open('POST', form.action, true);
+    xhr.send(formData);
+}
+
+function clearFile() {
+    if (currentXHR) {
+        currentXHR.abort();
+        currentXHR = null;
+    }
+    document.getElementById('modalFileInput').value = '';
+    document.getElementById('selectedFileInfo').classList.add('d-none');
+    document.getElementById('dropZone').style.display = '';
+    
+    // Reset optional expiry container
+    document.getElementById('expiryDateContainer').classList.remove('d-none');
+    document.getElementById('modalExpiryDateInput').value = '';
+
+    const bar = document.getElementById('uploadProgressBar');
+    if (bar) bar.style.width = '0%';
+
+    // Reset step indicators
+    const step1 = document.getElementById('stepSelectLabel');
+    const step2 = document.getElementById('stepUploadLabel');
+    if (step1) { 
+        step1.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--primary-brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">1</span>Select file`;
+        step1.style.color = 'var(--primary-brand)'; 
+        step1.style.fontWeight = '600'; 
+    }
+    if (step2) { 
+        step2.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);color:var(--gray-500);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">2</span>Upload`;
+        step2.style.color = ''; 
+        step2.style.fontWeight = ''; 
+    }
+    lucide.createIcons();
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    document.getElementById('dropZone').style.borderColor = '#cbd5e1';
+    document.getElementById('dropZone').style.background = '#f8fafc';
+    const file = event.dataTransfer.files[0];
+    if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        document.getElementById('modalFileInput').files = dt.files;
+        showSelectedFile(document.getElementById('modalFileInput'));
+    }
+}
+
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+// ─── BATCH UPLOAD LOGIC ──────────────────────────────────────────────────────
+let batchFilesQueue = [];
+let batchUploadActive = false;
+
+function openBatchUploadModal() {
+    resetBatchUpload();
+    var modal = new bootstrap.Modal(document.getElementById('batchUploadModal'));
+    modal.show();
+}
+
+function handleBatchFileSelect(input) {
+    const files = Array.from(input.files);
+    addFilesToQueue(files);
+    input.value = ''; // clear input
+}
+
+function handleBatchDrop(event) {
+    event.preventDefault();
+    document.getElementById('batchDropZone').style.borderColor = '#cbd5e1';
+    document.getElementById('batchDropZone').style.background = '#f8fafc';
+    const files = Array.from(event.dataTransfer.files);
+    addFilesToQueue(files);
+}
+
+function addFilesToQueue(files) {
+    files.forEach(file => {
+        // Validate file size and extension
+        if (file.size > 10 * 1024 * 1024) {
+            alert(`File "${file.name}" is too large. Max 10MB.`);
+            return;
+        }
+        const allowed = /\.(pdf|jpg|jpeg|png|docx|doc)$/i;
+        if (!allowed.test(file.name)) {
+            alert(`File "${file.name}" is not allowed. Only PDF, JPG, PNG, and DOCX.`);
+            return;
+        }
+        
+        // Auto-match slots by file name if possible, else default empty
+        let matchedSlotId = "";
+        const templateSelect = document.getElementById('batchSlotTemplate');
+        if (templateSelect) {
+            const lowerName = file.name.toLowerCase();
+            for (let option of templateSelect.options) {
+                if (option.value && lowerName.includes(option.text.toLowerCase())) {
+                    matchedSlotId = option.value;
+                    break;
+                }
+            }
+        }
+        
+        batchFilesQueue.push({
+            file: file,
+            slotId: matchedSlotId,
+            expiryDate: "",
+            progress: 0,
+            status: "pending" // pending, uploading, complete, error
+        });
+    });
+    
+    renderBatchQueue();
+}
+
+function removeBatchFile(index) {
+    if (batchUploadActive) return;
+    batchFilesQueue.splice(index, 1);
+    renderBatchQueue();
+}
+
+function updateBatchSlot(index, val) {
+    batchFilesQueue[index].slotId = val;
+    renderBatchQueue();
+}
+
+function updateBatchExpiry(index, val) {
+    batchFilesQueue[index].expiryDate = val;
+}
+
+function renderBatchQueue() {
+    const container = document.getElementById('batchFilesListContainer');
+    const queueDiv = document.getElementById('batchFilesQueue');
+    const countSpan = document.getElementById('batchCountSpan');
+    
+    if (batchFilesQueue.length === 0) {
+        container.classList.add('d-none');
+        document.getElementById('batchDropZone').style.display = '';
+        return;
+    }
+    
+    document.getElementById('batchDropZone').style.display = 'none';
+    container.classList.remove('d-none');
+    countSpan.textContent = batchFilesQueue.length;
+    
+    const templateSelect = document.getElementById('batchSlotTemplate');
+    const allOptions = Array.from(templateSelect.options);
+    
+    // Get all selected slotIds in the queue
+    const selectedSlotIds = batchFilesQueue.map(item => item.slotId).filter(Boolean);
+    
+    queueDiv.innerHTML = "";
+    batchFilesQueue.forEach((item, index) => {
+        // Generate filtered options HTML
+        let customOptionsHTML = "";
+        allOptions.forEach(opt => {
+            const isSelectedByOther = opt.value && selectedSlotIds.includes(opt.value) && item.slotId !== opt.value;
+            if (!isSelectedByOther) {
+                const isSelected = item.slotId === opt.value;
+                customOptionsHTML += `<option value="${opt.value}" ${isSelected ? 'selected' : ''} ${opt.disabled ? 'disabled' : ''}>${opt.text}</option>`;
+            }
+        });
+        
+        const row = document.createElement('div');
+        row.className = "batch-file-row p-3 border rounded-3 d-flex flex-column gap-2 mb-2";
+        row.style.background = "#ffffff";
+        row.style.borderColor = "var(--border-default)";
+        row.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2 min-w-0" style="max-width: 80%;">
+                    <i data-lucide="file" class="text-muted flex-shrink-0" style="width: 16px; height: 16px;"></i>
+                    <span class="fw-semibold text-dark text-truncate" style="font-size: var(--text-sm);">${item.file.name}</span>
+                    <span class="text-muted font-monospace" style="font-size: var(--text-2xs);">${formatBytes(item.file.size)}</span>
+                </div>
+                ${!batchUploadActive ? `
+                <button type="button" class="btn btn-link text-danger p-0 m-0 text-decoration-none remove-btn-batch" onclick="removeBatchFile(${index})" style="font-size: var(--text-xs);">
+                    Remove
+                </button>` : ''}
+            </div>
+            <div class="row g-2 align-items-center mt-1" id="batchInputsRow_${index}">
+                <div class="col-md-6">
+                    <select class="form-select form-select-sm batch-slot-select" style="font-size: var(--text-xs) !important; height: 32px !important; padding: 2px 24px 2px 8px !important; line-height: 1.25 !important;" onchange="updateBatchSlot(${index}, this.value)">
+                        ${customOptionsHTML}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center px-2" style="border: 1px solid var(--border-default); border-radius: 6px; background: #ffffff; height: 32px; transition: border-color 0.2s, box-shadow 0.2s;" onfocusin="this.style.borderColor='var(--primary-brand)'; this.style.boxShadow='0 0 0 2px rgba(30, 58, 138, 0.1)';" onfocusout="this.style.borderColor='var(--border-default)'; this.style.boxShadow='none';">
+                        <span class="text-muted me-2" style="font-size: 10px;">Expiry:</span>
+                        <input type="date" class="border-0 p-0 w-100 batch-expiry-input" value="${item.expiryDate}" style="font-size: var(--text-xs); outline:none; height:100%; cursor: pointer;" onchange="updateBatchExpiry(${index}, this.value)">
+                    </div>
+                </div>
+            </div>
+            <div class="progress d-none mt-2" id="batchProgressWrapper_${index}" style="height: 5px; border-radius: 2.5px; background: #e2e8f0; overflow: hidden;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" id="batchProgressBar_${index}" role="progressbar" style="width: 0%; background-color: #0d9488;"></div>
+            </div>
+        `;
+        queueDiv.appendChild(row);
+    });
+    
+    lucide.createIcons();
+}
+
+function resetBatchUpload() {
+    batchFilesQueue = [];
+    batchUploadActive = false;
+    document.getElementById('batchFilesQueue').innerHTML = "";
+    document.getElementById('batchFilesListContainer').classList.add('d-none');
+    document.getElementById('batchDropZone').style.display = '';
+    const btn = document.getElementById('batchStartUploadBtn');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="upload-cloud"></i> Start Batch Upload`;
+    }
+    lucide.createIcons();
+}
+
+function startBatchUpload() {
+    if (batchFilesQueue.length === 0 || batchUploadActive) return;
+    
+    batchUploadActive = true;
+    document.getElementById('batchStartUploadBtn').disabled = true;
+    document.getElementById('batchStartUploadBtn').textContent = "Uploading...";
+    
+    // Disable all selects and inputs in the queue list
+    document.querySelectorAll('.batch-slot-select').forEach(el => el.disabled = true);
+    document.querySelectorAll('.batch-expiry-input').forEach(el => el.disabled = true);
+    document.querySelectorAll('.remove-btn-batch').forEach(el => el.style.display = 'none');
+    
+    // Start sequential uploads
+    uploadBatchSequential(0);
+}
+
+function uploadBatchSequential(index) {
+    if (index >= batchFilesQueue.length) {
+        // Complete! reload
+        document.getElementById('batchStartUploadBtn').textContent = "Finalizing...";
+        setTimeout(() => {
+            window.location.reload();
+        }, 800);
+        return;
+    }
+    
+    const item = batchFilesQueue[index];
+    item.status = "uploading";
+    
+    const wrapper = document.getElementById(`batchProgressWrapper_${index}`);
+    const bar = document.getElementById(`batchProgressBar_${index}`);
+    if (wrapper) wrapper.classList.remove('d-none');
+    
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    
+    // CSRF token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    formData.append('document_file', item.file);
+    if (item.slotId) {
+        formData.append('requirement_item_id', item.slotId);
+    }
+    if (item.expiryDate) {
+        formData.append('expiry_date', item.expiryDate);
+    }
+    
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            if (bar) bar.style.width = percent + '%';
+        }
+    });
+    
+    xhr.addEventListener('load', function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            item.status = "complete";
+            if (bar) {
+                bar.style.backgroundColor = "#10b981"; // success color
+                bar.style.width = "100%";
+            }
+            // Upload next file
+            uploadBatchSequential(index + 1);
+        } else {
+            item.status = "error";
+            if (bar) {
+                bar.style.backgroundColor = "#dc2626"; // error color
+            }
+            alert(`Failed to upload ${item.file.name}. Continuing with remaining files...`);
+            uploadBatchSequential(index + 1);
+        }
+    });
+    
+    xhr.addEventListener('error', function() {
+        item.status = "error";
+        if (bar) bar.style.backgroundColor = "#dc2626";
+        alert(`Network error uploading ${item.file.name}. Continuing...`);
+        uploadBatchSequential(index + 1);
+    });
+    
+    xhr.open('POST', "{% url 'upload_document' record.record_id %}", true);
+    xhr.send(formData);
+}
+
+// Toggle Waive (N/A) status for requirements
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-toggle-waive').forEach(button => {
+        button.addEventListener('click', function() {
+            const reqId = this.dataset.reqId;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            this.disabled = true;
+            
+            fetch(`/requirements/${reqId}/toggle-waive/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unable to update requirement status'));
+                    this.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Network error updating requirement status');
+                this.disabled = false;
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

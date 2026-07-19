@@ -1,0 +1,253 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}
+{% if module_scope == 'Municipal' %}Municipal Projects{% else %}Barangay Projects{% endif %} — e-TALA
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size: var(--text-base);">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ PAGE HEADER ═════════════════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <h1>
+            {% if module_scope == 'Municipal' %}
+            <i data-lucide="landmark" class="text-teal me-1" style="width:22px;height:22px;vertical-align:-3px;"></i>
+            {% else %}
+            <i data-lucide="map" class="text-teal me-1" style="width:22px;height:22px;vertical-align:-3px;"></i>
+            {% endif %}
+            {{ module_title }}
+        </h1>
+        <p class="page-subtitle">
+            {{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }} found
+        </p>
+    </div>
+    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+    <a href="{% url 'create_record' %}" class="action-btn action-btn-teal">
+        <i data-lucide="plus"></i>
+        New Record
+    </a>
+    {% endif %}
+</div>
+
+<!-- ══ FILTER BAR ══════════════════════════════════════════════════════════ -->
+<div class="content-card section-gap">
+    <div class="content-card-body" style="padding: 16px 20px;">
+        <form method="GET" class="d-flex flex-wrap gap-2 align-items-center">
+            <!-- Search -->
+            <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+                <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+                <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+                <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            </div>
+
+            <!-- Barangay filter -->
+            <select name="barangay" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:160px; max-width:180px; cursor: pointer;">
+                <option value="">All Barangays</option>
+                {% for b in barangays %}
+                <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:'s' %}selected{% endif %}>{{ b.barangay_name }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Project type filter -->
+            <select name="project_type" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:150px; max-width:170px; cursor: pointer;">
+                <option value="">All Types</option>
+                {% for val, label in project_types %}
+                <option value="{{ val }}" {% if selected_project_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Status filter -->
+            <select name="status" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:130px; max-width:150px; cursor: pointer;">
+                <option value="">All Status</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Year filter -->
+            <input type="number" name="year" value="{{ selected_year }}" class="form-control rounded-3"
+                   placeholder="Year" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); width:90px;">
+
+            <button type="submit" class="action-btn action-btn-teal action-btn-sm" style="height: 38px;">
+                Filter
+            </button>
+            {% if q or selected_barangay or selected_project_type or selected_status or selected_year %}
+            <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}"
+               class="action-btn action-btn-secondary action-btn-sm" style="height: 38px;">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- ══ RECORDS TABLE ═══════════════════════════════════════════════════════ -->
+{% if page_obj.object_list %}
+<div class="content-card" style="overflow: hidden;">
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Project Name</th>
+                    <th>Type</th>
+                    <th>Barangay</th>
+                    <th>Year</th>
+                    <th>Status</th>
+                    <th>Documents</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in page_obj %}
+                <tr onclick="window.location='{% url 'record_detail' record.record_id %}'">
+                    <td>
+                        <div class="cell-title" title="{{ record.title }}">{{ record.title|truncatechars:55 }}</div>
+                        <div class="cell-subtitle" style="font-size: 0.72rem; color: #64748b;">
+                            {% if record.project_detail.contractor %}
+                                Contractor: {{ record.project_detail.contractor|truncatechars:40 }}
+                                <span style="color: #cbd5e1; margin: 0 4px;">•</span>
+                            {% endif %}
+                            <span style="color: #94a3b8;">Encoded by: {{ record.created_by.full_name|default:record.created_by.username }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="tag tag-project">
+                            {% if record.project_detail %}{{ record.project_detail.project_type }}{% else %}—{% endif %}
+                        </span>
+                    </td>
+                    <td class="cell-muted">
+                        {% if record.barangay %}
+                        <a href="{% url 'barangay_workspace' record.barangay.barangay_id %}" onclick="event.stopPropagation();" class="text-decoration-none" style="color: var(--navy); font-weight: 600;">
+                            {{ record.barangay.barangay_name }}
+                        </a>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td class="cell-muted">{{ record.year|default:"—" }}</td>
+                    <td>
+                        {% if record.status == 'active' %}
+                        <span class="status-indicator status-indicator-active">Active</span>
+                        {% elif record.status == 'in_progress' %}
+                        <span class="status-indicator status-indicator-in_progress">In Progress</span>
+                        {% elif record.status == 'completed' %}
+                        <span class="status-indicator status-indicator-completed">Completed</span>
+                        {% elif record.status == 'archived' %}
+                        <span class="status-indicator status-indicator-archived">Archived</span>
+                        {% else %}
+                        <span class="status-indicator">{{ record.status|capfirst }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% with stats=record.completion_stats %}
+                        {% if stats.total > 0 %}
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress" style="width:60px; height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
+                                <div class="progress-bar" style="width:{{ stats.pct }}%; height:100%; border-radius:99px;
+                                    background:{% if stats.is_complete %}#16a34a{% elif stats.pct >= 60 %}var(--navy){% else %}#f59e0b{% endif %};"></div>
+                            </div>
+                            <span class="cell-muted">{{ stats.fulfilled }}/{{ stats.total }}</span>
+                        </div>
+                        {% else %}
+                        <span class="cell-muted">—</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="text-end" onclick="event.stopPropagation()">
+                        <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-secondary action-btn-xs">
+                            Open <i data-lucide="arrow-right"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+        </table>
+    </div>
+    <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <span class="pagination-info m-0">
+                {% if page_obj.paginator.count > 0 %}
+                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} projects
+                {% else %}
+                Showing 0–0 of 0 records
+                {% endif %}
+            </span>
+            <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                <span>Show:</span>
+                <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="d-flex align-items-center gap-3">
+            <!-- Page Jump Input -->
+            <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                <span>Go to:</span>
+                <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+                <span>/ {{ page_obj.paginator.num_pages }}</span>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <nav>
+                <ul class="pagination pagination-sm mb-0 gap-1">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link border rounded" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">‹ Prev</a>
+                    </li>
+                    {% endif %}
+                    {% for p in page_obj.paginator.page_range %}
+                    {% if page_obj.number == p %}
+                    <li class="page-item active"><span class="page-link" style="background: var(--primary-brand); border-color: var(--primary-brand); font-size: var(--text-xs);">{{ p }}</span></li>
+                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                    <li class="page-item"><a class="page-link border" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">{{ p }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link border rounded" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">Next ›</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- Empty state -->
+<div class="content-card">
+    <div class="empty-state-unified">
+        <i data-lucide="inbox"></i>
+        <h6>No records found</h6>
+        {% if q or selected_barangay or selected_project_type or selected_status %}
+        <p>No records match your current filters. Try clearing the filters.</p>
+        <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}"
+           class="action-btn action-btn-secondary action-btn-sm mt-2">Clear Filters</a>
+        {% else %}
+        <p>There are no {{ module_title }} encoded yet.<br>Click <strong>New Record</strong> to start adding one.</p>
+        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+        <a href="{% url 'create_record' %}" class="action-btn action-btn-teal mt-3">
+            <i data-lucide="plus"></i> New Record
+        </a>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,554 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}System Settings — e-TALA{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size:0.85rem;">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <h1>
+            <i data-lucide="settings" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+            System Settings
+        </h1>
+        <p class="page-subtitle">Configure municipal office parameters, database archives, checklist templates, and password settings</p>
+    </div>
+</div>
+
+<!-- ══ TABS SYSTEM ══════════════════════════════════════════════════════ -->
+<div class="row g-4">
+    <!-- Left column: Navigation Tabs -->
+    <div class="col-lg-3">
+        <div class="content-card p-3">
+            <div class="nav flex-column nav-pills" id="settingsTabs" role="tablist" aria-orientation="vertical">
+                <!-- Group 1: Configuration -->
+                <div class="text-uppercase text-muted fw-bold px-2 pt-1 pb-2" style="font-size: 10px; letter-spacing: 0.8px;">Office Configuration</div>
+                <button class="nav-link active text-start fw-semibold py-2.5 px-3 mb-2 d-flex align-items-center gap-2" id="tab-office-btn" data-bs-toggle="pill" data-bs-target="#tab-office" type="button" role="tab" style="font-size: var(--text-sm); border-radius: var(--border-radius-sm);">
+                    <i data-lucide="building" style="width:16px; height:16px;"></i> Office Info
+                </button>
+                <button class="nav-link text-start fw-semibold py-2.5 px-3 mb-3 d-flex align-items-center gap-2" id="tab-templates-btn" data-bs-toggle="pill" data-bs-target="#tab-templates" type="button" role="tab" style="font-size: var(--text-sm); border-radius: var(--border-radius-sm);">
+                    <i data-lucide="list-checks" style="width:16px; height:16px;"></i> Checklist Templates
+                </button>
+
+                <!-- Divider line -->
+                <div style="height: 1px; background: #cbd5e1; margin: 4px 8px 12px 8px;"></div>
+
+                <!-- Group 2: System & Maintenance -->
+                <div class="text-uppercase text-muted fw-bold px-2 pb-2" style="font-size: 10px; letter-spacing: 0.8px;">Maintenance &amp; Security</div>
+                <button class="nav-link text-start fw-semibold py-2.5 px-3 mb-2 d-flex align-items-center gap-2" id="tab-database-btn" data-bs-toggle="pill" data-bs-target="#tab-database" type="button" role="tab" style="font-size: var(--text-sm); border-radius: var(--border-radius-sm);">
+                    <i data-lucide="database" style="width:16px; height:16px;"></i> Database Backup
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: Tab Contents -->
+    <div class="col-lg-9">
+        <div class="tab-content" id="settingsTabsContent">
+            
+            <!-- 1. OFFICE INFO -->
+            <div class="tab-pane fade show active" id="tab-office" role="tabpanel" aria-labelledby="tab-office-btn">
+                <div class="content-card">
+                    <div class="content-card-body" style="padding: 24px;">
+                        <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px; margin-bottom: 16px;">
+                            Office Information
+                        </h6>
+                        <p class="text-muted small mb-4">Configure name, municipality, and province details used in reports and official correspondence.</p>
+                        
+                        <form method="POST" action="{% url 'settings' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_office_info">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label text-muted small fw-semibold">Engineering Office Title</label>
+                                    <input type="text" name="office_name" class="form-control" value="{{ office_settings.office_name }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-semibold">Municipality</label>
+                                    <input type="text" name="municipality" class="form-control" value="{{ office_settings.municipality }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-semibold">Province</label>
+                                    <input type="text" name="province" class="form-control" value="{{ office_settings.province }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                                </div>
+                                <div class="col-md-12 mt-4">
+                                    <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4">Save Office Settings</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. DATABASE BACKUP / RESTORE -->
+            <div class="tab-pane fade" id="tab-database" role="tabpanel" aria-labelledby="tab-database-btn">
+                <div class="content-card mb-4">
+                    <div class="content-card-body" style="padding: 24px;">
+                        <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px; margin-bottom: 16px;">
+                            Backup Database
+                        </h6>
+                        <p class="text-muted small mb-4">Create a full data backup of all indexed system records and logs.</p>
+                        
+                        <div class="text-center py-3">
+                            <div class="d-inline-flex align-items-center justify-content-center rounded-circle p-2 bg-light mb-3" style="width: 56px; height: 56px; color: var(--gray-400);">
+                                <i data-lucide="database" style="width: 28px; height: 28px;"></i>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-2" style="font-size: 0.95rem;">Generate Database Archive</h6>
+                            <p class="text-muted small mx-auto mb-4" style="max-width:480px;">Download an indexed SQL/JSON package containing all encoded metadata, records directory references, audit histories, and user profiles.</p>
+                            
+                            <form method="POST" action="{% url 'settings' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="db_backup">
+                                <button type="submit" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 px-4 mx-auto">
+                                    <i data-lucide="download" style="width:14px; height:14px;"></i> Download Backup
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <div class="content-card-body" style="padding: 24px;">
+                        <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px; margin-bottom: 16px;">
+                            Restore Database
+                        </h6>
+                        <p class="text-muted small mb-4">Restore system configurations and metadata tables from a previous backup file.</p>
+                        
+                        <form method="POST" action="{% url 'settings' %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="db_restore">
+                            
+                            <div class="mb-4">
+                                <label class="form-label text-muted small fw-semibold">Choose Backup JSON / SQL File</label>
+                                <input type="file" name="backup_file" class="form-control" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; background: #ffffff;">
+                            </div>
+                            <button type="submit" class="action-btn action-btn-danger action-btn-sm px-4" onclick="return confirm('Restore database parameters? Current unsaved configs will be replaced.')">
+                                Restore Backup Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. CHECKLIST TEMPLATES LIST -->
+            <div class="tab-pane fade" id="tab-templates" role="tabpanel" aria-labelledby="tab-templates-btn">
+                <div class="content-card">
+                    <div class="content-card-body p-0">
+                        <div class="p-4 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+                                    Checklist Templates Registry
+                                </h6>
+                                <p class="text-muted small mb-0">Review document checklist items required for each record category and scope.</p>
+                            </div>
+                            <button type="button" class="action-btn action-btn-primary action-btn-sm d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
+                                <i data-lucide="plus" style="width:14px; height:14px;"></i> Create Template
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="px-4">Template Title</th>
+                                        <th>Category</th>
+                                        <th>Subtype / Scope</th>
+                                        <th>Requirement Count</th>
+                                        <th class="text-end px-4">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if templates %}
+                                    {% for t in templates %}
+                                    <!-- JSON Data for Dynamic Modal -->
+                                    <script type="application/json" id="template-data-{{ t.template_id }}">
+                                        {
+                                            "id": "{{ t.template_id }}",
+                                            "record_type": "{{ t.record_type }}",
+                                            "subtype": "{{ t.subtype|escapejs }}",
+                                            "scope": "{{ t.scope|escapejs }}",
+                                            "is_active": {{ t.is_active|yesno:"true,false" }},
+                                            "items": [
+                                                {% for item in t.items.all %}
+                                                {
+                                                    "id": "{{ item.item_id }}",
+                                                    "name": "{{ item.name|escapejs }}",
+                                                    "description": "{{ item.description|escapejs }}",
+                                                    "is_required": {{ item.is_required|yesno:"true,false" }},
+                                                    "is_active": {{ item.is_active|yesno:"true,false" }}
+                                                }{% if not forloop.last %},{% endif %}
+                                                {% endfor %}
+                                            ]
+                                        }
+                                    </script>
+                                    <tr style="cursor: pointer;" onclick="openManageModal('{{ t.template_id }}')">
+                                        <td class="px-4 fw-semibold text-dark">{{ t.record_type }} — {{ t.subtype }} {% if t.scope %}({{ t.scope }}){% endif %}</td>
+                                        <td>
+                                            {% if t.record_type == 'Permit' %}
+                                            <span class="tag tag-permit">Permit</span>
+                                            {% else %}
+                                            <span class="tag tag-municipal">Project</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="cell-muted">{{ t.subtype|default:t.scope }}</td>
+                                        <td><span class="fw-bold text-dark">{{ t.active_items.count }} items</span></td>
+                                        <td class="text-end px-4">
+                                            <div class="d-flex align-items-center justify-content-end gap-3">
+                                                {% if t.is_active %}
+                                                <span class="status-indicator status-indicator-active">Active</span>
+                                                {% else %}
+                                                <span class="status-indicator">Inactive</span>
+                                                {% endif %}
+                                                <button type="button" class="btn btn-sm btn-link text-primary p-0 m-0" onclick="event.stopPropagation(); openManageModal('{{ t.template_id }}')" style="font-size: var(--text-xs); text-decoration: none; font-weight: 600;">
+                                                    Manage
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-5 text-muted small">No checklist templates configured.</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══ CREATE TEMPLATE MODAL ══════════════════════════════════════════ -->
+                <div class="modal fade" id="createTemplateModal" tabindex="-1" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                            <div class="modal-header border-bottom px-4 py-3" style="background: #f8fafc; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                                <h6 class="modal-title fw-bold text-dark m-0" id="createTemplateModalLabel">Create Checklist Template</h6>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <form method="POST" action="{% url 'settings' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="create_template">
+                                <div class="modal-body p-4">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small fw-semibold">Record Category</label>
+                                        <select name="record_type" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; background-color: #ffffff;">
+                                            <option value="Permit">Permit</option>
+                                            <option value="Project">Project</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small fw-semibold">Subtype / Name</label>
+                                        <input type="text" name="subtype" class="form-control" placeholder="E.g. Building, Electrical, Potable Water" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="form-label text-muted small fw-semibold">Scope</label>
+                                        <select name="scope" class="form-select" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; background-color: #ffffff;">
+                                            <option value="">N/A (Permits / Global)</option>
+                                            <option value="Municipal">Municipal (Projects)</option>
+                                            <option value="Barangay">Barangay (Projects)</option>
+                                        </select>
+                                        <div class="form-text small text-muted mt-1" style="font-size: 0.72rem;">Set to N/A for permit types. Set to Municipal or Barangay for project types.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer border-top px-4 py-3" style="background: #f8fafc; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+                                    <button type="button" class="btn btn-sm btn-light px-3" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4">Create Template</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ══ SINGLE DYNAMIC MANAGE TEMPLATE MODAL ══════════════════════════════════ -->
+                <div class="modal fade" id="manageTemplateModal" tabindex="-1" aria-labelledby="manageTemplateModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                            <div class="modal-header border-bottom px-4 py-3" style="background: #f8fafc; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <h6 class="modal-title fw-bold text-dark m-0" id="manageTemplateModalLabel">
+                                        <span id="modal-title-text">Manage Checklist Template</span>
+                                    </h6>
+                                </div>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body p-4">
+                                <!-- 1. Edit Template Form -->
+                                <form method="POST" action="{% url 'settings' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="edit_template">
+                                    <input type="hidden" name="template_id" id="modal-template-id" value="">
+                                    <div class="row g-2 align-items-end mb-4 pb-4 border-bottom">
+                                        <div class="col-md-5">
+                                            <label class="form-label text-muted small fw-semibold">Subtype / Name</label>
+                                            <input type="text" name="subtype" id="modal-subtype" class="form-control form-control-sm" value="" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label text-muted small fw-semibold">Scope</label>
+                                            <select name="scope" id="modal-scope" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
+                                                <option value="">N/A (Permit)</option>
+                                                <option value="Municipal">Municipal</option>
+                                                <option value="Barangay">Barangay</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label text-muted small fw-semibold">Status</label>
+                                            <select name="is_active" id="modal-is-active" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
+                                                <option value="true">Active</option>
+                                                <option value="false">Inactive</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="submit" class="action-btn action-btn-primary action-btn-sm w-100" style="height: 31px; border-radius: 6px;">Update</button>
+                                        </div>
+                                    </div>
+                                </form>
+
+                                <!-- 2. Requirements Checklist List -->
+                                <div class="mb-4">
+                                    <h6 class="fw-bold text-dark mb-3" style="font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
+                                        <span>Requirements List</span>
+                                        <span class="badge text-dark" id="modal-badge-count" style="font-size: 0.65rem; border-radius: 50px; background: #dbeafe; color:#1e3a8a;">0 Total</span>
+                                    </h6>
+                                    
+                                    <div class="d-flex flex-column gap-2" id="modal-requirements-list" style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                                        <!-- Dynamic checklist items injected by JavaScript -->
+                                    </div>
+                                </div>
+
+                                <!-- 3. Add New Requirement Form -->
+                                <div class="border-top pt-4">
+                                    <h6 class="fw-bold text-dark mb-3" style="font-size: 0.85rem;">Add New Requirement Item</h6>
+                                    <form method="POST" action="{% url 'settings' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="add_requirement_item">
+                                        <input type="hidden" name="template_id" id="modal-add-template-id" value="">
+                                        <div class="row g-2">
+                                            <div class="col-md-8">
+                                                <label class="form-label text-muted small fw-semibold">Requirement Title</label>
+                                                <input type="text" name="name" class="form-control form-control-sm" placeholder="E.g. Barangay Clearance, Zoning Certificate" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted small fw-semibold">Mandatory / Optional</label>
+                                                <select name="is_required" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
+                                                    <option value="true">Required</option>
+                                                    <option value="false">Optional</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label class="form-label text-muted small fw-semibold">Description (optional)</label>
+                                                <input type="text" name="description" class="form-control form-control-sm" placeholder="Helpful details, instructions, or format requirements for users" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
+                                            </div>
+                                            <div class="col-md-12 d-flex justify-content-end mt-2">
+                                                <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4" style="font-size:0.8rem; border-radius: 6px;">Add Item</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div> <!-- /tab-content -->
+    </div> <!-- /col-lg-9 -->
+</div> <!-- /row -->
+
+<style>
+    /* Settings Sidebar Active Tabs Overrides */
+    #settingsTabs .nav-link {
+        color: var(--gray-600);
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+    }
+    #settingsTabs .nav-link:hover {
+        background-color: var(--gray-50);
+        color: var(--navy);
+    }
+    #settingsTabs .nav-link.active {
+        background-color: var(--navy) !important;
+        color: #ffffff !important;
+        border-left: 4px solid var(--ph-gold) !important;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* Inner Logs Tab Navigation Styling */
+    .logs-tab-btn {
+        background: transparent;
+        border: none;
+        padding: 0.5rem 1.1rem;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--gray-500);
+        position: relative;
+        transition: all 0.22s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        border-radius: 6px;
+        border-bottom: 2px solid transparent;
+    }
+    .logs-tab-btn:hover {
+        color: var(--navy);
+        background-color: var(--gray-100);
+    }
+    .logs-tab-btn.active {
+        color: var(--navy);
+        background-color: var(--ph-gold-light) !important;
+        border-bottom: 2px solid var(--ph-gold) !important;
+    }
+    .tab-pane-custom {
+        transition: opacity 0.15s ease-in-out;
+    }
+</style>
+
+<script>
+    function openManageModal(templateId) {
+        const dataEl = document.getElementById('template-data-' + templateId);
+        if (!dataEl) return;
+        const data = JSON.parse(dataEl.textContent);
+
+        // Populate template fields
+        document.getElementById('modal-template-id').value = data.id;
+        document.getElementById('modal-add-template-id').value = data.id;
+        document.getElementById('modal-subtype').value = data.subtype;
+        document.getElementById('modal-scope').value = data.scope || '';
+        document.getElementById('modal-is-active').value = data.is_active ? 'true' : 'false';
+        document.getElementById('modal-title-text').textContent = 'Manage Checklist: ' + data.record_type + ' — ' + data.subtype;
+        
+        // Clear & populate items list
+        const listContainer = document.getElementById('modal-requirements-list');
+        listContainer.innerHTML = '';
+        
+        document.getElementById('modal-badge-count').textContent = data.items.length + ' Total';
+        
+        if (data.items.length === 0) {
+            listContainer.innerHTML = '<div class="text-center py-4 text-muted small bg-light rounded-3">No requirements configured for this template.</div>';
+        } else {
+            data.items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'p-3 border rounded-3 bg-white mb-2';
+                itemDiv.style.borderRadius = '8px';
+                
+                const requiredBadge = item.is_required 
+                    ? '<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #fee2e2; color: #b91c1c;">Required</span>'
+                    : '<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #475569;">Optional</span>';
+                
+                const descriptionHtml = item.description 
+                    ? `<div class="text-muted small mt-0.5" style="font-size: 0.72rem;">${escapeHtml(item.description)}</div>`
+                    : '';
+
+                itemDiv.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-dark" style="font-size: 0.82rem;">${escapeHtml(item.name)}</div>
+                            ${descriptionHtml}
+                            <div class="mt-1 d-flex gap-1.5 flex-wrap">
+                                ${requiredBadge}
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1.5">
+                            <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center p-0" style="width: 28px; height: 28px; border-radius: 6px;" onclick="toggleEditItemCollapse('${item.id}')" title="Edit">
+                                <i data-lucide="edit-3" style="width:13px; height:13px;"></i>
+                            </button>
+                            <form method="POST" action="{% url 'settings' %}" onsubmit="return confirm('Are you sure you want to delete this requirement item?')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_requirement_item">
+                                <input type="hidden" name="item_id" value="${item.id}">
+                                <input type="hidden" name="template_id" value="${data.id}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center p-0" style="width: 28px; height: 28px; border-radius: 6px;" title="Delete">
+                                    <i data-lucide="trash" style="width:13px; height:13px;"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Edit Requirement Item form -->
+                    <div class="mt-3 border-top pt-3" id="edit-item-form-${item.id}" style="display: none;">
+                        <form method="POST" action="{% url 'settings' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="edit_requirement_item">
+                            <input type="hidden" name="item_id" value="${item.id}">
+                            <input type="hidden" name="template_id" value="${data.id}">
+                            <div class="row g-2">
+                                <div class="col-md-8">
+                                    <label class="form-label text-muted small fw-semibold">Requirement Title</label>
+                                    <input type="text" name="name" class="form-control form-control-sm" value="${escapeHtml(item.name)}" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small fw-semibold">Type</label>
+                                    <select name="is_required" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
+                                        <option value="true" ${item.is_required ? 'selected' : ''}>Required</option>
+                                        <option value="false" ${!item.is_required ? 'selected' : ''}>Optional</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label text-muted small fw-semibold">Description (optional)</label>
+                                    <input type="text" name="description" class="form-control form-control-sm" value="${escapeHtml(item.description || '')}" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;" placeholder="Help text for document uploaders">
+                                </div>
+                                <div class="col-md-12 d-flex justify-content-end gap-1.5 mt-2">
+                                    <button type="button" class="btn btn-sm btn-light px-3" style="font-size:0.75rem; border-radius: 6px;" onclick="toggleEditItemCollapse('${item.id}')">Cancel</button>
+                                    <button type="submit" class="action-btn action-btn-primary action-btn-sm px-3" style="font-size:0.75rem; border-radius: 6px;">Save Changes</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                listContainer.appendChild(itemDiv);
+            });
+        }
+
+        // Re-initialize lucide icons inside the modal
+        lucide.createIcons();
+        
+        // Open the modal using bootstrap API
+        const modalEl = document.getElementById('manageTemplateModal');
+        const modalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalObj.show();
+    }
+
+    function toggleEditItemCollapse(itemId) {
+        const el = document.getElementById('edit-item-form-' + itemId);
+        if (el.style.display === 'none') {
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Auto-select tab parameter from URL ?tab=...
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam) {
+            const tabBtn = document.getElementById(`tab-${tabParam}-btn`);
+            if (tabBtn) {
+                const tabObj = new bootstrap.Tab(tabBtn);
+                tabObj.show();
+            }
+        }
+
+        // Auto-open template modal if template_id is specified in URL
+        const templateIdParam = urlParams.get('template_id');
+        if (templateIdParam) {
+            openManageModal(templateIdParam);
+        }
+    });
+</script>
+{% endblock %}

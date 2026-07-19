@@ -1,0 +1,77 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Access Denied — Engineering Records System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 70vh; padding: 2rem 1rem;">
+    <!-- Card container with subtle animation and shadow -->
+    <div class="card shadow border-0 text-center" style="max-width: 500px; width: 100%; border-radius: 20px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); padding: 2.5rem 2rem; box-shadow: 0 15px 35px rgba(0,0,0,0.1) !important;">
+        
+        {% if not request.user.is_authenticated %}
+            <!-- lockout case (e.g. Axes lockout) -->
+            <div class="mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger rounded-circle animate-pulse" style="width: 80px; height: 80px;">
+                    <i data-lucide="shield-alert" style="width: 48px; height: 48px;"></i>
+                </div>
+            </div>
+            
+            <h3 class="fw-bold mb-3" style="color: var(--navy);">Access Temporarily Blocked</h3>
+            <p class="text-muted mb-4 small fw-semibold">
+                Multiple unsuccessful login attempts have been detected from this connection. For security reasons, access is temporarily restricted.
+            </p>
+            
+            <div class="alert alert-warning border-0 p-3 mb-4 rounded-3 small fw-semibold" style="background-color: #fffbeb; color: #b45309;">
+                <i data-lucide="clock" class="me-2" style="width: 16px; height: 16px; display: inline-block; vertical-align: -2px;"></i>Please try again after a few minutes, or contact the Municipal Engineering Office if you need assistance.
+            </div>
+            
+            <a href="{% url 'login' %}" class="btn-primary-custom py-2.5 px-4 w-100 fw-bold text-decoration-none d-inline-flex align-items-center justify-content-center gap-1" style="border-radius: 10px; background-color: var(--navy);">
+                <i data-lucide="arrow-left" style="width: 16px; height: 16px;"></i> Back to Sign In
+            </a>
+        {% else %}
+            <!-- role denied case (from decorators) -->
+            <div class="mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-warning-subtle text-warning rounded-circle" style="width: 80px; height: 80px;">
+                    <i data-lucide="alert-triangle" style="width: 48px; height: 48px;"></i>
+                </div>
+            </div>
+            
+            <h3 class="fw-bold mb-3" style="color: var(--navy);">Permission Required</h3>
+            <p class="text-muted mb-4 small fw-semibold">
+                You do not have the required role permissions to access this page.
+            </p>
+            
+            <div class="alert alert-secondary border-0 p-3 mb-4 rounded-3 text-start small" style="background-color: #f1f5f9; color: #475569;">
+                <div class="mb-1"><strong>Your Current Role:</strong> <span class="badge bg-secondary text-capitalize">{{ current_role }}</span></div>
+                <div><strong>Allowed Roles:</strong> 
+                    {% for role in allowed_roles %}
+                        <span class="badge bg-info text-capitalize text-white">{{ role }}</span>
+                    {% empty %}
+                        <span class="badge bg-danger">None</span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <a href="{% url 'dashboard' %}" class="btn-primary-custom py-2.5 px-4 w-100 fw-bold text-decoration-none d-inline-flex align-items-center justify-content-center gap-1" style="border-radius: 10px; background-color: var(--navy);">
+                <i data-lucide="home" style="width: 16px; height: 16px;"></i> Return to Dashboard
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .animate-pulse {
+        animation: pulse-glow 2s infinite ease-in-out;
+    }
+    @keyframes pulse-glow {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 15px rgba(220, 53, 69, 0);
+        }
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,414 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}User Management — e-TALA{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size:0.85rem;">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <h1>
+            <i data-lucide="users" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+            User Management
+        </h1>
+        <p class="page-subtitle">Create new operator accounts, edit profiles, and reset passwords</p>
+    </div>
+    <button class="action-btn action-btn-primary d-inline-flex align-items-center gap-1.5 fw-semibold" data-bs-toggle="modal" data-bs-target="#addUserModal" style="height: 38px;">
+        <i data-lucide="user-plus" style="width:16px; height:16px;"></i> Add New User
+    </button>
+</div>
+
+<!-- ══ SEARCH BAR ══════════════════════════════════════════════════════ -->
+<div class="filter-bar section-gap">
+    <form method="GET" action="{% url 'users' %}" class="d-flex gap-2 align-items-center flex-grow-1">
+        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+            <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ q|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            {% if q %}
+            <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
+                <i data-lucide="x" style="width:16px;height:16px;"></i>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- ══ USERS TABLE CARD ════════════════════════════════════════════════ -->
+<div class="content-card" style="overflow: hidden;">
+    <div class="content-card-body p-0">
+        <div class="table-responsive">
+            <table class="data-table mb-0">
+                <thead>
+                    <tr>
+                        <th>User Name</th>
+                        <th>Email Address</th>
+                        <th>Role</th>
+                        <th>Date Joined</th>
+                        <th class="text-end" style="width: 80px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    {% for u in users %}
+                    <tr onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})" style="cursor: pointer;">
+                        <td class="align-middle">
+                            <div class="d-flex align-items-center gap-2.5">
+                                {% if u.profile_picture %}
+                                <img src="{{ u.profile_picture.url }}" class="rounded-circle border" style="width:32px; height:32px; object-fit:cover; flex-shrink:0;">
+                                {% else %}
+                                    {% if u.role == 'admin' %}
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:32px; height:32px; font-size:0.75rem; flex-shrink: 0; background: #f3e8ff; color: #6d28d9; border: 1px solid #ddd6fe;">
+                                        {{ u.username|slice:":2"|upper }}
+                                    </div>
+                                    {% else %}
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:32px; height:32px; font-size:0.75rem; flex-shrink: 0; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;">
+                                        {{ u.username|slice:":2"|upper }}
+                                    </div>
+                                    {% endif %}
+                                {% endif %}
+                                <div>
+                                    <div class="fw-bold text-dark">
+                                        {{ u.full_name|default:u.username }}
+                                        {% if not u.is_active %}
+                                        <span class="badge bg-secondary ms-1 fw-semibold" style="font-size: 0.65rem; padding: 2px 5px;">Inactive</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-muted small" style="font-size:0.7rem;">@{{ u.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-muted align-middle">{{ u.email }}</td>
+                        <td class="align-middle">
+                            {% if u.role == 'admin' %}
+                            <span class="tag tag-permit">Administrator</span>
+                            {% else %}
+                            <span class="tag tag-workspace">Engineering Staff</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted align-middle">{{ u.created_at|date:"M d, Y" }}</td>
+                        <td class="text-end align-middle" onclick="event.stopPropagation();">
+                            <div class="dropdown d-inline-block">
+                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i data-lucide="more-horizontal"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end border shadow-sm py-1" style="min-width: 160px; font-size: 0.85rem; border-radius: 8px;">
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" 
+                                                onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})">
+                                            <i data-lucide="edit-2" style="width: 14px; height: 14px; color: #3b82f6;"></i>
+                                            Edit Profile
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" 
+                                                onclick="openResetModal('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}')">
+                                            <i data-lucide="key" style="width: 14px; height: 14px; color: #0d9488;"></i>
+                                            Reset Password
+                                        </button>
+                                    </li>
+                                    {% if u != request.user %}
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <form method="POST" action="{% url 'users' %}" class="d-block m-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="toggle_status">
+                                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                                            {% if u.is_active %}
+                                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger">
+                                                <i data-lucide="user-x" style="width: 14px; height: 14px; color: #ef4444;"></i>
+                                                Deactivate Account
+                                            </button>
+                                            {% else %}
+                                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-success">
+                                                <i data-lucide="user-check" style="width: 14px; height: 14px; color: #10b981;"></i>
+                                                Activate Account
+                                            </button>
+                                            {% endif %}
+                                        </form>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty-state-unified py-4">
+                                <i data-lucide="users"></i>
+                                <h6>No users found</h6>
+                                <p>No registered operators matched your search query.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="pagination-info m-0">Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} users</span>
+                <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                    <span>Show:</span>
+                    <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <!-- Page Jump Input -->
+                <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                    <span>Go to:</span>
+                    <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+                    <span>/ {{ page_obj.paginator.num_pages }}</span>
+                </div>
+
+                {% if page_obj.has_other_pages %}
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 gap-1">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link border rounded" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}&per_page={{ per_page }}" style="font-size: var(--text-xs);">‹ Prev</a>
+                        </li>
+                        {% endif %}
+                        {% for p in page_obj.paginator.page_range %}
+                        {% if page_obj.number == p %}
+                        <li class="page-item active">
+                            <span class="page-link" style="background: var(--primary-brand); border-color: var(--primary-brand); font-size: var(--text-xs);">{{ p }}</span>
+                        </li>
+                        {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                        <li class="page-item">
+                            <a class="page-link border" href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}&per_page={{ per_page }}" style="font-size: var(--text-xs);">{{ p }}</a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link border rounded" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}&per_page={{ per_page }}" style="font-size: var(--text-xs);">Next ›</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MODALS (RENDERING DIRECTLY IN CONTENT BLOCK TO ENSURE DOM INJECTION) ══ -->
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold text-dark"><i data-lucide="user-plus" class="me-2 text-dark" style="vertical-align: -2px;"></i>Add New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form action="{% url 'users' %}" method="POST" autocomplete="off">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_user">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Full Name</label>
+                        <input type="text" name="full_name" class="form-control" placeholder="Enter user's full name" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Email Address</label>
+                        <input type="email" name="email" class="form-control" placeholder="Enter email address" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Role</label>
+                        <select name="role" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; cursor: pointer;">
+                            <option value="" disabled selected>Select role</option>
+                            <option value="staff">Engineering Staff</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Temporary Password</label>
+                        <div class="input-group" style="border: 1px solid var(--border-default); border-radius: var(--border-radius-sm); background: #ffffff; overflow: hidden;">
+                            <span class="input-group-text bg-transparent border-0 text-muted" style="padding-left: 12px; padding-right: 8px;"><i data-lucide="lock" style="width: 16px; height: 16px;"></i></span>
+                            <input type="password" name="password" class="form-control border-0 p-0" placeholder="Enter temporary password" required style="font-size: var(--text-sm); outline: none; box-shadow: none; height: 38px; background: transparent;">
+                            <button type="button" class="btn border-0 text-muted toggle-password-visibility" style="padding: 0 12px; background: transparent;">
+                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4 d-inline-flex align-items-center gap-1" style="background: #0f172a; border-color: #0f172a;">
+                            <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i> Add User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold text-dark"><i data-lucide="edit-3" class="me-2 text-primary" style="vertical-align: -2px;"></i>Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form action="{% url 'users' %}" method="POST" autocomplete="off">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="edit_user">
+                    <input type="hidden" name="user_id" id="edit_user_id">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Full Name</label>
+                        <input type="text" name="full_name" id="edit_full_name" class="form-control" placeholder="Enter user's full name" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Email Address</label>
+                        <input type="email" name="email" id="edit_email" class="form-control" placeholder="Enter email address" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">Role</label>
+                        <select name="role" id="edit_role" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; cursor: pointer;">
+                            <option value="staff">Engineering Staff</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4 d-inline-flex align-items-center gap-1" style="background: #2563eb; border-color: #2563eb;">
+                            <i data-lucide="save" style="width: 14px; height: 14px;"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <h5 class="modal-title fw-bold text-dark"><i data-lucide="key" class="me-2 text-teal" style="vertical-align: -2px;"></i>Reset User Password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form action="{% url 'users' %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reset_password">
+                    <input type="hidden" name="user_id" id="reset_user_id">
+
+                    <p class="text-muted small mb-3">You are resetting the password for <strong id="reset_user_name" class="text-dark"></strong>.</p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small">New Password</label>
+                        <div class="input-group" style="border: 1px solid var(--border-default); border-radius: var(--border-radius-sm); background: #ffffff; overflow: hidden;">
+                            <span class="input-group-text bg-transparent border-0 text-muted" style="padding-left: 12px; padding-right: 8px;"><i data-lucide="lock" style="width: 16px; height: 16px;"></i></span>
+                            <input type="password" name="new_password" class="form-control border-0 p-0" placeholder="Enter new password" required style="font-size: var(--text-sm); outline: none; box-shadow: none; height: 38px; background: transparent;">
+                            <button type="button" class="btn border-0 text-muted toggle-password-visibility" style="padding: 0 12px; background: transparent;">
+                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4 d-inline-flex align-items-center gap-1">
+                            <i data-lucide="key" style="width: 14px; height: 14px;"></i> Reset Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let resetPasswordModalObj;
+    let editUserModalObj;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle Password Visibility Eye-Buttons
+        const toggleButtons = document.querySelectorAll('.toggle-password-visibility');
+        toggleButtons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                const input = this.closest('.input-group').querySelector('input');
+                const icon = this.querySelector('[data-lucide]');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.setAttribute('data-lucide', 'eye-off');
+                } else {
+                    input.type = 'password';
+                    icon.setAttribute('data-lucide', 'eye');
+                }
+                lucide.createIcons();
+            });
+        });
+
+        // Move modals to body to prevent stacking context z-index bugs
+        const addModal = document.getElementById('addUserModal');
+        const editModal = document.getElementById('editUserModal');
+        const resetModal = document.getElementById('resetPasswordModal');
+        if (addModal) document.body.appendChild(addModal);
+        if (editModal) document.body.appendChild(editModal);
+        if (resetModal) document.body.appendChild(resetModal);
+
+        // Initialize Modals
+        resetPasswordModalObj = new bootstrap.Modal(resetModal);
+        editUserModalObj = new bootstrap.Modal(editModal);
+    });
+
+    // Modal Triggers (Declared globally for inline onclick execution)
+    function openResetModal(userId, userName) {
+        document.getElementById('reset_user_id').value = userId;
+        document.getElementById('reset_user_name').textContent = userName;
+        if (!resetPasswordModalObj) {
+            resetPasswordModalObj = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+        }
+        resetPasswordModalObj.show();
+    }
+
+    function openEditModal(userId, fullName, email, role, isSelf) {
+        document.getElementById('edit_user_id').value = userId;
+        document.getElementById('edit_full_name').value = fullName;
+        document.getElementById('edit_email').value = email;
+        document.getElementById('edit_role').value = role;
+        
+        if (isSelf) {
+            document.getElementById('edit_role').disabled = true;
+        } else {
+            document.getElementById('edit_role').disabled = false;
+        }
+        
+        if (!editUserModalObj) {
+            editUserModalObj = new bootstrap.Modal(document.getElementById('editUserModal'));
+        }
+        editUserModalObj.show();
+    }
+</script>
+{% endblock %}

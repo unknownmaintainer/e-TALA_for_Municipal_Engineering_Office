@@ -1,0 +1,409 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Records — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Records</span>
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size: var(--text-base);">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ HEADING ════════════════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <h1>Records</h1>
+        <p class="page-subtitle">Browse and manage all engineering records</p>
+    </div>
+    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+    <a href="{% url 'create_record' %}" class="action-btn action-btn-primary">
+        <i data-lucide="plus"></i> New Record
+    </a>
+    {% endif %}
+</div>
+
+<!-- ══ CATEGORY TABS + INLINE SEARCH ═════════════════════════════════ -->
+<div class="filter-tabs section-gap">
+    <a href="?q={{ q }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+       class="filter-tab {% if not selected_record_type %}active{% endif %}">
+        All <span class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
+    </a>
+    <a href="?q={{ q }}&record_type=Project&project_scope=Municipal&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+       class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">
+        Municipal <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">{{ municipal_count }}</span>
+    </a>
+    <a href="?q={{ q }}&record_type=Project&project_scope=Barangay&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+       class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">
+        Barangay <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">{{ barangay_count }}</span>
+    </a>
+    <a href="?q={{ q }}&record_type=Permit&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+       class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}">
+        Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
+    </a>
+</div>
+
+<form method="GET" action="{% url 'records_browse' %}" id="filterForm">
+    <input type="hidden" name="record_type" value="{{ selected_record_type }}">
+    <input type="hidden" name="project_scope" value="{{ selected_project_scope }}">
+
+    <!-- Sleek persistent search row -->
+    <div class="filter-bar">
+        <!-- Always visible Search input -->
+        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+            <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ q|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            {% if q %}
+            <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
+                <i data-lucide="x" style="width:16px;height:16px;"></i>
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Filter Toggle button -->
+        <button class="action-btn action-btn-secondary action-btn-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" style="height: 38px;">
+            <i data-lucide="sliders-horizontal"></i>
+            Filters
+            {% if active_filters_count > 0 %}
+            <span class="tag" style="background: var(--primary-brand); color: #fff; margin-left: 4px;">{{ active_filters_count }} Active</span>
+            {% endif %}
+        </button>
+    </div>
+
+    <!-- Active Filter Chips -->
+    {% if active_filters_count > 0 %}
+    <div class="active-filter-chips">
+        {% if selected_record_type == 'Permit' and selected_permit_type %}
+        <div class="filter-chip">
+            <span>Permit Type: <strong>{{ selected_permit_type }}</strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="permit_type">&times;</button>
+        </div>
+        {% elif selected_project_type %}
+        <div class="filter-chip">
+            <span>Project Type: <strong>{{ selected_project_type }}</strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="project_type">&times;</button>
+        </div>
+        {% endif %}
+        {% if selected_status %}
+        <div class="filter-chip">
+            <span>Status: <strong>
+                {% for val, lbl in status_choices %}
+                    {% if val == selected_status %}{{ lbl }}{% endif %}
+                {% endfor %}
+            </strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="status">&times;</button>
+        </div>
+        {% endif %}
+        {% if selected_barangay %}
+        <div class="filter-chip">
+            <span>Barangay: <strong>
+                {% for b in barangays %}
+                    {% if b.barangay_id|stringformat:"i" == selected_barangay %}{{ b.barangay_name }}{% endif %}
+                {% endfor %}
+            </strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="barangay">&times;</button>
+        </div>
+        {% endif %}
+        {% if selected_year %}
+        <div class="filter-chip">
+            <span>Year: <strong>{{ selected_year }}</strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="year">&times;</button>
+        </div>
+        {% endif %}
+        
+        <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}{% if q %}&q={{ q }}{% endif %}" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: var(--text-2xs); padding: 2px 6px;">
+            Reset All
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Collapsible filters panel (Dropdown select options) -->
+    <div class="collapse {% if selected_status or selected_barangay or selected_year or selected_project_type or selected_permit_type %}show{% endif %}" id="advancedFiltersCollapse">
+        <div class="filter-panel-unified section-gap">
+            <div class="row g-2">
+                {% if selected_record_type == 'Permit' %}
+                <div class="col-md-4 col-12">
+                    <label>Permit Type</label>
+                    <select name="permit_type" class="form-select form-select-sm">
+                        <option value="">All Permit Types</option>
+                        {% for val, label in permit_types %}
+                        <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <div class="col-md-4 col-12">
+                    <label>Project Type</label>
+                    <select name="project_type" class="form-select form-select-sm">
+                        <option value="">All Types</option>
+                        {% for type in project_type_choices %}
+                        <option value="{{ type }}" {% if selected_project_type == type %}selected{% endif %}>{{ type }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-4 col-6">
+                    <label>Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm">
+                        <option value="">All Barangays</option>
+                        {% for b in barangays %}
+                        <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 col-6">
+                    <label>Year</label>
+                    <select name="year" class="form-select form-select-sm">
+                        <option value="">All Years</option>
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if selected_year == y|stringformat:"i" %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</form>
+
+
+<!-- ══ DATA TABLE ════════════════════════════════════════════════════════ -->
+<div class="content-card" style="overflow: hidden;">
+    <div class="card-body p-0">
+        <!-- Desktop Table View -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">#</th>
+                        <th>Title</th>
+                        <th style="width:90px;">Type</th>
+                        <th>Barangay</th>
+                        <th style="width:55px;">Year</th>
+                        <th style="width:90px;">Status</th>
+                        <th class="text-end" style="width:50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if page_obj %}
+                    {% for r in page_obj %}
+                    <tr onclick="window.location='{% url 'record_detail' r.record_id %}'">
+                        <td class="cell-id">{{ r.record_id }}</td>
+                        <td>
+                            <div class="cell-title" title="{{ r.title }}">{{ r.title }}</div>
+                            <div class="cell-subtitle" style="font-size: 0.72rem; color: #64748b;">
+                                {% if r.record_type == 'Permit' and r.permit_detail %}
+                                    {{ r.permit_detail.applicant_name }}{% if r.permit_detail.permit_number %} · #{{ r.permit_detail.permit_number }}{% endif %}
+                                    <span style="color: #cbd5e1; margin: 0 4px;">•</span>
+                                {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
+                                    {{ r.project_detail.contractor }}
+                                    <span style="color: #cbd5e1; margin: 0 4px;">•</span>
+                                {% endif %}
+                                <span style="color: #94a3b8;">Encoded by: {{ r.created_by.full_name|default:r.created_by.username }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if r.record_type == 'Permit' %}
+                            <span class="tag tag-permit">{{ r.specific_type_label }}</span>
+                            {% elif r.project_scope == 'Municipal' %}
+                            <span class="tag tag-municipal">{{ r.specific_type_label }}</span>
+                            {% else %}
+                            <span class="tag tag-barangay">{{ r.specific_type_label }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="cell-muted">
+                            {% if r.barangay %}
+                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" onclick="event.stopPropagation();" class="text-decoration-none" style="color: var(--navy); font-weight: 600;">
+                                {{ r.barangay.barangay_name }}
+                            </a>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="cell-muted">{{ r.year|default:"—" }}</td>
+                        <td>
+                            {% if r.status == 'active' %}
+                            <span class="status-indicator status-indicator-active">Active</span>
+                            {% elif r.status == 'in_progress' %}
+                            <span class="status-indicator status-indicator-in_progress">In Progress</span>
+                            {% elif r.status == 'completed' %}
+                            <span class="status-indicator status-indicator-completed">Completed</span>
+                            {% elif r.status == 'archived' %}
+                            <span class="status-indicator status-indicator-archived">Archived</span>
+                            {% else %}
+                            <span class="status-indicator">{{ r.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end" onclick="event.stopPropagation();">
+                            <div class="dropdown">
+                                <button class="row-action-btn" data-bs-toggle="dropdown">
+                                    <i data-lucide="more-horizontal"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:140px; font-size: var(--text-xs); border-radius:8px;">
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'record_detail' r.record_id %}"><i data-lucide="eye" style="width:14px;height:14px;"></i> View</a></li>
+                                    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                                        {% if r.status != 'archived' %}
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'edit_record' r.record_id %}"><i data-lucide="pencil" style="width:14px;height:14px;"></i> Edit</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="{% url 'archive_record' r.record_id %}" onclick="return confirm('Archive this record?')"><i data-lucide="archive" style="width:14px;height:14px;"></i> Archive</a></li>
+                                        {% endif %}
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="p-4">
+                            <div class="empty-state-card">
+                                <div class="empty-state-icon-wrapper">
+                                    <i data-lucide="folder-search" style="width: 32px; height: 32px; stroke-width: 1.5;"></i>
+                                </div>
+                                <h3 class="h6 text-dark fw-bold mb-1">No matching records found</h3>
+                                <p class="text-muted small mx-auto mb-4" style="max-width: 360px;">
+                                    We couldn't find any engineering records matching your search or filters. Try adjusting your query or resetting filters.
+                                </p>
+                                <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2" style="text-decoration:none;">
+                                    <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i> Clear all filters
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile Card List View -->
+        <div class="d-block d-md-none">
+            {% if page_obj %}
+            <div class="d-flex flex-column gap-0">
+                {% for r in page_obj %}
+                <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item">
+                    <div class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
+                        <i data-lucide="{% if r.record_type == 'Permit' %}file-check{% elif r.project_scope == 'Municipal' %}landmark{% else %}map-pin{% endif %}"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="mobile-record-title">{{ r.title }}</div>
+                        <div class="mobile-record-meta">{{ r.barangay.barangay_name|default:"—" }} · {{ r.year|default:"—" }} · {{ r.get_status_display }}</div>
+                    </div>
+                    <i data-lucide="chevron-right" class="flex-shrink-0" style="width:14px;height:14px;color:var(--gray-300);"></i>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-3">
+                <div class="empty-state-card">
+                    <div class="empty-state-icon-wrapper">
+                        <i data-lucide="folder-search" style="width: 32px; height: 32px; stroke-width: 1.5;"></i>
+                    </div>
+                    <h3 class="h6 text-dark fw-bold mb-1">No matching records found</h3>
+                    <p class="text-muted small mx-auto mb-4" style="max-width: 360px;">
+                        We couldn't find any engineering records matching your search or filters. Try adjusting your query or resetting filters.
+                    </p>
+                    <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2" style="text-decoration:none;">
+                        <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i> Clear all filters
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="pagination-info m-0">
+                    {% if page_obj.paginator.count > 0 %}
+                    Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+                    {% else %}
+                    Showing 0–0 of 0 records
+                    {% endif %}
+                </span>
+                <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                    <span>Show:</span>
+                    <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <!-- Page Jump Input -->
+                <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                    <span>Go to:</span>
+                    <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+                    <span>/ {{ page_obj.paginator.num_pages }}</span>
+                </div>
+
+                {% if page_obj.has_other_pages %}
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 gap-1">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link border rounded" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}" style="font-size: var(--text-xs);">‹ Prev</a></li>
+                        {% endif %}
+                        {% for p in page_obj.paginator.page_range %}
+                        {% if page_obj.number == p %}
+                        <li class="page-item active"><span class="page-link" style="background: var(--primary-brand); border-color: var(--primary-brand); font-size: var(--text-xs);">{{ p }}</span></li>
+                        {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                        <li class="page-item"><a class="page-link border" href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}" style="font-size: var(--text-xs);">{{ p }}</a></li>
+                        {% endif %}
+                        {% endfor %}
+                        {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link border rounded" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}" style="font-size: var(--text-xs);">Next ›</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('filterForm');
+        
+        // Auto-submit filterForm when select dropdowns are changed
+        if (form) {
+            form.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', () => {
+                    form.submit();
+                });
+            });
+        }
+
+        // Handle active chip dismissals
+        document.querySelectorAll('.clear-chip-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filterName = this.getAttribute('data-filter-name');
+                if (form) {
+                    const select = form.querySelector(`select[name="${filterName}"]`);
+                    if (select) {
+                        select.value = '';
+                        form.submit();
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
+

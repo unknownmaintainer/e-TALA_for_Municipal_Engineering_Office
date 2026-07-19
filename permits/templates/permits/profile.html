@@ -1,0 +1,119 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}My Profile — Engineering Records — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">My Profile</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ PAGE HEADER ══════════════════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <h1>
+            <i data-lucide="user" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+            My Profile
+        </h1>
+        <p class="page-subtitle">Update your personal details, change your security password, and view recent activities</p>
+    </div>
+</div>
+
+<div class="row g-4 section-gap">
+    <!-- Info Column -->
+    <div class="col-lg-6">
+        <!-- Update details -->
+        <div class="content-card mb-4">
+            <div class="content-card-body" style="padding: 24px;">
+                <div class="content-card-header">
+                    <h5 class="content-card-title">
+                        <i data-lucide="user-check"></i>
+                        Update Personal Details
+                    </h5>
+                </div>
+                
+                <form method="POST" action="{% url 'profile' %}" class="d-flex flex-column gap-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_profile">
+                    <div>
+                        <label for="full_name" class="form-label text-muted small fw-semibold">Full Name *</label>
+                        <input type="text" name="full_name" id="full_name" class="form-control" value="{{ request.user.full_name }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <div>
+                        <label for="email" class="form-label text-muted small fw-semibold">Email Address *</label>
+                        <input type="email" name="email" id="email" class="form-control" value="{{ request.user.email }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <button type="submit" class="action-btn action-btn-primary justify-content-center w-100 mt-2" style="height: 38px;">
+                        <i data-lucide="save" style="width: 16px; height: 16px; margin-right: 4px;"></i> Save Details
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="content-card">
+            <div class="content-card-body" style="padding: 24px;">
+                <div class="content-card-header">
+                    <h5 class="content-card-title">
+                        <i data-lucide="lock"></i>
+                        Security Settings (Change Password)
+                    </h5>
+                </div>
+                
+                <form method="POST" action="{% url 'profile' %}" class="d-flex flex-column gap-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="change_password">
+                    <div>
+                        <label for="current_password" class="form-label text-muted small fw-semibold">Current Password *</label>
+                        <input type="password" name="current_password" id="current_password" class="form-control" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <div>
+                        <label for="new_password" class="form-label text-muted small fw-semibold">New Password *</label>
+                        <input type="password" name="new_password" id="new_password" class="form-control" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                        <span class="text-muted" style="font-size: 0.72rem; display: block; margin-top: 4px;">At least 8 characters, with 1 uppercase, 1 lowercase, and 1 number.</span>
+                    </div>
+                    <div>
+                        <label for="confirm_new_password" class="form-label text-muted small fw-semibold">Confirm New Password *</label>
+                        <input type="password" name="confirm_new_password" id="confirm_new_password" class="form-control" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    </div>
+                    <button type="submit" class="action-btn action-btn-primary justify-content-center w-100 mt-2" style="height: 38px;">
+                        <i data-lucide="key" style="width: 16px; height: 16px; margin-right: 4px;"></i> Update Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Log Timeline -->
+    <div class="col-lg-6">
+        <div class="content-card h-100">
+            <div class="content-card-body" style="padding: 24px;">
+                <div class="content-card-header">
+                    <h5 class="content-card-title">
+                        <i data-lucide="history"></i>
+                        My Activity Logs
+                    </h5>
+                </div>
+                
+                {% if user_logs %}
+                <div class="timeline mt-3">
+                    {% for log in user_logs %}
+                    <div class="tl-item">
+                        <div class="tl-date" style="font-size: var(--text-2xs); font-weight: 600; color: var(--gray-400);">{{ log.performed_at|date:"M d, Y H:i" }}</div>
+                        <div class="tl-text" title="{{ log.action }}" style="font-size: var(--text-xs); color: var(--gray-700); margin-top: 2px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; display: block;">{{ log.action }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state-unified py-5">
+                    <i data-lucide="history" style="width: 32px; height: 32px; color: var(--gray-400);"></i>
+                    <h6>No recent activity</h6>
+                    <p>No activity logs found for your account.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

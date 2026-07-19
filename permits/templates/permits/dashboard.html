@@ -1,0 +1,580 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* Custom Alert Modal styles */
+.custom-alerts-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+    transition: opacity 0.2s ease-in-out;
+}
+.custom-alerts-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+}
+.custom-alerts-modal-content {
+    position: relative;
+    background-color: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 550px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    z-index: 1051;
+    overflow: hidden;
+    animation: alertModalSlideIn 0.25s ease-out;
+}
+@keyframes alertModalSlideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+/* Adjust colors for dark mode */
+.dark-mode .custom-alerts-modal-content {
+    background-color: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+.dark-mode #alertsModalTitle {
+    color: #f1f5f9 !important;
+}
+.dark-mode .border-bottom,
+.dark-mode .border-top,
+.dark-mode #alertsModalSearch,
+.dark-mode .input-group-text {
+    border-color: #334155 !important;
+}
+.dark-mode .input-group-text {
+    background-color: #0f172a !important;
+}
+.dark-mode #alertsModalSearch {
+    background-color: #0f172a !important;
+    color: #f1f5f9 !important;
+}
+.dark-mode .btn-close {
+    filter: invert(1);
+}
+.bg-danger-subtle {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+}
+.bg-warning-subtle {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+</style>
+{% endblock %}
+
+{% block title %}Dashboard — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Dashboard</span>
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size: var(--text-base);">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ WELCOME HEADER ════════════════════════════════════════════════════ -->
+<div class="welcome-card">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+            <h4>Welcome, {{ request.user.full_name|default:request.user.username }}!</h4>
+            <p>
+                Last login: {{ request.user.last_login|date:"d M Y H:i"|default:"First login" }} |
+                <a href="{% url 'profile' %}">Change password</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Expiry Warnings and Security Alerts -->
+{% if alerts.has_alerts %}
+<div class="row g-3 mb-4 d-print-none">
+    <div class="col-12">
+        <div class="alert alert-warning d-flex align-items-start gap-3 p-3 mb-0 rounded-3 border-0" style="background: #fffbeb; border: 1px solid #fef3c7 !important; border-radius: 8px;">
+            <div class="d-flex align-items-center justify-content-center rounded-circle p-1" style="background: #fef3c7; color: #b45309; width: 32px; height: 32px; flex-shrink: 0; margin-top: 2px;">
+                <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
+            </div>
+            <div class="w-100">
+                <h6 class="fw-bold mb-3" style="color: #92400e; font-size: var(--text-base);">Attention Required</h6>
+                
+                <!-- 1. Security Alerts -->
+                {% if alerts.failed_logins > 0 %}
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-1" style="color: #991b1b; font-weight: 600; font-size: var(--text-sm);">
+                        <i data-lucide="shield-alert" style="width: 16px; height: 16px;"></i>
+                        <span>Security Alerts ({{ alerts.failed_logins }} total)</span>
+                    </div>
+                    <ul class="mb-0 ps-4 text-muted" style="font-size: var(--text-xs); line-height: 1.6;">
+                        <li>
+                            Security Warning: {{ alerts.failed_logins }} failed login attempt(s) recorded.
+                            <a href="{% url 'settings' %}?tab=logs&status=failed" class="fw-bold text-decoration-none" style="color: #991b1b; text-decoration: underline !important;">View Logs</a>
+                        </li>
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- 2. Expired Documents -->
+                {% if alerts.expired_count > 0 %}
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-1" style="color: #c2410c; font-weight: 600; font-size: var(--text-sm);">
+                        <i data-lucide="x-circle" style="width: 16px; height: 16px; color: #dc2626;"></i>
+                        <span>Expired Documents ({{ alerts.expired_count }} total)</span>
+                    </div>
+                    <ul class="mb-0 ps-4 text-muted" style="font-size: var(--text-xs); line-height: 1.6;">
+                        {% for doc in alerts.expired_preview %}
+                        <li>
+                            Expired: <span class="fw-semibold text-dark-emphasis">{{ doc.label }}</span> for
+                            <a href="{% url 'record_detail' doc.record_id %}" class="fw-medium text-decoration-none" style="color: #c2410c; text-decoration: underline !important;">"{{ doc.record_title }}"</a>
+                            (Expired on {{ doc.expiry_date }})
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if alerts.expired_count > 3 %}
+                    <div class="ps-4 mt-1">
+                        <button class="btn p-0 border-0 text-start fw-bold" onclick="openAlertsModal('expired')" style="color: #c2410c; font-size: var(--text-xs); text-decoration: underline; background: transparent;">
+                            +{{ alerts.expired_count|add:"-3" }} more expired documents... Click to view all
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- 3. Expiring Soon -->
+                {% if alerts.expiring_count > 0 %}
+                <div class="mb-0">
+                    <div class="d-flex align-items-center gap-2 mb-1" style="color: #b45309; font-weight: 600; font-size: var(--text-sm);">
+                        <i data-lucide="clock" style="width: 16px; height: 16px; color: #d97706;"></i>
+                        <span>Expiring Soon ({{ alerts.expiring_count }} total)</span>
+                    </div>
+                    <ul class="mb-0 ps-4 text-muted" style="font-size: var(--text-xs); line-height: 1.6;">
+                        {% for doc in alerts.expiring_preview %}
+                        <li>
+                            Expiring: <span class="fw-semibold text-dark-emphasis">{{ doc.label }}</span> for
+                            <a href="{% url 'record_detail' doc.record_id %}" class="fw-medium text-decoration-none" style="color: #b45309; text-decoration: underline !important;">"{{ doc.record_title }}"</a>
+                            (Expires on {{ doc.expiry_date }})
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if alerts.expiring_count > 3 %}
+                    <div class="ps-4 mt-1">
+                        <button class="btn p-0 border-0 text-start fw-bold" onclick="openAlertsModal('expiring')" style="color: #b45309; font-size: var(--text-xs); text-decoration: underline; background: transparent;">
+                            +{{ alerts.expiring_count|add:"-3" }} more expiring documents... Click to view all
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Modal for Alerts List -->
+<div id="alertsModal" class="custom-alerts-modal d-none">
+    <div class="custom-alerts-modal-backdrop" onclick="closeAlertsModal()"></div>
+    <div class="custom-alerts-modal-content">
+        <div class="custom-alerts-modal-header d-flex align-items-center justify-content-between p-3 border-bottom">
+            <h5 class="fw-bold mb-0" id="alertsModalTitle" style="font-size: var(--text-lg); color: var(--gray-800);">Document Alerts</h5>
+            <button class="btn-close" onclick="closeAlertsModal()" aria-label="Close" style="font-size: var(--text-xs);"></button>
+        </div>
+        <div class="custom-alerts-modal-body p-3">
+            <!-- Loader -->
+            <div id="alertsModalLoader" class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span class="ms-2 text-muted" style="font-size: var(--text-sm);">Loading records...</span>
+            </div>
+            <!-- List Container -->
+            <div id="alertsModalList" class="d-none">
+                <div class="input-group mb-3">
+                    <span class="input-group-text bg-transparent border-end-0" style="border-color: var(--gray-200); color: var(--gray-400);">
+                        <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                    </span>
+                    <input type="text" id="alertsModalSearch" class="form-control border-start-0 ps-0" placeholder="Search documents..." onkeyup="filterAlertsModal()" style="border-color: var(--gray-200); font-size: var(--text-sm);">
+                </div>
+                <ul id="alertsModalUl" class="list-group list-group-flush mb-0 ps-0" style="font-size: var(--text-xs); line-height: 1.6; max-height: 300px; overflow-y: auto;">
+                    <!-- items will be injected here -->
+                </ul>
+            </div>
+        </div>
+        <div class="custom-alerts-modal-footer p-3 border-top d-flex justify-content-end">
+            <button class="btn btn-secondary py-1.5 px-3" onclick="closeAlertsModal()" style="font-size: var(--text-xs); border-radius: 6px;">Close</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ══ CORE METRICS ══════════════════════════════════════════════════════ -->
+<div class="row g-3 section-gap">
+    <!-- All Records -->
+    <div class="col-lg-3 col-md-6 col-sm-6 col-12">
+        <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-overall" style="background: linear-gradient(135deg, #090f1d 0%, #1a273f 100%) !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.1) !important;">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+                <div class="metric-icon-wrapper" style="background: rgba(255, 255, 255, 0.15); color: #ffffff;">
+                    <i data-lucide="layers"></i>
+                </div>
+                <div>
+                    <h3 class="metric-value mb-0" style="color: #ffffff !important;">{{ total_records }}</h3>
+                    <span class="metric-label" style="color: rgba(255, 255, 255, 0.85) !important;">All Records</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Municipal Projects -->
+    <div class="col-lg-3 col-md-6 col-sm-6 col-12">
+        <a href="{% url 'records_browse' %}?record_type=Project&project_scope=Municipal" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-municipal">
+                <div class="card-body p-3 d-flex align-items-center gap-3">
+                    <div class="metric-icon-wrapper">
+                        <i data-lucide="building-2"></i>
+                    </div>
+                    <div>
+                        <h3 class="metric-value mb-0">{{ total_municipal }}</h3>
+                        <span class="metric-label">Municipal Projects</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    
+    <!-- Barangay Projects -->
+    <div class="col-lg-3 col-md-6 col-sm-6 col-12">
+        <a href="{% url 'records_browse' %}?record_type=Project&project_scope=Barangay" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-barangay">
+                <div class="card-body p-3 d-flex align-items-center gap-3">
+                    <div class="metric-icon-wrapper">
+                        <i data-lucide="home"></i>
+                    </div>
+                    <div>
+                        <h3 class="metric-value mb-0">{{ total_barangay }}</h3>
+                        <span class="metric-label">Barangay Projects</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    
+    <!-- Permits -->
+    <div class="col-lg-3 col-md-6 col-sm-12 col-12">
+        <a href="{% url 'records_browse' %}?record_type=Permit" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-permits">
+                <div class="card-body p-3 d-flex align-items-center gap-3">
+                    <div class="metric-icon-wrapper">
+                        <i data-lucide="file-text"></i>
+                    </div>
+                    <div>
+                        <h3 class="metric-value mb-0">{{ total_permits }}</h3>
+                        <span class="metric-label">Permits</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- ══ MAIN LAYOUT: Split 2 columns (equal-height, internal scroll) ════════ -->
+<div class="dashboard-row-equal section-gap">
+    <!-- Left Column: Checklists Requiring Attention -->
+    <div class="dashboard-col-left">
+
+        <!-- Incomplete Checklists -->
+        <div class="content-card dashboard-fixed-card">
+            <div class="content-card-body">
+                <div class="content-card-header card-header-sticky">
+                    <h5 class="content-card-title d-flex align-items-center gap-2">
+                        <span>Checklists Requiring Uploads</span>
+                        {% if incomplete_records > 0 %}
+                        <span class="badge rounded-pill bg-danger text-white font-monospace fw-bold position-relative" style="font-size: 9px; padding: 2px 6px; top: -7px; margin-left: 2px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);">{{ incomplete_records }}</span>
+                        {% endif %}
+                    </h5>
+                    <a href="{% url 'records_browse' %}" class="content-card-link">View All →</a>
+                </div>
+
+                <!-- Compact Digitization Summary Bar -->
+                <div class="px-4 py-2 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: var(--gray-50); min-height: 40px;">
+                    <div class="d-flex align-items-center gap-2" style="font-size: var(--text-xs);">
+                        <i data-lucide="shield-check" class="text-success" style="width: 15px; height: 15px; flex-shrink: 0;"></i>
+                        <span class="text-muted"><strong>{{ compliance_completed }} of {{ compliance_total }}</strong> records complete</span>
+                        <span class="fw-bold px-1.5 py-0.5" style="font-size: 10px; border-radius: 4px; background-color: rgba(22, 163, 74, 0.1); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.2);">{{ compliance_rate }}%</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2" style="width: 130px;">
+                        <div class="progress w-100" style="height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden;">
+                            <div class="progress-bar" role="progressbar" style="width: {{ compliance_rate }}%; background-color: var(--success);" aria-valuenow="{{ compliance_rate }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if incomplete_list %}
+                <div class="card-scroll-container" id="checklistScrollContainer">
+                    <div class="card-scroll-area" id="checklistScrollArea">
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Record Title</th>
+                                        <th>Type</th>
+                                        <th>Barangay</th>
+                                        <th class="text-end">Uploads</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for r in incomplete_list %}
+                                    <tr onclick="window.location='{% url 'record_detail' r.record_id %}'">
+                                        <td>
+                                            <a href="{% url 'record_detail' r.record_id %}" class="cell-title text-decoration-none" style="color: var(--gray-800); max-width: 150px;" title="{{ r.title }}">{{ r.title }}</a>
+                                        </td>
+                                        <td>
+                                            {% if r.record_type == 'Permit' %}
+                                            <span class="tag tag-permit">{{ r.permit_detail.get_permit_type_display|default:"Permit" }}</span>
+                                            {% else %}
+                                            <span class="tag tag-project">{{ r.project_detail.get_project_type_display|default:"Project" }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="cell-muted">
+                                            {% if r.barangay %}
+                                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" onclick="event.stopPropagation();" class="text-decoration-none" style="color: var(--primary-brand); font-weight: 600;">
+                                                {{ r.barangay.barangay_name }}
+                                            </a>
+                                            {% else %}
+                                            —
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            {% with stats=r.completion_stats %}
+                                            <span class="status-indicator status-indicator-pending">{{ stats.fulfilled }} of {{ stats.total }}</span>
+                                            {% endwith %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state-unified flex-grow-1 d-flex flex-column align-items-center justify-content-center">
+                    <i data-lucide="check-circle" class="text-success mb-2" style="width: 32px; height: 32px;"></i>
+                    <p class="m-0 text-muted">All checklists are complete.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right Column: Recent Activity Logs -->
+    <div class="dashboard-col-right">
+
+        <!-- Recent Audit Trails Timeline -->
+        <div class="content-card dashboard-fixed-card h-100">
+            <div class="content-card-body d-flex flex-column h-100">
+                <div class="content-card-header card-header-sticky">
+                    <h5 class="content-card-title d-flex align-items-center gap-2">
+                        <i data-lucide="history" style="color: var(--navy);"></i>
+                        <span>Recent Activity Logs</span>
+                    </h5>
+                    <a href="{% url 'activity_logs' %}" class="content-card-link">All Logs →</a>
+                </div>
+                
+                {% if activity_feed %}
+                <div class="card-scroll-container flex-grow-1" id="activityScrollContainer">
+                    <div class="card-scroll-area" id="activityScrollArea" style="padding: 12px 16px 16px 16px;">
+                        <div class="activity-timeline">
+                            {% for log in activity_feed %}
+                            <div class="activity-timeline-item d-flex gap-3 mb-3 pb-2 position-relative" style="z-index: 2;">
+                                <!-- Avatar circle -->
+                                <div class="activity-timeline-avatar d-flex align-items-center justify-content-center flex-shrink-0" 
+                                     style="width: 32px; height: 32px; border-radius: 50%; background: #eff6ff; color: var(--navy); border: 1.5px solid var(--ph-gold); font-weight: 700; font-size: 0.8rem; position: relative; z-index: 2;">
+                                    {{ log.user.username|slice:":1"|upper|default:"S" }}
+                                </div>
+                                <!-- Details block -->
+                                <div class="activity-timeline-content flex-grow-1 min-w-0" style="margin-top: 2px;">
+                                    <div class="activity-timeline-text" style="font-size: 0.82rem; color: var(--gray-800); line-height: 1.45; word-break: break-word; overflow-wrap: anywhere;">
+                                        <strong>{{ log.user.full_name|default:log.user.username|default:"System" }}</strong> 
+                                        <span class="text-muted">{{ log.action }}</span>
+                                    </div>
+                                    <div class="activity-timeline-time mt-1 d-flex align-items-center gap-1" style="font-size: 0.7rem; color: var(--gray-500);">
+                                        <i data-lucide="clock" style="width: 11px; height: 11px;"></i>
+                                        <span>{{ log.performed_at|timesince }} ago</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-state-unified flex-grow-1 d-flex flex-column align-items-center justify-content-center">
+                    <i data-lucide="folder-open" class="text-muted mb-2" style="width: 32px; height: 32px;"></i>
+                    <p class="m-0 text-muted">No recent activities.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Bottom-fade scroll indicator logic for checklists
+    const scrollArea = document.getElementById('checklistScrollArea');
+    const scrollContainer = document.getElementById('checklistScrollContainer');
+    if (scrollArea && scrollContainer) {
+        function checkScrollBottom() {
+            const atBottom = scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight < 4;
+            scrollContainer.classList.toggle('scrolled-bottom', atBottom);
+        }
+        scrollArea.addEventListener('scroll', checkScrollBottom);
+        checkScrollBottom();
+    }
+
+    // Bottom-fade scroll indicator logic for activity timeline
+    const actScrollArea = document.getElementById('activityScrollArea');
+    const actScrollContainer = document.getElementById('activityScrollContainer');
+    if (actScrollArea && actScrollContainer) {
+        function checkActScrollBottom() {
+            const atBottom = actScrollArea.scrollHeight - actScrollArea.scrollTop - actScrollArea.clientHeight < 4;
+            actScrollContainer.classList.toggle('scrolled-bottom', atBottom);
+        }
+        actScrollArea.addEventListener('scroll', checkActScrollBottom);
+        checkActScrollBottom();
+    }
+});
+
+// Modal Logic for Alerts red/yellow view
+let allModalAlerts = [];
+
+function openAlertsModal(type) {
+    const modal = document.getElementById('alertsModal');
+    const title = document.getElementById('alertsModalTitle');
+    const loader = document.getElementById('alertsModalLoader');
+    const listContainer = document.getElementById('alertsModalList');
+    const ul = document.getElementById('alertsModalUl');
+    const searchInput = document.getElementById('alertsModalSearch');
+    
+    // Reset search
+    searchInput.value = '';
+    
+    // Set title based on type
+    if (type === 'expired') {
+        title.innerHTML = '🔴 All Expired Documents';
+    } else {
+        title.innerHTML = '🟡 All Expiring Soon Documents';
+    }
+    
+    // Show modal, show loader, hide list
+    modal.classList.remove('d-none');
+    loader.classList.remove('d-none');
+    listContainer.classList.add('d-none');
+    
+    // Fetch data via AJAX
+    fetch(`/alerts/list/?type=${type}`)
+        .then(response => response.json())
+        .then(data => {
+            allModalAlerts = data.items || [];
+            renderModalAlerts(allModalAlerts);
+            
+            // Hide loader, show list
+            loader.classList.add('d-none');
+            listContainer.classList.remove('d-none');
+            
+            // Initialize newly injected Lucide icons if any
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching alerts:', err);
+            ul.innerHTML = `<li class="list-group-item text-danger text-center py-3 border-0 bg-transparent">Failed to load alerts. Please try again.</li>`;
+            loader.classList.add('d-none');
+            listContainer.classList.remove('d-none');
+        });
+}
+
+function renderModalAlerts(items) {
+    const ul = document.getElementById('alertsModalUl');
+    ul.innerHTML = '';
+    
+    if (items.length === 0) {
+        ul.innerHTML = `<li class="list-group-item text-muted text-center py-3 border-0 bg-transparent">No records found.</li>`;
+        return;
+    }
+    
+    items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex flex-column gap-1 py-2 px-1 border-bottom bg-transparent text-start';
+        li.style.borderColor = 'var(--gray-100)';
+        
+        // Add styling for dark mode compatibility in border
+        if (document.documentElement.classList.contains('dark-mode')) {
+            li.style.borderColor = '#334155';
+        }
+        
+        li.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span class="fw-semibold text-dark-emphasis">${item.label}</span>
+                <span class="badge ${item.date_info.startsWith('Expired') ? 'bg-danger text-white' : 'bg-warning text-dark'} border-0 px-2 py-1" style="font-size: 10px; border-radius: 4px;">
+                    ${item.date_info}
+                </span>
+            </div>
+            <div class="text-muted mt-1" style="font-size: 11px;">
+                Record: <a href="${item.record_url}" class="fw-semibold text-primary text-decoration-underline">${item.record_title}</a>
+            </div>
+        `;
+        ul.appendChild(li);
+    });
+}
+
+function filterAlertsModal() {
+    const query = document.getElementById('alertsModalSearch').value.toLowerCase().trim();
+    const filtered = allModalAlerts.filter(item => {
+        return item.label.toLowerCase().includes(query) || item.record_title.toLowerCase().includes(query);
+    });
+    renderModalAlerts(filtered);
+}
+
+function closeAlertsModal() {
+    document.getElementById('alertsModal').classList.add('d-none');
+}
+
+// Close modal on Escape key press
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeAlertsModal();
+    }
+});
+</script>
+{% endblock %}
+

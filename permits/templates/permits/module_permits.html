@@ -1,0 +1,264 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Permit Records — Engineering Records — e-TALA{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size: var(--text-base);">
+        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ══ PAGE HEADER ═════════════════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <h1>Permit Applications</h1>
+        <p class="page-subtitle">
+            Results: <span class="fw-bold text-dark">{{ page_obj.paginator.count }} permits</span> |
+            Pending: <span class="fw-bold text-warning">{{ pending_count }}</span> |
+            Complete: <span class="fw-bold text-success">{{ complete_count }}</span>
+        </p>
+    </div>
+    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+    <a href="{% url 'create_record' %}" class="action-btn action-btn-primary">
+        <i data-lucide="plus"></i>
+        New Permit Record
+    </a>
+    {% endif %}
+</div>
+
+<!-- ══ FILTER BAR ══════════════════════════════════════════════════════════ -->
+<div class="content-card section-gap">
+    <div class="content-card-body" style="padding: 16px 20px;">
+        <form method="GET" class="d-flex flex-wrap gap-2 align-items-center">
+            <!-- Search -->
+            <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+                <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+                <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+                <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            </div>
+
+            <!-- Barangay filter -->
+            <select name="barangay" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:160px; max-width:180px; cursor: pointer;">
+                <option value="">All Barangays</option>
+                {% for b in barangays %}
+                <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:'s' %}selected{% endif %}>{{ b.barangay_name }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Permit Type filter -->
+            <select name="permit_type" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:150px; max-width:170px; cursor: pointer;">
+                <option value="">All Permit Types</option>
+                {% for val, label in permit_types %}
+                <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Status filter -->
+            <select name="status" class="form-select rounded-3" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); min-width:130px; max-width:150px; cursor: pointer;">
+                <option value="">All Status</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Year filter -->
+            <input type="number" name="year" value="{{ selected_year }}" class="form-control rounded-3"
+                   placeholder="Year" style="font-size: var(--text-sm); height: 38px; border-color: var(--border-default); width:90px;">
+
+            <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 38px;">
+                Filter
+            </button>
+            {% if q or selected_barangay or selected_permit_type or selected_status or selected_year %}
+            <a href="{% url 'permit_records' %}" class="action-btn action-btn-secondary action-btn-sm" style="height: 38px;">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- ══ RECORDS CARDS GRID ═══════════════════════════════════════════════════ -->
+{% if page_obj.object_list %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 mb-4">
+    {% for record in page_obj %}
+    {% with stats=record.completion_stats %}
+    <div class="col">
+        <div class="content-card h-100">
+            <div class="content-card-body d-flex flex-column h-100" style="padding: 20px;">
+                <!-- Card Header: Type Badge -->
+                <div class="d-flex align-items-center mb-3">
+                    <span class="me-2" style="font-size: 1.2rem;">🏢</span>
+                    <span class="fw-bold text-uppercase text-dark" style="font-size: var(--text-xs); letter-spacing: 0.3px;">
+                        {{ record.permit_detail.permit_type|upper }} PERMIT
+                    </span>
+                </div>
+
+                <!-- Application Details -->
+                <div class="mb-3" style="font-size: var(--text-sm); color: var(--gray-600); line-height: 1.6;">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Application #:</span>
+                        <span class="fw-semibold text-dark">#{{ record.record_id }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Applicant:</span>
+                        <span class="fw-semibold text-dark text-truncate" style="max-width: 150px;" title="{{ record.permit_detail.applicant_name }}">{{ record.permit_detail.applicant_name }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Encoded By:</span>
+                        <span class="fw-semibold text-dark text-truncate" style="max-width: 150px;" title="{{ record.created_by.full_name|default:record.created_by.username }}">{{ record.created_by.full_name|default:record.created_by.username }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Filed:</span>
+                        <span class="fw-semibold text-dark">{{ record.created_at|date:"d M Y" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Location:</span>
+                        <span class="fw-semibold text-dark">
+                            {% if record.barangay %}
+                            <a href="{% url 'barangay_workspace' record.barangay.barangay_id %}" class="text-decoration-none" style="color: var(--navy); font-weight: 600;">
+                                {{ record.barangay.barangay_name }}
+                            </a>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <hr class="my-2" style="border-color: var(--border-default);">
+
+                <!-- Status Badge & Progress -->
+                <div class="mb-3 mt-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1.5" style="font-size: var(--text-xs);">
+                        <span class="text-muted">Status:</span>
+                        {% if stats.is_complete %}
+                        <span class="tag tag-barangay">✓ COMPLETE</span>
+                        {% else %}
+                        <span class="tag" style="background:#fef3c7; color:#b45309;">⚠ INCOMPLETE</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size: var(--text-2xs); color: var(--gray-400);">
+                        <span>Progress:</span>
+                        <span class="fw-semibold">{{ stats.fulfilled }} of {{ stats.total }} documents</span>
+                    </div>
+
+                    <div class="progress" style="height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden;">
+                        <div class="progress-bar" style="width: {{ stats.pct }}%; background: {% if stats.is_complete %}#16a34a{% else %}#f59e0b{% endif %}; height: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Missing Documents checklist -->
+                {% if not stats.is_complete and stats.missing %}
+                <div class="mb-3 p-2 rounded" style="background: #fffbeb; border: 1px solid #fef3c7; font-size: var(--text-2xs);">
+                    <div class="fw-bold text-warning mb-1" style="color: #b45309 !important;">Missing:</div>
+                    <ul class="mb-0 ps-3 text-muted" style="list-style-type: disc;">
+                        {% for doc_item in stats.missing|slice:":2" %}
+                        <li>{{ doc_item }}</li>
+                        {% endfor %}
+                        {% if stats.missing|length > 2 %}
+                        <li>({{ stats.missing|length|add:"-2" }} more)</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- Buttons -->
+                <div class="mt-auto d-flex gap-2">
+                    {% if stats.is_complete %}
+                    <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-secondary action-btn-xs flex-grow-1">View Details</a>
+                    <button class="action-btn action-btn-primary action-btn-xs" onclick="alert('Permit approved successfully!')">Approve</button>
+                    <button class="action-btn action-btn-danger action-btn-xs" onclick="alert('Permit rejected.')">Reject</button>
+                    {% else %}
+                    <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-primary action-btn-xs flex-grow-1">View Checklist</a>
+                    <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-secondary action-btn-xs flex-grow-1">Upload Document</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+<div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3 rounded-3 border">
+    <div class="d-flex align-items-center gap-3">
+        <span class="pagination-info m-0">
+            {% if page_obj.paginator.count > 0 %}
+            Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} permits
+            {% else %}
+            Showing 0–0 of 0 permits
+            {% endif %}
+        </span>
+        <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+            <span>Show:</span>
+            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="d-flex align-items-center gap-3">
+        <!-- Page Jump Input -->
+        <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+            <span>Go to:</span>
+            <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+            <span>/ {{ page_obj.paginator.num_pages }}</span>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <nav>
+            <ul class="pagination pagination-sm mb-0 gap-1">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link border rounded" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">‹ Prev</a>
+                </li>
+                {% endif %}
+                {% for p in page_obj.paginator.page_range %}
+                {% if page_obj.number == p %}
+                <li class="page-item active"><span class="page-link" style="background: var(--primary-brand); border-color: var(--primary-brand); font-size: var(--text-xs);">{{ p }}</span></li>
+                {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                <li class="page-item"><a class="page-link border" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">{{ p }}</a></li>
+                {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link border rounded" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">Next ›</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+{% else %}
+<div class="content-card">
+    <div class="empty-state-unified">
+        <i data-lucide="file-text"></i>
+        <h6>No permit records found</h6>
+        {% if q or selected_barangay or selected_permit_type or selected_status %}
+        <p>No permits match your current filters. Try clearing the filters.</p>
+        <a href="{% url 'permit_records' %}" class="action-btn action-btn-secondary action-btn-sm mt-2">Clear Filters</a>
+        {% else %}
+        <p>No permit records encoded yet. Click <strong>New Permit Record</strong> to start.</p>
+        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+        <a href="{% url 'create_record' %}" class="action-btn action-btn-primary mt-3">
+            <i data-lucide="plus"></i> New Permit Record
+        </a>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

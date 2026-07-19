@@ -1,0 +1,436 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Summary Reports — e-TALA{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            padding-top: 0 !important;
+        }
+        .sidebar, .erarms-header, .btn, button, nav, .d-print-none, .card-header-actions {
+            display: none !important;
+        }
+        .erarms-content {
+            margin-left: 0 !important;
+            padding: 0 !important;
+        }
+        .card {
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+        }
+        .print-header {
+            display: block !important;
+            text-align: center;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #1e3a8a;
+            padding-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">Reports</span>
+{% endblock %}
+
+{% block content %}
+<!-- Print Header (Hidden on screen, shown in print) -->
+<div class="print-header d-none">
+    <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
+        <img src="{% static 'carigara_logo.png' %}" alt="Municipal Logo" style="width: 55px; height: 55px; object-fit: contain;">
+        <div class="text-start">
+            <h4 class="fw-bold m-0" style="color: #1e3a8a;">Municipal Engineering Office</h4>
+            <h6 class="text-muted m-0">Engineering Records Summary Report</h6>
+        </div>
+    </div>
+    <div class="text-center text-muted small mt-2">
+        Municipality of Carigara, Leyte • Generated: {% now "F d, Y" %}
+    </div>
+</div>
+<!-- ══ PAGE HEADER — Modern layout with export actions ══════════════════ -->
+<div class="page-title-row d-print-none">
+    <div>
+        <h1>
+            <i data-lucide="bar-chart-3" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+            Summary Reports
+        </h1>
+        <p class="page-subtitle">
+            Use this page to generate a report of your records — filter by category, barangay, or year, then export it as Excel or PDF for printing or submission.
+        </p>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <button onclick="triggerExport('excel')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
+            <i data-lucide="file-spreadsheet" style="width: 14px; height: 14px; color:#15803d;"></i> Export Excel
+        </button>
+        <button onclick="triggerExport('pdf')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
+            <i data-lucide="file-text" style="width: 14px; height: 14px; color:#b91c1c;"></i> Export PDF
+        </button>
+        <button onclick="window.print()" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
+            <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Print Report
+        </button>
+    </div>
+</div>
+
+<!-- ══ FILTER BAR ══════════════════════════════════════════════════════════ -->
+<div class="content-card section-gap d-print-none">
+    <div class="content-card-body" style="padding: 16px 20px;">
+        <form method="GET" action="{% url 'reports' %}" class="d-flex flex-wrap gap-2 align-items-center">
+            <!-- Record Type filter -->
+            <select name="record_type" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#e2e8f0; min-width:160px; max-width:180px; cursor: pointer;">
+                <option value="">All Categories</option>
+                <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permits Only</option>
+                <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Projects Only</option>
+            </select>
+
+            <!-- Barangay filter -->
+            <select name="barangay" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#e2e8f0; min-width:160px; max-width:180px; cursor: pointer;">
+                <option value="">All Barangays</option>
+                {% for b in barangays %}
+                <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                {% endfor %}
+            </select>
+
+            <!-- Year filter -->
+            <input type="number" name="year" class="form-control rounded-3" placeholder="Year" value="{{ selected_year }}" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#e2e8f0; width:100px;">
+        </form>
+    </div>
+</div>
+
+<!-- ══ FILTER APPLICATION NOTIFICATION ═══════════════════════════════════ -->
+<div class="d-print-none">
+    {% if active_filters %}
+    <div class="alert alert-info py-2.5 px-3 mb-4 d-flex align-items-center justify-content-between rounded-3 border-0 shadow-sm" style="font-size: var(--text-sm); background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe !important;">
+        <div class="d-flex align-items-center gap-2">
+            <i data-lucide="filter" style="width: 16px; height: 16px; color: #3b82f6;"></i>
+            <span>Showing filtered results for: <strong>{{ active_filters|join:", " }}</strong></span>
+        </div>
+        <a href="{% url 'reports' %}" class="action-btn action-btn-secondary action-btn-xs" style="background: #ffffff; border: 1px solid #dbeafe; color: #1e40af; border-radius: 4px; padding: 4px 8px; font-size: 11px;">
+            <i data-lucide="x" style="width: 11px; height: 11px;"></i> Reset Filters
+        </a>
+    </div>
+    {% else %}
+    <div class="alert alert-light py-2.5 px-3 mb-4 d-flex align-items-center rounded-3 border-0 text-muted" style="font-size: var(--text-sm); background: #f8fafc; border: 1px solid #e2e8f0 !important;">
+        <i data-lucide="info" class="me-2" style="width: 16px; height: 16px; color: #64748b;"></i>
+        <span>Showing overall summary across all records. Use the filters above to generate a specific report.</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ══ OVERVIEW GROUP & SECURITY PANEL ═══════════════════════════════════ -->
+<div class="row g-4 mb-4">
+    <!-- Group: Record Counts and Status Comparison -->
+    <div class="col-lg-8">
+        <div class="content-card h-100" style="padding: 24px;">
+            <h6 class="fw-bold text-dark mb-4" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px;">
+                Record Summary Overview
+            </h6>
+            
+            <div class="row g-3 align-items-center h-100">
+                <!-- Total Indexed Records -->
+                <div class="col-sm-6 text-center border-end" style="border-color: var(--border-default) !important;">
+                    <span class="text-muted small fw-bold text-uppercase mb-2 d-block" style="letter-spacing: 0.5px; font-size:0.68rem;">Total Digitized Records</span>
+                    <h1 class="fw-bold m-0" style="color: var(--navy); font-size: 3rem;">{{ total_count }}</h1>
+                    <p class="text-muted small mt-2 mb-0" style="font-size:0.75rem;">Records matching the filter criteria.</p>
+                </div>
+                <!-- Active vs Archived Comparison (always sum exactly to total_count) -->
+                <div class="col-sm-6">
+                    <span class="text-muted small fw-bold text-uppercase mb-4 d-block text-center" style="letter-spacing: 0.5px; font-size:0.68rem;">Archiving Status Comparison</span>
+                    <div class="d-flex justify-content-around align-items-center">
+                        <div class="text-center">
+                            <span class="tag tag-workspace px-3 py-1 fw-bold d-inline-block" style="font-size: 0.65rem; background: #e6f4ea; color: #137333; border-radius: 12px; margin-bottom: 6px;">ACTIVE</span>
+                            <h2 class="fw-bold m-0 text-dark" style="font-size:1.6rem;">{{ total_active }}</h2>
+                        </div>
+                        <div style="width: 1px; height: 35px; background-color: #cbd5e1;"></div>
+                        <div class="text-center">
+                            <span class="tag tag-permit px-3 py-1 fw-bold d-inline-block" style="font-size: 0.65rem; background: #f1f5f9; color: #475569; border-radius: 12px; margin-bottom: 6px;">ARCHIVED</span>
+                            <h2 class="fw-bold m-0 text-dark" style="font-size:1.6rem;">{{ total_archived }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Group: Separate Security & Backups -->
+    <div class="col-lg-4">
+        <div class="content-card text-center h-100 d-flex flex-column justify-content-center" style="padding: 24px;">
+            <span class="text-muted small fw-bold text-uppercase mb-3 d-block" style="letter-spacing: 0.5px; font-size:0.68rem;">Security & Backups</span>
+            <div class="d-inline-flex align-items-center justify-content-center gap-2 mb-2">
+                <i data-lucide="shield-check" class="text-success" style="width: 26px; height: 26px; color: #15803d;"></i>
+                <span class="fw-bold text-dark" style="font-size: 1.15rem;">System Protected</span>
+            </div>
+            <p class="text-muted small mb-0" style="font-size:0.75rem;">Backup schedule active.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ══ DETAILED METRICS GRID ═════════════════════════════════════════════ -->
+<div class="row g-4 mb-5">
+    <!-- Category Distribution (always matches total_count) -->
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
+                <h5 class="content-card-title border-bottom pb-2">
+                    <i data-lucide="folder-tree" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                    Records by Category
+                </h5>
+                <p class="text-muted small mb-3">Shows how many records fall under each record type.</p>
+                
+                {% if total_count > 0 %}
+                <div class="flex-grow-1 position-relative" style="height: 240px;">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                {% else %}
+                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
+                    <i data-lucide="clipboard-list" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
+                    <h6>No records matching filters in these categories.</h6>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Growth (Cumulative) -->
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
+                <h5 class="content-card-title border-bottom pb-2">
+                    <i data-lucide="trending-up" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                    Archive Growth (Cumulative)
+                </h5>
+                <p class="text-muted small mb-3">Tracks how many total records have been added to the system over time.</p>
+                
+                {% if growth_data %}
+                <div class="flex-grow-1 position-relative" style="height: 240px;">
+                    <canvas id="growthChart"></canvas>
+                </div>
+                {% else %}
+                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
+                    <i data-lucide="trending-up" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
+                    <h6>No historical upload data available.</h6>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents by Barangay -->
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
+                <h5 class="content-card-title border-bottom pb-2">
+                    <i data-lucide="map-pin" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                    Records by Barangay
+                </h5>
+                <p class="text-muted small mb-3">Shows document counts for each barangay location.</p>
+                
+                {% if by_barangay %}
+                <div class="flex-grow-1 position-relative" style="height: 240px; overflow-y: auto;">
+                    <canvas id="barangayChart"></canvas>
+                </div>
+                {% else %}
+                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
+                    <i data-lucide="map-pin" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
+                    <h6>No barangay records.</h6>
+                    <p class="text-muted small">No records found matching the current filters in any barangay.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents by Year -->
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
+                <h5 class="content-card-title border-bottom pb-2">
+                    <i data-lucide="calendar-days" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                    Records by Year
+                </h5>
+                <p class="text-muted small mb-3">Shows document counts organized by construction/filing year.</p>
+                
+                {% if by_year %}
+                <div class="flex-grow-1 position-relative" style="height: 240px;">
+                    <canvas id="yearChart"></canvas>
+                </div>
+                {% else %}
+                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
+                    <i data-lucide="calendar" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
+                    <h6>No yearly records.</h6>
+                    <p class="text-muted small">No records found matching the current filters for any year.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Records by Category Doughnut Chart
+    const ctxCategory = document.getElementById('categoryChart');
+    if (ctxCategory) {
+        new Chart(ctxCategory, {
+            type: 'doughnut',
+            data: {
+                labels: ['Permit Records', 'Municipal Projects', 'Barangay Projects'],
+                datasets: [{
+                    data: [
+                        {% if by_category.0.count %}{{ by_category.0.count }}{% else %}0{% endif %},
+                        {% if by_category.1.count %}{{ by_category.1.count }}{% else %}0{% endif %},
+                        {% if by_category.2.count %}{{ by_category.2.count }}{% else %}0{% endif %}
+                    ],
+                    backgroundColor: ['#002855', '#C5A059', '#3b82f6'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 15,
+                            font: { size: 11, family: 'Inter, system-ui, sans-serif' }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Archive Growth Cumulative Chart
+    const ctxGrowth = document.getElementById('growthChart');
+    if (ctxGrowth) {
+        const growthMonths = [{% for g in growth_data %}"{{ g.month }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
+        const growthCounts = [{% for g in growth_data %}{{ g.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+        new Chart(ctxGrowth, {
+            type: 'line',
+            data: {
+                labels: growthMonths,
+                datasets: [{
+                    label: 'Cumulative Records',
+                    data: growthCounts,
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.12)',
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#0284c7'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } }
+                    },
+                    x: {
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // 3. Records by Barangay Horizontal Bar Chart
+    const ctxBarangay = document.getElementById('barangayChart');
+    if (ctxBarangay) {
+        const barangayNames = [{% for b in by_barangay %}"{% if b.barangay__barangay_name %}Brgy. {{ b.barangay__barangay_name }}{% else %}Unassigned{% endif %}"{% if not forloop.last %}, {% endif %}{% endfor %}];
+        const barangayCounts = [{% for b in by_barangay %}{{ b.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+        new Chart(ctxBarangay, {
+            type: 'bar',
+            data: {
+                labels: barangayNames,
+                datasets: [{
+                    label: 'Record Count',
+                    data: barangayCounts,
+                    backgroundColor: '#0d9488',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } }
+                    },
+                    y: {
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // 4. Records by Year Vertical Bar Chart
+    const ctxYear = document.getElementById('yearChart');
+    if (ctxYear) {
+        const yearLabels = [{% for y in by_year %}"{{ y.year|default:'Unspecified' }}"{% if not forloop.last %}, {% endif %}{% endfor %}].reverse();
+        const yearCounts = [{% for y in by_year %}{{ y.count }}{% if not forloop.last %}, {% endif %}{% endfor %}].reverse();
+        new Chart(ctxYear, {
+            type: 'bar',
+            data: {
+                labels: yearLabels,
+                datasets: [{
+                    label: 'Records',
+                    data: yearCounts,
+                    backgroundColor: '#0ea5e9',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } }
+                    },
+                    x: {
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+});
+
+function triggerExport(format) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('export', format);
+    window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+}
+</script>
+{% endblock %}

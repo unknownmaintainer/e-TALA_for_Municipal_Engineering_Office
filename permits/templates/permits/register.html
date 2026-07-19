@@ -1,0 +1,790 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account — Engineering Records</title>
+    <meta name="description" content="Register a staff account on the Engineering Records Management and Archiving System of Carigara, Leyte.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="{% static 'js/fa_adapter.js' %}"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ── Official Government Colors ── */
+        :root {
+            --ph-navy: #002855;      /* Official Republic of the Philippines branding deep navy */
+            --ph-gold: #C5A059;      /* Dignified metallic gold accent */
+            --ph-gold-dark: #8F6E30; /* Darker gold for text element contrast */
+            --ph-gold-light: #F7EAD0;/* Soft background gold */
+            --slate-800: #1e293b;
+            --slate-700: #334155;
+            --slate-600: #475569;
+            --slate-500: #64748b;
+            --slate-400: #94a3b8;
+            --err-red: #c0392b;      /* High contrast warning red */
+        }
+
+        .lucide {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2.2px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spin-anim {
+            animation: spin 1s linear infinite;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 50% 50%, #f8fafc 0%, #e2e8f0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 4.5rem 1rem 3rem 1rem;
+        }
+
+        /* ── Official Gov.ph Inspired Top Bar ── */
+        .gov-top-bar {
+            background-color: #f8fafc;
+            border-bottom: 2px solid var(--ph-gold);
+            font-size: 11px;
+            color: var(--slate-600);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 8px 24px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            text-transform: uppercase;
+        }
+        .gov-top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .gov-flag-strip {
+            display: inline-block;
+            width: 18px;
+            height: 10px;
+            background: linear-gradient(to bottom, #0038a8 50%, #ce1126 50%);
+            position: relative;
+            border: 1px solid #cbd5e1;
+            flex-shrink: 0;
+        }
+        .gov-flag-strip::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background-color: #ffffff;
+            clip-path: polygon(0 0, 100% 50%, 0 100%);
+        }
+
+        /* ── Keyboard Accessibility Styles ── */
+        *:focus-visible {
+            outline: 3px solid var(--ph-gold) !important;
+            outline-offset: 2px !important;
+            box-shadow: 0 0 0 4px rgba(0, 40, 85, 0.25) !important;
+        }
+
+        /* ── Professional LGU Login Card ── */
+        .login-box {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 540px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e2e8f0;
+            border-top: 5px solid var(--ph-navy); /* Authoritative Top Bar Accent */
+            position: relative;
+            z-index: 10;
+        }
+
+        /* ── Municipal Seal Badge styling ── */
+        .seal-container {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 1.25rem auto;
+            border-radius: 50%;
+            background: #ffffff;
+            padding: 6px;
+            border: 2px solid var(--ph-gold);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .seal-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
+
+        /* ── Typography and Brand Wording ── */
+        .gov-sub-header {
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            color: var(--ph-gold-dark);
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 0.15rem;
+        }
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--ph-navy);
+            text-align: center;
+            letter-spacing: -0.3px;
+            line-height: 1.35;
+            margin-bottom: 0.25rem;
+        }
+        .brand-subtext {
+            text-align: center;
+            color: var(--slate-600);
+            font-size: 0.78rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+
+        /* ── Wizard Steps styling ── */
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            position: relative;
+            max-width: 380px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .step-indicator::before {
+            content: '';
+            position: absolute;
+            top: 18px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #cbd5e1;
+            z-index: 1;
+        }
+        .step-node {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+        }
+        .step-circle {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background-color: #cbd5e1;
+            color: var(--slate-600);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.92rem;
+            border: 4px solid #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.25s ease;
+        }
+        .step-node.active .step-circle {
+            background-color: var(--ph-navy);
+            color: #ffffff;
+            border-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.15);
+        }
+        .step-node.completed .step-circle {
+            background-color: #16803d;
+            color: #ffffff;
+        }
+        .step-label {
+            margin-top: 6px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--slate-600);
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+        .step-node.active .step-label {
+            color: var(--ph-navy);
+        }
+        .step-node.completed .step-label {
+            color: #16803d;
+        }
+
+        /* ── Input styling ── */
+        .input-group {
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            background: #f8fafc;
+        }
+        .input-group-text {
+            background-color: transparent !important;
+            border: none !important;
+            color: var(--slate-500);
+            font-size: 0.95rem;
+            padding-left: 1.1rem;
+            padding-right: 0.6rem;
+        }
+        .form-control {
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            padding: 0.8rem 1rem 0.8rem 0.5rem;
+            font-size: 0.92rem;
+            color: var(--slate-800);
+        }
+        .form-control::placeholder {
+            color: var(--slate-400);
+        }
+        .input-group:focus-within {
+            border-color: var(--ph-navy);
+            box-shadow: 0 0 0 3px rgba(0, 40, 85, 0.12);
+            background: #ffffff;
+        }
+        .input-group:focus-within .input-group-text {
+            color: var(--ph-navy);
+        }
+
+        label {
+            font-weight: 700;
+            font-size: 0.72rem;
+            color: var(--slate-700);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            display: block;
+        }
+        .required-badge {
+            display: inline-block;
+            font-size: 0.6rem;
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            margin-left: 6px;
+            text-transform: uppercase;
+        }
+
+        /* ── Action Buttons ── */
+        .btn-register {
+            background: var(--ph-navy);
+            color: white;
+            border: 1px solid var(--ph-gold);
+            border-radius: 8px;
+            padding: 0.8rem 1.5rem;
+            font-weight: 700;
+            font-size: 0.92rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-register:hover {
+            background: #001a3a;
+            border-color: #ffd88a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 40, 85, 0.15);
+            color: white;
+        }
+        .btn-register:active {
+            transform: translateY(1px);
+        }
+        .btn-secondary-custom {
+            background: var(--slate-100);
+            color: var(--slate-700);
+            border: 1px solid var(--slate-300);
+            border-radius: 8px;
+            padding: 0.8rem 1.5rem;
+            font-weight: 700;
+            font-size: 0.92rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-secondary-custom:hover {
+            background: var(--slate-200);
+            color: var(--slate-800);
+        }
+
+        .pw-toggle {
+            background: transparent !important;
+            border: none !important;
+            color: var(--slate-400);
+            padding: 0 1.1rem 0 0.5rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: color 0.18s ease;
+            display: flex;
+            align-items: center;
+        }
+        .pw-toggle:hover { color: var(--ph-navy); }
+
+        /* ── Form Steps panels ── */
+        .form-step { display: none; }
+        .form-step.active { display: block; animation: fadeIn 0.25s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Validation error message ── */
+        .validation-error {
+            color: var(--err-red);
+            font-size: 0.75rem;
+            margin-top: 5px;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ── Official Alert Banners ── */
+        .official-alert {
+            background-color: #fef2f2;
+            border-left: 4px solid var(--err-red);
+            border-top: 1px solid #fecaca;
+            border-bottom: 1px solid #fecaca;
+            border-right: 1px solid #fecaca;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+        .official-alert-icon {
+            color: var(--err-red);
+            margin-top: 1px;
+            flex-shrink: 0;
+        }
+        .official-alert-body {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            text-align: left;
+        }
+        .official-alert-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #991b1b;
+        }
+        .official-alert-msg {
+            font-size: 0.74rem;
+            color: #7f1d1d;
+            font-weight: 500;
+            line-height: 1.35;
+        }
+
+        /* ── Responsive Rules ── */
+        @media (max-width: 480px) {
+            body {
+                padding: 4.5rem 0.5rem 2rem 0.5rem;
+            }
+            .gov-top-bar {
+                padding: 8px 12px;
+                font-size: 10px;
+            }
+            .gov-top-bar-right {
+                display: none;
+            }
+            .login-box {
+                padding: 2.25rem 1.25rem;
+                border-radius: 10px;
+            }
+            .brand {
+                font-size: 1.15rem !important;
+            }
+            .seal-container {
+                width: 80px;
+                height: 80px;
+            }
+            .step-indicator {
+                margin-bottom: 1.5rem;
+            }
+            .step-circle {
+                width: 32px;
+                height: 32px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Official Republic of the Philippines Standard Top Bar ── -->
+    <div class="gov-top-bar" role="banner">
+        <div class="gov-top-bar-left">
+            <span class="gov-flag-strip" aria-hidden="true"></span>
+            <span>Official Portal of the Republic of the Philippines</span>
+        </div>
+        <div class="gov-top-bar-right">
+            <span>Municipality of Carigara</span>
+        </div>
+    </div>
+
+    <div class="login-box">
+        <div class="seal-container">
+            <img src="{% static 'carigara_logo.png' %}" alt="Official Municipal Seal of Carigara, Leyte" class="seal-image">
+        </div>
+
+        <div class="gov-sub-header">Republic of the Philippines</div>
+        <h1 class="brand" id="login-brand">
+            Engineering Records Archiving &amp; Retrieval System
+        </h1>
+        <p class="brand-subtext">Municipal Engineering Office of Carigara, Leyte</p>
+
+        <!-- Step Indicators -->
+        <div class="step-indicator">
+            <div class="step-node active" id="stepNode1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Profile</div>
+            </div>
+            <div class="step-node" id="stepNode2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Security</div>
+            </div>
+            <div class="step-node" id="stepNode3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Identity</div>
+            </div>
+        </div>
+
+        <!-- ── System Message Alerts ── -->
+        <div id="alertWrapper">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="official-alert" role="alert">
+                        <i data-lucide="alert-circle" class="official-alert-icon"></i>
+                        <div class="official-alert-body">
+                            <span class="official-alert-title">System Alert</span>
+                            <span class="official-alert-msg">{{ message }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- ── Multi-Step Form ── -->
+        <form method="POST" action="{% url 'register' %}" enctype="multipart/form-data" id="registerForm" onsubmit="return validateFormSubmit(event)" novalidate>
+            {% csrf_token %}
+
+            <!-- STEP 1: Profile Details -->
+            <div class="form-step active" id="step1">
+                <div class="mb-3">
+                    <label for="fullName">Full Name <span class="required-badge">Required</span></label>
+                    <div class="input-group" id="fullNameGroup">
+                        <span class="input-group-text"><i data-lucide="user"></i></span>
+                        <input type="text" class="form-control" id="fullName" name="full_name" placeholder="Enter your full name" required>
+                    </div>
+                    <div class="validation-error" id="fullNameError"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="phoneNumber">Phone Number</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i data-lucide="phone"></i></span>
+                        <input type="text" class="form-control" id="phoneNumber" name="phone_number" placeholder="e.g., 09171234567">
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="address">Home Address</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i data-lucide="map-pin"></i></span>
+                        <input type="text" class="form-control" id="address" name="address" placeholder="Enter home address">
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn-register justify-content-center" style="min-width: 120px;" onclick="goToStep(2)">
+                        Next <i data-lucide="arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 2: Security & Credentials -->
+            <div class="form-step" id="step2">
+                <div class="mb-3">
+                    <label for="registerEmail">Email Address <span class="required-badge">Required</span></label>
+                    <div class="input-group" id="emailGroup">
+                        <span class="input-group-text"><i data-lucide="mail"></i></span>
+                        <input type="email" class="form-control" id="registerEmail" name="email" placeholder="Enter your email address" required autocomplete="email">
+                    </div>
+                    <div class="validation-error" id="emailError"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="registerPassword">Password <span class="required-badge">Required</span></label>
+                    <div class="input-group" id="passwordGroup">
+                        <span class="input-group-text"><i data-lucide="lock"></i></span>
+                        <input type="password" class="form-control" id="registerPassword" name="password" placeholder="Create password" required autocomplete="new-password">
+                        <button type="button" class="pw-toggle" onclick="togglePassword('registerPassword', 'regIcon1')" aria-label="Toggle password visibility"><i data-lucide="eye" id="regIcon1"></i></button>
+                    </div>
+                    <div class="validation-error" id="passwordError"></div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="confirmPassword">Confirm Password <span class="required-badge">Required</span></label>
+                    <div class="input-group" id="confirmPasswordGroup">
+                        <span class="input-group-text"><i data-lucide="lock"></i></span>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirm_password" placeholder="Re-enter password" required autocomplete="new-password">
+                        <button type="button" class="pw-toggle" onclick="togglePassword('confirmPassword', 'regIcon2')" aria-label="Toggle password visibility"><i data-lucide="eye" id="regIcon2"></i></button>
+                    </div>
+                    <div class="validation-error" id="confirmPasswordError"></div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn-secondary-custom" onclick="goToStep(1)">
+                        <i data-lucide="arrow-left"></i> Back
+                    </button>
+                    <button type="button" class="btn-register justify-content-center" style="min-width: 120px;" onclick="goToStep(3)">
+                        Next <i data-lucide="arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 3: Identity Verification -->
+            <div class="form-step" id="step3">
+                <div class="mb-4">
+                    <label for="governmentId">Government-Issued ID Photo <span class="required-badge">Required</span></label>
+                    <div class="input-group" id="fileGroup">
+                        <span class="input-group-text"><i data-lucide="contact"></i></span>
+                        <input type="file" class="form-control" id="governmentId" name="government_id" accept=".jpg,.jpeg,.png" required onchange="validateFile(this)">
+                    </div>
+                    <small class="text-muted mt-2 d-block" style="font-size: 0.72rem; line-height: 1.4;">Only JPEG, JPG, and PNG are allowed. Maximum size: 10MB.</small>
+                    <div class="validation-error" id="fileError"></div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn-secondary-custom" onclick="goToStep(2)">
+                        <i data-lucide="arrow-left"></i> Back
+                    </button>
+                    <button type="submit" class="btn-register" id="btnSubmit">
+                        <i data-lucide="user-plus"></i><span>Create Account</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-4" style="border-color: #cbd5e1;">
+        <p class="text-center text-muted mb-0" style="font-size: 0.85rem;">
+            Already have an account? <a href="{% url 'login' %}" class="fw-bold text-decoration-none" style="color: var(--ph-navy);">Sign In</a>
+        </p>
+    </div>
+
+    <script>
+    // Initialize Lucide Icons Adapter
+    lucide.createIcons();
+
+    let currentStep = 1;
+
+    function goToStep(step) {
+        if (step > currentStep) {
+            const isValid = validateStep(currentStep);
+            if (!isValid) return;
+        }
+
+        // Hide current step panel and update nodes
+        document.getElementById(`step${currentStep}`).classList.remove('active');
+        document.getElementById(`stepNode${currentStep}`).classList.remove('active');
+        
+        if (step > currentStep) {
+            document.getElementById(`stepNode${currentStep}`).classList.add('completed');
+        } else {
+            for (let i = step; i <= 3; i++) {
+                document.getElementById(`stepNode${i}`).classList.remove('completed');
+            }
+        }
+
+        // Show target step panel
+        currentStep = step;
+        document.getElementById(`step${currentStep}`).classList.add('active');
+        document.getElementById(`stepNode${currentStep}`).classList.add('active');
+        document.getElementById(`stepNode${currentStep}`).classList.remove('completed');
+
+        lucide.createIcons();
+    }
+
+    function validateStep(step) {
+        let isValid = true;
+        
+        // Clear previous error messages and validation classes
+        document.querySelectorAll('.validation-error').forEach(el => {
+            el.style.display = 'none';
+            el.innerHTML = '';
+        });
+        document.querySelectorAll('.input-group').forEach(el => {
+            el.classList.remove('is-invalid');
+        });
+
+        if (step === 1) {
+            const fullName = document.getElementById('fullName');
+            if (!fullName.value.trim()) {
+                document.getElementById('fullNameGroup').classList.add('is-invalid');
+                showError('fullNameError', 'Full name is required to complete profile.');
+                isValid = false;
+            }
+        } else if (step === 2) {
+            const email = document.getElementById('registerEmail');
+            const password = document.getElementById('registerPassword');
+            const confirmPassword = document.getElementById('confirmPassword');
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (!email.value.trim()) {
+                document.getElementById('emailGroup').classList.add('is-invalid');
+                showError('emailError', 'Email address is required.');
+                isValid = false;
+            } else if (!emailRegex.test(email.value.trim())) {
+                document.getElementById('emailGroup').classList.add('is-invalid');
+                showError('emailError', 'Please enter a valid email format.');
+                isValid = false;
+            }
+
+            if (!password.value) {
+                document.getElementById('passwordGroup').classList.add('is-invalid');
+                showError('passwordError', 'Password is required.');
+                isValid = false;
+            } else if (password.value.length < 8) {
+                document.getElementById('passwordGroup').classList.add('is-invalid');
+                showError('passwordError', 'Password must be at least 8 characters long.');
+                isValid = false;
+            } else {
+                const hasUpper = /[A-Z]/.test(password.value);
+                const hasLower = /[a-z]/.test(password.value);
+                const hasDigit = /[0-9]/.test(password.value);
+                if (!hasUpper || !hasLower || !hasDigit) {
+                    document.getElementById('passwordGroup').classList.add('is-invalid');
+                    showError('passwordError', 'Password requires at least 1 uppercase, 1 lowercase, and 1 number.');
+                    isValid = false;
+                }
+            }
+
+            if (!confirmPassword.value) {
+                document.getElementById('confirmPasswordGroup').classList.add('is-invalid');
+                showError('confirmPasswordError', 'Please confirm password.');
+                isValid = false;
+            } else if (password.value !== confirmPassword.value) {
+                document.getElementById('confirmPasswordGroup').classList.add('is-invalid');
+                showError('confirmPasswordError', 'Passwords do not match.');
+                isValid = false;
+            }
+        }
+
+        return isValid;
+    }
+
+    function showError(id, message) {
+        const errorEl = document.getElementById(id);
+        if (errorEl) {
+            errorEl.innerHTML = `<i data-lucide="alert-circle" style="width: 14px; height: 14px; display: inline-block; vertical-align: -2px;"></i> ${message}`;
+            errorEl.style.display = 'flex';
+            lucide.createIcons();
+        }
+    }
+
+    function validateFile(input) {
+        const file = input.files[0];
+        const errorEl = document.getElementById('fileError');
+        const fileGroup = document.getElementById('fileGroup');
+        errorEl.style.display = 'none';
+        errorEl.innerHTML = '';
+        fileGroup.classList.remove('is-invalid');
+
+        if (!file) return false;
+
+        const allowedExtensions = /(\.jpg|\.jpeg|\.png)$/i;
+        if (!allowedExtensions.exec(file.name)) {
+            fileGroup.classList.add('is-invalid');
+            showError('fileError', 'Only JPG, JPEG, and PNG images are accepted.');
+            input.value = '';
+            return false;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            fileGroup.classList.add('is-invalid');
+            showError('fileError', 'File size exceeds 10MB limit.');
+            input.value = '';
+            return false;
+        }
+
+        return true;
+    }
+
+    function validateFormSubmit(event) {
+        for (let s = 1; s <= 2; s++) {
+            if (!validateStep(s)) {
+                goToStep(s);
+                event.preventDefault();
+                return false;
+            }
+        }
+
+        const fileInput = document.getElementById('governmentId');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            document.getElementById('fileGroup').classList.add('is-invalid');
+            showError('fileError', 'Please upload a photo of your valid Government ID.');
+            goToStep(3);
+            event.preventDefault();
+            return false;
+        }
+
+        // Apply loading spinner to submit button
+        const submitBtn = document.getElementById('btnSubmit');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i data-lucide="loader" class="spin-anim"></i><span>Registering...</span>';
+        lucide.createIcons();
+
+        return true;
+    }
+
+    function togglePassword(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon  = document.getElementById(iconId);
+        if (input.type === 'password') { 
+            input.type = 'text'; 
+            icon.setAttribute('data-lucide', 'eye-off'); 
+        } else { 
+            input.type = 'password'; 
+            icon.setAttribute('data-lucide', 'eye'); 
+        }
+        lucide.createIcons();
+    }
+    </script>
+</body>
+</html>

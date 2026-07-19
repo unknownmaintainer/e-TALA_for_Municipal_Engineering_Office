@@ -1,0 +1,164 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Archived Records — e-TALA{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-title-row">
+    <div>
+        <h1>
+            <i data-lucide="archive" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+            Archived Records
+        </h1>
+        <p class="page-subtitle">All soft-deleted and permanently stored records. Only Administrators can manage these files.</p>
+    </div>
+</div>
+
+<!-- Search Bar -->
+<div class="filter-bar section-gap">
+    <form method="GET" action="{% url 'archive' %}" class="d-flex gap-2 align-items-center flex-grow-1">
+        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+            <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1"
+                   placeholder="Search..."
+                   style="font-size: var(--text-sm); outline: none; box-shadow: none; height: 100%; background: transparent;">
+            {% if q %}
+            <a href="{% url 'archive' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background: transparent;" title="Clear search">
+                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Table of Archived Items -->
+{% if page_obj.object_list %}
+<div class="content-card" style="overflow: hidden;">
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Record Title</th>
+                    <th>Type</th>
+                    <th>Barangay</th>
+                    <th>Archived Date</th>
+                    <th class="text-end" style="width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in page_obj %}
+                <tr onclick="window.location='{% url 'record_detail' record.record_id %}'">
+                    <td>
+                        <div class="cell-title">{{ record.title|truncatechars:55 }}</div>
+                        <div class="cell-subtitle">
+                            Encoded by: {{ record.created_by.full_name|default:record.created_by.username }}
+                        </div>
+                    </td>
+                    <td>
+                        {% if record.record_type == 'Permit' %}
+                        <span class="tag tag-permit">{{ record.specific_type_label }}</span>
+                        {% else %}
+                        <span class="tag tag-project">{{ record.specific_type_label }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="cell-muted">{{ record.barangay.barangay_name }}</td>
+                    <td class="cell-muted">{{ record.updated_at|date:"M d, Y" }}</td>
+                    <td class="text-end" onclick="event.stopPropagation()">
+                        <div class="dropdown d-inline-block">
+                            <button class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i data-lucide="more-horizontal"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:140px; font-size: var(--text-xs); border-radius:8px;">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'record_detail' record.record_id %}">
+                                        <i data-lucide="eye" style="width:14px;height:14px;"></i> Inspect
+                                    </a>
+                                </li>
+                                {% if request.user.role == 'admin' %}
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-success" href="{% url 'restore_record' record.record_id %}" onclick="return confirm('Restore this record?')">
+                                        <i data-lucide="rotate-ccw" style="width:14px;height:14px; color:#10b981;"></i> Restore
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-3">
+            <span class="pagination-info m-0">
+                {% if page_obj.paginator.count > 0 %}
+                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} archived records
+                {% else %}
+                Showing 0–0 of 0 archived records
+                {% endif %}
+            </span>
+            <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                <span>Show:</span>
+                <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="d-flex align-items-center gap-3">
+            <!-- Page Jump Input -->
+            <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                <span>Go to:</span>
+                <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+                <span>/ {{ page_obj.paginator.num_pages }}</span>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <nav>
+                <ul class="pagination pagination-sm mb-0 gap-1">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link border rounded" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}"
+                           style="font-size: var(--text-xs);">‹ Prev</a>
+                    </li>
+                    {% endif %}
+                    {% for p in page_obj.paginator.page_range %}
+                    {% if page_obj.number == p %}
+                    <li class="page-item active"><span class="page-link" style="background: var(--primary-brand); border-color: var(--primary-brand); font-size: var(--text-xs);">{{ p }}</span></li>
+                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                    <li class="page-item"><a class="page-link border" href="?{% if q %}q={{ q }}&{% endif %}page={{ p }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">{{ p }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link border rounded" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}"
+                           style="font-size: var(--text-xs);">Next ›</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3 mx-auto"
+         style="width:64px;height:64px;background:#f1f5f9;">
+        <i data-lucide="archive" style="width:28px;height:28px;color:#94a3b8;"></i>
+    </div>
+    <h5 class="fw-bold mb-1">Archive is empty</h5>
+    <p class="text-muted small">No records are currently archived.</p>
+</div>
+{% endif %}
+
+{% endblock %}

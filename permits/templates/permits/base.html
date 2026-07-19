@@ -1,0 +1,695 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}e-TALA — Engineering Records{% endblock %}</title>
+    <meta name="description"
+        content="Engineering Records Archiving and Retrieval Management System — Municipal Engineering Office, Carigara, Leyte">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="{% static 'js/fa_adapter.js' %}"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=11">
+    <script>
+        // Immediate check to prevent FOUC (flash of unstyled content)
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark-mode');
+        } else {
+            document.documentElement.classList.remove('dark-mode');
+        }
+    </script>
+    <style>
+        /* Bulletproof inline Dark Mode overrides to prevent browser caching issues */
+        .dark-mode, .dark-mode body, .dark-mode .erarms-main {
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+        }
+        .dark-mode {
+            --gray-300: #475569 !important;
+            --gray-400: #94a3b8 !important;
+            --gray-500: #cbd5e1 !important;
+            --gray-600: #e2e8f0 !important;
+            --gray-700: #f1f5f9 !important;
+            --gray-800: #f8fafc !important;
+            --gray-900: #ffffff !important;
+        }
+        .dark-mode .text-dark {
+            color: #f8fafc !important;
+        }
+        .dark-mode .text-muted {
+            color: #cbd5e1 !important;
+        }
+        .dark-mode .content-card, 
+        .dark-mode .welcome-card, 
+        .dark-mode .card, 
+        .dark-mode .premium-welcome-card,
+        .dark-mode .modal-content,
+        .dark-mode .dropdown-menu,
+        .dark-mode .list-group-item {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        .dark-mode .dropdown-item {
+            color: #cbd5e1 !important;
+        }
+        .dark-mode .dropdown-item:hover,
+        .dark-mode .dropdown-item:focus {
+            background-color: #334155 !important;
+            color: #ffffff !important;
+        }
+        .dark-mode .dropdown-divider {
+            border-color: #334155 !important;
+        }
+        .dark-mode .modal-header,
+        .dark-mode .modal-footer {
+            border-color: #334155 !important;
+        }
+        .dark-mode .btn-close {
+            filter: invert(1) grayscale(1) brightness(2) !important;
+        }
+        .dark-mode input.form-control,
+        .dark-mode select.form-select,
+        .dark-mode textarea.form-control {
+            background-color: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+            box-shadow: none !important;
+        }
+        .dark-mode input.form-control::placeholder {
+            color: #64748b !important;
+        }
+        .dark-mode .filter-search-group,
+        .dark-mode .search-premium-group {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        .dark-mode .data-table thead th {
+            background-color: #0f172a !important;
+            color: #94a3b8 !important;
+            border-bottom-color: #334155 !important;
+        }
+        .dark-mode .data-table tbody td {
+            color: #cbd5e1 !important;
+            border-bottom-color: #334155 !important;
+        }
+        .dark-mode .data-table tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.03) !important;
+        }
+        .dark-mode .cell-title, 
+        .dark-mode .content-card-title, 
+        .dark-mode .welcome-card h4 {
+            color: #ffffff !important;
+        }
+        .dark-mode .cell-muted, 
+        .dark-mode .pagination-info,
+        .dark-mode .page-jump,
+        .dark-mode .per-page-select {
+            color: #94a3b8 !important;
+        }
+        .dark-mode .cell-muted a,
+        .dark-mode .data-table td a,
+        .dark-mode .text-primary-custom {
+            color: #60a5fa !important;
+        }
+        .dark-mode .brand-title {
+            color: #ffffff !important;
+        }
+        .dark-mode .brand-subtitle {
+            color: #94a3b8 !important;
+        }
+        /* Dynamic selectors to catch hardcoded background inline styles */
+        .dark-mode div[style*="background: #ffffff"],
+        .dark-mode div[style*="background:#ffffff"],
+        .dark-mode div[style*="background: white"],
+        .dark-mode div[style*="background:white"] {
+            background-color: #0f172a !important;
+        }
+        .dark-mode button[style*="background: #ffffff"],
+        .dark-mode button[style*="background:#ffffff"],
+        .dark-mode button[style*="background: white"],
+        .dark-mode button[style*="background:white"] {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #cbd5e1 !important;
+        }
+        .dark-mode #dropZone {
+            background-color: #0f172a !important;
+            border-color: #334155 !important;
+        }
+        .dark-mode .card-scroll-container::after {
+            background: linear-gradient(to top, #1e293b 0%, rgba(30, 41, 59, 0) 100%) !important;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    {% if request.user.is_authenticated %}
+    <div class="erarms-layout">
+        <!-- ═══════════════════════════════════════════
+             COLLAPSIBLE LEFT SIDEBAR
+             ═══════════════════════════════════════════ -->
+        <aside class="erarms-sidebar" id="sidebar">
+            <!-- Sidebar Header: App Brand -->
+            <div class="sidebar-header">
+                <a href="{% url 'dashboard' %}" class="sidebar-brand" title="e-TALA">
+                    <div class="brand-icon"
+                        style="background: transparent; box-shadow: none; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+                        <img src="{% static 'carigara_logo.png' %}" alt="Municipality of Carigara Seal"
+                            style="width: 32px; height: 32px; object-fit: contain;">
+                    </div>
+                    <div class="brand-text">
+                        <span class="brand-title">e-TALA</span>
+                        <span class="brand-subtitle">Carigara, Leyte</span>
+                    </div>
+                </a>
+                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar"
+                    aria-label="Toggle sidebar">
+                    <i data-lucide="chevrons-left" id="collapseIcon"></i>
+                </button>
+            </div>
+
+
+            <nav class="sidebar-nav">
+                {% if request.user.role == 'staff' or request.user.role == 'admin' %}
+                <a href="{% url 'create_record' %}" class="sidebar-new-record-btn" title="New Record">
+                    <i data-lucide="plus-circle"></i>
+                    <span class="new-record-label">New Record</span>
+                </a>
+                {% endif %}
+
+                <div class="nav-section">
+                    <span class="nav-section-label">Menu</span>
+                    <a href="{% url 'dashboard' %}" class="nav-item {% if active_tab == 'dashboard' %}active{% endif %}"
+                        title="Dashboard">
+                        <div class="nav-item-content">
+                            <i data-lucide="layout-dashboard"></i>
+                            <span class="nav-label">Dashboard</span>
+                        </div>
+                    </a>
+                    <a href="{% url 'records_browse' %}"
+                        class="nav-item {% if active_tab == 'records' or active_tab == 'municipal' or active_tab == 'permits' or active_tab == 'search' %}active{% endif %}"
+                        title="Records">
+                        <div class="nav-item-content">
+                            <i data-lucide="folder-open"></i>
+                            <span class="nav-label">Records</span>
+                        </div>
+                    </a>
+                    <a href="{% url 'barangays' %}" class="nav-item {% if active_tab == 'barangays' %}active{% endif %}"
+                        title="Barangays">
+                        <div class="nav-item-content">
+                            <i data-lucide="map-pin"></i>
+                            <span class="nav-label">Barangays</span>
+                        </div>
+                    </a>
+                    {% if request.user.role == 'admin' or request.user.role == 'engineer' %}
+                    <a href="{% url 'reports' %}" class="nav-item {% if active_tab == 'reports' %}active{% endif %}"
+                        title="Reports">
+                        <div class="nav-item-content">
+                            <i data-lucide="bar-chart-3"></i>
+                            <span class="nav-label">Reports</span>
+                        </div>
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if request.user.role == 'admin' %}
+                <div class="nav-divider"></div>
+                <div class="nav-section">
+                    <span class="nav-section-label">Admin</span>
+                    <a href="{% url 'users' %}" class="nav-item {% if active_tab == 'users' %}active{% endif %}"
+                        title="Users">
+                        <div class="nav-item-content">
+                            <i data-lucide="users"></i>
+                            <span class="nav-label">Users</span>
+                        </div>
+                    </a>
+                    <a href="{% url 'archive' %}" class="nav-item {% if active_tab == 'archive' %}active{% endif %}"
+                        title="Archive">
+                        <div class="nav-item-content">
+                            <i data-lucide="archive"></i>
+                            <span class="nav-label">Archive</span>
+                        </div>
+                    </a>
+                    <a href="{% url 'activity_logs' %}"
+                        class="nav-item {% if active_tab == 'activity_logs' %}active{% endif %}" title="Activity Logs">
+                        <div class="nav-item-content">
+                            <i data-lucide="history"></i>
+                            <span class="nav-label">Activity Logs</span>
+                        </div>
+                    </a>
+                    <a href="{% url 'settings' %}" class="nav-item {% if active_tab == 'settings' %}active{% endif %}"
+                        title="Settings">
+                        <div class="nav-item-content">
+                            <i data-lucide="settings"></i>
+                            <span class="nav-label">Settings</span>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
+            </nav>
+
+            <!-- Sidebar Footer: Combined User Profile and Logout Icon -->
+            <div class="sidebar-footer">
+                <div class="sidebar-profile-row">
+                    <a href="{% url 'profile' %}" class="sidebar-profile-link" title="Profile">
+                        <div class="user-avatar">
+                            {{ request.user.username|slice:":1"|upper }}
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ request.user.full_name|default:request.user.username }}</span>
+                            <span class="user-role">{{ request.user.get_role_display }}</span>
+                        </div>
+                    </a>
+                    <a href="{% url 'logout' %}" class="sidebar-logout-btn" title="Log out">
+                        <i data-lucide="log-out"></i>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ═══════════════════════════════════════════
+             MAIN CONTENT AREA
+             ═══════════════════════════════════════════ -->
+        <div class="erarms-main">
+            <!-- Top Header Bar -->
+            <!-- Top Header Bar -->
+            <header class="erarms-header">
+                <div class="erarms-header-container">
+                    <div class="header-left">
+                        <button class="mobile-menu-btn" id="mobileMenuBtn">
+                            <i data-lucide="menu"></i>
+                        </button>
+                        <!-- Breadcrumb -->
+                        <nav class="breadcrumb-nav" aria-label="breadcrumb">
+                            {% block breadcrumb %}
+                            <span class="breadcrumb-item">Dashboard</span>
+                            {% endblock %}
+                        </nav>
+                    </div>
+                    <div class="header-right">
+                        <!-- Global Search -->
+                        <div class="header-search" id="headerSearch">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input type="text" id="globalSearchInput" placeholder="Search records..."
+                                autocomplete="off">
+                            <kbd class="search-shortcut">/</kbd>
+                        </div>
+                        <!-- Theme Toggle Button -->
+                        <button id="themeToggleBtn" class="header-user-btn me-2"
+                            style="background:transparent; border:none; color:var(--gray-600); padding:6px; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center;"
+                            aria-label="Toggle dark mode">
+                            <i data-lucide="sun" id="themeSunIcon" style="width:20px; height:20px; display:none;"></i>
+                            <i data-lucide="moon" id="themeMoonIcon" style="width:20px; height:20px;"></i>
+                        </button>
+                        <!-- Notifications Bell Dropdown -->
+                        <div class="dropdown me-2">
+                            <button class="header-user-btn position-relative" data-bs-toggle="dropdown"
+                                id="notificationBellBtn"
+                                style="background:transparent; border:none; color:var(--gray-600); padding:6px; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center;"
+                                aria-label="Notifications">
+                                <i data-lucide="bell" style="width:20px; height:20px;"></i>
+                                <span id="notificationBadge"
+                                    class="position-absolute bg-danger text-white rounded-circle d-none"
+                                    style="font-size: 9px; font-weight: 700; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; top: 1px; right: 1px; border: 2px solid white; padding: 0; line-height: 1;"></span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-0 shadow border-0"
+                                style="width: 320px; border-radius: 10px; overflow: hidden; margin-top: 10px; z-index: 1050;">
+                                <div class="px-3 py-2 border-bottom d-flex justify-content-between align-items-center"
+                                    style="background:#f8fafc;">
+                                    <span class="fw-bold text-dark" style="font-size:0.85rem;">System Notifications</span>
+                                    {% if recent_notifications %}
+                                    <span class="badge text-dark" style="font-size:0.7rem; background:#dbeafe; color:#1e3a8a !important;">{{ notifications_count }} Recent</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex flex-column" style="max-height: 280px; overflow-y: auto;">
+                                    {% for n in recent_notifications %}
+                                    <div class="p-3 border-bottom d-flex gap-2.5 align-items-start hover-bg-light"
+                                        style="font-size:0.8rem; cursor:pointer;"
+                                        onclick="window.location='{{ n.url }}'"
+                                        data-notification-id="{{ n.action|slugify }}_{{ n.performed_at|date:'c'|default:n.time|slugify }}">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                            style="width: 28px; height: 28px; 
+                                             {% if n.type == 'security' or n.type == 'expired' %}background: #fee2e2; color: #b91c1c;
+                                             {% elif n.type == 'expiring' %}background: #fef3c7; color: #d97706;
+                                             {% elif 'upload' in n.action.lower %}background: #dcfce7; color: #15803d;
+                                             {% elif 'delete' in n.action.lower or 'remove' in n.action.lower %}background: #fee2e2; color: #b91c1c;
+                                             {% elif 'create' in n.action.lower or 'add' in n.action.lower or 'register' in n.action.lower %}background: #dbeafe; color: #1e3a8a;
+                                             {% else %}background: #e0f2fe; color: #0369a1;{% endif %}">
+                                            <i data-lucide="{% if n.type == 'security' %}shield-alert{% elif n.type == 'expired' %}alert-triangle{% elif n.type == 'expiring' %}clock{% elif 'upload' in n.action.lower %}file-up{% elif 'delete' in n.action.lower or 'remove' in n.action.lower %}trash{% elif 'create' in n.action.lower or 'add' in n.action.lower or 'register' in n.action.lower %}plus-circle{% else %}activity{% endif %}"
+                                                style="width:14px; height:14px;"></i>
+                                        </div>
+                                        <div class="flex-grow-1 min-w-0">
+                                            <div class="text-dark fw-semibold"
+                                                style="font-size: 0.78rem; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height: 1.45;"
+                                                title="{{ n.action }}">{{ n.action }}</div>
+                                            {% if n.type == 'log' %}
+                                            <div class="text-muted small mt-0.5"
+                                                style="font-size: 0.72rem; line-height: 1.3;">by {{ n.user|default:n.username }}</div>
+                                            <div class="text-muted text-end mt-1" style="font-size:0.65rem;">{{ n.performed_at|timesince }} ago</div>
+                                            {% else %}
+                                            {% if n.time %}
+                                            <div class="text-muted small mt-0.5"
+                                                style="font-size: 0.72rem; line-height: 1.3;">{{ n.time }}</div>
+                                            {% endif %}
+                                            <div class="text-end mt-1">
+                                                <span class="badge"
+                                                    style="font-size:0.6rem; padding: 2px 6px; border-radius: 4px; 
+                                                        {% if n.type == 'security' or n.type == 'expired' %}background:#fee2e2; color:#b91c1c;
+                                                        {% else %}background:#fef3c7; color:#d97706;{% endif %}">Urgent</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="p-4 text-center text-muted small">
+                                        No recent system activities.
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Current date -->
+                        <span class="header-date">{% now "M d, Y" %}</span>
+                        <!-- User dropdown -->
+                        <div class="dropdown">
+                            <button class="header-user-btn" data-bs-toggle="dropdown">
+                                <div class="header-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end erarms-dropdown">
+                                <div class="dropdown-profile">
+                                    <div class="dropdown-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+                                    <div>
+                                        <div class="dropdown-name">{{ request.user.full_name|default:request.user.username }}</div>
+                                        <div class="dropdown-role">{{ request.user.get_role_display }}</div>
+                                    </div>
+                                </div>
+                                <hr class="dropdown-divider">
+                                <a href="{% url 'profile' %}" class="dropdown-item"><i data-lucide="user"></i>
+                                    Profile</a>
+                                {% if request.user.role == 'admin' %}
+                                <a href="{% url 'settings' %}" class="dropdown-item"><i data-lucide="settings"></i>
+                                    Settings</a>
+                                {% endif %}
+                                <hr class="dropdown-divider">
+                                <a href="{% url 'logout' %}" class="dropdown-item text-danger"><i
+                                        data-lucide="log-out"></i> Log out</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <main class="erarms-content">
+                <!-- Toast Notifications -->
+                {% if messages %}
+                <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+                    {% for message in messages %}
+                    <div class="erarms-toast toast show {% if message.tags == 'error' %}toast-error{% elif message.tags == 'warning' %}toast-warning{% elif message.tags == 'info' %}toast-info{% else %}toast-success{% endif %}"
+                        role="alert">
+                        <div class="toast-body-content">
+                            <i
+                                data-lucide="{% if message.tags == 'error' %}alert-circle{% elif message.tags == 'warning' %}alert-triangle{% elif message.tags == 'info' %}info{% else %}check-circle{% endif %}"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                        <button type="button" class="toast-close" data-bs-dismiss="toast">&times;</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Nav Bar -->
+    <nav class="mobile-bottom-nav">
+        <a href="{% url 'dashboard' %}" class="mobile-nav-item {% if active_tab == 'dashboard' %}active{% endif %}">
+            <i data-lucide="layout-dashboard"></i>
+            <span class="mobile-nav-label">Dashboard</span>
+        </a>
+        <a href="{% url 'records_browse' %}"
+            class="mobile-nav-item {% if active_tab == 'records' or active_tab == 'municipal' or active_tab == 'permits' or active_tab == 'search' %}active{% endif %}">
+            <i data-lucide="folder-open"></i>
+            <span class="mobile-nav-label">Records</span>
+        </a>
+        <a href="{% url 'barangays' %}" class="mobile-nav-item {% if active_tab == 'barangays' %}active{% endif %}">
+            <i data-lucide="map-pin"></i>
+            <span class="mobile-nav-label">Barangays</span>
+        </a>
+        <a href="{% url 'profile' %}" class="mobile-nav-item {% if active_tab == 'profile' %}active{% endif %}">
+            <i data-lucide="user"></i>
+            <span class="mobile-nav-label">Profile</span>
+        </a>
+    </nav>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+
+
+    {% else %}
+    <!-- Unauthenticated layout -->
+    <div class="erarms-auth-layout">
+        {% if messages %}
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+            {% for message in messages %}
+            <div class="erarms-toast toast show {% if message.tags == 'error' %}toast-error{% else %}toast-success{% endif %}"
+                role="alert">
+                <div class="toast-body-content">
+                    <span>{{ message }}</span>
+                </div>
+                <button type="button" class="toast-close" data-bs-dismiss="toast">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% block auth_content %}{% endblock %}
+    </div>
+    {% endif %}
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        lucide.createIcons();
+
+        // Auto-fade toasts
+        document.querySelectorAll('.erarms-toast').forEach(toast => {
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(20px)';
+                setTimeout(() => toast.remove(), 400);
+            }, 4500);
+        });
+
+        // Character counter for textareas
+        document.querySelectorAll('.char-counted').forEach(textarea => {
+            const label = textarea.nextElementSibling;
+            if (label && label.classList.contains('char-counter-lbl')) {
+                const limit = textarea.getAttribute('maxlength') || 250;
+                const updateCounter = () => {
+                    const count = textarea.value.length;
+                    label.textContent = `${count} / ${limit} characters`;
+                };
+                textarea.addEventListener('input', updateCounter);
+                updateCounter();
+            }
+        });
+
+        // Sidebar collapse/expand
+        const sidebar = document.getElementById('sidebar');
+        const collapseBtn = document.getElementById('sidebarCollapseBtn');
+        const collapseIcon = document.getElementById('collapseIcon');
+
+        // Restore sidebar state from localStorage
+        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+            if (collapseIcon) {
+                collapseIcon.setAttribute('data-lucide', 'chevrons-right');
+            }
+        }
+        lucide.createIcons();
+
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                const isNowCollapsed = sidebar.classList.contains('collapsed');
+                localStorage.setItem('sidebarCollapsed', isNowCollapsed);
+                // Swap icon (dynamically select to avoid detached node reference)
+                const currentIcon = document.getElementById('collapseIcon') || collapseBtn.querySelector('[data-lucide]');
+                if (currentIcon) {
+                    currentIcon.setAttribute('data-lucide', isNowCollapsed ? 'chevrons-right' : 'chevrons-left');
+                }
+                lucide.createIcons();
+            });
+        }
+
+        // Mobile menu
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        if (mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('mobile-open');
+                sidebarOverlay.classList.toggle('active');
+            });
+        }
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', () => {
+                sidebar.classList.remove('mobile-open');
+                sidebarOverlay.classList.remove('active');
+            });
+        }
+
+        // Close other open dropdowns when a new one is shown (resolves event propagation blocking auto-close)
+        document.addEventListener('show.bs.dropdown', function (e) {
+            const openMenus = document.querySelectorAll('.dropdown-menu.show');
+            openMenus.forEach(menu => {
+                const parent = menu.closest('.dropdown');
+                if (parent && parent !== e.target) {
+                    const toggle = parent.querySelector('[data-bs-toggle="dropdown"]');
+                    if (toggle) {
+                        const instance = bootstrap.Dropdown.getInstance(toggle);
+                        if (instance) instance.hide();
+                    }
+                }
+            });
+        });
+
+        // Global search shortcut (/)
+        document.addEventListener('keydown', (e) => {
+            const isEditing = document.activeElement && (
+                document.activeElement.tagName === 'INPUT' ||
+                document.activeElement.tagName === 'TEXTAREA' ||
+                document.activeElement.contentEditable === 'true' ||
+                document.activeElement.tagName === 'SELECT'
+            );
+            if (e.key === '/' && !isEditing) {
+                e.preventDefault();
+                const searchInput = document.getElementById('globalSearchInput');
+                if (searchInput) searchInput.focus();
+            }
+        });
+
+        // Global search submit on Enter
+        const globalSearchInput = document.getElementById('globalSearchInput');
+        if (globalSearchInput) {
+            globalSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const query = globalSearchInput.value.trim();
+                    if (query) {
+                        window.location.href = `/search/?q=${encodeURIComponent(query)}`;
+                    }
+                }
+            });
+        }
+
+        // Notification unread state and count badge logic (persisted via localStorage)
+        document.addEventListener("DOMContentLoaded", function () {
+            const bellBtn = document.getElementById('notificationBellBtn');
+            const badge = document.getElementById('notificationBadge');
+            if (!bellBtn || !badge) return;
+
+            const items = document.querySelectorAll('[data-notification-id]');
+            const currentIds = Array.from(items).map(el => el.getAttribute('data-notification-id'));
+
+            let readIds = [];
+            try {
+                readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
+            } catch (e) {
+                readIds = [];
+            }
+
+            let unreadCount = 0;
+            items.forEach(el => {
+                const id = el.getAttribute('data-notification-id');
+                if (!readIds.includes(id)) {
+                    unreadCount++;
+                    el.classList.add('unread-notification');
+
+                    // Add small blue dot to denote unread item
+                    const dot = document.createElement('span');
+                    dot.className = 'unread-dot';
+                    dot.style.cssText = 'width: 6px; height: 6px; background-color: #2563eb; border-radius: 50%; margin-left: auto; align-self: center; flex-shrink: 0;';
+                    el.appendChild(dot);
+                }
+            });
+
+            if (unreadCount > 0) {
+                badge.innerText = unreadCount;
+                badge.classList.remove('d-none');
+            } else {
+                badge.classList.add('d-none');
+            }
+
+            bellBtn.addEventListener('click', function () {
+                const updatedReadIds = Array.from(new Set([...readIds, ...currentIds]));
+                localStorage.setItem('read_notifications', JSON.stringify(updatedReadIds));
+                badge.classList.add('d-none');
+
+                // Fade out unread styles and dots after a short delay
+                setTimeout(() => {
+                    document.querySelectorAll('.unread-notification').forEach(el => {
+                        el.classList.remove('unread-notification');
+                    });
+                    document.querySelectorAll('.unread-dot').forEach(el => {
+                        el.remove();
+                    });
+                }, 1500);
+            });
+        });
+
+        // Theme switching logic
+        document.addEventListener("DOMContentLoaded", function () {
+            const toggleBtn = document.getElementById('themeToggleBtn');
+            const sunIcon = document.getElementById('themeSunIcon');
+            const moonIcon = document.getElementById('themeMoonIcon');
+            if (!toggleBtn) return;
+
+            function updateIcons() {
+                if (document.documentElement.classList.contains('dark-mode')) {
+                    sunIcon.style.display = 'block';
+                    moonIcon.style.display = 'none';
+                    toggleBtn.style.color = '#e2e8f0';
+                } else {
+                    sunIcon.style.display = 'none';
+                    moonIcon.style.display = 'block';
+                    toggleBtn.style.color = '#475569';
+                }
+            }
+
+            updateIcons();
+
+            toggleBtn.addEventListener('click', function () {
+                if (document.documentElement.classList.contains('dark-mode')) {
+                    document.documentElement.classList.remove('dark-mode');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark-mode');
+                    localStorage.setItem('theme', 'dark');
+                }
+                updateIcons();
+
+                // Reinitialize lucide icons if dynamic switching requires new shapes
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            });
+        });
+    </script>
+    <script src="{% static 'js/premium_components.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

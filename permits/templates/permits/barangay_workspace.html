@@ -1,0 +1,185 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+{% load permit_filters %}
+
+{% block title %}Brgy. {{ barangay.barangay_name }} Workspace — e-TALA{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'barangays' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Barangays</a>
+<span class="breadcrumb-item active">Brgy. {{ barangay.barangay_name }}</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ PAGE HEADER — Modern clean layout without bulky card wrapper ══════ -->
+<div class="page-title-row">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="tag tag-workspace">Barangay Workspace</span>
+            <span class="tag tag-id">ID: #{{ barangay.barangay_id }}</span>
+        </div>
+        <h1>
+            Brgy. {{ barangay.barangay_name }}
+        </h1>
+        <p class="page-subtitle">
+            Total Records: <strong style="color: var(--gray-900);">{{ total_records }}</strong> ({{ total_projects }} projects, {{ total_permits }} permits, {{ total_documents }} documents)
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'barangays' %}" class="action-btn action-btn-secondary">
+            <i data-lucide="arrow-left"></i>
+            Back to Barangays
+        </a>
+    </div>
+</div>
+
+<!-- ══ TABS & SEARCH ROW — Integrated design matching other search states ═ -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 section-gap">
+    <!-- Tabs Navigation -->
+    <div class="d-flex gap-1 bg-white p-1 rounded-3 border" style="width: fit-content; align-items: center; background: #ffffff; border-color: var(--border-default) !important; border-radius: 8px;">
+        <a href="?tab=all{% if q %}&q={{ q }}{% endif %}" class="pill-tab {% if current_tab == 'all' %}active{% endif %}" {% if current_tab != 'all' %}style="border-color: transparent; background: transparent; padding: 6px 16px;"{% else %}style="padding: 6px 16px;"{% endif %}>All Records</a>
+        <a href="?tab=projects{% if q %}&q={{ q }}{% endif %}" class="pill-tab {% if current_tab == 'projects' %}active{% endif %}" {% if current_tab != 'projects' %}style="border-color: transparent; background: transparent; padding: 6px 16px;"{% else %}style="padding: 6px 16px;"{% endif %}>Projects</a>
+        <a href="?tab=permits{% if q %}&q={{ q }}{% endif %}" class="pill-tab {% if current_tab == 'permits' %}active{% endif %}" {% if current_tab != 'permits' %}style="border-color: transparent; background: transparent; padding: 6px 16px;"{% else %}style="padding: 6px 16px;"{% endif %}>Permits</a>
+    </div>
+
+    <!-- Clean unified search wrapper (No search button!) -->
+    <form method="GET" class="d-flex flex-grow-1 align-items-center mb-0" style="max-width:320px;">
+        <input type="hidden" name="tab" value="{{ current_tab }}">
+        <div class="d-flex align-items-center filter-search-group w-100 px-3" style="height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
+            <input type="text" name="q" value="{{ q }}" class="form-control flex-grow-1"
+                   placeholder="Search..."
+                   style="font-size: var(--text-sm); border: none !important; padding: 0 !important; outline: none !important; box-shadow: none !important; height: 100%; background: transparent;">
+            {% if q %}
+            <a href="?tab={{ current_tab }}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background: transparent;" title="Clear search">
+                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- ══ MAIN LAYOUT SECTION ════════════════════════════════════════════════ -->
+<div class="row g-4">
+    <!-- FULL WIDTH: Workspace Records -->
+    <div class="col-12">
+        {% if page_obj %}
+        <div class="content-card" style="overflow: hidden;">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Record Title</th>
+                            <th>Type</th>
+                            <th>Year</th>
+                            <th>Status</th>
+                            <th class="text-end" style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in page_obj %}
+                        <tr onclick="window.location='{% url 'record_detail' r.record_id %}'">
+                            <td>
+                                <div class="cell-title">{{ r.title|truncatechars:50 }}</div>
+                                <div class="cell-subtitle" style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
+                                    Encoded by: {{ r.created_by.full_name|default:r.created_by.username }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if r.record_type == 'Permit' %}
+                                <span class="tag tag-permit">{{ r.specific_type_label }}</span>
+                                {% else %}
+                                <span class="tag tag-project">{{ r.specific_type_label }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="cell-muted">{{ r.year|default:"—" }}</td>
+                            <td>
+                                {% if r.status == 'active' %}
+                                <span class="status-indicator status-indicator-active">Active</span>
+                                {% elif r.status == 'in_progress' %}
+                                <span class="status-indicator status-indicator-in_progress">In Progress</span>
+                                {% elif r.status == 'completed' %}
+                                <span class="status-indicator status-indicator-completed">Completed</span>
+                                {% elif r.status == 'archived' %}
+                                <span class="status-indicator status-indicator-archived">Archived</span>
+                                {% else %}
+                                <span class="status-indicator">{{ r.status|capfirst }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end" onclick="event.stopPropagation();">
+                                <a href="{% url 'record_detail' r.record_id %}" class="action-btn action-btn-secondary action-btn-xs">Open</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="pagination-info m-0">
+                        {% if page_obj.paginator.count > 0 %}
+                        Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+                        {% else %}
+                        Showing 0–0 of 0 records
+                        {% endif %}
+                    </span>
+                    <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                        <span>Show:</span>
+                        <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                            <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Page Jump Input -->
+                    <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                        <span>Go to:</span>
+                        <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+                        <span>/ {{ page_obj.paginator.num_pages }}</span>
+                    </div>
+
+                    {% if page_obj.has_other_pages %}
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0 gap-1">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link border rounded" href="?page={{ page_obj.previous_page_number }}&tab={{ current_tab }}&q={{ q }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">‹ Prev</a>
+                            </li>
+                            {% endif %}
+                            {% for p in page_obj.paginator.page_range %}
+                            {% if page_obj.number == p %}
+                            <li class="page-item active"><span class="page-link" style="background: var(--primary-brand); border-color: var(--primary-brand); font-size: var(--text-xs);">{{ p }}</span></li>
+                            {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                            <li class="page-item"><a class="page-link border" href="?page={{ p }}&tab={{ current_tab }}&q={{ q }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">{{ p }}</a></li>
+                            {% endif %}
+                            {% endfor %}
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link border rounded" href="?page={{ page_obj.next_page_number }}&tab={{ current_tab }}&q={{ q }}&per_page={{ per_page }}" style="font-size: var(--text-xs);">Next ›</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="content-card">
+            <div class="empty-state-unified py-5">
+                <i data-lucide="inbox"></i>
+                <h6>No records found</h6>
+                <p>No records match your filters in this workspace.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
