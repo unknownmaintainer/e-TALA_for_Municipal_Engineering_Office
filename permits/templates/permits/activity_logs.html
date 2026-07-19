@@ -89,7 +89,9 @@
                                 <th>Staff Member</th>
                                 {% endif %}
                                 <th>Action Performed</th>
+                                {% if request.user.role == 'admin' %}
                                 <th style="width: 140px; white-space: nowrap;">IP Address</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -104,15 +106,17 @@
                                     <span class="text-muted" style="font-size: 0.72rem; margin-left: 6px;">({{ log.user.get_role_display }})</span>
                                 </td>
                                 {% endif %}
-                                <td style="font-size: 0.84rem; color: var(--gray-700); white-space: normal; word-wrap: break-word;">
+                                <td style="font-size: 0.84rem; color: var(--gray-700); {% if request.user.role != 'admin' %}max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;{% else %}white-space: normal; word-wrap: break-word;{% endif %}" {% if request.user.role != 'admin' %}title="{{ log.action }}"{% endif %}>
                                     {{ log.action }}
                                 </td>
+                                {% if request.user.role == 'admin' %}
                                 <td class="font-monospace cell-muted" style="font-size: 0.78rem; white-space: nowrap;">
                                     <code>{{ log.ip_address|default:"—" }}</code>
                                     {% if log.ip_address and log.ip_address in blocked_ips %}
                                         <span class="badge bg-danger text-white ms-1" style="font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background-color: #ef4444;">Blocked</span>
                                     {% endif %}
                                 </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         </tbody>
