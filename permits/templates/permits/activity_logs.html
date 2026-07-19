@@ -64,13 +64,18 @@
                     <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
                     <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
                     <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ query|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+                    {% if query %}
+                    <a href="{% url 'activity_logs' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
+                        <i data-lucide="x" style="width:16px;height:16px;"></i>
+                    </a>
+                    {% endif %}
                 </div>
-                <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 38px;">Filter</button>
-                <a id="exportLogsBtn" href="#" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center gap-1.5" style="height: 38px; text-decoration: none;" title="Export CSV">
+                <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 38px;" title="Apply search query">Filter</button>
+                <a id="exportLogsBtn" href="#" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center gap-1.5" style="height: 38px; text-decoration: none;" title="Export logs as CSV">
                     <i data-lucide="download" style="width: 14px; height: 14px;"></i> Export
                 </a>
-                {% if query or status_filter != 'all' %}
-                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;" title="Clear filters">
+                {% if status_filter != 'all' and status_filter %}
+                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;" title="Clear status filter">
                         <i data-lucide="x" style="width: 16px; height: 16px;"></i>
                     </a>
                 {% endif %}
@@ -97,20 +102,20 @@
                         <tbody>
                             {% for log in log_page_obj %}
                             <tr>
-                                <td class="cell-muted font-monospace" style="font-size: 0.78rem; white-space: nowrap;">
+                                <td class="cell-muted font-monospace" style="font-size: 0.78rem; white-space: nowrap;" title="Timestamp of performed action">
                                     {{ log.performed_at|date:"Y-m-d H:i:s" }}
                                 </td>
                                 {% if request.user.role == 'admin' %}
-                                <td>
+                                <td title="Staff member who executed this action">
                                     <span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ log.user.full_name|default:log.user.username }}</span>
                                     <span class="text-muted" style="font-size: 0.72rem; margin-left: 6px;">({{ log.user.get_role_display }})</span>
                                 </td>
                                 {% endif %}
-                                <td style="font-size: 0.84rem; color: var(--gray-700); {% if request.user.role != 'admin' %}max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;{% else %}white-space: normal; word-wrap: break-word;{% endif %}" {% if request.user.role != 'admin' %}title="{{ log.action }}"{% endif %}>
+                                <td style="font-size: 0.84rem; color: var(--gray-700); {% if request.user.role != 'admin' %}max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;{% else %}white-space: normal; word-wrap: break-word;{% endif %}" title="{{ log.action }}">
                                     {{ log.action }}
                                 </td>
                                 {% if request.user.role == 'admin' %}
-                                <td class="font-monospace cell-muted" style="font-size: 0.78rem; white-space: nowrap;">
+                                <td class="font-monospace cell-muted" style="font-size: 0.78rem; white-space: nowrap;" title="IP address of client device">
                                     <code>{{ log.ip_address|default:"—" }}</code>
                                     {% if log.ip_address and log.ip_address in blocked_ips %}
                                         <span class="badge bg-danger text-white ms-1" style="font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background-color: #ef4444;">Blocked</span>
