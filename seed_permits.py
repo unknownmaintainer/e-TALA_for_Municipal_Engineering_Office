@@ -14,7 +14,7 @@ def seed_data():
         {
             'username': 'admin',
             'email': 'admin@gmail.com',
-            'full_name': 'Rostom Balboa',
+            'full_name': 'Administrator',
             'role': 'admin',
             'password': 'admin123',
             'is_superuser': True,
@@ -23,15 +23,15 @@ def seed_data():
         {
             'username': 'staff',
             'email': 'staff@gmail.com',
-            'full_name': 'Mardion Fuerte',
+            'full_name': 'Staff',
             'role': 'staff',
             'password': 'password123',
             'is_superuser': False,
             'is_staff': True
         },
         {
-            'username': 'engineer',
-            'email': 'engineer@gmail.com',
+            'username': 'staff1',
+            'email': 'staff1@gmail.com',
             'full_name': 'Engr. Maria Santos',
             'role': 'engineer',
             'password': 'password123',
