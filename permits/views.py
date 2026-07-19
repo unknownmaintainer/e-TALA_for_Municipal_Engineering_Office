@@ -689,6 +689,39 @@ def record_create_step3_view(request):
         year = request.POST.get('year') or None
         status = request.POST.get('status', 'active')
         
+        current_year = timezone.now().year
+        if year:
+            try:
+                year_val = int(year)
+                if year_val > current_year:
+                    messages.error(request, f"Filing year cannot be in the future (max {current_year}).")
+                    return render(request, 'permits/create_step3.html', {
+                        'category': category,
+                        'subtype': subtype,
+                        'scope': scope,
+                        'barangays': barangays,
+                        'template': template,
+                        'current_year': current_year,
+                        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+                        'status_choices': EngineeringRecord.STATUS_CHOICES,
+                        'active_tab': 'records'
+                    })
+            except ValueError:
+                messages.error(request, "Invalid year value.")
+                return render(request, 'permits/create_step3.html', {
+                    'category': category,
+                    'subtype': subtype,
+                    'scope': scope,
+                    'barangays': barangays,
+                    'template': template,
+                    'current_year': current_year,
+                    'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                    'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+                    'status_choices': EngineeringRecord.STATUS_CHOICES,
+                    'active_tab': 'records'
+                })
+        
         if category == 'permit':
             applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
             permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
@@ -961,6 +994,31 @@ def record_create_view(request):
         barangay_id = request.POST.get('barangay', '')
         year = request.POST.get('year', '') or None
         status = request.POST.get('status', 'active')
+        
+        current_year = timezone.now().year
+        if year:
+            try:
+                year_val = int(year)
+                if year_val > current_year:
+                    messages.error(request, f"Filing year cannot be in the future (max {current_year}).")
+                    return render(request, 'permits/create_record.html', {
+                        'barangays': barangays,
+                        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+                        'status_choices': EngineeringRecord.STATUS_CHOICES,
+                        'current_year': current_year,
+                        'active_tab': 'records',
+                    })
+            except ValueError:
+                messages.error(request, "Invalid year value.")
+                return render(request, 'permits/create_record.html', {
+                    'barangays': barangays,
+                    'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                    'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+                    'status_choices': EngineeringRecord.STATUS_CHOICES,
+                    'current_year': current_year,
+                    'active_tab': 'records',
+                })
 
         # Resolve title
         if category == 'permit':
