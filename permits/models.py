@@ -104,6 +104,23 @@ class EngineeringRecord(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     date_started = models.DateField(null=True, blank=True)
     date_completed = models.DateField(null=True, blank=True)
+    ILLEGAL_COMPLIANCE_CHOICES = (
+        ('unresolved', 'Open / Unresolved'),
+        ('pending_permit', 'Permit Application Filed'),
+        ('resolved', 'Regularized / Complied'),
+    )
+
+    is_illegal_construction = models.BooleanField(
+        default=False,
+        help_text='Flagged as illegal construction (constructed without building permit).'
+    )
+    illegal_compliance_status = models.CharField(
+        max_length=20,
+        choices=ILLEGAL_COMPLIANCE_CHOICES,
+        default='unresolved',
+        blank=True,
+        help_text='Compliance / regularization tracking for illegal construction.'
+    )
     created_by = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='engineering_records')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -134,6 +151,48 @@ class EngineeringRecord(models.Model):
             if hasattr(self, 'project_detail') and self.project_detail.project_type:
                 return f"{self.project_detail.get_project_type_display()} Project"
             return f"{self.get_project_scope_display()} Project"
+
+    @property
+    def illegal_status_info(self):
+        """Returns dict with status label, color, and badge class for UI rendering."""
+        if not self.is_illegal_construction:
+            return None
+        st = self.illegal_compliance_status or 'unresolved'
+        if st == 'unresolved':
+            return {
+                'status': 'unresolved',
+                'label': 'Illegal Construction — Unresolved',
+                'short_label': 'Illegal Construction',
+                'badge_class': 'bg-danger text-white',
+                'bg_style': 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;',
+                'color': '#b91c1c'
+            }
+        elif st == 'pending_permit':
+            return {
+                'status': 'pending_permit',
+                'label': 'Illegal Construction — Permit Filed',
+                'short_label': 'Permit Filed',
+                'badge_class': 'bg-warning text-dark',
+                'bg_style': 'background:#fef3c7; color:#b45309; border:1px solid #fcd34d;',
+                'color': '#b45309'
+            }
+        elif st == 'resolved':
+            return {
+                'status': 'resolved',
+                'label': 'Regularized',
+                'short_label': 'Regularized',
+                'badge_class': 'bg-success text-white',
+                'bg_style': 'background:#dcfce7; color:#15803d; border:1px solid #86efac;',
+                'color': '#15803d'
+            }
+        return {
+            'status': st,
+            'label': 'Illegal Construction',
+            'short_label': 'Illegal Construction',
+            'badge_class': 'bg-secondary text-white',
+            'bg_style': 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;',
+            'color': '#475569'
+        }
 
     @property
     def completion_stats(self):

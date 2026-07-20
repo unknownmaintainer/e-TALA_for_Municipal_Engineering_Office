@@ -311,4 +311,76 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertNotEqual(self.req.document.document_id, first_doc_id)
         self.assertEqual(Document.objects.filter(engineering_record=self.record).count(), 1)
 
+    def test_search_view_returns_results(self):
+        from django.urls import reverse
+        self.client.login(username='staffuser', password='Password123')
+        
+        # Test basic search query matching the created permit record
+        response = self.client.get(reverse('search') + '?q=John')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'John Doe')
+        self.assertIn('page_obj', response.context)
+        self.assertEqual(len(response.context['page_obj']), 1)
+
+    def test_records_browse_year_filter(self):
+        from django.urls import reverse
+        from permits.models import EngineeringRecord
+        self.client.login(username='staffuser', password='Password123')
+
+        # Create record for 2015
+        EngineeringRecord.objects.create(
+            record_type='Project',
+            barangay=self.barangay,
+            title='2015 Project',
+            year=2015,
+            created_by=self.staff
+        )
+
+        # Query year 2026 -> should only return 2026 record
+        response = self.client.get(reverse('records_browse') + '?year=2026')
+        self.assertEqual(response.status_code, 200)
+        page_objs = response.context['page_obj']
+        for r in page_objs:
+            self.assertEqual(r.year, 2026)
+
+        # Query year 2015 -> should only return 2015 record
+        response_2015 = self.client.get(reverse('records_browse') + '?year=2015')
+        self.assertEqual(response_2015.status_code, 200)
+        page_objs_2015 = response_2015.context['page_obj']
+        self.assertEqual(len(page_objs_2015), 1)
+        self.assertEqual(page_objs_2015[0].year, 2015)
+
+    def test_illegal_construction_tracking(self):
+        from django.urls import reverse
+        from permits.models import EngineeringRecord
+        self.client.login(username='staffuser', password='Password123')
+
+        # 1. Create record flagged as illegal construction
+        illegal_rec = EngineeringRecord.objects.create(
+            record_type='Permit',
+            barangay=self.barangay,
+            title='Unpermitted Structure Discovered',
+            year=2026,
+            is_illegal_construction=True,
+            illegal_compliance_status='unresolved',
+            created_by=self.staff
+        )
+
+        # 2. Filter by illegal construction on records_browse
+        response = self.client.get(reverse('records_browse') + '?illegal=1')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('page_obj', response.context)
+        page_objs = response.context['page_obj']
+        self.assertTrue(any(r.record_id == illegal_rec.record_id for r in page_objs))
+
+        # 3. Update regularization status to pending_permit
+        update_url = reverse('update_illegal_status', kwargs={'record_id': illegal_rec.record_id})
+        res = self.client.post(update_url, {'illegal_compliance_status': 'pending_permit'})
+        self.assertEqual(res.status_code, 302)
+        illegal_rec.refresh_from_db()
+        self.assertEqual(illegal_rec.illegal_compliance_status, 'pending_permit')
+
+
+
+
 

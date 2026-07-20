@@ -39,6 +39,7 @@ urlpatterns = [
     path('records/create/', views.record_create_view, name='create_record'),
     path('records/<int:record_id>/', views.record_detail_view, name='record_detail'),
     path('records/<int:record_id>/edit/', views.record_edit_view, name='edit_record'),
+    path('records/<int:record_id>/illegal-status/', views.update_illegal_status_view, name='update_illegal_status'),
     path('records/<int:record_id>/archive/', views.record_archive_view, name='archive_record'),
     path('records/<int:record_id>/restore/', views.record_restore_view, name='restore_record'),
 

@@ -50,6 +50,11 @@
        class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}">
         Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
     </a>
+    <a href="?q={{ q }}&illegal=1"
+       class="filter-tab {% if selected_illegal or selected_record_type == 'Illegal' %}active{% endif %}" style="color: #dc2626;">
+        <i data-lucide="shield-alert" style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px;"></i>
+        Illegal Constructions <span class="tab-count" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">{{ illegal_count }}</span>
+    </a>
 </div>
 
 <form method="GET" action="{% url 'records_browse' %}" id="filterForm">
@@ -164,12 +169,12 @@
                 </div>
                 <div class="col-md-4 col-6">
                     <label>Year</label>
-                    <input type="text" name="year" list="year-choices" class="form-control form-control-sm" placeholder="All Years" value="{{ selected_year|default:'' }}" style="font-size: var(--text-xs); border-radius: 6px; padding: 6px 10px; height: 31px;">
-                    <datalist id="year-choices">
+                    <select name="year" class="form-select form-select-sm" style="font-size: var(--text-xs); border-radius: 6px; padding: 5px 10px; height: 31px; cursor: pointer;">
+                        <option value="">All Years</option>
                         {% for y in year_choices %}
-                        <option value="{{ y }}"></option>
+                        <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
                         {% endfor %}
-                    </datalist>
+                    </select>
                 </div>
             </div>
 
@@ -206,6 +211,11 @@
                                     {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
                                 {% else %}
                                     {{ r.title }}
+                                {% endif %}
+                                {% if r.is_illegal_construction %}
+                                <span class="badge ms-1 d-inline-flex align-items-center gap-1" style="{{ r.illegal_status_info.bg_style }} font-size: 0.68rem; padding: 2px 7px; border-radius: 6px;">
+                                    <i data-lucide="shield-alert" style="width:11px; height:11px;"></i>{{ r.illegal_status_info.short_label }}
+                                </span>
                                 {% endif %}
                             </div>
                             <div class="cell-subtitle" style="font-size: 0.72rem; color: #64748b;">
@@ -386,10 +396,10 @@
     document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('filterForm');
         
-        // Auto-submit filterForm when select dropdowns are changed
+        // Auto-submit filterForm when select dropdowns or inputs are changed
         if (form) {
-            form.querySelectorAll('select').forEach(select => {
-                select.addEventListener('change', () => {
+            form.querySelectorAll('select, input[name="year"]').forEach(elem => {
+                elem.addEventListener('change', () => {
                     form.submit();
                 });
             });
@@ -401,9 +411,9 @@
                 e.preventDefault();
                 const filterName = this.getAttribute('data-filter-name');
                 if (form) {
-                    const select = form.querySelector(`select[name="${filterName}"]`);
-                    if (select) {
-                        select.value = '';
+                    const targetElem = form.querySelector(`[name="${filterName}"]`);
+                    if (targetElem) {
+                        targetElem.value = '';
                         form.submit();
                     }
                 }

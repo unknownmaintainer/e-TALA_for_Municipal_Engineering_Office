@@ -48,7 +48,12 @@
                     <!-- Year Filter -->
                     <div>
                         <label for="filterYear" class="form-label small fw-semibold text-muted mb-1">Year</label>
-                        <input type="number" name="year" id="filterYear" class="form-control form-control-sm border-color py-1-5" placeholder="e.g. 2026" value="{{ selected_year }}" style="border-radius: 8px; font-size: 0.85rem;">
+                        <select name="year" id="filterYear" class="form-select form-select-sm border-color py-1-5" style="border-radius: 8px; font-size: 0.85rem;">
+                            <option value="">All Years</option>
+                            {% for y in year_choices %}
+                            <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
 
                     <!-- Status Filter -->
@@ -271,8 +276,19 @@
         const queryInput = document.getElementById('searchQuery');
         const categorySelect = document.getElementById('filterCategory');
         const barangaySelect = document.getElementById('filterBarangay');
-        const yearInput = document.getElementById('filterYear');
+        const yearSelect = document.getElementById('filterYear');
         const statusSelect = document.getElementById('filterStatus');
+        const searchForm = document.getElementById('searchForm');
+
+        if (searchForm) {
+            [categorySelect, barangaySelect, yearSelect, statusSelect].forEach(select => {
+                if (select) {
+                    select.addEventListener('change', function() {
+                        searchForm.submit();
+                    });
+                }
+            });
+        }
 
         const previewEmptyState = document.getElementById('previewEmptyState');
         const previewContent = document.getElementById('previewContent');

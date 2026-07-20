@@ -76,6 +76,36 @@
     </div>
 </div>
 
+<!-- ══ ILLEGAL CONSTRUCTION BANNER ═══════════════════════════════════════ -->
+{% if record.is_illegal_construction %}
+<div class="alert p-3 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-3" style="{{ record.illegal_status_info.bg_style }}">
+    <div class="d-flex align-items-center gap-2.5">
+        <i data-lucide="shield-alert" style="width: 24px; height: 24px; flex-shrink:0;"></i>
+        <div>
+            <h6 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ record.illegal_status_info.label }}</h6>
+            <small style="opacity: 0.9;">Flagged by Municipal Engineering Office as unpermitted construction.</small>
+        </div>
+    </div>
+    {% if can_edit %}
+    <div class="dropdown">
+        <button class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" style="background: rgba(255,255,255,0.85); color: #0f172a; border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; font-size: 0.78rem;">
+            Update Compliance Status
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow border-0 p-1" style="border-radius: 8px; font-size: 0.8rem;">
+            <form method="POST" action="{% url 'update_illegal_status' record.record_id %}">
+                {% csrf_token %}
+                <li><button type="submit" name="illegal_compliance_status" value="unresolved" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'unresolved' %}active{% endif %}">🔴 Open / Unresolved</button></li>
+                <li><button type="submit" name="illegal_compliance_status" value="pending_permit" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'pending_permit' %}active{% endif %}">🟡 Permit Application Filed</button></li>
+                <li><button type="submit" name="illegal_compliance_status" value="resolved" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'resolved' %}active{% endif %}">🟢 Regularized / Complied</button></li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li><button type="submit" name="illegal_compliance_status" value="remove" class="dropdown-item py-1.5 rounded text-danger">Remove Flag</button></li>
+            </form>
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- ══ MAIN LAYOUT SECTION ════════════════════════════════════════════════ -->
 <div class="row g-4 mb-5">
     <!-- LEFT COLUMN: Checklist & Documents (Takes col-lg-8) -->

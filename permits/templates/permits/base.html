@@ -345,9 +345,9 @@
                     <div class="header-right">
                         <!-- Global Search -->
                         <div class="header-search" id="headerSearch">
-                            <i data-lucide="search" class="search-icon"></i>
+                            <i data-lucide="search" class="search-icon" id="globalSearchIcon" style="cursor: pointer;" title="Search records"></i>
                             <input type="text" id="globalSearchInput" placeholder="Search records..."
-                                autocomplete="off">
+                                autocomplete="off" value="{{ q|default:'' }}">
                             <kbd class="search-shortcut">/</kbd>
                         </div>
                         <!-- Theme Toggle Button -->
@@ -642,17 +642,32 @@
             }
         });
 
-        // Global search submit on Enter
+        // Global search submit on Enter or icon click
         const globalSearchInput = document.getElementById('globalSearchInput');
+        const globalSearchIcon = document.getElementById('globalSearchIcon');
+
+        function doGlobalSearch() {
+            if (!globalSearchInput) return;
+            const query = globalSearchInput.value.trim();
+            if (query) {
+                window.location.href = `/search/?q=${encodeURIComponent(query)}`;
+            } else {
+                window.location.href = `/search/`;
+            }
+        }
+
         if (globalSearchInput) {
             globalSearchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    const query = globalSearchInput.value.trim();
-                    if (query) {
-                        window.location.href = `/search/?q=${encodeURIComponent(query)}`;
-                    }
+                    doGlobalSearch();
                 }
+            });
+        }
+        if (globalSearchIcon) {
+            globalSearchIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                doGlobalSearch();
             });
         }
 

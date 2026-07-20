@@ -98,6 +98,15 @@ def get_per_page(request, default=10):
     return default
 
 
+def get_year_choices():
+    db_years = set(EngineeringRecord.objects.exclude(year__isnull=True).values_list('year', flat=True))
+    from datetime import date
+    current_year = date.today().year
+    default_years = set(range(current_year + 1, current_year - 15, -1))
+    return sorted(list(db_years.union(default_years)), reverse=True)
+
+
+
 # ─── PUBLIC LANDING ─────────────────────────────────────────────────────────
 
 def landing_view(request):
@@ -350,6 +359,14 @@ def dashboard_view(request):
     chart_permits = [p['permit_type'] for p in permit_query]
     chart_permit_counts = [p['count'] for p in permit_query]
 
+    # Illegal Construction Tracking Stats
+    illegal_qs = records.filter(is_illegal_construction=True)
+    illegal_total = illegal_qs.count()
+    illegal_unresolved = illegal_qs.filter(illegal_compliance_status='unresolved').count()
+    illegal_pending = illegal_qs.filter(illegal_compliance_status='pending_permit').count()
+    illegal_resolved = illegal_qs.filter(illegal_compliance_status='resolved').count()
+    illegal_recent = illegal_qs.select_related('barangay').order_by('-created_at')[:5]
+
     context = {
         'total_permits': total_permits,
         'total_municipal': total_municipal,
@@ -363,6 +380,11 @@ def dashboard_view(request):
         'recent_uploads': recent_uploads,
         'incomplete_list': incomplete_list,
         'pending_records': pending_records,
+        'illegal_total': illegal_total,
+        'illegal_unresolved': illegal_unresolved,
+        'illegal_pending': illegal_pending,
+        'illegal_resolved': illegal_resolved,
+        'illegal_recent': illegal_recent,
         'alerts': alerts,
         'barangays': Barangay.objects.all(),
         'compliance_total': compliance_total,
@@ -554,21 +576,31 @@ def records_browse_view(request):
     if status:
         base_records = base_records.filter(status=status)
     if year:
-        base_records = base_records.filter(year=year)
+        try:
+            base_records = base_records.filter(year=int(year))
+        except (ValueError, TypeError):
+            base_records = base_records.filter(year=year)
     if record_type == 'Permit' and permit_type:
         base_records = base_records.filter(permit_detail__permit_type=permit_type)
     elif project_type:
         base_records = base_records.filter(project_detail__project_type=project_type)
+
+    illegal_filter = request.GET.get('illegal', '').strip()
+    if illegal_filter == '1' or illegal_filter == 'true' or record_type == 'Illegal':
+        base_records = base_records.filter(is_illegal_construction=True)
+    elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
+        base_records = base_records.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
 
     # Compute tab counts dynamically based on active search criteria
     all_count = base_records.count()
     municipal_count = base_records.filter(record_type='Project', project_scope='Municipal').count()
     barangay_count = base_records.filter(record_type='Project', project_scope='Barangay').count()
     permits_count = base_records.filter(record_type='Permit').count()
+    illegal_count = base_records.filter(is_illegal_construction=True).count()
 
     # Apply tab filter
     records = base_records
-    if record_type:
+    if record_type and record_type != 'Illegal':
         records = records.filter(record_type=record_type)
     if project_scope:
         records = records.filter(project_scope=project_scope)
@@ -578,12 +610,10 @@ def records_browse_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
-    from datetime import date
-    current_year = date.today().year
-    year_choices = list(range(current_year, current_year - 15, -1))
+    year_choices = get_year_choices()
 
     # Calculate active advanced filters count
-    active_filters_count = sum(1 for val in [barangay_id, status, year, project_type, permit_type] if val)
+    active_filters_count = sum(1 for val in [barangay_id, status, year, project_type, permit_type, illegal_filter] if val)
 
     context = {
         'per_page': per_page,
@@ -594,9 +624,11 @@ def records_browse_view(request):
         'municipal_count': municipal_count,
         'barangay_count': barangay_count,
         'permits_count': permits_count,
+        'illegal_count': illegal_count,
         'active_filters_count': active_filters_count,
         'q': query,
         'selected_record_type': record_type,
+        'selected_illegal': illegal_filter,
         'selected_project_scope': project_scope,
         'selected_barangay': barangay_id,
         'selected_status': status,
@@ -760,6 +792,9 @@ def record_create_step3_view(request):
                 'active_tab': 'records'
             })
             
+        is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
+        illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
+
         record = EngineeringRecord.objects.create(
             record_type=record_type,
             project_scope=scope,
@@ -768,6 +803,8 @@ def record_create_step3_view(request):
             year=year,
             description=sanitize_input(request.POST.get('description', '')).strip() if category != 'permit' else '',
             status=status,
+            is_illegal_construction=is_illegal,
+            illegal_compliance_status=illegal_status,
             created_by=request.user,
         )
         
@@ -860,7 +897,10 @@ def municipal_projects_view(request):
     if status:
         records = records.filter(status=status)
     if year:
-        records = records.filter(year=year)
+        try:
+            records = records.filter(year=int(year))
+        except (ValueError, TypeError):
+            records = records.filter(year=year)
     if barangay_id:
         records = records.filter(barangay_id=barangay_id)
 
@@ -868,9 +908,7 @@ def municipal_projects_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
-    from datetime import date
-    current_year = date.today().year
-    year_choices = list(range(current_year, current_year - 15, -1))
+    year_choices = get_year_choices()
     active_filters_count = sum(1 for val in [project_type, status, year, barangay_id] if val)
 
     context = {
@@ -920,7 +958,10 @@ def barangay_projects_view(request):
     if status:
         records = records.filter(status=status)
     if year:
-        records = records.filter(year=year)
+        try:
+            records = records.filter(year=int(year))
+        except (ValueError, TypeError):
+            records = records.filter(year=year)
     if barangay_id:
         records = records.filter(barangay_id=barangay_id)
 
@@ -928,9 +969,7 @@ def barangay_projects_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
-    from datetime import date
-    current_year = date.today().year
-    year_choices = list(range(current_year, current_year - 15, -1))
+    year_choices = get_year_choices()
     active_filters_count = sum(1 for val in [project_type, status, year, barangay_id] if val)
 
     context = {
@@ -981,7 +1020,10 @@ def permit_records_view(request):
     if status:
         records = records.filter(status=status)
     if year:
-        records = records.filter(year=year)
+        try:
+            records = records.filter(year=int(year))
+        except (ValueError, TypeError):
+            records = records.filter(year=year)
     if barangay_id:
         records = records.filter(barangay_id=barangay_id)
 
@@ -998,9 +1040,7 @@ def permit_records_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
-    from datetime import date
-    current_year = date.today().year
-    year_choices = list(range(current_year, current_year - 15, -1))
+    year_choices = get_year_choices()
     active_filters_count = sum(1 for val in [permit_type, status, year, barangay_id] if val)
 
     context = {
@@ -1091,6 +1131,9 @@ def record_create_view(request):
                 'active_tab': 'records',
             })
 
+        is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
+        illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
+
         # Save record
         record = EngineeringRecord.objects.create(
             record_type=record_type,
@@ -1100,6 +1143,8 @@ def record_create_view(request):
             year=year,
             description=sanitize_input(request.POST.get('description', '')).strip() if category != 'permit' else '',
             status=status,
+            is_illegal_construction=is_illegal,
+            illegal_compliance_status=illegal_status,
             created_by=request.user,
         )
 
@@ -1236,6 +1281,41 @@ def record_detail_view(request, record_id):
 
 
 @login_required
+def update_illegal_status_view(request, record_id):
+    """Updates illegal construction status / compliance regularization status for a record."""
+    if request.user.role not in ['staff', 'admin']:
+        return HttpResponseForbidden("Unauthorized")
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if request.method == 'POST':
+        status_val = request.POST.get('illegal_compliance_status', '').strip()
+        flag_val = request.POST.get('is_illegal_construction', '')
+        
+        if flag_val == 'toggle':
+            record.is_illegal_construction = not record.is_illegal_construction
+            if record.is_illegal_construction and not record.illegal_compliance_status:
+                record.illegal_compliance_status = 'unresolved'
+            record.save()
+            action_msg = "Flagged as Illegal Construction." if record.is_illegal_construction else "Unflagged Illegal Construction."
+            log_audit(request.user, action_msg, target_record_id=record.record_id, request=request)
+            messages.success(request, action_msg)
+        elif status_val in ['unresolved', 'pending_permit', 'resolved']:
+            record.is_illegal_construction = True
+            record.illegal_compliance_status = status_val
+            record.save()
+            lbl = record.get_illegal_compliance_status_display()
+            log_audit(request.user, f"Updated Illegal Construction Compliance to {lbl}", target_record_id=record.record_id, request=request)
+            messages.success(request, f"Regularization status updated to '{lbl}'.")
+        elif status_val == 'remove':
+            record.is_illegal_construction = False
+            record.save()
+            log_audit(request.user, "Removed Illegal Construction flag", target_record_id=record.record_id, request=request)
+            messages.success(request, "Illegal construction flag removed.")
+            
+    return redirect('record_detail', record_id=record.record_id)
+
+
+
+@login_required
 def toggle_requirement_waived_view(request, req_id):
     """Toggles the waived (N/A) status of a specific record requirement."""
     if request.user.role not in ['staff', 'admin']:
@@ -1291,6 +1371,14 @@ def record_edit_view(request, record_id):
         record.barangay_id = request.POST.get('barangay', record.barangay_id)
         record.date_started = request.POST.get('date_started', '') or None
         record.date_completed = request.POST.get('date_completed', '') or None
+        
+        is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
+        record.is_illegal_construction = is_illegal
+        if is_illegal:
+            record.illegal_compliance_status = request.POST.get('illegal_compliance_status', record.illegal_compliance_status or 'unresolved')
+        else:
+            record.illegal_compliance_status = 'unresolved'
+            
         record.save()
 
         # Update detail and regenerate requirements if subtype changed or doesn't exist
@@ -1568,12 +1656,64 @@ def archive_view(request):
 
 @login_required
 def search_view(request):
-    from django.urls import reverse
-    params = request.GET.urlencode()
-    url = reverse('records_browse')
-    if params:
-        url += '?' + params
-    return redirect(url)
+    query = request.GET.get('q', '').strip()
+    record_type = request.GET.get('record_type', '').strip()
+    barangay_id = request.GET.get('barangay', '').strip()
+    year = request.GET.get('year', '').strip()
+    status = request.GET.get('status', '').strip()
+
+    records = EngineeringRecord.objects.exclude(status='archived').select_related(
+        'barangay', 'created_by', 'permit_detail', 'project_detail'
+    ).prefetch_related('documents')
+
+    if query:
+        search_filter = (
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(barangay__barangay_name__icontains=query) |
+            Q(permit_detail__permit_number__icontains=query) |
+            Q(permit_detail__applicant_name__icontains=query) |
+            Q(project_detail__contractor__icontains=query)
+        )
+        if query.isdigit():
+            search_filter |= Q(year=int(query))
+        records = records.filter(search_filter).distinct()
+
+    if record_type:
+        records = records.filter(record_type=record_type)
+    if barangay_id:
+        records = records.filter(barangay_id=barangay_id)
+    if year:
+        try:
+            records = records.filter(year=int(year))
+        except (ValueError, TypeError):
+            records = records.filter(year=year)
+    if status:
+        records = records.filter(status=status)
+
+    records = records.order_by('-created_at')
+
+    per_page = get_per_page(request, 10)
+    paginator = Paginator(records, per_page)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    barangays = Barangay.objects.all().order_by('barangay_name')
+
+    context = {
+        'page_obj': page_obj,
+        'q': query,
+        'selected_record_type': record_type,
+        'selected_barangay': barangay_id,
+        'selected_year': year,
+        'selected_status': status,
+        'barangays': barangays,
+        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'year_choices': get_year_choices(),
+        'active_tab': 'search',
+        'per_page': per_page,
+    }
+    return render(request, 'permits/search.html', context)
+
 
 
 # ─── REPORTS ─────────────────────────────────────────────────────────────────
