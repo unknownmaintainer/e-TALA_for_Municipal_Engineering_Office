@@ -169,22 +169,35 @@
                         </div>
 
                         <!-- Pagination -->
-                        <div class="pagination-bar" id="resultsPagination">
-                            <span class="pagination-info">
+                        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2" id="resultsPagination">
+                            <span class="pagination-info m-0">
                                 {% if page_obj.paginator.count > 0 %}
-                                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+                                Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records
                                 {% else %}
                                 Showing 0–0 of 0 records
                                 {% endif %}
                             </span>
                             {% if page_obj.has_other_pages %}
-                            <nav>
+                            <nav class="pagination-controls">
                                 <ul class="pagination pagination-sm mb-0 gap-1">
                                     {% if page_obj.has_previous %}
-                                    <li class="page-item"><a class="page-link border rounded" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.previous_page_number }}" style="font-size: var(--text-xs);">‹ Prev</a></li>
+                                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.previous_page_number }}">‹ Prev</a></li>
+                                    {% else %}
+                                    <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                                     {% endif %}
+
+                                    {% for p in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == p %}
+                                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ p }}">{{ p }}</a></li>
+                                    {% endif %}
+                                    {% endfor %}
+
                                     {% if page_obj.has_next %}
-                                    <li class="page-item"><a class="page-link border rounded" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.next_page_number }}" style="font-size: var(--text-xs);">Next ›</a></li>
+                                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.next_page_number }}">Next ›</a></li>
+                                    {% else %}
+                                    <li class="page-item disabled"><span class="page-link">Next ›</span></li>
                                     {% endif %}
                                 </ul>
                             </nav>
