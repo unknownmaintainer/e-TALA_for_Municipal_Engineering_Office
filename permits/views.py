@@ -1871,69 +1871,8 @@ def search_view(request):
 
 @login_required
 def gis_map_view(request):
-    records = EngineeringRecord.objects.exclude(status='archived').select_related(
-        'barangay', 'created_by', 'permit_detail', 'project_detail'
-    ).prefetch_related('documents')
-
-    barangay_id = request.GET.get('barangay', '')
-    record_type = request.GET.get('record_type', '')
-    illegal_filter = request.GET.get('illegal', '')
-    query = request.GET.get('q', '').strip()
-
-    if barangay_id:
-        records = records.filter(barangay_id=barangay_id)
-    if record_type:
-        records = records.filter(record_type=record_type)
-    if illegal_filter:
-        if illegal_filter in ['1', 'true']:
-            records = records.filter(is_illegal_construction=True)
-        elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
-            records = records.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
-    if query:
-        records = records.filter(
-            Q(title__icontains=query) | Q(barangay__barangay_name__icontains=query)
-        )
-
-    map_features = []
-    for r in records:
-        photo_url = ''
-        if r.discovery_photo:
-            photo_url = f"/documents/serve/{r.discovery_photo.document_id}/"
-
-        illegal_info = r.illegal_status_info
-        illegal_label = illegal_info['label'] if illegal_info else ''
-        illegal_color = illegal_info['badge_class'] if illegal_info else ''
-
-        map_features.append({
-            'id': r.record_id,
-            'title': r.title,
-            'record_type': r.record_type,
-            'specific_type': r.specific_type_label,
-            'barangay': r.barangay.barangay_name,
-            'lat': r.active_lat,
-            'lng': r.active_lng,
-            'status': r.status,
-            'status_display': r.get_status_display(),
-            'is_illegal': r.is_illegal_construction,
-            'illegal_status': r.illegal_compliance_status,
-            'illegal_label': illegal_label,
-            'photo_url': photo_url,
-            'detail_url': f"/records/{r.record_id}/",
-        })
-
-    barangays = Barangay.objects.all().order_by('barangay_name')
-
-    context = {
-        'map_features_json': json.dumps(map_features),
-        'records_count': len(map_features),
-        'barangays': barangays,
-        'selected_barangay': barangay_id,
-        'selected_record_type': record_type,
-        'selected_illegal': illegal_filter,
-        'q': query,
-        'active_tab': 'gis_map',
-    }
-    return render(request, 'permits/gis_map.html', context)
+    """Redirect legacy standalone GIS map endpoint to the Barangay Workspaces module."""
+    return redirect('barangays')
 
 
 

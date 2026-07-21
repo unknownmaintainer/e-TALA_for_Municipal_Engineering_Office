@@ -200,10 +200,10 @@ cloudinary_url = os.getenv('CLOUDINARY_URL', '').strip()
 cloudinary_name = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
 
 if cloudinary_url or (cloudinary_name and os.getenv('CLOUDINARY_API_KEY')):
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    DEFAULT_FILE_STORAGE = 'permits.storage.DynamicCloudinaryStorage'
     STORAGES = {
         "default": {
-            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+            "BACKEND": "permits.storage.DynamicCloudinaryStorage",
         },
         "staticfiles": {
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

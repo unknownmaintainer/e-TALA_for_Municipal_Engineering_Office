@@ -432,9 +432,15 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.client.login(username='adminuser', password='Password123')
         map_url = reverse('gis_map')
         res = self.client.get(map_url)
-        self.assertEqual(res.status_code, 200)
-        self.assertTemplateUsed(res, 'permits/gis_map.html')
-        self.assertIn('map_features_json', res.context)
+        self.assertEqual(res.status_code, 302)
+        self.assertRedirects(res, reverse('barangays'))
+
+    def test_dynamic_cloudinary_storage_routing(self):
+        from permits.storage import DynamicCloudinaryStorage
+        storage = DynamicCloudinaryStorage()
+        self.assertEqual(storage._get_storage('document.docx')._get_resource_type('document.docx'), 'raw')
+        self.assertEqual(storage._get_storage('report.pdf')._get_resource_type('report.pdf'), 'raw')
+        self.assertEqual(storage._get_storage('photo.png')._get_resource_type('photo.png'), 'image')
 
 
 
