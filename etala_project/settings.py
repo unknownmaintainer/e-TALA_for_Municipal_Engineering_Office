@@ -186,6 +186,39 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Media storage for uploaded engineering documents
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+os.makedirs(MEDIA_ROOT, exist_ok=True)
+
+# Cloudinary Storage Configuration
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME', '').strip(),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY', '').strip(),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET', '').strip(),
+    'RESOURCE_TYPE': 'auto',
+}
+
+cloudinary_url = os.getenv('CLOUDINARY_URL', '').strip()
+cloudinary_name = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
+
+if cloudinary_url or (cloudinary_name and os.getenv('CLOUDINARY_API_KEY')):
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+else:
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 # Cache configuration for form rate-limiting
 CACHES = {

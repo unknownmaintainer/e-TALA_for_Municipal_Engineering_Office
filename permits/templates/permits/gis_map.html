@@ -1,0 +1,347 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+
+{% block title %}Interactive GIS Map & Street View — Carigara, Leyte — e-TALA{% endblock %}
+
+{% block extra_css %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<style>
+    #mapContainer {
+        width: 100%;
+        height: calc(100vh - 165px);
+        min-height: 580px;
+        border-radius: 12px;
+        z-index: 1;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+        border: 1px solid var(--border-default, #e2e8f0);
+    }
+    
+    /* Satellite Layer Switcher Pill in Bottom-Left (Matching Google Maps UI) */
+    .map-layer-switch-btn {
+        position: absolute;
+        bottom: 24px;
+        left: 24px;
+        z-index: 1000;
+        background: #ffffff;
+        border: 2px solid #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .map-layer-switch-btn:hover {
+        transform: scale(1.04);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+    }
+    .map-layer-thumb {
+        width: 44px;
+        height: 44px;
+        border-radius: 6px;
+        background-size: cover;
+        background-position: center;
+        border: 1px solid rgba(0,0,0,0.15);
+    }
+    .map-layer-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #0f172a;
+        padding-right: 8px;
+    }
+    .dark-mode .map-layer-switch-btn {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .dark-mode .map-layer-label {
+        color: #f8fafc;
+    }
+
+    /* Custom Leaflet Popup Card */
+    .leaflet-popup-content-wrapper {
+        border-radius: 12px !important;
+        padding: 0 !important;
+        overflow: hidden;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2) !important;
+        border: 1px solid #cbd5e1;
+    }
+    .leaflet-popup-content {
+        margin: 0 !important;
+        width: 260px !important;
+    }
+    .map-popup-card {
+        padding: 12px 14px;
+    }
+    .map-popup-header {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.3;
+        margin-bottom: 4px;
+    }
+    .map-popup-sub {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-bottom: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item">GIS Interactive Map</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ PAGE HEADER ══════════════════════════════════════════════════════════ -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="h4 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+            <i data-lucide="map-pin" style="color: var(--primary-brand); width: 22px; height: 22px;"></i>
+            Carigara GIS Map & Street View
+        </h1>
+        <p class="text-muted small mb-0">Geographic mapping of engineering records, building permits, & flagged illegal structures in Carigara, Leyte.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-primary rounded-pill px-3 py-1-5 fw-semibold" style="font-size: 0.78rem;">
+            Showing {{ records_count }} Geocoded Pins
+        </span>
+    </div>
+</div>
+
+<!-- ══ FILTER CONTROLS BAR ═════════════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: 10px;">
+    <form method="GET" action="{% url 'gis_map' %}" id="gisFilterForm" class="row g-2 align-items-center">
+        <!-- Search Keyword -->
+        <div class="col-md-3 col-12">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white border-end-0"><i data-lucide="search" style="width: 14px; height: 14px;"></i></span>
+                <input type="text" name="q" class="form-control border-start-0" placeholder="Search record or barangay..." value="{{ q }}">
+            </div>
+        </div>
+
+        <!-- Barangay Filter -->
+        <div class="col-md-3 col-6">
+            <select name="barangay" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All Barangays (Carigara, Leyte)</option>
+                {% for b in barangays %}
+                <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="col-md-2 col-6">
+            <select name="record_type" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All Categories</option>
+                <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permit Records</option>
+                <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Project Records</option>
+            </select>
+        </div>
+
+        <!-- Illegal Construction Filter -->
+        <div class="col-md-3 col-6">
+            <select name="illegal" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All Structures</option>
+                <option value="1" {% if selected_illegal == '1' or selected_illegal == 'true' %}selected{% endif %}>🚨 All Flagged Illegal</option>
+                <option value="unresolved" {% if selected_illegal == 'unresolved' %}selected{% endif %}>🔴 Unresolved Violations</option>
+                <option value="pending_permit" {% if selected_illegal == 'pending_permit' %}selected{% endif %}>🟡 Permit Application Filed</option>
+                <option value="resolved" {% if selected_illegal == 'resolved' %}selected{% endif %}>🟢 Regularized / Legalized</option>
+            </select>
+        </div>
+
+        <!-- Reset Button -->
+        <div class="col-md-1 col-6 text-end">
+            <a href="{% url 'gis_map' %}" class="btn btn-sm btn-outline-secondary w-100" style="font-size: 0.78rem;">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- ══ MAP CONTAINER ═══════════════════════════════════════════════════════ -->
+<div class="position-relative">
+    <div id="mapContainer"></div>
+
+    <!-- Toggle Layer Switch Button (Bottom-Left Satellite Switcher) -->
+    <button type="button" class="map-layer-switch-btn" id="layerSwitchBtn" title="Switch between Satellite Aerial and Street Map">
+        <div class="map-layer-thumb" id="layerSwitchThumb" style="background-image: url('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/14/7468/13245');"></div>
+        <span class="map-layer-label" id="layerSwitchText">Satellite View</span>
+    </button>
+</div>
+
+<!-- ══ STREET VIEW MODAL ═══════════════════════════════════════════════════ -->
+<div class="modal fade" id="streetViewModal" tabindex="-1" aria-labelledby="streetViewModalLabel" aria-hidden="true" style="backdrop-filter: blur(4px); background: rgba(15,23,42,0.4);">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            <div class="modal-header py-2.5 px-4 bg-dark text-white border-0">
+                <div class="d-flex align-items-center gap-2">
+                    <i data-lucide="eye" style="color: #38bdf8; width: 18px; height: 18px;"></i>
+                    <h6 class="modal-title fw-bold mb-0" id="streetViewModalLabel">Google Street View & High-Res Satellite Panorama</h6>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 position-relative" style="height: 520px; background: #090d16;">
+                <iframe id="streetViewIframe" style="width: 100%; height: 100%; border: none;" allowfullscreen loading="lazy"></iframe>
+            </div>
+            <div class="modal-footer py-2 px-4 bg-light d-flex justify-content-between align-items-center">
+                <span class="small text-muted" id="streetViewCoordsText">Coordinates: Lat 0.000, Lng 0.000</span>
+                <a id="openGoogleMapsExternalBtn" href="#" target="_blank" class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold" style="font-size: 0.78rem;">
+                    <i data-lucide="external-link" style="width: 14px; height: 14px; vertical-align: -2px;"></i> Open in Google Maps Pano
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const rawFeatures = JSON.parse('{{ map_features_json|escapejs }}');
+        
+        // Carigara, Leyte Default Center Coordinates
+        const carigaraCenter = [11.3021, 124.6897];
+        
+        // Initialize Map
+        const map = L.map('mapContainer', {
+            center: carigaraCenter,
+            zoom: 14,
+            zoomControl: true
+        });
+
+        // Define Tile Layers
+        const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{y}/{x}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        // Add default Street layer
+        streetLayer.addTo(map);
+
+        // Satellite Switch Logic (Bottom Left Button)
+        let isSatellite = false;
+        const switchBtn = document.getElementById('layerSwitchBtn');
+        const switchText = document.getElementById('layerSwitchText');
+        const switchThumb = document.getElementById('layerSwitchThumb');
+
+        switchBtn.addEventListener('click', () => {
+            if (isSatellite) {
+                map.removeLayer(satelliteLayer);
+                streetLayer.addTo(map);
+                switchText.textContent = 'Satellite View';
+                switchThumb.style.backgroundImage = "url('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/14/7468/13245')";
+                isSatellite = false;
+            } else {
+                map.removeLayer(streetLayer);
+                satelliteLayer.addTo(map);
+                switchText.textContent = 'Street Map View';
+                switchThumb.style.backgroundImage = "url('https://a.basemaps.cartocdn.com/rastertiles/voyager/14/14936/7468.png')";
+                isSatellite = true;
+            }
+        });
+
+        // Custom Marker Icons
+        function createCustomIcon(colorHex) {
+            return L.divIcon({
+                className: 'custom-map-pin',
+                html: `<div style="background-color: ${colorHex}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;">
+                        <div style="width: 6px; height: 6px; background-color: #ffffff; border-radius: 50%;"></div>
+                       </div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -12]
+            });
+        }
+
+        const iconRed = createCustomIcon('#dc2626');
+        const iconAmber = createCustomIcon('#d97706');
+        const iconGreen = createCustomIcon('#16a34a');
+        const iconBlue = createCustomIcon('#0284c7');
+
+        const bounds = L.latLngBounds();
+
+        // Render Markers
+        rawFeatures.forEach(item => {
+            if (!item.lat || !item.lng) return;
+
+            let markerIcon = iconBlue;
+            let statusBadge = `<span class="badge bg-primary" style="font-size:0.68rem;">${item.status_display}</span>`;
+
+            if (item.is_illegal) {
+                if (item.illegal_status === 'unresolved') {
+                    markerIcon = iconRed;
+                    statusBadge = `<span class="badge bg-danger" style="font-size:0.68rem;">🔴 Unresolved Violation</span>`;
+                } else if (item.illegal_status === 'pending_permit') {
+                    markerIcon = iconAmber;
+                    statusBadge = `<span class="badge bg-warning text-dark" style="font-size:0.68rem;">🟡 Permit Application Filed</span>`;
+                } else if (item.illegal_status === 'resolved') {
+                    markerIcon = iconGreen;
+                    statusBadge = `<span class="badge bg-success" style="font-size:0.68rem;">🟢 Regularized Structure</span>`;
+                }
+            }
+
+            const marker = L.marker([item.lat, item.lng], { icon: markerIcon }).addTo(map);
+            bounds.extend([item.lat, item.lng]);
+
+            let photoSnippet = '';
+            if (item.photo_url) {
+                photoSnippet = `<div style="width:100%; height:110px; overflow:hidden; background:#000;">
+                                    <img src="${item.photo_url}" style="width:100%; height:100%; object-fit:cover;">
+                                </div>`;
+            }
+
+            const popupContent = `
+                ${photoSnippet}
+                <div class="map-popup-card">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-muted" style="font-size:0.68rem; font-weight:600;">ID #${item.id} &bull; ${item.barangay}</span>
+                        ${statusBadge}
+                    </div>
+                    <div class="map-popup-header">${item.title}</div>
+                    <div class="map-popup-sub">${item.specific_type}</div>
+                    <div class="d-flex gap-1 mt-2">
+                        <button type="button" onclick="openStreetView(${item.lat}, ${item.lng}, '${item.title.replace(/'/g, "\\'")}')" class="btn btn-xs btn-outline-dark w-100 py-1" style="font-size:0.72rem; border-radius:6px;">
+                            <i data-lucide="eye" style="width:12px;height:12px;vertical-align:-1px;"></i> Street View
+                        </button>
+                        <a href="${item.detail_url}" class="btn btn-xs btn-primary w-100 py-1" style="font-size:0.72rem; border-radius:6px;">
+                            View Record
+                        </a>
+                    </div>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent);
+        });
+
+        if (rawFeatures.length > 0) {
+            map.fitBounds(bounds, { padding: [40, 40] });
+        }
+    });
+
+    // Global Street View Launcher
+    function openStreetView(lat, lng, title) {
+        const modal = new bootstrap.Modal(document.getElementById('streetViewModal'));
+        const iframe = document.getElementById('streetViewIframe');
+        const coordsText = document.getElementById('streetViewCoordsText');
+        const extBtn = document.getElementById('openGoogleMapsExternalBtn');
+
+        coordsText.textContent = `Coordinates: Lat ${lat.toFixed(6)}, Lng ${lng.toFixed(6)} — ${title}`;
+        extBtn.href = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+
+        // Embed Google Maps satellite/street interactive view
+        iframe.src = `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=17&output=embed`;
+
+        modal.show();
+    }
+</script>
+{% endblock %}

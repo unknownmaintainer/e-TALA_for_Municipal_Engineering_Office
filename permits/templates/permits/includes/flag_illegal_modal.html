@@ -1,0 +1,106 @@
+<!-- Flag Illegal Construction Modal -->
+<div class="modal fade" id="flagIllegalModal" tabindex="-1" aria-labelledby="flagIllegalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="background: var(--card-bg, #ffffff);">
+            <div class="modal-header border-bottom py-3 px-4" style="background: #fff5f5; border-color: #fee2e2 !important;">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="rounded-circle p-2 d-flex align-items-center justify-content-center" style="background: #fee2e2; color: #dc2626; width: 38px; height: 38px; flex-shrink: 0;">
+                        <i data-lucide="shield-alert" style="width: 22px; height: 22px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-danger mb-0" id="flagIllegalModalLabel" style="font-size: 1.05rem;">
+                            Flag Discovered Illegal Construction
+                        </h5>
+                        <small class="text-muted d-block" style="font-size: 0.76rem;">
+                            Municipal Engineering Office — Unpermitted Building Enforcement
+                        </small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form method="POST" action="{% url 'flag_illegal_construction' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning border-0 p-3 mb-3 rounded-3 d-flex align-items-start gap-2.5" style="background: #fffbeb; color: #92400e; border: 1px solid #fef3c7 !important; font-size: 0.8rem;">
+                        <i data-lucide="info" style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; color: #b45309;"></i>
+                        <div>
+                            <strong>Staff Notice:</strong> Use this form to report any building or structure being constructed in Carigara, Leyte without an approved Municipal Building Permit.
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <!-- Structure / Owner Title -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-dark small mb-1">
+                                Structure / Owner Title <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" name="title" class="form-control form-control-sm" placeholder="e.g., Unpermitted 2-Storey Commercial Building — Juan Dela Cruz" required style="border-radius: 6px; padding: 0.5rem 0.75rem;">
+                            <div class="form-text text-muted" style="font-size: 0.72rem;">Brief title describing the illegal construction structure or property owner.</div>
+                        </div>
+
+                        <!-- Barangay -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small mb-1">
+                                Barangay Location <span class="text-danger">*</span>
+                            </label>
+                            <select name="barangay" class="form-select form-select-sm" required style="border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                <option value="" disabled selected>— Select Barangay —</option>
+                                {% for b in barangays %}
+                                <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Date Discovered -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small mb-1">
+                                Date Discovered (Petsa Nadiskubre) <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" name="date_discovered" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" required style="border-radius: 6px; padding: 0.5rem 0.75rem;">
+                        </div>
+
+                        <!-- Specific Address / Location Details -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-dark small mb-1">
+                                Specific Address / Location Details
+                            </label>
+                            <textarea name="location_address" class="form-control form-control-sm" rows="2" placeholder="e.g., Sitio Riverside, near Barangay Hall / Landmark details..." style="border-radius: 6px;"></textarea>
+                        </div>
+
+                        <!-- Initial Compliance Status -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small mb-1">
+                                Initial Compliance Status
+                            </label>
+                            <select name="illegal_compliance_status" class="form-select form-select-sm" style="border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                <option value="unresolved" selected>🔴 Unresolved (Open Violation)</option>
+                                <option value="pending_permit">🟡 Permit Application Filed</option>
+                                <option value="resolved">🟢 Regularized / Complied</option>
+                            </select>
+                        </div>
+
+                        <!-- Photo Upload -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small mb-1">
+                                Discovery Photo (Larawan)
+                            </label>
+                            <input type="file" name="photo" accept="image/*" class="form-control form-control-sm" style="border-radius: 6px; padding: 0.4rem 0.75rem;">
+                            <div class="form-text text-muted" style="font-size: 0.72rem;">Optional image of the structure site (JPEG/PNG).</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top p-3 d-flex align-items-center justify-content-between" style="background: var(--bg-surface, #f8fafc);">
+                    <button type="button" class="btn btn-secondary action-btn action-btn-secondary px-3 py-1.5" data-bs-dismiss="modal" style="font-size: 0.8rem; border-radius: 6px;">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-danger action-btn px-4 py-1.5 d-inline-flex align-items-center gap-1.5" style="background: #dc2626; border-color: #dc2626; color: #ffffff; font-size: 0.82rem; border-radius: 6px;">
+                        <i data-lucide="shield-alert" style="width: 15px; height: 15px;"></i>
+                        Flag Illegal Construction
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,10 +1,6 @@
-from cloudinary_storage.storage import MediaCloudinaryStorage, RawMediaCloudinaryStorage
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
-
-cloudinary_storage = MediaCloudinaryStorage()
-cloudinary_raw_storage = RawMediaCloudinaryStorage()
 
 
 class CustomUser(AbstractUser):
@@ -18,7 +14,6 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
-        storage=cloudinary_storage,
         blank=True, null=True
     )
     session_key = models.CharField(max_length=100, blank=True, null=True)
@@ -48,6 +43,8 @@ class Barangay(models.Model):
     barangay_id = models.AutoField(primary_key=True)
     barangay_name = models.CharField(max_length=100, unique=True)
     district = models.CharField(max_length=50, blank=True, default='')
+    latitude = models.FloatField(null=True, blank=True, help_text='Geocoded center latitude for Carigara barangay map pin')
+    longitude = models.FloatField(null=True, blank=True, help_text='Geocoded center longitude for Carigara barangay map pin')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -121,6 +118,8 @@ class EngineeringRecord(models.Model):
         blank=True,
         help_text='Compliance / regularization tracking for illegal construction.'
     )
+    latitude = models.FloatField(null=True, blank=True, help_text='Geocoded latitude coordinate for map & Street View')
+    longitude = models.FloatField(null=True, blank=True, help_text='Geocoded longitude coordinate for map & Street View')
     created_by = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='engineering_records')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -195,6 +194,30 @@ class EngineeringRecord(models.Model):
         }
 
     @property
+    def active_lat(self):
+        if self.latitude:
+            return self.latitude
+        if self.barangay and self.barangay.latitude:
+            return self.barangay.latitude
+        return 11.3021  # Carigara LGU Center Latitude
+
+    @property
+    def active_lng(self):
+        if self.longitude:
+            return self.longitude
+        if self.barangay and self.barangay.longitude:
+            return self.barangay.longitude
+        return 124.6897  # Carigara LGU Center Longitude
+
+    @property
+    def discovery_photo(self):
+        """Returns the discovery photo document if available."""
+        doc = self.documents.filter(document_type='Picture').order_by('uploaded_at').first()
+        if not doc:
+            doc = self.documents.order_by('uploaded_at').first()
+        return doc
+
+    @property
     def completion_stats(self):
         """Returns dict with total, fulfilled, pct, and missing item names."""
         reqs = self.requirements.select_related('requirement_item', 'document')
@@ -251,6 +274,7 @@ class PermitDetail(models.Model):
     permit_type = models.CharField(max_length=30, choices=PERMIT_TYPE_CHOICES)
     building_type = models.CharField(max_length=30, choices=BUILDING_TYPE_CHOICES, blank=True, default='')
     permit_number = models.CharField(max_length=100, blank=True, default='')
+    date_issued = models.DateField(null=True, blank=True, help_text='Date Building/Ancillary Permit was issued.')
     applicant_name = models.CharField(max_length=255, blank=True, default='')
     resolution_required = models.BooleanField(default=False)
     remarks = models.TextField(blank=True, default='')
@@ -316,7 +340,7 @@ class Document(models.Model):
     )
     document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES, default='Other')
     file_name = models.CharField(max_length=255)
-    file = models.FileField(upload_to='documents/', storage=cloudinary_raw_storage)
+    file = models.FileField(upload_to='documents/')
     file_size = models.PositiveIntegerField(default=0)
     version = models.PositiveIntegerField(default=1)
     uploaded_by = models.ForeignKey(

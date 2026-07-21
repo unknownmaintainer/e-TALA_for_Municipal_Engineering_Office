@@ -565,10 +565,20 @@ def records_browse_view(request):
             Q(barangay__barangay_name__icontains=query) |
             Q(permit_detail__permit_number__icontains=query) |
             Q(permit_detail__applicant_name__icontains=query) |
-            Q(project_detail__contractor__icontains=query)
+            Q(permit_detail__permit_type__icontains=query) |
+            Q(permit_detail__building_type__icontains=query) |
+            Q(project_detail__project_type__icontains=query) |
+            Q(project_detail__contractor__icontains=query) |
+            Q(project_detail__funding_source__icontains=query) |
+            Q(record_type__icontains=query) |
+            Q(project_scope__icontains=query) |
+            Q(illegal_compliance_status__icontains=query) |
+            Q(status__icontains=query) |
+            Q(created_by__full_name__icontains=query) |
+            Q(created_by__username__icontains=query)
         )
         if query.isdigit():
-            search_filter |= Q(year=int(query))
+            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))
         base_records = base_records.filter(search_filter).distinct()
     
     if barangay_id:
@@ -597,6 +607,9 @@ def records_browse_view(request):
     barangay_count = base_records.filter(record_type='Project', project_scope='Barangay').count()
     permits_count = base_records.filter(record_type='Permit').count()
     illegal_count = base_records.filter(is_illegal_construction=True).count()
+    illegal_unresolved_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='unresolved').count()
+    illegal_pending_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='pending_permit').count()
+    illegal_resolved_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='resolved').count()
 
     # Apply tab filter
     records = base_records
@@ -612,8 +625,8 @@ def records_browse_view(request):
 
     year_choices = get_year_choices()
 
-    # Calculate active advanced filters count
-    active_filters_count = sum(1 for val in [barangay_id, status, year, project_type, permit_type, illegal_filter] if val)
+    # Calculate active advanced filters count (only count optional dropdown filters)
+    active_filters_count = sum(1 for val in [barangay_id, status, year, project_type, permit_type] if val)
 
     context = {
         'per_page': per_page,
@@ -625,6 +638,9 @@ def records_browse_view(request):
         'barangay_count': barangay_count,
         'permits_count': permits_count,
         'illegal_count': illegal_count,
+        'illegal_unresolved_count': illegal_unresolved_count,
+        'illegal_pending_count': illegal_pending_count,
+        'illegal_resolved_count': illegal_resolved_count,
         'active_filters_count': active_filters_count,
         'q': query,
         'selected_record_type': record_type,
@@ -1314,6 +1330,90 @@ def update_illegal_status_view(request, record_id):
     return redirect('record_detail', record_id=record.record_id)
 
 
+@login_required
+def flag_illegal_construction_view(request):
+    """Handles direct reporting/flagging of an unpermitted illegal construction structure."""
+    if request.user.role not in ['staff', 'admin']:
+        return HttpResponseForbidden("Unauthorized")
+    
+    if request.method == 'POST':
+        title = sanitize_input(request.POST.get('title', '')).strip()
+        barangay_id = request.POST.get('barangay', '')
+        location_address = sanitize_input(request.POST.get('location_address', '')).strip()
+        date_discovered_str = request.POST.get('date_discovered', '')
+        status_val = request.POST.get('illegal_compliance_status', 'unresolved')
+        
+        if not title:
+            title = "Unpermitted Structure Discovered"
+        if not barangay_id:
+            messages.error(request, "Please select a barangay.")
+            return redirect(request.META.get('HTTP_REFERER', 'records_browse'))
+            
+        barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
+        
+        # Parse date discovered or default to today
+        if date_discovered_str:
+            try:
+                from datetime import datetime
+                date_discovered = datetime.strptime(date_discovered_str, '%Y-%m-%d').date()
+            except ValueError:
+                date_discovered = timezone.now().date()
+        else:
+            date_discovered = timezone.now().date()
+            
+        record = EngineeringRecord.objects.create(
+            record_type='Permit',
+            project_scope='',
+            barangay=barangay,
+            title=title,
+            year=date_discovered.year,
+            description=location_address,
+            status='active',
+            date_started=date_discovered,
+            is_illegal_construction=True,
+            illegal_compliance_status=status_val if status_val in ['unresolved', 'pending_permit', 'resolved'] else 'unresolved',
+            created_by=request.user
+        )
+        
+        PermitDetail.objects.create(
+            engineering_record=record,
+            permit_type='Building',
+            building_type='Commercial',
+            permit_number='',
+            applicant_name='[Unpermitted Construction Discovered]',
+            remarks=f"Flagged as unpermitted structure on {date_discovered.strftime('%d %b %Y')}. Location: {location_address}"
+        )
+        
+        # Handle Discovery Photo upload
+        if 'photo' in request.FILES and request.FILES['photo']:
+            photo_file = request.FILES['photo']
+            try:
+                from django.core.exceptions import ValidationError
+                validate_document_file(photo_file)
+                Document.objects.create(
+                    engineering_record=record,
+                    document_type='Picture',
+                    file_name=photo_file.name,
+                    file=photo_file,
+                    file_size=photo_file.size,
+                    uploaded_by=request.user
+                )
+            except ValidationError as err:
+                messages.warning(request, f"Flagged illegal construction, but photo attachment failed: {err.message if hasattr(err, 'message') else str(err)}")
+                
+        status_lbl = record.get_illegal_compliance_status_display()
+        log_audit(
+            request.user,
+            f"Flagged Illegal Construction at Barangay {barangay.barangay_name}: '{title}' (Status: {status_lbl})",
+            target_record_id=record.record_id,
+            request=request
+        )
+        messages.success(request, f"Successfully reported/flagged unpermitted structure in Barangay {barangay.barangay_name}.")
+        return redirect('record_detail', record_id=record.record_id)
+
+    return redirect('records_browse')
+
+
 
 @login_required
 def toggle_requirement_waived_view(request, req_id):
@@ -1477,16 +1577,33 @@ def record_edit_view(request, record_id):
 
 @login_required
 def serve_document_view(request, token):
+    doc = None
+    if str(token).isdigit():
+        doc = get_object_or_404(Document, document_id=int(token))
+    else:
+        try:
+            data = signing.loads(token, salt='document-download', max_age=600)
+            doc = get_object_or_404(Document, document_id=data['document_id'])
+        except (signing.SignatureExpired, signing.BadSignature):
+            try:
+                doc = get_object_or_404(Document, document_id=token)
+            except Exception:
+                return HttpResponseForbidden("Invalid document token link.")
+
+    if not doc or not doc.file:
+        raise Http404("Document file not found.")
+
     try:
-        data = signing.loads(token, salt='document-download', max_age=600)
-        doc = get_object_or_404(Document, document_id=data['document_id'])
-        response = FileResponse(doc.file.open(), content_type='application/octet-stream')
+        if hasattr(doc.file, 'url') and str(doc.file.url).startswith('http'):
+            return redirect(doc.file.url)
+        response = FileResponse(doc.file.open('rb'), content_type='application/octet-stream')
         response['Content-Disposition'] = f'inline; filename="{doc.file_name}"'
         return response
-    except signing.SignatureExpired:
-        return HttpResponseForbidden("This link has expired.")
-    except signing.BadSignature:
-        return HttpResponseForbidden("Invalid document token link.")
+    except Exception as exc:
+        logger.error(f"Error serving document file: {exc}")
+        if hasattr(doc.file, 'url') and doc.file.url:
+            return redirect(doc.file.url)
+        raise Http404("Unable to access stored document file.")
 
 
 # ─── DOCUMENT UPLOAD / DELETE ────────────────────────────────────────────────
@@ -1494,11 +1611,12 @@ def serve_document_view(request, token):
 @login_required
 def document_upload_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower()
 
     if request.user.role not in ['staff', 'admin']:
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': 'You do not have permission to upload documents.'}, status=403)
         raise PermissionDenied("You do not have permission to upload documents.")
-    if request.user.role == 'staff' and record.created_by != request.user:
-        raise PermissionDenied("You can only upload files to your own records.")
 
     if request.method == 'POST':
         document_file = request.FILES.get('document_file')
@@ -1507,13 +1625,19 @@ def document_upload_view(request, record_id):
         expiry_date = request.POST.get('expiry_date', '').strip()
 
         if not document_file:
-            messages.error(request, "Please select a file to upload.")
+            err_msg = "Please select a file to upload."
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': err_msg}, status=400)
+            messages.error(request, err_msg)
             return redirect('record_detail', record_id=record.record_id)
 
         try:
             validate_document_file(document_file)
         except Exception as exc:
-            messages.error(request, str(exc))
+            err_msg = exc.message if hasattr(exc, 'message') else str(exc)
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': err_msg}, status=400)
+            messages.error(request, err_msg)
             return redirect('record_detail', record_id=record.record_id)
 
         import datetime
@@ -1541,16 +1665,24 @@ def document_upload_view(request, record_id):
             except RequirementItem.DoesNotExist:
                 pass
 
-        doc = Document.objects.create(
-            engineering_record=record,
-            requirement_item=req_item,
-            document_type=document_type,
-            file=document_file,
-            file_name=document_file.name,
-            file_size=document_file.size,
-            uploaded_by=request.user,
-            expiry_date=parsed_expiry_date,
-        )
+        try:
+            doc = Document.objects.create(
+                engineering_record=record,
+                requirement_item=req_item,
+                document_type=document_type,
+                file=document_file,
+                file_name=document_file.name,
+                file_size=document_file.size,
+                uploaded_by=request.user,
+                expiry_date=parsed_expiry_date,
+            )
+        except Exception as exc:
+            logger.error(f"Failed saving document file to storage: {exc}")
+            err_msg = f"Storage Save Error: {str(exc)}"
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': err_msg}, status=500)
+            messages.error(request, err_msg)
+            return redirect('record_detail', record_id=record.record_id)
 
         # Mark the corresponding checklist slot as fulfilled
         if req_item:
@@ -1568,7 +1700,17 @@ def document_upload_view(request, record_id):
             f"Uploaded: {req_item.name if req_item else 'general'} for '{record.title}'",
             record.record_id, request
         )
-        messages.success(request, f"Uploaded: {req_item.name if req_item else 'general'} successfully.")
+        msg_str = f"Uploaded: {req_item.name if req_item else 'general'} successfully."
+        messages.success(request, msg_str)
+
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'message': msg_str,
+                'doc_id': doc.document_id,
+                'file_name': doc.file_name,
+                'file_url': f"/documents/serve/{doc.document_id}/"
+            })
 
     return redirect('record_detail', record_id=record.record_id)
 
@@ -1673,10 +1815,20 @@ def search_view(request):
             Q(barangay__barangay_name__icontains=query) |
             Q(permit_detail__permit_number__icontains=query) |
             Q(permit_detail__applicant_name__icontains=query) |
-            Q(project_detail__contractor__icontains=query)
+            Q(permit_detail__permit_type__icontains=query) |
+            Q(permit_detail__building_type__icontains=query) |
+            Q(project_detail__project_type__icontains=query) |
+            Q(project_detail__contractor__icontains=query) |
+            Q(project_detail__funding_source__icontains=query) |
+            Q(record_type__icontains=query) |
+            Q(project_scope__icontains=query) |
+            Q(illegal_compliance_status__icontains=query) |
+            Q(status__icontains=query) |
+            Q(created_by__full_name__icontains=query) |
+            Q(created_by__username__icontains=query)
         )
         if query.isdigit():
-            search_filter |= Q(year=int(query))
+            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))
         records = records.filter(search_filter).distinct()
 
     if record_type:
@@ -1713,6 +1865,76 @@ def search_view(request):
         'per_page': per_page,
     }
     return render(request, 'permits/search.html', context)
+
+
+# ─── GIS MAP & STREET VIEW ──────────────────────────────────────────────────
+
+@login_required
+def gis_map_view(request):
+    records = EngineeringRecord.objects.exclude(status='archived').select_related(
+        'barangay', 'created_by', 'permit_detail', 'project_detail'
+    ).prefetch_related('documents')
+
+    barangay_id = request.GET.get('barangay', '')
+    record_type = request.GET.get('record_type', '')
+    illegal_filter = request.GET.get('illegal', '')
+    query = request.GET.get('q', '').strip()
+
+    if barangay_id:
+        records = records.filter(barangay_id=barangay_id)
+    if record_type:
+        records = records.filter(record_type=record_type)
+    if illegal_filter:
+        if illegal_filter in ['1', 'true']:
+            records = records.filter(is_illegal_construction=True)
+        elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
+            records = records.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
+    if query:
+        records = records.filter(
+            Q(title__icontains=query) | Q(barangay__barangay_name__icontains=query)
+        )
+
+    map_features = []
+    for r in records:
+        photo_url = ''
+        if r.discovery_photo:
+            photo_url = f"/documents/serve/{r.discovery_photo.document_id}/"
+
+        illegal_info = r.illegal_status_info
+        illegal_label = illegal_info['label'] if illegal_info else ''
+        illegal_color = illegal_info['badge_class'] if illegal_info else ''
+
+        map_features.append({
+            'id': r.record_id,
+            'title': r.title,
+            'record_type': r.record_type,
+            'specific_type': r.specific_type_label,
+            'barangay': r.barangay.barangay_name,
+            'lat': r.active_lat,
+            'lng': r.active_lng,
+            'status': r.status,
+            'status_display': r.get_status_display(),
+            'is_illegal': r.is_illegal_construction,
+            'illegal_status': r.illegal_compliance_status,
+            'illegal_label': illegal_label,
+            'photo_url': photo_url,
+            'detail_url': f"/records/{r.record_id}/",
+        })
+
+    barangays = Barangay.objects.all().order_by('barangay_name')
+
+    context = {
+        'map_features_json': json.dumps(map_features),
+        'records_count': len(map_features),
+        'barangays': barangays,
+        'selected_barangay': barangay_id,
+        'selected_record_type': record_type,
+        'selected_illegal': illegal_filter,
+        'q': query,
+        'active_tab': 'gis_map',
+    }
+    return render(request, 'permits/gis_map.html', context)
+
 
 
 

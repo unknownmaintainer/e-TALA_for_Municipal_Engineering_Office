@@ -13,21 +13,22 @@ def virus_scan_file(file):
     return True
 
 def validate_document_file(file):
-    """Validate that file is PDF, JPG, or PNG, does not exceed 10MB, and is free of malware."""
+    """Validate that file is PDF, JPG, PNG, WEBP, or DOCX, does not exceed 10MB, and is free of malware."""
     # Extension validation
     ext = os.path.splitext(file.name)[1].lower()
-    allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.docx']
+    allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.docx', '.doc']
     if ext not in allowed_extensions:
-        raise ValidationError("Only PDF, JPG, PNG, and DOCX files are accepted.")
+        raise ValidationError("Only PDF, JPG, PNG, WEBP, and DOCX files are accepted.")
 
     # MIME type validation
     allowed_mime_types = [
-        'application/pdf', 'image/jpeg', 'image/png', 'image/jpg',
+        'application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp',
+        'image/pjpeg', 'image/x-png', 'application/octet-stream',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/msword'
     ]
-    if hasattr(file, 'content_type') and file.content_type not in allowed_mime_types:
-        raise ValidationError("Invalid file content type. Only PDF, JPG, PNG, and DOCX are allowed.")
+    if hasattr(file, 'content_type') and file.content_type and file.content_type.lower() not in allowed_mime_types:
+        raise ValidationError("Invalid file content type. Only PDF, JPG, PNG, WEBP, and DOCX are allowed.")
 
     # Size validation
     max_size = 10 * 1024 * 1024  # 10MB in bytes

@@ -37,6 +37,7 @@ urlpatterns = [
     # Engineering Records — CRUD
     path('records/', views.records_browse_view, name='records_browse'),
     path('records/create/', views.record_create_view, name='create_record'),
+    path('records/flag-illegal/', views.flag_illegal_construction_view, name='flag_illegal_construction'),
     path('records/<int:record_id>/', views.record_detail_view, name='record_detail'),
     path('records/<int:record_id>/edit/', views.record_edit_view, name='edit_record'),
     path('records/<int:record_id>/illegal-status/', views.update_illegal_status_view, name='update_illegal_status'),
@@ -50,7 +51,8 @@ urlpatterns = [
     path('requirements/<int:req_id>/toggle-waive/', views.toggle_requirement_waived_view, name='toggle_requirement_waived'),
     path('alerts/list/', views.alerts_list_json_view, name='alerts_list_json'),
 
-    # Search, Archive, Reports
+    # Search, Archive, GIS Map, Reports
+    path('map/', views.gis_map_view, name='gis_map'),
     path('search/', views.search_view, name='search'),
     path('archive/', views.archive_view, name='archive'),
     path('reports/', views.reports_view, name='reports'),

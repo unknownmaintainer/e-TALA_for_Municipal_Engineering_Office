@@ -1,4 +1,5 @@
 from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import authenticate
@@ -8,6 +9,13 @@ from permits.validators import validate_document_file, sanitize_input
 from permits.views import check_lockout
 
 
+@override_settings(
+    DEFAULT_FILE_STORAGE='django.core.files.storage.FileSystemStorage',
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'}
+    }
+)
 class PermitsTestCase(TestCase):
     def setUp(self):
         # Create standard user accounts
@@ -172,7 +180,14 @@ class PermitsTestCase(TestCase):
         self.assertEqual(float(response.data['budget_amount']), 100000.00)
 
 
-@override_settings(AXES_ENABLED=False)
+@override_settings(
+    AXES_ENABLED=False,
+    DEFAULT_FILE_STORAGE='django.core.files.storage.FileSystemStorage',
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'}
+    }
+)
 class RolePermissionsAndCleanupTestCase(TestCase):
     def setUp(self):
         from permits.models import CustomUser, Barangay, EngineeringRecord, PermitDetail, RequirementTemplate, RequirementItem, RecordRequirement
@@ -379,6 +394,49 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertEqual(res.status_code, 302)
         illegal_rec.refresh_from_db()
         self.assertEqual(illegal_rec.illegal_compliance_status, 'pending_permit')
+
+    def test_flag_illegal_construction_endpoint(self):
+        from django.urls import reverse
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from permits.models import EngineeringRecord, AuditLog
+
+        self.client.login(username='staffuser', password='Password123')
+        flag_url = reverse('flag_illegal_construction')
+
+        dummy_img = SimpleUploadedFile("site_photo.png", b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x03\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82', content_type="image/png")
+
+        post_data = {
+            'title': 'Unpermitted Commercial Post Discovered',
+            'barangay': self.barangay.barangay_id,
+            'location_address': 'Sitio Riverside, Guinte',
+            'date_discovered': '2026-07-21',
+            'illegal_compliance_status': 'unresolved',
+            'photo': dummy_img
+        }
+
+        res = self.client.post(flag_url, post_data)
+        self.assertEqual(res.status_code, 302)
+
+        record = EngineeringRecord.objects.get(title='Unpermitted Commercial Post Discovered')
+        self.assertTrue(record.is_illegal_construction)
+        self.assertEqual(record.illegal_compliance_status, 'unresolved')
+        self.assertEqual(record.barangay, self.barangay)
+        self.assertIsNotNone(record.discovery_photo)
+
+        # Check Audit Log
+        audit_entry = AuditLog.objects.filter(target_record_id=record.record_id).first()
+        self.assertIsNotNone(audit_entry)
+        self.assertIn("Flagged Illegal Construction", audit_entry.action)
+
+    def test_gis_map_view_endpoint(self):
+        self.client.login(username='adminuser', password='Password123')
+        map_url = reverse('gis_map')
+        res = self.client.get(map_url)
+        self.assertEqual(res.status_code, 200)
+        self.assertTemplateUsed(res, 'permits/gis_map.html')
+        self.assertIn('map_features_json', res.context)
+
+
 
 
 

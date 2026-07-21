@@ -20,23 +20,29 @@
 {% endif %}
 
 <!-- ══ HEADING ════════════════════════════════════════════════════════ -->
+<!-- ══ HEADING ════════════════════════════════════════════════════════ -->
 <div class="page-title-row">
     <div>
         <h1>Records</h1>
         <p class="page-subtitle">Browse and manage all engineering records</p>
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-    <a href="{% url 'create_record' %}" class="action-btn action-btn-primary">
-        <i data-lucide="plus"></i> New Record
-    </a>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="action-btn action-btn-danger" data-bs-toggle="modal" data-bs-target="#flagIllegalModal" style="background: #dc2626; border-color: #dc2626; color: #fff;">
+            <i data-lucide="shield-alert"></i> Flag Illegal Structure
+        </button>
+        <a href="{% url 'create_record' %}" class="action-btn action-btn-primary">
+            <i data-lucide="plus"></i> New Record
+        </a>
+    </div>
     {% endif %}
 </div>
 
 <!-- ══ CATEGORY TABS + INLINE SEARCH ═════════════════════════════════ -->
 <div class="filter-tabs section-gap">
     <a href="?q={{ q }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
-       class="filter-tab {% if not selected_record_type %}active{% endif %}">
-        All <span class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
+       class="filter-tab {% if not selected_record_type and not selected_illegal %}active{% endif %}">
+        All <span class="tab-count {% if not selected_record_type and not selected_illegal %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
     </a>
     <a href="?q={{ q }}&record_type=Project&project_scope=Municipal&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
        class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">
@@ -47,8 +53,8 @@
         Barangay <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">{{ barangay_count }}</span>
     </a>
     <a href="?q={{ q }}&record_type=Permit&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
-       class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}">
-        Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
+       class="filter-tab {% if selected_record_type == 'Permit' and not selected_illegal %}active{% endif %}">
+        Permits <span class="tab-count {% if selected_record_type == 'Permit' and not selected_illegal %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
     </a>
     <a href="?q={{ q }}&illegal=1"
        class="filter-tab {% if selected_illegal or selected_record_type == 'Illegal' %}active{% endif %}" style="color: #dc2626;">
@@ -57,17 +63,42 @@
     </a>
 </div>
 
+{% if selected_illegal or selected_record_type == 'Illegal' %}
+<!-- Sub-filter tabs for Illegal Construction Compliance States -->
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap p-2 rounded-3" style="background: var(--bg-surface, #f8fafc); border: 1px solid var(--border-default, #e2e8f0);">
+    <span class="text-muted small fw-semibold ms-2"><i data-lucide="filter" style="width: 13px; height: 13px; vertical-align: -2px;"></i> Filter Status:</span>
+    <a href="?q={{ q }}&illegal=1" class="btn btn-xs rounded-pill py-1 px-3 fw-semibold text-decoration-none {% if selected_illegal == '1' or selected_illegal == 'true' %}btn-dark{% else %}btn-outline-secondary{% endif %}" style="font-size: 0.75rem;">
+        All Flagged ({{ illegal_count }})
+    </a>
+    <a href="?q={{ q }}&illegal=unresolved" class="btn btn-xs rounded-pill py-1 px-3 fw-semibold text-decoration-none {% if selected_illegal == 'unresolved' %}btn-danger{% else %}btn-outline-danger{% endif %}" style="font-size: 0.75rem;">
+        🔴 Unresolved ({{ illegal_unresolved_count }})
+    </a>
+    <a href="?q={{ q }}&illegal=pending_permit" class="btn btn-xs rounded-pill py-1 px-3 fw-semibold text-decoration-none {% if selected_illegal == 'pending_permit' %}btn-warning text-dark{% else %}btn-outline-warning text-dark{% endif %}" style="font-size: 0.75rem;">
+        🟡 Permit Filed ({{ illegal_pending_count }})
+    </a>
+    <a href="?q={{ q }}&illegal=resolved" class="btn btn-xs rounded-pill py-1 px-3 fw-semibold text-decoration-none {% if selected_illegal == 'resolved' %}btn-success{% else %}btn-outline-success{% endif %}" style="font-size: 0.75rem;">
+        🟢 Regularized ({{ illegal_resolved_count }})
+    </a>
+</div>
+{% endif %}
+
 <form method="GET" action="{% url 'records_browse' %}" id="filterForm">
     <input type="hidden" name="record_type" value="{{ selected_record_type }}">
     <input type="hidden" name="project_scope" value="{{ selected_project_scope }}">
 
-    <!-- Sleek persistent search row -->
+    <!-- Sleek persistent search row with Live Auto-Search & Search Button -->
     <div class="filter-bar">
-        <!-- Always visible Search input -->
-        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
-            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-            <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ q|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+        <!-- Always visible Search input group -->
+        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 450px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+            <button type="submit" class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted me-2" style="cursor: pointer;" title="Click to Search">
+                <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;"></i>
+            </button>
+            <input type="text" id="liveSearchInput" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Type year (2026), permit, barangay, owner..." value="{{ q|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            
+            <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none ms-2" role="status" style="width: 13px; height: 13px;">
+                <span class="visually-hidden">Searching...</span>
+            </div>
+
             {% if q %}
             <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
                 <i data-lucide="x" style="width:16px;height:16px;"></i>
@@ -89,12 +120,13 @@
     <!-- Active Filter Chips -->
     {% if active_filters_count > 0 %}
     <div class="active-filter-chips">
-        {% if selected_record_type == 'Permit' and selected_permit_type %}
+        {% if selected_permit_type %}
         <div class="filter-chip">
             <span>Permit Type: <strong>{{ selected_permit_type }}</strong></span>
             <button type="button" class="clear-chip-btn" data-filter-name="permit_type">&times;</button>
         </div>
-        {% elif selected_project_type %}
+        {% endif %}
+        {% if selected_project_type %}
         <div class="filter-chip">
             <span>Project Type: <strong>{{ selected_project_type }}</strong></span>
             <button type="button" class="clear-chip-btn" data-filter-name="project_type">&times;</button>
@@ -133,14 +165,15 @@
     </div>
     {% endif %}
 
-    <!-- Collapsible filters panel (Dropdown select options) -->
+    <!-- Collapsible filters panel (Inline compact single-row design) -->
     <div class="collapse {% if selected_status or selected_barangay or selected_year or selected_project_type or selected_permit_type %}show{% endif %}" id="advancedFiltersCollapse">
-        <div class="filter-panel-unified section-gap">
-            <div class="row g-2">
+        <div class="filter-panel-unified py-2 px-3 rounded-3 border mb-2" style="background: var(--bg-surface, #f8fafc); border-color: var(--border-default, #e2e8f0) !important;">
+            {% if selected_record_type == 'Permit' or selected_record_type == 'Project' %}
+            <div class="row row-cols-md-4 row-cols-sm-2 row-cols-1 g-2 align-items-end">
                 {% if selected_record_type == 'Permit' %}
-                <div class="col-md-4 col-12">
-                    <label>Permit Type</label>
-                    <select name="permit_type" class="form-select form-select-sm">
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Type</label>
+                    <select name="permit_type" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Permit Types</option>
                         {% for val, label in permit_types %}
                         <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
@@ -148,28 +181,40 @@
                     </select>
                 </div>
                 {% else %}
-                <div class="col-md-4 col-12">
-                    <label>Project Type</label>
-                    <select name="project_type" class="form-select form-select-sm">
-                        <option value="">All Types</option>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Type</label>
+                    <select name="project_type" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Project Types</option>
                         {% for type in project_type_choices %}
                         <option value="{{ type }}" {% if selected_project_type == type %}selected{% endif %}>{{ type }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 {% endif %}
-                <div class="col-md-4 col-6">
-                    <label>Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm">
+
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-4 col-6">
-                    <label>Year</label>
-                    <select name="year" class="form-select form-select-sm" style="font-size: var(--text-xs); border-radius: 6px; padding: 5px 10px; height: 31px; cursor: pointer;">
+
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
+                    <select name="status" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Statuses</option>
+                        {% for val, label in status_choices %}
+                        <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
+                    <select name="year" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -177,7 +222,56 @@
                     </select>
                 </div>
             </div>
-
+            {% else %}
+            <!-- All Tab or Illegal Tab: 5 filters inline on 1 single row -->
+            <div class="row row-cols-lg-5 row-cols-md-3 row-cols-sm-2 row-cols-1 g-2 align-items-end">
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Type</label>
+                    <select name="permit_type" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Permit Types</option>
+                        {% for val, label in permit_types %}
+                        <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Type</label>
+                    <select name="project_type" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Project Types</option>
+                        {% for type in project_type_choices %}
+                        <option value="{{ type }}" {% if selected_project_type == type %}selected{% endif %}>{{ type }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Barangays</option>
+                        {% for b in barangays %}
+                        <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
+                    <select name="status" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Statuses</option>
+                        {% for val, label in status_choices %}
+                        <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
+                    <select name="year" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Years</option>
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </form>
@@ -395,14 +489,31 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('filterForm');
-        
-        // Auto-submit filterForm when select dropdowns or inputs are changed
+        const searchInput = document.getElementById('liveSearchInput');
+        const searchSpinner = document.getElementById('searchSpinner');
+
+        // Show spinner on form submission (Enter key press or Search button click)
         if (form) {
-            form.querySelectorAll('select, input[name="year"]').forEach(elem => {
+            form.addEventListener('submit', () => {
+                if (searchSpinner) searchSpinner.classList.remove('d-none');
+            });
+        }
+        
+        // Auto-submit filterForm when select dropdowns are changed
+        if (form) {
+            form.querySelectorAll('select').forEach(elem => {
                 elem.addEventListener('change', () => {
+                    if (searchSpinner) searchSpinner.classList.remove('d-none');
                     form.submit();
                 });
             });
+        }
+
+        // Maintain cursor focus at the end of search input if search query is active
+        if (searchInput && searchInput.value) {
+            const val = searchInput.value;
+            searchInput.focus();
+            searchInput.setSelectionRange(val.length, val.length);
         }
 
         // Handle active chip dismissals
@@ -414,6 +525,7 @@
                     const targetElem = form.querySelector(`[name="${filterName}"]`);
                     if (targetElem) {
                         targetElem.value = '';
+                        if (searchSpinner) searchSpinner.classList.remove('d-none');
                         form.submit();
                     }
                 }

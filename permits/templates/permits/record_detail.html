@@ -33,10 +33,10 @@
     </div>
     
     <div class="d-flex align-items-center gap-2">
-        <a href="{% url 'records_browse' %}" class="action-btn action-btn-secondary">
+        <button type="button" onclick="if (document.referrer && document.referrer.indexOf(window.location.host) !== -1) { history.back(); } else { window.location.href='{% url 'records_browse' %}'; }" class="action-btn action-btn-secondary">
             <i data-lucide="arrow-left"></i>
-            Back to Records
-        </a>
+            Back
+        </button>
         
         {% if can_edit and record.status != 'archived' %}
         <a href="{% url 'edit_record' record.record_id %}" class="action-btn action-btn-teal text-decoration-none">
@@ -79,24 +79,36 @@
 <!-- ══ ILLEGAL CONSTRUCTION BANNER ═══════════════════════════════════════ -->
 {% if record.is_illegal_construction %}
 <div class="alert p-3 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-3" style="{{ record.illegal_status_info.bg_style }}">
-    <div class="d-flex align-items-center gap-2.5">
-        <i data-lucide="shield-alert" style="width: 24px; height: 24px; flex-shrink:0;"></i>
+    <div class="d-flex align-items-center gap-3">
+        {% if record.discovery_photo %}
+        <div class="position-relative rounded-3 overflow-hidden border shadow-sm flex-shrink-0" style="width: 54px; height: 54px; background: #000;">
+            <a href="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" target="_blank">
+                <img src="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" alt="Discovery Photo" style="width: 100%; height: 100%; object-fit: cover;">
+            </a>
+        </div>
+        {% else %}
+        <div class="rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="background: rgba(0,0,0,0.06); width: 42px; height: 42px;">
+            <i data-lucide="shield-alert" style="width: 24px; height: 24px;"></i>
+        </div>
+        {% endif %}
         <div>
-            <h6 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ record.illegal_status_info.label }}</h6>
-            <small style="opacity: 0.9;">Flagged by Municipal Engineering Office as unpermitted construction.</small>
+            <div class="d-flex align-items-center gap-2">
+                <h6 class="fw-bold mb-0" style="font-size: 0.98rem;">{{ record.illegal_status_info.label }}</h6>
+            </div>
+            <small style="opacity: 0.9;">Flagged by Municipal Engineering Office as unpermitted construction{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.</small>
         </div>
     </div>
     {% if can_edit %}
     <div class="dropdown">
-        <button class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" style="background: rgba(255,255,255,0.85); color: #0f172a; border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; font-size: 0.78rem;">
-            Update Compliance Status
+        <button class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-1.5" type="button" data-bs-toggle="dropdown" style="background: rgba(255,255,255,0.92); color: #0f172a; border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; font-size: 0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+            <i data-lucide="sliders" style="width: 14px; height: 14px;"></i> Update Compliance Status
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow border-0 p-1" style="border-radius: 8px; font-size: 0.8rem;">
             <form method="POST" action="{% url 'update_illegal_status' record.record_id %}">
                 {% csrf_token %}
-                <li><button type="submit" name="illegal_compliance_status" value="unresolved" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'unresolved' %}active{% endif %}">🔴 Open / Unresolved</button></li>
-                <li><button type="submit" name="illegal_compliance_status" value="pending_permit" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'pending_permit' %}active{% endif %}">🟡 Permit Application Filed</button></li>
-                <li><button type="submit" name="illegal_compliance_status" value="resolved" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'resolved' %}active{% endif %}">🟢 Regularized / Complied</button></li>
+                <li><button type="submit" name="illegal_compliance_status" value="unresolved" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'unresolved' %}active{% endif %}">🔴 Unresolved</button></li>
+                <li><button type="submit" name="illegal_compliance_status" value="pending_permit" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'pending_permit' %}active{% endif %}">🟡 Permit Filed</button></li>
+                <li><button type="submit" name="illegal_compliance_status" value="resolved" class="dropdown-item py-1.5 rounded {% if record.illegal_compliance_status == 'resolved' %}active{% endif %}">🟢 Regularized</button></li>
                 <li><hr class="dropdown-divider my-1"></li>
                 <li><button type="submit" name="illegal_compliance_status" value="remove" class="dropdown-item py-1.5 rounded text-danger">Remove Flag</button></li>
             </form>
@@ -342,6 +354,26 @@
                             {% endif %}
                         </span>
                     </div>
+                    {% if record.record_type == 'Permit' and permit_detail %}
+                    <div class="detail-row-unified border-bottom pb-2">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Building Permit Number</span>
+                        <span class="detail-value-u fw-bold text-primary">
+                            {{ permit_detail.permit_number|default:"Pending Approval / No Permit Number" }}
+                        </span>
+                    </div>
+                    <div class="detail-row-unified border-bottom pb-2">
+                        <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Date Issued</span>
+                        <span class="detail-value-u text-dark">
+                            {% if permit_detail.date_issued %}
+                                {{ permit_detail.date_issued|date:"d M Y" }}
+                            {% elif record.date_started %}
+                                {{ record.date_started|date:"d M Y" }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
                     <div class="detail-row-unified border-bottom pb-2">
                         <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Type</span>
                         <span class="detail-value-u text-dark">
@@ -379,6 +411,33 @@
                         <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Last Updated</span>
                         <span class="detail-value-u text-muted small">{{ record.updated_at|timesince }} ago</span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Geographic Location & Street View Card -->
+        <div class="content-card mb-4">
+            <div class="content-card-body" style="padding: 20px;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="section-heading mb-0 d-flex align-items-center">
+                        <i data-lucide="map-pin" class="me-2 text-primary" style="width: 16px; height: 16px;"></i>
+                        Location & Street View
+                    </h6>
+                    <span class="badge bg-light text-dark border" style="font-size: 0.7rem;">Carigara, Leyte</span>
+                </div>
+                
+                <div style="font-size: 0.75rem; color: #64748b;" class="mb-2">
+                    Coordinates: <strong>{{ record.active_lat|stringformat:".6f" }}, {{ record.active_lng|stringformat:".6f" }}</strong>
+                </div>
+
+                <div class="position-relative rounded-3 overflow-hidden border mb-2" style="height: 160px;">
+                    <iframe src="https://maps.google.com/maps?q={{ record.active_lat }},{{ record.active_lng }}&hl=en&z=15&output=embed" style="width:100%; height:100%; border:none;" loading="lazy"></iframe>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={{ record.active_lat }},{{ record.active_lng }}" target="_blank" class="btn btn-sm btn-outline-dark fw-semibold d-flex align-items-center justify-content-center gap-1.5" style="font-size: 0.78rem; border-radius: 8px;">
+                        <i data-lucide="eye" style="width: 14px; height: 14px;"></i> Open Street View Panorama
+                    </a>
                 </div>
             </div>
         </div>
@@ -657,13 +716,19 @@ function uploadFileAJAX() {
 
     // Check complete state
     xhr.addEventListener('load', function() {
-        if (xhr.status >= 200 && xhr.status < 300) {
+        let resData = null;
+        try {
+            resData = JSON.parse(xhr.responseText);
+        } catch(e) {}
+
+        if (xhr.status >= 200 && xhr.status < 300 && (!resData || resData.success !== false)) {
             if (statusLabel) statusLabel.textContent = 'Upload complete! Finalizing...';
             setTimeout(() => {
                 window.location.reload();
-            }, 500);
+            }, 400);
         } else {
-            alert('Upload failed. Please try again.');
+            const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format, size (max 10MB), or permissions.';
+            alert(errorMsg);
             clearFile();
         }
     });
@@ -678,6 +743,7 @@ function uploadFileAJAX() {
     });
 
     xhr.open('POST', form.action, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.send(formData);
 }
 
