@@ -1229,6 +1229,25 @@ def record_create_view(request):
 def record_detail_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
 
+    # Auto-populate checklist requirements if missing
+    if not record.requirements.exists():
+        template = None
+        if record.record_type == 'Permit':
+            subtype = record.permit_detail.permit_type if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.permit_type else 'Building'
+            template = RequirementTemplate.objects.filter(record_type='Permit', subtype=subtype, is_active=True).first()
+            if not template:
+                template = RequirementTemplate.objects.filter(record_type='Permit', subtype='Building', is_active=True).first()
+        elif record.record_type == 'Project':
+            subtype = record.project_detail.project_type if hasattr(record, 'project_detail') and record.project_detail and record.project_detail.project_type else 'Road & Bridge'
+            scope = record.project_scope or 'Municipal'
+            template = RequirementTemplate.objects.filter(record_type='Project', subtype=subtype, scope=scope, is_active=True).first()
+
+        if template:
+            RecordRequirement.objects.bulk_create([
+                RecordRequirement(record=record, requirement_item=item)
+                for item in template.active_items
+            ])
+
     # Load checklist requirements with their linked documents
     requirements = record.requirements.select_related(
         'requirement_item', 'document', 'fulfilled_by'
@@ -1384,6 +1403,14 @@ def flag_illegal_construction_view(request):
             remarks=f"Flagged as unpermitted structure on {date_discovered.strftime('%d %b %Y')}. Location: {location_address}"
         )
         
+        # Attach Building Permit / Regularization Checklist Template
+        template = RequirementTemplate.objects.filter(record_type='Permit', subtype='Building', is_active=True).first()
+        if template:
+            RecordRequirement.objects.bulk_create([
+                RecordRequirement(record=record, requirement_item=item)
+                for item in template.active_items
+            ])
+
         # Handle Discovery Photo upload
         if 'photo' in request.FILES and request.FILES['photo']:
             photo_file = request.FILES['photo']
