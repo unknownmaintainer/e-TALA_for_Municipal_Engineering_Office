@@ -1867,14 +1867,6 @@ def search_view(request):
     return render(request, 'permits/search.html', context)
 
 
-# ─── GIS MAP & STREET VIEW ──────────────────────────────────────────────────
-
-@login_required
-def gis_map_view(request):
-    """Redirect legacy standalone GIS map endpoint to the Barangay Workspaces module."""
-    return redirect('barangays')
-
-
 
 
 # ─── REPORTS ─────────────────────────────────────────────────────────────────

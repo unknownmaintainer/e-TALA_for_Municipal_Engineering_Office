@@ -51,8 +51,7 @@ urlpatterns = [
     path('requirements/<int:req_id>/toggle-waive/', views.toggle_requirement_waived_view, name='toggle_requirement_waived'),
     path('alerts/list/', views.alerts_list_json_view, name='alerts_list_json'),
 
-    # Search, Archive, GIS Map, Reports
-    path('map/', views.gis_map_view, name='gis_map'),
+    # Search, Archive, Reports
     path('search/', views.search_view, name='search'),
     path('archive/', views.archive_view, name='archive'),
     path('reports/', views.reports_view, name='reports'),

@@ -428,13 +428,6 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertIsNotNone(audit_entry)
         self.assertIn("Flagged Illegal Construction", audit_entry.action)
 
-    def test_gis_map_view_endpoint(self):
-        self.client.login(username='adminuser', password='Password123')
-        map_url = reverse('gis_map')
-        res = self.client.get(map_url)
-        self.assertEqual(res.status_code, 302)
-        self.assertRedirects(res, reverse('barangays'))
-
     def test_dynamic_cloudinary_storage_routing(self):
         from permits.storage import DynamicCloudinaryStorage
         storage = DynamicCloudinaryStorage()
