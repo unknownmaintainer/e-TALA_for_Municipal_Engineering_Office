@@ -33,46 +33,28 @@
     </div>
     
     <div class="d-flex align-items-center gap-2">
-        <button type="button" onclick="if (document.referrer && document.referrer.indexOf(window.location.host) !== -1) { history.back(); } else { window.location.href='{% url 'records_browse' %}'; }" class="action-btn action-btn-secondary">
-            <i data-lucide="arrow-left"></i>
-            Back
-        </button>
-        
         {% if can_edit and record.status != 'archived' %}
         <a href="{% url 'edit_record' record.record_id %}" class="action-btn action-btn-teal text-decoration-none">
             <i data-lucide="edit-3"></i> Edit Record
         </a>
         {% endif %}
         
+        {% if can_archive and record.status != 'archived' %}
         <!-- More Actions Dropdown -->
         <div class="dropdown">
             <button class="action-btn action-btn-secondary px-2" type="button" id="moreActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
                 <i data-lucide="more-vertical" style="width: 16px; height: 16px;"></i>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end erarms-dropdown shadow border" aria-labelledby="moreActionsDropdown" style="border-radius: 8px; border-color: var(--border-default) !important; padding: 4px; min-width: 170px;">
-                <li>
-                    <a href="#" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: var(--text-sm); border-radius: 6px;">
-                        <i data-lucide="download" style="width: 14px; height: 14px; color: var(--gray-500);"></i>
-                        Download All
-                    </a>
-                </li>
-                <li>
-                    <button onclick="window.print();" class="dropdown-item d-flex align-items-center gap-2 py-2 w-100 text-start" style="font-size: var(--text-sm); border-radius: 6px; border: none; background: transparent;">
-                        <i data-lucide="printer" style="width: 14px; height: 14px; color: var(--gray-500);"></i>
-                        Print Record
-                    </button>
-                </li>
-                {% if can_archive and record.status != 'archived' %}
-                <li><hr class="dropdown-divider my-1" style="opacity: 0.08;"></li>
+            <ul class="dropdown-menu dropdown-menu-end erarms-dropdown shadow border" aria-labelledby="moreActionsDropdown" style="border-radius: 8px; border-color: var(--border-default) !important; padding: 4px; min-width: 160px;">
                 <li>
                     <a href="{% url 'archive_record' record.record_id %}" class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" onclick="return confirm('Archive this record?')" style="font-size: var(--text-sm); border-radius: 6px;">
                         <i data-lucide="archive" style="width: 14px; height: 14px; color: #dc2626;"></i>
                         Archive Record
                     </a>
                 </li>
-                {% endif %}
             </ul>
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -81,14 +63,14 @@
 <div class="alert p-3 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-3" style="{{ record.illegal_status_info.bg_style }}">
     <div class="d-flex align-items-center gap-3">
         {% if record.discovery_photo %}
-        <div class="position-relative rounded-3 overflow-hidden border shadow-sm flex-shrink-0" style="width: 54px; height: 54px; background: #000;">
-            <a href="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" target="_blank">
-                <img src="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" alt="Discovery Photo" style="width: 100%; height: 100%; object-fit: cover;">
+        <div class="position-relative rounded-3 overflow-hidden border shadow-sm flex-shrink-0" style="width: 50px; height: 50px; background: rgba(0,0,0,0.04);">
+            <a href="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" target="_blank" class="d-block w-100 h-100">
+                <img src="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" alt="Discovery Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<div class=\'d-flex align-items-center justify-content-center w-100 h-100 text-muted\'><i data-lucide=\'camera\' style=\'width:20px;height:20px;\'></i></div>';">
             </a>
         </div>
         {% else %}
         <div class="rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style="background: rgba(0,0,0,0.06); width: 42px; height: 42px;">
-            <i data-lucide="shield-alert" style="width: 24px; height: 24px;"></i>
+            <i data-lucide="shield-alert" style="width: 22px; height: 22px;"></i>
         </div>
         {% endif %}
         <div>
@@ -344,10 +326,10 @@
                 <div class="d-flex flex-column gap-3">
                     <div class="detail-row-unified border-bottom pb-2">
                         <span class="detail-label-u text-muted small fw-semibold d-block mb-1">
-                            {% if record.record_type == 'Project' %}Project Name{% else %}Applicant Name{% endif %}
+                            {% if record.record_type == 'Project' %}Project Name{% else %}Applicant / Property Owner{% endif %}
                         </span>
                         <span class="detail-value-u fw-bold text-dark">
-                            {% if record.record_type == 'Permit' and permit_detail %}
+                            {% if record.record_type == 'Permit' and permit_detail and permit_detail.applicant_name and permit_detail.applicant_name != ',,' and permit_detail.applicant_name != ',' %}
                                 {{ permit_detail.applicant_name }}
                             {% else %}
                                 {{ record.title }}
@@ -358,7 +340,7 @@
                     <div class="detail-row-unified border-bottom pb-2">
                         <span class="detail-label-u text-muted small fw-semibold d-block mb-1">Building Permit Number</span>
                         <span class="detail-value-u fw-bold text-primary">
-                            {{ permit_detail.permit_number|default:"Pending Approval / No Permit Number" }}
+                            {{ permit_detail.permit_number|default:"Pending / Unassigned" }}
                         </span>
                     </div>
                     <div class="detail-row-unified border-bottom pb-2">
@@ -659,14 +641,14 @@ function showSelectedFile(input) {
     if (!file) return;
     
     if (file.size > 10 * 1024 * 1024) {
-        alert('File is too large. Maximum allowed size is 10MB.');
+        showToast('error', 'File Too Large', 'Maximum allowed file size is 10MB.');
         input.value = '';
         return;
     }
     
     const allowed = /\.(pdf|jpg|jpeg|png|docx|doc)$/i;
     if (!allowed.test(file.name)) {
-        alert('Only PDF, JPG, PNG, and DOCX files are allowed.');
+        showToast('error', 'Invalid File Type', 'Only PDF, JPG, PNG, and DOCX files are allowed.');
         input.value = '';
         return;
     }
@@ -734,14 +716,14 @@ function uploadFileAJAX() {
                 window.location.reload();
             }, 400);
         } else {
-            const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format, size (max 10MB), or permissions.';
-            alert(errorMsg);
+            const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format or size (max 10MB).';
+            showToast('error', 'Upload Failed', errorMsg);
             clearFile();
         }
     });
 
     xhr.addEventListener('error', function() {
-        alert('An error occurred during upload. Please check your network connection.');
+        showToast('error', 'Network Error', 'An error occurred during upload. Please check your network connection.');
         clearFile();
     });
 
@@ -833,12 +815,12 @@ function addFilesToQueue(files) {
     files.forEach(file => {
         // Validate file size and extension
         if (file.size > 10 * 1024 * 1024) {
-            alert(`File "${file.name}" is too large. Max 10MB.`);
+            showToast('error', 'File Too Large', `File "${file.name}" exceeds maximum size of 10MB.`);
             return;
         }
         const allowed = /\.(pdf|jpg|jpeg|png|docx|doc)$/i;
         if (!allowed.test(file.name)) {
-            alert(`File "${file.name}" is not allowed. Only PDF, JPG, PNG, and DOCX.`);
+            showToast('error', 'Unsupported File', `File "${file.name}" is not supported. Only PDF, JPG, PNG, and DOCX are allowed.`);
             return;
         }
         
@@ -1036,7 +1018,7 @@ function uploadBatchSequential(index) {
             if (bar) {
                 bar.style.backgroundColor = "#dc2626"; // error color
             }
-            alert(`Failed to upload ${item.file.name}. Continuing with remaining files...`);
+            showToast('error', 'Upload Error', `Failed to upload ${item.file.name}. Continuing with remaining files...`);
             uploadBatchSequential(index + 1);
         }
     });
@@ -1044,7 +1026,7 @@ function uploadBatchSequential(index) {
     xhr.addEventListener('error', function() {
         item.status = "error";
         if (bar) bar.style.backgroundColor = "#dc2626";
-        alert(`Network error uploading ${item.file.name}. Continuing...`);
+        showToast('error', 'Network Error', `Network error uploading ${item.file.name}. Continuing...`);
         uploadBatchSequential(index + 1);
     });
     

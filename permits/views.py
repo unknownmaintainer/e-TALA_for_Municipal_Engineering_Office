@@ -551,12 +551,8 @@ def records_browse_view(request):
     status = request.GET.get('status', '')
     year = request.GET.get('year', '')
     
-    project_type = ''
-    permit_type = ''
-    if record_type == 'Permit':
-        permit_type = request.GET.get('permit_type', '')
-    else:
-        project_type = request.GET.get('project_type', '')
+    project_type = request.GET.get('project_type', '').strip()
+    permit_type = request.GET.get('permit_type', '').strip()
 
     if query:
         search_filter = (
@@ -590,18 +586,18 @@ def records_browse_view(request):
             base_records = base_records.filter(year=int(year))
         except (ValueError, TypeError):
             base_records = base_records.filter(year=year)
-    if record_type == 'Permit' and permit_type:
+    if permit_type:
         base_records = base_records.filter(permit_detail__permit_type=permit_type)
-    elif project_type:
+    if project_type:
         base_records = base_records.filter(project_detail__project_type=project_type)
 
     illegal_filter = request.GET.get('illegal', '').strip()
-    if illegal_filter == '1' or illegal_filter == 'true' or record_type == 'Illegal':
+    if illegal_filter in ['1', 'true'] or record_type == 'Illegal':
         base_records = base_records.filter(is_illegal_construction=True)
     elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
         base_records = base_records.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
 
-    # Compute tab counts dynamically based on active search criteria
+    # Compute tab counts BEFORE applying current active tab filter
     all_count = base_records.count()
     municipal_count = base_records.filter(record_type='Project', project_scope='Municipal').count()
     barangay_count = base_records.filter(record_type='Project', project_scope='Barangay').count()
@@ -611,12 +607,14 @@ def records_browse_view(request):
     illegal_pending_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='pending_permit').count()
     illegal_resolved_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='resolved').count()
 
-    # Apply tab filter
+    # Now apply active tab filter to final records queryset
     records = base_records
-    if record_type and record_type != 'Illegal':
-        records = records.filter(record_type=record_type)
-    if project_scope:
-        records = records.filter(project_scope=project_scope)
+    if record_type == 'Permit':
+        records = records.filter(record_type='Permit')
+    elif record_type == 'Project':
+        records = records.filter(record_type='Project')
+        if project_scope:
+            records = records.filter(project_scope=project_scope)
 
     total_count = records.count()
     per_page = get_per_page(request, 10)
@@ -1620,15 +1618,32 @@ def serve_document_view(request, token):
     if not doc or not doc.file:
         raise Http404("Document file not found.")
 
+    import mimetypes
+    file_name = doc.file_name or doc.file.name or 'document'
+    fn_lower = file_name.lower()
+    content_type, _ = mimetypes.guess_type(file_name)
+    if not content_type:
+        if fn_lower.endswith('.pdf'):
+            content_type = 'application/pdf'
+        elif fn_lower.endswith(('.jpg', '.jpeg')):
+            content_type = 'image/jpeg'
+        elif fn_lower.endswith('.png'):
+            content_type = 'image/png'
+        elif fn_lower.endswith('.webp'):
+            content_type = 'image/webp'
+        else:
+            content_type = 'application/octet-stream'
+
+    # Stream file bytes directly with explicit Content-Type to prevent browser PDF viewer errors
     try:
-        if hasattr(doc.file, 'url') and str(doc.file.url).startswith('http'):
-            return redirect(doc.file.url)
-        response = FileResponse(doc.file.open('rb'), content_type='application/octet-stream')
-        response['Content-Disposition'] = f'inline; filename="{doc.file_name}"'
+        file_obj = doc.file.open('rb')
+        response = FileResponse(file_obj, content_type=content_type)
+        safe_filename = os.path.basename(file_name).replace('"', '')
+        response['Content-Disposition'] = f'inline; filename="{safe_filename}"'
         return response
     except Exception as exc:
-        logger.error(f"Error serving document file: {exc}")
-        if hasattr(doc.file, 'url') and doc.file.url:
+        logger.warning(f"Error opening document stream for ID {doc.document_id}: {exc}")
+        if hasattr(doc.file, 'url') and str(doc.file.url).startswith('http'):
             return redirect(doc.file.url)
         raise Http404("Unable to access stored document file.")
 
@@ -1704,12 +1719,33 @@ def document_upload_view(request, record_id):
                 expiry_date=parsed_expiry_date,
             )
         except Exception as exc:
-            logger.error(f"Failed saving document file to storage: {exc}")
-            err_msg = f"Storage Save Error: {str(exc)}"
-            if is_ajax:
-                return JsonResponse({'success': False, 'error': err_msg}, status=500)
-            messages.error(request, err_msg)
-            return redirect('record_detail', record_id=record.record_id)
+            logger.warning(f"Cloudinary storage save failed for document upload: {exc}. Trying local FileSystemStorage fallback.")
+            try:
+                from django.core.files.storage import FileSystemStorage
+                fs = FileSystemStorage()
+                if hasattr(document_file, 'seek'):
+                    try:
+                        document_file.seek(0)
+                    except Exception:
+                        pass
+                saved_path = fs.save(f"documents/{document_file.name}", document_file)
+                doc = Document.objects.create(
+                    engineering_record=record,
+                    requirement_item=req_item,
+                    document_type=document_type,
+                    file=saved_path,
+                    file_name=document_file.name,
+                    file_size=document_file.size,
+                    uploaded_by=request.user,
+                    expiry_date=parsed_expiry_date,
+                )
+            except Exception as fallback_exc:
+                logger.error(f"Failed saving document file to storage: {fallback_exc}")
+                err_msg = f"Storage Save Error: {str(fallback_exc)}"
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': err_msg}, status=500)
+                messages.error(request, err_msg)
+                return redirect('record_detail', record_id=record.record_id)
 
         # Mark the corresponding checklist slot as fulfilled
         if req_item:

@@ -359,12 +359,26 @@
                                 autocomplete="off" value="{{ q|default:'' }}">
                             <kbd class="search-shortcut">/</kbd>
                         </div>
-                        <!-- Theme Toggle Button -->
-                        <button id="themeToggleBtn" class="header-user-btn me-2"
-                            style="background:transparent; border:none; color:var(--gray-600); padding:6px; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center;"
-                            aria-label="Toggle dark mode">
-                            <i data-lucide="sun" id="themeSunIcon" style="width:20px; height:20px; display:none;"></i>
-                            <i data-lucide="moon" id="themeMoonIcon" style="width:20px; height:20px;"></i>
+                        <!-- Premium Theme Toggle Switch Button -->
+                        <button id="themeToggleBtn" class="theme-switch-btn me-2" type="button" aria-label="Toggle dark mode" title="Switch to Dark / Light Mode">
+                            <span class="theme-switch-track">
+                                <svg class="track-icon-sun" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="4"></circle>
+                                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+                                </svg>
+                                <svg class="track-icon-moon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                                </svg>
+                                <span class="theme-switch-thumb">
+                                    <svg class="thumb-icon-sun" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="4"></circle>
+                                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+                                    </svg>
+                                    <svg class="thumb-icon-moon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                                    </svg>
+                                </span>
+                            </span>
                         </button>
                         <!-- Notifications Bell Dropdown -->
                         <div class="dropdown me-2">
@@ -746,23 +760,7 @@
         // Theme switching logic
         document.addEventListener("DOMContentLoaded", function () {
             const toggleBtn = document.getElementById('themeToggleBtn');
-            const sunIcon = document.getElementById('themeSunIcon');
-            const moonIcon = document.getElementById('themeMoonIcon');
             if (!toggleBtn) return;
-
-            function updateIcons() {
-                if (document.documentElement.classList.contains('dark-mode')) {
-                    sunIcon.style.display = 'block';
-                    moonIcon.style.display = 'none';
-                    toggleBtn.style.color = '#e2e8f0';
-                } else {
-                    sunIcon.style.display = 'none';
-                    moonIcon.style.display = 'block';
-                    toggleBtn.style.color = '#475569';
-                }
-            }
-
-            updateIcons();
 
             toggleBtn.addEventListener('click', function () {
                 if (document.documentElement.classList.contains('dark-mode')) {
@@ -772,14 +770,60 @@
                     document.documentElement.classList.add('dark-mode');
                     localStorage.setItem('theme', 'dark');
                 }
-                updateIcons();
-
-                // Reinitialize lucide icons if dynamic switching requires new shapes
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
             });
         });
+    </script>
+
+    <!-- Global Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999; pointer-events: none;"></div>
+
+    <script>
+    function showToast(type, title, message) {
+        const container = document.getElementById('toastContainer');
+        if (!container) {
+            alert(message || title);
+            return;
+        }
+
+        const isSuccess = type === 'success';
+        const isWarning = type === 'warning' || type === 'alert';
+        const isError = type === 'error' || type === 'danger';
+
+        const bgClass = isSuccess ? 'bg-success text-white' : (isWarning ? 'bg-warning text-dark' : 'bg-danger text-white');
+        const icon = isSuccess ? 'check-circle' : (isWarning ? 'alert-triangle' : 'alert-circle');
+
+        const toastId = 'toast-' + Date.now() + Math.random().toString(36).substr(2, 4);
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center ${bgClass} border-0 shadow-lg mb-2 fade show" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto; border-radius: 10px;">
+                <div class="d-flex">
+                    <div class="toast-body d-flex align-items-center gap-2 py-2.5 px-3">
+                        <i data-lucide="${icon}" style="width: 18px; height: 18px; flex-shrink: 0;"></i>
+                        <div>
+                            ${title ? `<strong class="d-block" style="font-size: 0.82rem; line-height: 1.2;">${title}</strong>` : ''}
+                            <span style="font-size: 0.78rem;">${message || ''}</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close ${isSuccess || isError ? 'btn-close-white' : ''} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', toastHtml);
+        const toastEl = document.getElementById(toastId);
+        if (window.lucide) lucide.createIcons();
+        
+        if (window.bootstrap && bootstrap.Toast) {
+            const bsToast = new bootstrap.Toast(toastEl, { delay: 4500 });
+            bsToast.show();
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        } else {
+            setTimeout(() => {
+                toastEl.classList.remove('show');
+                setTimeout(() => toastEl.remove(), 300);
+            }, 4500);
+        }
+    }
+    window.showToast = showToast;
     </script>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
     {% include 'permits/includes/flag_illegal_modal.html' %}

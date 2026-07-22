@@ -1,7 +1,10 @@
 import os
-from django.core.files.storage import Storage
+import logging
+from django.core.files.storage import Storage, FileSystemStorage
 from django.utils.deconstruct import deconstructible
 from cloudinary_storage.storage import MediaCloudinaryStorage, RawMediaCloudinaryStorage
+
+logger = logging.getLogger(__name__)
 
 
 @deconstructible
@@ -11,8 +14,8 @@ class DynamicCloudinaryStorage(Storage):
     to MediaCloudinaryStorage (resource_type='image') and document files (DOCX, PDF, etc.)
     to RawMediaCloudinaryStorage (resource_type='raw').
 
-    This prevents Cloudinary API 'Unsupported ZIP file' errors when uploading DOCX/Office
-    documents (which are OpenXML ZIP packages).
+    Includes automatic fallback to local FileSystemStorage if Cloudinary API rejects
+    or errors out on specific document file formats.
     """
 
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.svg'}
@@ -21,6 +24,7 @@ class DynamicCloudinaryStorage(Storage):
         super().__init__(*args, **kwargs)
         self.image_storage = MediaCloudinaryStorage()
         self.raw_storage = RawMediaCloudinaryStorage()
+        self.fallback_storage = FileSystemStorage()
 
     def _get_storage(self, name):
         ext = os.path.splitext(name)[1].lower() if name else ''
@@ -29,25 +33,59 @@ class DynamicCloudinaryStorage(Storage):
         return self.raw_storage
 
     def _open(self, name, mode='rb'):
-        return self._get_storage(name)._open(name, mode)
+        try:
+            return self._get_storage(name)._open(name, mode)
+        except Exception:
+            return self.fallback_storage._open(name, mode)
 
     def _save(self, name, content):
-        return self._get_storage(name)._save(name, content)
+        storage = self._get_storage(name)
+        try:
+            return storage._save(name, content)
+        except Exception as exc:
+            logger.warning(f"Cloudinary save failed for '{name}' ({exc}). Falling back to local FileSystemStorage.")
+            if hasattr(content, 'seek'):
+                try:
+                    content.seek(0)
+                except Exception:
+                    pass
+            return self.fallback_storage._save(name, content)
 
     def delete(self, name):
-        return self._get_storage(name).delete(name)
+        try:
+            self._get_storage(name).delete(name)
+        except Exception:
+            pass
+        if self.fallback_storage.exists(name):
+            try:
+                self.fallback_storage.delete(name)
+            except Exception:
+                pass
 
     def exists(self, name):
-        return self._get_storage(name).exists(name)
+        try:
+            if self._get_storage(name).exists(name):
+                return True
+        except Exception:
+            pass
+        return self.fallback_storage.exists(name)
 
     def url(self, name):
-        return self._get_storage(name).url(name)
+        try:
+            if self.fallback_storage.exists(name):
+                return self.fallback_storage.url(name)
+            return self._get_storage(name).url(name)
+        except Exception:
+            return self.fallback_storage.url(name)
 
     def size(self, name):
-        return self._get_storage(name).size(name)
+        try:
+            return self._get_storage(name).size(name)
+        except Exception:
+            return self.fallback_storage.size(name)
 
     def get_valid_name(self, name):
-        return self._get_storage(name).get_valid_name(name)
+        return self.fallback_storage.get_valid_name(name)
 
     def get_available_name(self, name, max_length=None):
-        return self._get_storage(name).get_available_name(name, max_length=max_length)
+        return self.fallback_storage.get_available_name(name, max_length=max_length)

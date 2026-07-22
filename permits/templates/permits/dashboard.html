@@ -108,92 +108,9 @@
                 Last login: {{ request.user.last_login|date:"d M Y H:i"|default:"First login" }}
             </p>
         </div>
-        <span class="badge bg-light text-dark border px-3 py-1.5 rounded-pill font-monospace" style="font-size: 0.75rem;">
+        <span class="badge-role">
             Role: {{ request.user.get_role_display|default:request.user.role|title }}
         </span>
-    </div>
-</div>
-
-<!-- Expiry Warnings and Security Alerts -->
-{% if alerts.has_alerts %}
-<div class="row g-3 mb-4 d-print-none">
-    <div class="col-12">
-        <div class="alert alert-warning d-flex align-items-start gap-3 p-3 mb-0 rounded-3 border-0" style="background: #fffbeb; border: 1px solid #fef3c7 !important; border-radius: 8px;">
-            <div class="d-flex align-items-center justify-content-center rounded-circle p-1" style="background: #fef3c7; color: #b45309; width: 32px; height: 32px; flex-shrink: 0; margin-top: 2px;">
-                <i data-lucide="alert-triangle" style="width: 20px; height: 20px;"></i>
-            </div>
-            <div class="w-100">
-                <h6 class="fw-bold mb-3" style="color: #92400e; font-size: var(--text-base);">Attention Required</h6>
-                
-                <!-- 1. Security Alerts -->
-                {% if alerts.failed_logins > 0 %}
-                <div class="mb-3">
-                    <div class="d-flex align-items-center gap-2 mb-1" style="color: #991b1b; font-weight: 600; font-size: var(--text-sm);">
-                        <i data-lucide="shield-alert" style="width: 16px; height: 16px;"></i>
-                        <span>Security Alerts ({{ alerts.failed_logins }} total)</span>
-                    </div>
-                    <ul class="mb-0 ps-4 text-muted" style="font-size: var(--text-xs); line-height: 1.6;">
-                        <li>
-                            Security Warning: {{ alerts.failed_logins }} failed login attempt(s) recorded.
-                            <a href="{% url 'settings' %}?tab=logs&status=failed" class="fw-bold text-decoration-none" style="color: #991b1b; text-decoration: underline !important;">View Logs</a>
-                        </li>
-                    </ul>
-                </div>
-                {% endif %}
-
-                <!-- 2. Expired Documents -->
-                {% if alerts.expired_count > 0 %}
-                <div class="mb-3">
-                    <div class="d-flex align-items-center gap-2 mb-1" style="color: #c2410c; font-weight: 600; font-size: var(--text-sm);">
-                        <i data-lucide="x-circle" style="width: 16px; height: 16px; color: #dc2626;"></i>
-                        <span>Expired Documents ({{ alerts.expired_count }} total)</span>
-                    </div>
-                    <ul class="mb-0 ps-4 text-muted" style="font-size: var(--text-xs); line-height: 1.6;">
-                        {% for doc in alerts.expired_preview %}
-                        <li>
-                            Expired: <span class="fw-semibold text-dark-emphasis">{{ doc.label }}</span> for
-                            <a href="{% url 'record_detail' doc.record_id %}" class="fw-medium text-decoration-none" style="color: #c2410c; text-decoration: underline !important;">"{{ doc.record_title }}"</a>
-                            (Expired on {{ doc.expiry_date }})
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% if alerts.expired_count > 3 %}
-                    <div class="ps-4 mt-1">
-                        <button class="btn p-0 border-0 text-start fw-bold" onclick="openAlertsModal('expired')" style="color: #c2410c; font-size: var(--text-xs); text-decoration: underline; background: transparent;">
-                            +{{ alerts.expired_count|add:"-3" }} more expired documents... Click to view all
-                        </button>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- 3. Expiring Soon -->
-                {% if alerts.expiring_count > 0 %}
-                <div class="mb-0">
-                    <div class="d-flex align-items-center gap-2 mb-1" style="color: #b45309; font-weight: 600; font-size: var(--text-sm);">
-                        <i data-lucide="clock" style="width: 16px; height: 16px; color: #d97706;"></i>
-                        <span>Expiring Soon ({{ alerts.expiring_count }} total)</span>
-                    </div>
-                    <ul class="mb-0 ps-4 text-muted" style="font-size: var(--text-xs); line-height: 1.6;">
-                        {% for doc in alerts.expiring_preview %}
-                        <li>
-                            Expiring: <span class="fw-semibold text-dark-emphasis">{{ doc.label }}</span> for
-                            <a href="{% url 'record_detail' doc.record_id %}" class="fw-medium text-decoration-none" style="color: #b45309; text-decoration: underline !important;">"{{ doc.record_title }}"</a>
-                            (Expires on {{ doc.expiry_date }})
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% if alerts.expiring_count > 3 %}
-                    <div class="ps-4 mt-1">
-                        <button class="btn p-0 border-0 text-start fw-bold" onclick="openAlertsModal('expiring')" style="color: #b45309; font-size: var(--text-xs); text-decoration: underline; background: transparent;">
-                            +{{ alerts.expiring_count|add:"-3" }} more expiring documents... Click to view all
-                        </button>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
-        </div>
     </div>
 </div>
 
@@ -231,37 +148,34 @@
         </div>
     </div>
 </div>
-{% endif %}
 
 <!-- ══ CORE METRICS ══════════════════════════════════════════════════════ -->
 <div class="row g-2 g-md-3 section-gap">
     <!-- All Records -->
     <div class="col-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-overall">
-            <div class="card-body p-2.5 p-sm-3 d-flex align-items-center gap-2.5">
-                <div class="metric-icon-wrapper">
+        <a href="{% url 'records_browse' %}" class="text-decoration-none">
+            <div class="stat-card h-100">
+                <div class="stat-icon blue">
                     <i data-lucide="layers"></i>
                 </div>
-                <div class="min-w-0">
-                    <h3 class="metric-value mb-0">{{ total_records }}</h3>
-                    <span class="metric-label">All Records</span>
+                <div class="stat-info min-w-0">
+                    <div class="stat-value">{{ total_records }}</div>
+                    <div class="stat-label text-truncate">All Records</div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <!-- Municipal Projects -->
     <div class="col-6 col-lg-3">
         <a href="{% url 'records_browse' %}?record_type=Project&project_scope=Municipal" class="text-decoration-none">
-            <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-municipal">
-                <div class="card-body p-2.5 p-sm-3 d-flex align-items-center gap-2.5">
-                    <div class="metric-icon-wrapper">
-                        <i data-lucide="building-2"></i>
-                    </div>
-                    <div class="min-w-0">
-                        <h3 class="metric-value mb-0">{{ total_municipal }}</h3>
-                        <span class="metric-label">Municipal Projects</span>
-                    </div>
+            <div class="stat-card h-100">
+                <div class="stat-icon green">
+                    <i data-lucide="building-2"></i>
+                </div>
+                <div class="stat-info min-w-0">
+                    <div class="stat-value">{{ total_municipal }}</div>
+                    <div class="stat-label text-truncate">Municipal Projects</div>
                 </div>
             </div>
         </a>
@@ -270,15 +184,13 @@
     <!-- Barangay Projects -->
     <div class="col-6 col-lg-3">
         <a href="{% url 'records_browse' %}?record_type=Project&project_scope=Barangay" class="text-decoration-none">
-            <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-barangay">
-                <div class="card-body p-2.5 p-sm-3 d-flex align-items-center gap-2.5">
-                    <div class="metric-icon-wrapper">
-                        <i data-lucide="home"></i>
-                    </div>
-                    <div class="min-w-0">
-                        <h3 class="metric-value mb-0">{{ total_barangay }}</h3>
-                        <span class="metric-label">Barangay Projects</span>
-                    </div>
+            <div class="stat-card h-100">
+                <div class="stat-icon purple">
+                    <i data-lucide="home"></i>
+                </div>
+                <div class="stat-info min-w-0">
+                    <div class="stat-value">{{ total_barangay }}</div>
+                    <div class="stat-label text-truncate">Barangay Projects</div>
                 </div>
             </div>
         </a>
@@ -287,15 +199,13 @@
     <!-- Permits -->
     <div class="col-6 col-lg-3">
         <a href="{% url 'records_browse' %}?record_type=Permit" class="text-decoration-none">
-            <div class="card border-0 shadow-sm h-100 metric-card-custom metric-card-permits">
-                <div class="card-body p-2.5 p-sm-3 d-flex align-items-center gap-2.5">
-                    <div class="metric-icon-wrapper">
-                        <i data-lucide="file-text"></i>
-                    </div>
-                    <div class="min-w-0">
-                        <h3 class="metric-value mb-0">{{ total_permits }}</h3>
-                        <span class="metric-label">Permits</span>
-                    </div>
+            <div class="stat-card h-100">
+                <div class="stat-icon amber">
+                    <i data-lucide="file-text"></i>
+                </div>
+                <div class="stat-info min-w-0">
+                    <div class="stat-value">{{ total_permits }}</div>
+                    <div class="stat-label text-truncate">Permits</div>
                 </div>
             </div>
         </a>
@@ -308,7 +218,7 @@
         <!-- Header: Icon + Title + Action Button (Right Aligned) -->
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
             <div class="d-flex align-items-center gap-2.5 min-w-0">
-                <div class="rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0 illegal-icon-circle" style="width: 36px; height: 36px;">
+                <div class="rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0 illegal-icon-circle me-1" style="width: 36px; height: 36px; min-width: 36px;">
                     <i data-lucide="shield-alert" style="width: 18px; height: 18px;"></i>
                 </div>
                 <div class="min-w-0">
@@ -324,8 +234,8 @@
             </div>
             {% if request.user.role == 'admin' or request.user.role == 'staff' %}
             <div class="ms-auto">
-                <button type="button" class="btn btn-danger action-btn action-btn-xs d-inline-flex align-items-center gap-1.5 py-1.5 px-3" data-bs-toggle="modal" data-bs-target="#flagIllegalModal" style="background: #dc2626; border-color: #dc2626; color: #fff; font-size: 0.78rem; border-radius: 6px; white-space: nowrap;">
-                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i> <span>Flag Structure</span>
+                <button type="button" class="btn-flag-illegal" data-bs-toggle="modal" data-bs-target="#flagIllegalModal">
+                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i> <span>Flag Illegal Structure</span>
                 </button>
             </div>
             {% endif %}

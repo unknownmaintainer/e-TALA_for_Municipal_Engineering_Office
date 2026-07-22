@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'cloudinary_storage',
     'cloudinary',
     'rest_framework',
@@ -193,7 +194,6 @@ CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME', '').strip(),
     'API_KEY': os.getenv('CLOUDINARY_API_KEY', '').strip(),
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET', '').strip(),
-    'RESOURCE_TYPE': 'auto',
 }
 
 cloudinary_url = os.getenv('CLOUDINARY_URL', '').strip()
