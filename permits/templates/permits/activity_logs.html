@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}Activity Logs — e-TALA{% endblock %}
+{% block title %}Activity Logs | e-TALA{% endblock %}
 
 {% block breadcrumb %}
 <span class="breadcrumb-item">Activity Logs</span>
@@ -86,7 +86,7 @@
         <div id="log-tab-content-audit" class="tab-pane-custom">
             {% if log_page_obj %}
                 <div class="table-responsive mb-4">
-                    <table class="data-table mb-0">
+                    <table class="data-table table-card-responsive mb-0">
                         <thead>
                             <tr>
                                 <th style="width: 180px; white-space: nowrap;">Date &amp; Time</th>
@@ -102,20 +102,22 @@
                         <tbody>
                             {% for log in log_page_obj %}
                             <tr>
-                                <td class="cell-muted font-monospace" style="font-size: 0.78rem; white-space: nowrap;" title="Timestamp of performed action">
+                                <td class="cell-muted font-monospace" data-label="Date & Time" style="font-size: 0.78rem;" title="Timestamp of performed action">
                                     {{ log.performed_at|date:"Y-m-d H:i:s" }}
                                 </td>
                                 {% if request.user.role == 'admin' %}
-                                <td title="Staff member who executed this action">
+                                <td data-label="Staff Member" title="Staff member who executed this action">
                                     <span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ log.user.full_name|default:log.user.username }}</span>
-                                    <span class="text-muted" style="font-size: 0.72rem; margin-left: 6px;">({{ log.user.get_role_display }})</span>
+                                    {% if log.user.get_role_display and log.user.get_role_display|lower != log.user.full_name|lower and log.user.get_role_display|lower != log.user.username|lower %}
+                                    <span class="badge-role ms-1">{{ log.user.get_role_display }}</span>
+                                    {% endif %}
                                 </td>
                                 {% endif %}
-                                <td style="font-size: 0.84rem; color: var(--gray-700); {% if request.user.role != 'admin' %}max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;{% else %}white-space: normal; word-wrap: break-word;{% endif %}" title="{{ log.action }}">
+                                <td data-label="Action Performed" style="font-size: 0.84rem; color: var(--gray-700); {% if request.user.role != 'admin' %}max-width: 450px; white-space: normal; word-break: break-word;{% else %}white-space: normal; word-wrap: break-word;{% endif %}" title="{{ log.action }}">
                                     {{ log.action }}
                                 </td>
                                 {% if request.user.role == 'admin' %}
-                                <td class="font-monospace cell-muted" style="font-size: 0.78rem; white-space: nowrap;" title="IP address of client device">
+                                <td class="font-monospace cell-muted" data-label="IP Address" style="font-size: 0.78rem;" title="IP address of client device">
                                     <code>{{ log.ip_address|default:"—" }}</code>
                                     {% if log.ip_address and log.ip_address in blocked_ips %}
                                         <span class="badge bg-danger text-white ms-1" style="font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background-color: #ef4444;">Blocked</span>
@@ -205,7 +207,7 @@
 
             {% if login_page_obj %}
                 <div class="table-responsive mb-4">
-                    <table class="data-table mb-0">
+                    <table class="data-table table-card-responsive mb-0">
                         <thead>
                             <tr>
                                 <th style="width: 180px; white-space: nowrap;">Date &amp; Time</th>
@@ -220,13 +222,13 @@
                         <tbody>
                             {% for attempt in login_page_obj %}
                             <tr>
-                                <td class="cell-muted font-monospace" style="font-size: 0.78rem; white-space: nowrap;">
+                                <td class="cell-muted font-monospace" data-label="Date & Time" style="font-size: 0.78rem;">
                                     {{ attempt.timestamp|date:"Y-m-d H:i:s" }}
                                 </td>
-                                <td class="fw-bold text-dark" style="font-size: 0.85rem;">
+                                <td class="fw-bold text-dark" data-label="Email Attempted" style="font-size: 0.85rem;">
                                     {{ attempt.email_attempted }}
                                 </td>
-                                <td>
+                                <td data-label="Status">
                                     {% if attempt.success %}
                                         <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 4px;">
                                             Success
@@ -237,14 +239,14 @@
                                         </span>
                                     {% endif %}
                                 </td>
-                                <td class="font-monospace cell-muted" style="font-size: 0.78rem; white-space: nowrap;">
+                                <td class="font-monospace cell-muted" data-label="IP Address" style="font-size: 0.78rem;">
                                     <code>{{ attempt.ip_address|default:"127.0.0.1" }}</code>
                                     {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
                                         <span class="badge bg-danger text-white ms-1" style="font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background-color: #ef4444;">Blocked</span>
                                     {% endif %}
                                 </td>
                                 {% if request.user.role == 'admin' %}
-                                <td class="text-end">
+                                <td class="text-end" data-label="Action">
                                     {% if attempt.ip_address %}
                                         {% if attempt.ip_address in blocked_ips %}
                                             <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to unblock this IP address?');">
