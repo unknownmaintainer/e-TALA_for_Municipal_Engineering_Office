@@ -15,105 +15,108 @@
 </div>
 {% endif %}
 
-<!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
-<div class="page-title-row">
+<!-- ══ HEADING & TOOLBAR ══════════════════════════════════════════════════ -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
     <div>
-        <h1>
-            <i data-lucide="users" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
+        <h1 class="h3 fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+            <i class="fa-solid fa-users text-teal" style="font-size: 1.25rem; color: #0d9488;"></i>
             User Management
         </h1>
-        <p class="page-subtitle">Create new operator accounts, edit profiles, and reset passwords</p>
+        <p class="text-muted mb-0" style="font-size: 0.84rem;">Create new operator accounts, edit profiles, and reset passwords</p>
     </div>
-    <button class="action-btn action-btn-primary d-inline-flex align-items-center gap-1.5 fw-semibold" data-bs-toggle="modal" data-bs-target="#addUserModal" style="height: 38px;">
-        <i data-lucide="user-plus" style="width:16px; height:16px;"></i> Add New User
-    </button>
-</div>
+    
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <!-- Search Input -->
+        <form method="GET" action="{% url 'users' %}" class="m-0">
+            <div class="d-flex align-items-center px-3" style="width: 260px; height: 38px; border: 1px solid var(--border-default, #cbd5e1); border-radius: 10px; background: var(--card-bg, #ffffff); box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);">
+                <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b;"></i>
+                <input type="text" name="q" class="form-control border-0 p-0 shadow-none bg-transparent" placeholder="Search user..." value="{{ q|default:'' }}" style="font-size: 0.82rem;">
+                {% if q %}
+                <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-1 text-decoration-none" title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
 
-<!-- ══ SEARCH BAR ══════════════════════════════════════════════════════ -->
-<div class="filter-bar section-gap">
-    <form method="GET" action="{% url 'users' %}" class="d-flex gap-2 align-items-center flex-grow-1">
-        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
-            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-            <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ q|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
-            {% if q %}
-            <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
-                <i data-lucide="x" style="width:16px;height:16px;"></i>
-            </a>
-            {% endif %}
-        </div>
-    </form>
+        {% if request.user.role == 'admin' %}
+        <button class="btn btn-primary d-inline-flex align-items-center gap-2 fw-bold" data-bs-toggle="modal" data-bs-target="#addUserModal" style="height: 38px; border-radius: 10px; background: #002855; border-color: #002855; font-size: 0.82rem; padding: 0 16px;">
+            <i class="fa-solid fa-user-plus" style="font-size: 13px;"></i>
+            <span>Add New User</span>
+        </button>
+        {% endif %}
+    </div>
 </div>
 
 <!-- ══ USERS TABLE CARD ════════════════════════════════════════════════ -->
-<div class="content-card" style="overflow: hidden;">
+<div class="content-card shadow-sm border-0 rounded-4 mb-4">
     <div class="content-card-body p-0">
         <div class="table-responsive">
-            <table class="data-table table-card-responsive mb-0">
+            <table class="data-table align-middle mb-0" style="width: 100%;">
                 <thead>
-                    <tr>
-                        <th>User Name</th>
-                        <th>Email Address</th>
-                        <th>Role</th>
-                        <th>Date Joined</th>
-                        <th class="text-end" style="width: 80px;"></th>
+                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; color: #64748b;">User Name</th>
+                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; color: #64748b;">Email Address</th>
+                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; color: #64748b;">Role</th>
+                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; color: #64748b;">Date Joined</th>
+                        <th class="text-end" style="padding: 14px 18px; width: 80px;"></th>
                     </tr>
                 </thead>
                 <tbody id="userTableBody">
                     {% for u in users %}
-                    <tr onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})" style="cursor: pointer;">
-                        <td class="align-middle" data-label="User Name">
-                            <div class="d-flex align-items-center gap-2.5">
+                    <tr onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})" style="cursor: pointer; transition: background 0.15s;">
+                        <td class="align-middle" style="padding: 14px 18px;">
+                            <div class="d-flex align-items-center gap-3">
                                 {% if u.profile_picture %}
-                                <img src="{{ u.profile_picture.url }}" class="rounded-circle border" style="width:32px; height:32px; object-fit:cover; flex-shrink:0;">
+                                <img src="{{ u.profile_picture.url }}" class="rounded-circle border" style="width:36px; height:36px; object-fit:cover; flex-shrink:0;">
                                 {% else %}
                                     {% if u.role == 'admin' %}
-                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:32px; height:32px; font-size:0.75rem; flex-shrink: 0; background: #f3e8ff; color: #6d28d9; border: 1px solid #ddd6fe;">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width:36px; height:36px; font-size:0.8rem; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd;">
                                         {{ u.username|slice:":2"|upper }}
                                     </div>
                                     {% else %}
-                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:32px; height:32px; font-size:0.75rem; flex-shrink: 0; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width:36px; height:36px; font-size:0.8rem; background: #f0fdfa; color: #0d9488; border: 1px solid #ccfbf1;">
                                         {{ u.username|slice:":2"|upper }}
                                     </div>
                                     {% endif %}
                                 {% endif %}
                                 <div>
-                                    <div class="fw-bold text-dark">
+                                    <div class="fw-bold text-dark" style="font-size: 0.88rem;">
                                         {{ u.full_name|default:u.username }}
                                         {% if not u.is_active %}
-                                        <span class="badge bg-secondary ms-1 fw-semibold" style="font-size: 0.65rem; padding: 2px 5px;">Inactive</span>
+                                        <span class="badge bg-secondary ms-1 fw-bold" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;">Inactive</span>
                                         {% endif %}
                                     </div>
-                                    <div class="text-muted small" style="font-size:0.7rem;">@{{ u.username }}</div>
+                                    <div class="text-muted" style="font-size:0.75rem;">@{{ u.username }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td class="text-muted align-middle" data-label="Email Address">{{ u.email }}</td>
-                        <td class="align-middle" data-label="Role">
+                        <td class="text-muted align-middle" style="padding: 14px 18px; font-size: 0.85rem;">{{ u.email }}</td>
+                        <td class="align-middle" style="padding: 14px 18px;">
                             {% if u.role == 'admin' %}
-                            <span class="tag tag-permit">Administrator</span>
+                            <span class="badge" style="background: #eff6ff; color: #1d4ed8; font-size: 0.72rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #dbeafe;">Administrator</span>
                             {% else %}
-                            <span class="tag tag-workspace">Engineering Staff</span>
+                            <span class="badge" style="background: #f0fdfa; color: #0d9488; font-size: 0.72rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #ccfbf1;">Engineering Staff</span>
                             {% endif %}
                         </td>
-                        <td class="text-muted align-middle" data-label="Date Joined">{{ u.created_at|date:"M d, Y" }}</td>
-                        <td class="text-end align-middle" data-label="Action" onclick="event.stopPropagation();">
+                        <td class="text-muted align-middle" style="padding: 14px 18px; font-size: 0.82rem;">{{ u.created_at|date:"M d, Y" }}</td>
+                        <td class="text-end align-middle" style="padding: 14px 18px;" onclick="event.stopPropagation();">
                             <div class="dropdown d-inline-block">
-                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i data-lucide="more-horizontal"></i>
+                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" style="border: none; background: transparent; color: #94a3b8; padding: 4px 8px; border-radius: 6px;">
+                                    <i class="fa-solid fa-ellipsis" style="font-size: 14px;"></i>
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end border shadow-sm py-1" style="min-width: 160px; font-size: 0.85rem; border-radius: 8px;">
+                                <ul class="dropdown-menu dropdown-menu-end border shadow-sm py-1" style="min-width: 160px; font-size: 0.82rem; border-radius: 8px;">
                                     <li>
                                         <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" 
                                                 onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})">
-                                            <i data-lucide="edit-2" style="width: 14px; height: 14px; color: #3b82f6;"></i>
+                                            <i class="fa-solid fa-pen" style="font-size: 12px; color: #3b82f6;"></i>
                                             Edit Profile
                                         </button>
                                     </li>
                                     <li>
                                         <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" 
                                                 onclick="openResetModal('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}')">
-                                            <i data-lucide="key" style="width: 14px; height: 14px; color: #0d9488;"></i>
+                                            <i class="fa-solid fa-key" style="font-size: 12px; color: #0d9488;"></i>
                                             Reset Password
                                         </button>
                                     </li>
@@ -126,12 +129,12 @@
                                             <input type="hidden" name="user_id" value="{{ u.id }}">
                                             {% if u.is_active %}
                                             <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger">
-                                                <i data-lucide="user-x" style="width: 14px; height: 14px; color: #ef4444;"></i>
+                                                <i class="fa-solid fa-user-xmark" style="font-size: 12px; color: #ef4444;"></i>
                                                 Deactivate Account
                                             </button>
                                             {% else %}
                                             <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-success">
-                                                <i data-lucide="user-check" style="width: 14px; height: 14px; color: #10b981;"></i>
+                                                <i class="fa-solid fa-user-check" style="font-size: 12px; color: #10b981;"></i>
                                                 Activate Account
                                             </button>
                                             {% endif %}
@@ -145,10 +148,10 @@
                     {% empty %}
                     <tr>
                         <td colspan="5">
-                            <div class="empty-state-unified py-4">
-                                <i data-lucide="users"></i>
+                            <div class="empty-state-unified py-4 text-center">
+                                <i class="fa-solid fa-users text-muted mb-2" style="font-size: 24px;"></i>
                                 <h6>No users found</h6>
-                                <p>No registered operators matched your search query.</p>
+                                <p class="text-muted small">No registered operators matched your search query.</p>
                             </div>
                         </td>
                     </tr>
@@ -158,7 +161,7 @@
         </div>
 
         <!-- Pagination -->
-        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="pagination-bar px-4 py-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2" style="background: var(--gray-50, #f8fafc); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
             <div class="d-flex align-items-center gap-3">
                 <span class="pagination-info m-0">Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> users</span>
                 <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">

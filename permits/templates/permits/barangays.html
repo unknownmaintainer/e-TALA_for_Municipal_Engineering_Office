@@ -7,6 +7,9 @@
 <!-- Leaflet Map CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
+    .leaflet-container, .leaflet-popup, .leaflet-control-layers, .leaflet-tooltip, .custom-brgy-popup, .brgy-map-tooltip {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    }
     .custom-map-marker:hover {
         transform: scale(1.2);
     }
@@ -22,6 +25,73 @@
     .brgy-card:hover .brgy-card-arrow {
         color: #0d9488 !important;
         transform: translateX(2px);
+    }
+    .brgy-map-tooltip {
+        background: #002855 !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        padding: 4px 8px !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 14px rgba(0, 40, 85, 0.4) !important;
+        opacity: 1 !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+    .brgy-map-tooltip::before {
+        border-top-color: #002855 !important;
+    }
+    /* Leaflet Popup & Layer Switcher High Contrast Overrides */
+    .leaflet-popup-content-wrapper {
+        border-radius: 14px !important;
+        padding: 4px !important;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22) !important;
+        border: 1px solid #cbd5e1 !important;
+        background: #ffffff !important;
+    }
+    .leaflet-popup-content {
+        margin: 12px 14px !important;
+        line-height: 1.4 !important;
+    }
+    .leaflet-popup-content a.btn-primary,
+    .leaflet-popup-content a.btn-primary span,
+    .leaflet-popup-content a.btn-primary i {
+        color: #ffffff !important;
+    }
+    .leaflet-container a.leaflet-popup-close-button {
+        top: 8px !important;
+        right: 8px !important;
+        padding: 4px !important;
+        color: #64748b !important;
+        font-size: 16px !important;
+    }
+    .leaflet-container a.leaflet-popup-close-button:hover {
+        color: #0f172a !important;
+    }
+    .leaflet-control-layers {
+        border-radius: 12px !important;
+        border: 1.5px solid #cbd5e1 !important;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.15) !important;
+        padding: 6px 10px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        background: #ffffff !important;
+    }
+    .leaflet-control-layers-toggle {
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 10px !important;
+        background-size: 20px 20px !important;
+    }
+    .leaflet-touch .leaflet-control-layers-toggle {
+        width: 38px !important;
+        height: 38px !important;
+    }
+    .leaflet-control-layers label {
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        margin-bottom: 4px !important;
     }
     @media (min-width: 992px) {
         .sticky-lg-top {
@@ -91,12 +161,12 @@
 <!-- Layout for Map and Cards Grid -->
 <div class="row g-4 mb-5" id="barangayContentRow">
     <!-- Map Column (Hidden by default, shown when toggled) -->
-    <div class="col-lg-5 col-12 d-none d-print-none" id="mapColumn">
-        <div class="content-card sticky-lg-top">
+    <div class="col-lg-6 col-12 d-none d-print-none" id="mapColumn">
+        <div class="content-card sticky-lg-top" style="border-radius: 16px;">
             <div class="content-card-body p-0">
-                <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <h6 class="m-0 fw-bold text-dark d-flex align-items-center">
-                        <i data-lucide="map" class="me-2 text-teal" style="width: 16px; height: 16px; color: #0d9488;"></i>
+                <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2 brgy-map-card-header" style="background: #f8fafc; border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                    <h6 class="m-0 fw-bold text-dark d-flex align-items-center brgy-map-card-title" style="font-size: 0.95rem;">
+                        <i class="fa-solid fa-map-location-dot me-2" style="color: #0284c7;"></i>
                         Interactive Barangay Map
                     </h6>
                     <div class="d-flex align-items-center gap-3">
@@ -104,11 +174,11 @@
                             <input class="form-check-input" type="checkbox" id="heatmapToggle" onchange="toggleHeatmap(this.checked)" style="cursor: pointer;">
                             <label class="form-check-label text-muted fw-semibold" for="heatmapToggle" style="font-size: 11px; cursor: pointer; user-select: none;">Heatmap View</label>
                         </div>
-                        <span class="tag tag-workspace" style="font-size: var(--text-2xs);">Carigara, Leyte</span>
+                        <span class="tag tag-workspace" style="font-size: var(--text-2xs); background: #e0f2fe; color: #0369a1; font-weight: 700;">Carigara, Leyte</span>
                     </div>
                 </div>
                 <!-- Leaflet container -->
-                <div id="carigaraMap" style="height: 450px; background: #eef2f7; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;"></div>
+                <div id="carigaraMap" style="height: calc(100vh - 200px); min-height: 640px; background: #f8fafc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;"></div>
             </div>
         </div>
     </div>
@@ -136,34 +206,34 @@
                  data-permits="{{ b.permit_count }}" 
                  data-total="{{ b.total_records }}"
                  data-index="{{ forloop.counter0 }}">
-                    <div class="brgy-card" id="brgy-card-{{ b.barangay_id }}">
+                    <div class="brgy-card" id="brgy-card-{{ b.barangay_id }}" onclick="window.location='{% url 'barangay_workspace' b.barangay_id %}'" style="cursor: pointer;">
                         <div class="brgy-card-header d-flex justify-content-between align-items-center mb-2">
                             <!-- Left: Barangay Badge / Icon -->
                             <div class="d-flex align-items-center gap-2">
-                                <div class="brgy-card-icon-circle" style="width: 28px; height: 28px; background: #e0f2fe; color: #0369a1; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
-                                    <i class="fa-solid fa-map-location-dot" style="font-size: 12px;"></i>
+                                <div class="brgy-card-icon-circle" style="width: 30px; height: 30px; background: #e0f2fe; color: #0284c7; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fa-solid fa-folder-open" style="font-size: 13px;"></i>
                                 </div>
-                                <span class="tag tag-id" style="font-weight: 600; color: #64748b; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: #f1f5f9;">Brgy. ID #{{ b.barangay_id }}</span>
+                                <span class="tag tag-id" style="font-weight: 700; color: #64748b; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; background: #f1f5f9;">ID #{{ b.barangay_id }}</span>
                             </div>
                             
-                            <!-- Right: Dropdown Actions (Non-anchor block to avoid navigation triggers) -->
-                            <div class="d-flex align-items-center gap-1">
+                            <!-- Right: Dropdown Actions -->
+                            <div class="d-flex align-items-center gap-1" onclick="event.stopPropagation();">
                                 {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                 <div class="dropdown d-inline-block">
-                                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" style="padding: 4px; line-height: 1; border: none; background: transparent; color: #94a3b8; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.color='#0f172a'; this.style.background='#f1f5f9';" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';">
-                                        <i class="fa-solid fa-ellipsis" style="font-size: 13px;"></i>
+                                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" style="padding: 4px 8px; line-height: 1; border: none; background: transparent; color: #94a3b8; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.color='#0f172a'; this.style.background='#f1f5f9';" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';">
+                                        <i class="fa-solid fa-ellipsis-vertical" style="font-size: 13px;"></i>
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end border shadow-sm py-1" style="min-width: 130px; font-size: 0.8rem; border-radius: 8px; z-index: 1050;">
                                         <li>
                                             <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-dark" 
-                                                    onclick="openEditBarangayModal('{{ b.barangay_id }}', '{{ b.barangay_name|escapejs }}')">
+                                                    onclick="event.stopPropagation(); openEditBarangayModal('{{ b.barangay_id }}', '{{ b.barangay_name|escapejs }}')">
                                                 <i class="fa-solid fa-pen" style="font-size: 11px; color: #3b82f6;"></i>
                                                 Rename
                                             </button>
                                         </li>
                                         <li>
                                             <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-danger" 
-                                                    onclick="confirmDeleteBarangay('{{ b.barangay_id }}', '{{ b.barangay_name|escapejs }}', {{ b.total_records }})">
+                                                    onclick="event.stopPropagation(); confirmDeleteBarangay('{{ b.barangay_id }}', '{{ b.barangay_name|escapejs }}', {{ b.total_records }})">
                                                 <i class="fa-solid fa-trash-can" style="font-size: 11px; color: #ef4444;"></i>
                                                 Delete
                                             </button>
@@ -174,38 +244,38 @@
                             </div>
                         </div>
 
-                        <!-- Card Body (Covers the text and details cleanly) -->
-                        <div class="d-flex flex-column flex-grow-1" style="color: inherit; cursor: pointer;">
-                            <div class="brgy-card-title mt-1" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">
+                        <!-- Card Body -->
+                        <div class="d-flex flex-column flex-grow-1" style="color: inherit;">
+                            <div class="brgy-card-title mt-1" style="font-size: 1.08rem; font-weight: 800; color: var(--gray-900, #0f172a); margin-bottom: 12px;">
                                 {{ b.barangay_name }}
                             </div>
                             
                             <div class="brgy-card-stats d-flex flex-wrap gap-2 align-items-center mt-auto" style="min-height: 28px;">
                                 {% if b.total_records > 0 %}
                                     {% if b.project_count > 0 %}
-                                    <span class="tag tag-project" style="font-size: 0.68rem; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe;">
+                                    <span class="tag tag-project" style="font-size: 0.7rem; padding: 4px 9px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe;">
                                         <i class="fa-solid fa-folder" style="font-size: 10px;"></i>
                                         {{ b.project_count }} Project{{ b.project_count|pluralize }}
                                     </span>
                                     {% endif %}
                                     {% if b.permit_count > 0 %}
-                                    <span class="tag tag-permit" style="font-size: 0.68rem; padding: 4px 8px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; background: #f0fdfa; color: #0d9488; border: 1px solid #ccfbf1;">
+                                    <span class="tag tag-permit" style="font-size: 0.7rem; padding: 4px 9px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; background: #f0fdfa; color: #0d9488; border: 1px solid #ccfbf1;">
                                         <i class="fa-solid fa-file-lines" style="font-size: 10px;"></i>
                                         {{ b.permit_count }} Permit{{ b.permit_count|pluralize }}
                                     </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="tag tag-none" style="font-style: italic; font-size: 0.68rem; font-weight: 500; padding: 4px 8px; border-radius: 6px; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 4px;">
+                                    <span class="tag tag-none" style="font-size: 0.7rem; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 4px;">
                                         <i class="fa-solid fa-circle-info" style="font-size: 10px;"></i>
                                         No active records
                                     </span>
                                 {% endif %}
                             </div>
                             
-                            <a href="{% url 'barangay_workspace' b.barangay_id %}" class="mt-3 pt-2 border-top d-flex align-items-center justify-content-between text-muted text-decoration-none workspace-link-btn" style="font-size: 0.72rem; font-weight: 600; transition: color 0.2s; color: inherit;" onclick="event.stopPropagation();">
+                            <div class="mt-3 pt-2 border-top d-flex align-items-center justify-content-between text-muted workspace-link-btn" style="font-size: 0.76rem; font-weight: 700; transition: color 0.2s;">
                                 <span class="workspace-hint">Go to Workspace</span>
-                                <i class="fa-solid fa-arrow-right brgy-card-arrow" style="font-size: 10px;"></i>
-                            </a>
+                                <i class="fa-solid fa-arrow-right brgy-card-arrow" style="font-size: 11px;"></i>
+                            </div>
                         </div>
                     </div>
             </div>
@@ -570,48 +640,62 @@ document.addEventListener('DOMContentLoaded', function() {
         
         map = L.map('carigaraMap', {
             zoomControl: true,
-            scrollWheelZoom: false
+            scrollWheelZoom: false,
+            preferCanvas: true
         }).setView([centerLat, centerLng], 13);
         
-        // Define base maps
+        // Define base maps with optimized lazy tile loading
         const roadmap = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             maxZoom: 20,
+            keepBuffer: 2,
+            updateWhenIdle: true,
+            updateWhenZooming: false,
             attribution: '© Google Maps'
-        });
-        
-        const satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            attribution: '© Google Satellite'
         });
 
         const hybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
             maxZoom: 20,
-            attribution: '© Google Hybrid'
+            keepBuffer: 2,
+            updateWhenIdle: true,
+            updateWhenZooming: false,
+            attribution: '© Google Satellite'
         });
         
-        // Define Street View Coverage overlay (Blue Lines)
-        const streetViewLines = L.tileLayer('https://mt1.google.com/vt/lyrs=svv&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            attribution: '© Google Street View Coverage'
-        });
-        
-        // Default base layer
-        hybrid.addTo(map);
-        
-        // Default overlay layer (Auto-loaded to show detailed blue track lines)
-        streetViewLines.addTo(map);
+        // Default base layer: Clean, high-definition Google Streets Vector Map
+        roadmap.addTo(map);
         
         const baseMaps = {
-            "Standard Map": roadmap,
-            "Satellite View": satellite,
-            "Satellite & Roads": hybrid
+            "Streets Map": roadmap,
+            "Satellite View": hybrid
         };
         
-        const overlayMaps = {
-            "Street View Coverage (Blue Lines)": streetViewLines
+        L.control.layers(baseMaps, null, { position: 'bottomleft', collapsed: true }).addTo(map);
+
+        // Add Map Legend Overlay
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'info legend p-2 rounded shadow-sm border');
+            div.style.background = 'var(--card-bg, #ffffff)';
+            div.style.fontSize = '0.72rem';
+            div.style.color = 'var(--text-color, #0f172a)';
+            div.innerHTML = `
+                <div class="fw-bold mb-1 border-bottom pb-1" style="font-size:0.74rem;">Map Legend</div>
+                <div class="d-flex align-items-center gap-1.5 mb-1">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#002855;"></span> Barangay Pin & Count
+                </div>
+                <div class="d-flex align-items-center gap-1.5 mb-1">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#0d9488;"></span> Low Volume (1-3)
+                </div>
+                <div class="d-flex align-items-center gap-1.5 mb-1">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#ea580c;"></span> Moderate (4-8)
+                </div>
+                <div class="d-flex align-items-center gap-1.5">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#dc2626;"></span> High Activity (9+)
+                </div>
+            `;
+            return div;
         };
-        
-        L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+        legend.addTo(map);
 
         // Reset highlight if user clicks on map background
         map.on('click', function() {
@@ -637,23 +721,36 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             const popupContent = `
-                <div style="min-width: 160px;">
-                    <h6 style="margin: 0 0 8px 0; font-weight: 700; color: #002855;">Brgy. ${name}</h6>
-                    <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
-                        <div>• <strong>${projects}</strong> Active Projects</div>
-                        <div>• <strong>${permits}</strong> File Permits</div>
-                        <div style="margin-top: 4px; font-weight: 600; color: #1e293b;">Total: ${total} records</div>
+                <div class="custom-brgy-popup" style="min-width: 200px;">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div class="fw-extrabold text-dark" style="font-size: 0.98rem; color: #0f172a;">Brgy. ${name}</div>
+                        <span class="badge" style="background: #e2e8f0; color: #1e293b; font-size: 0.68rem; font-weight: 800; padding: 3px 7px;">ID #${id}</span>
                     </div>
-                    <a href="/barangays/${id}/" class="action-btn action-btn-teal action-btn-xs text-center d-block text-decoration-none" style="color: #ffffff; padding: 4px 8px; font-size: 10px; border-radius: 4px;">
-                        Open Workspace
-                    </a>
-                    <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${coords[0]},${coords[1]}" target="_blank" class="action-btn action-btn-xs text-center d-block text-decoration-none mt-1.5" style="color: #ffffff; background: #1a73e8; padding: 4px 8px; font-size: 10px; border-radius: 4px; font-weight: 600;">
-                        <i class="fa-solid fa-street-view me-1"></i> Street View
+                    
+                    <div class="d-flex gap-1.5 mb-3 flex-wrap">
+                        <span class="tag" style="background: #eff6ff; color: #1e40af; font-size: 0.72rem; font-weight: 800; padding: 4px 9px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                            <i class="fa-solid fa-folder me-1" style="font-size: 10px;"></i>${projects} Project${projects == 1 ? '' : 's'}
+                        </span>
+                        <span class="tag" style="background: #f0fdfa; color: #0f766e; font-size: 0.72rem; font-weight: 800; padding: 4px 9px; border-radius: 6px; border: 1px solid #99f6e4;">
+                            <i class="fa-solid fa-file-lines me-1" style="font-size: 10px;"></i>${permits} Permit${permits == 1 ? '' : 's'}
+                        </span>
+                    </div>
+
+                    <a href="/barangays/${id}/" class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center gap-2 text-decoration-none" style="font-size: 0.8rem; font-weight: 800; border-radius: 8px; padding: 8px 14px; background: #002855; border-color: #002855; color: #ffffff !important; box-shadow: 0 3px 8px rgba(0, 40, 85, 0.25);">
+                        <span style="color: #ffffff !important;">Open Barangay Workspace</span>
+                        <i class="fa-solid fa-arrow-right" style="font-size: 11px; color: #ffffff !important;"></i>
                     </a>
                 </div>
             `;
             
-            const marker = L.marker(coords, { icon: icon }).bindPopup(popupContent);
+            const marker = L.marker(coords, { icon: icon })
+                .bindPopup(popupContent)
+                .bindTooltip(`Brgy. ${name}`, {
+                    permanent: true,
+                    direction: 'top',
+                    className: 'brgy-map-tooltip',
+                    offset: [0, -34]
+                });
             
             // Populate heatmap layer
             const numericTotal = parseInt(total);
@@ -728,7 +825,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show Map
             mapColumn.classList.remove('d-none');
             cardsColumn.classList.remove('col-12');
-            cardsColumn.classList.add('col-lg-7');
+            cardsColumn.classList.add('col-lg-6');
             spanEl.textContent = 'Hide Map';
             
             // Re-arrange cards to 2 columns to fit properly
@@ -747,7 +844,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Hide Map
             mapColumn.classList.add('d-none');
-            cardsColumn.classList.remove('col-lg-7');
+            cardsColumn.classList.remove('col-lg-6');
             cardsColumn.classList.add('col-12');
             spanEl.textContent = 'Show Map';
             
@@ -824,6 +921,24 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clientEmptyState) clientEmptyState.classList.add('d-none');
         if (barangayGrid) barangayGrid.classList.remove('d-none');
     });
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // LAZY LOADING MAP & PROGRESSIVE CARDS (IntersectionObserver)
+    // ═════════════════════════════════════════════════════════════════════════
+    const mapElement = document.getElementById('carigaraMap');
+    if (mapElement && 'IntersectionObserver' in window) {
+        const mapLazyObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    initMap();
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { rootMargin: '120px 0px' });
+        mapLazyObserver.observe(mapElement);
+    } else {
+        initMap();
+    }
 });
 </script>
 {% endblock %}

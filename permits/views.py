@@ -2459,7 +2459,34 @@ def profile_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        if action == 'update_profile':
+        if action == 'upload_photo':
+            if 'profile_picture' in request.FILES:
+                try:
+                    user.profile_picture = request.FILES['profile_picture']
+                    user.save()
+                    log_audit(user, "Updated profile picture", request=request)
+                    messages.success(request, "Profile picture updated successfully.")
+                except Exception as e:
+                    logger.error(f"Error uploading profile picture: {str(e)}")
+                    messages.error(request, "Upload failed or timed out due to network connection. Please check your internet and try again.")
+            else:
+                messages.error(request, "No image file provided.")
+            return redirect('profile')
+
+        elif action == 'remove_photo':
+            if user.profile_picture:
+                try:
+                    user.profile_picture.delete(save=False)
+                    user.profile_picture = None
+                    user.save()
+                    log_audit(user, "Removed profile picture", request=request)
+                    messages.success(request, "Profile picture removed.")
+                except Exception as e:
+                    logger.error(f"Error deleting profile picture: {str(e)}")
+                    messages.error(request, "Failed to remove photo due to network connection. Please try again.")
+            return redirect('profile')
+
+        elif action == 'update_profile':
             full_name = sanitize_input(request.POST.get('full_name', '')).strip()
             email = sanitize_input(request.POST.get('email', '')).lower()
 

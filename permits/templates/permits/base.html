@@ -163,7 +163,7 @@
             color: #ffffff !important;
         }
         .dark-mode .brand-subtitle {
-            color: #94a3b8 !important;
+            color: rgba(255, 255, 255, 0.45) !important;
         }
         /* Dynamic selectors to catch hardcoded background inline styles */
         .dark-mode div[style*="background: #ffffff"],
@@ -230,7 +230,6 @@
                 {% endif %}
 
                 <div class="nav-section">
-                    <span class="nav-section-label">Menu</span>
                     <a href="{% url 'dashboard' %}" class="nav-item {% if active_tab == 'dashboard' %}active{% endif %}"
                         title="Dashboard">
                         <div class="nav-item-content">
@@ -262,21 +261,7 @@
                         </div>
                     </a>
                     {% endif %}
-                    {% if request.user.role != 'admin' %}
-                    <a href="{% url 'activity_logs' %}" class="nav-item {% if active_tab == 'activity_logs' %}active{% endif %}"
-                        title="My Activity">
-                        <div class="nav-item-content">
-                            <i data-lucide="history"></i>
-                            <span class="nav-label">My Activity</span>
-                        </div>
-                    </a>
-                    {% endif %}
-                </div>
-
-                {% if request.user.role == 'admin' %}
-                <div class="nav-divider"></div>
-                <div class="nav-section">
-                    <span class="nav-section-label">Admin</span>
+                    {% if request.user.role == 'admin' %}
                     <a href="{% url 'users' %}" class="nav-item {% if active_tab == 'users' %}active{% endif %}"
                         title="Users">
                         <div class="nav-item-content">
@@ -291,13 +276,15 @@
                             <span class="nav-label">Archive</span>
                         </div>
                     </a>
+                    {% endif %}
                     <a href="{% url 'activity_logs' %}"
-                        class="nav-item {% if active_tab == 'activity_logs' %}active{% endif %}" title="Activity Logs">
+                        class="nav-item {% if active_tab == 'activity_logs' %}active{% endif %}" title="{% if request.user.role == 'admin' %}Activity Logs{% else %}My Activity{% endif %}">
                         <div class="nav-item-content">
                             <i data-lucide="history"></i>
-                            <span class="nav-label">Activity Logs</span>
+                            <span class="nav-label">{% if request.user.role == 'admin' %}Activity Logs{% else %}My Activity{% endif %}</span>
                         </div>
                     </a>
+                    {% if request.user.role == 'admin' %}
                     <a href="{% url 'settings' %}" class="nav-item {% if active_tab == 'settings' %}active{% endif %}"
                         title="Settings">
                         <div class="nav-item-content">
@@ -305,27 +292,9 @@
                             <span class="nav-label">Settings</span>
                         </div>
                     </a>
+                    {% endif %}
                 </div>
-                {% endif %}
             </nav>
-
-            <!-- Sidebar Footer: Combined User Profile and Logout Icon -->
-            <div class="sidebar-footer">
-                <div class="sidebar-profile-row">
-                    <a href="{% url 'profile' %}" class="sidebar-profile-link" title="Profile">
-                        <div class="user-avatar">
-                            {{ request.user.username|slice:":1"|upper }}
-                        </div>
-                        <div class="user-info">
-                            <span class="user-name">{{ request.user.full_name|default:request.user.username }}</span>
-                            <span class="user-role">{{ request.user.get_role_display }}</span>
-                        </div>
-                    </a>
-                    <a href="{% url 'logout' %}" class="sidebar-logout-btn" title="Log out">
-                        <i data-lucide="log-out"></i>
-                    </a>
-                </div>
-            </div>
         </aside>
 
         <!-- ═══════════════════════════════════════════
@@ -391,23 +360,24 @@
                                     class="position-absolute bg-danger text-white rounded-circle d-none"
                                     style="font-size: 9px; font-weight: 700; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; top: 1px; right: 1px; border: 2px solid white; padding: 0; line-height: 1;"></span>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end p-0 shadow border-0"
-                                style="width: 320px; border-radius: 10px; overflow: hidden; margin-top: 10px; z-index: 1050;">
-                                <div class="px-3 py-2 border-bottom d-flex justify-content-between align-items-center"
-                                    style="background:#f8fafc;">
-                                    <span class="fw-bold text-dark" style="font-size:0.85rem;">System Notifications</span>
+                            <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card" style="margin-top: 10px; z-index: 1050;">
+                                <div class="px-3.5 py-3 border-bottom d-flex justify-content-between align-items-center notification-card-header" style="background:#f8fafc;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-bell flex-shrink-0" style="font-size: 14px; color: #0284c7;"></i>
+                                        <span class="fw-bold text-dark notification-card-title" style="font-size:0.88rem;">System Notifications</span>
+                                    </div>
                                     {% if recent_notifications %}
-                                    <span class="badge text-dark" style="font-size:0.7rem; background:#dbeafe; color:#1e3a8a !important;">{{ notifications_count }} Recent</span>
+                                    <span class="badge" style="font-size:0.68rem; font-weight: 700; background:#e0f2fe; color:#0369a1; padding: 3px 8px; border-radius: 6px;">{{ notifications_count }} Recent</span>
                                     {% endif %}
                                 </div>
-                                <div class="d-flex flex-column" style="max-height: 280px; overflow-y: auto;">
+                                <div class="d-flex flex-column" style="max-height: 320px; overflow-y: auto;">
                                     {% for n in recent_notifications %}
-                                    <div class="p-3 border-bottom d-flex gap-2.5 align-items-start hover-bg-light"
+                                    <div class="p-3 border-bottom notification-item d-flex gap-3 align-items-start"
                                         style="font-size:0.8rem; cursor:pointer;"
                                         onclick="window.location='{{ n.url }}'"
                                         data-notification-id="{{ n.action|slugify }}_{{ n.performed_at|date:'c'|default:n.time|slugify }}">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 28px; height: 28px; 
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5"
+                                            style="width: 32px; height: 32px; 
                                              {% if n.type == 'security' or n.type == 'expired' %}background: #fee2e2; color: #b91c1c;
                                              {% elif n.type == 'expiring' %}background: #fef3c7; color: #d97706;
                                              {% elif 'upload' in n.action.lower %}background: #dcfce7; color: #15803d;
@@ -415,36 +385,37 @@
                                              {% elif 'create' in n.action.lower or 'add' in n.action.lower or 'register' in n.action.lower %}background: #dbeafe; color: #1e3a8a;
                                              {% else %}background: #e0f2fe; color: #0369a1;{% endif %}">
                                             <i data-lucide="{% if n.type == 'security' %}shield-alert{% elif n.type == 'expired' %}alert-triangle{% elif n.type == 'expiring' %}clock{% elif 'upload' in n.action.lower %}file-up{% elif 'delete' in n.action.lower or 'remove' in n.action.lower %}trash{% elif 'create' in n.action.lower or 'add' in n.action.lower or 'register' in n.action.lower %}plus-circle{% else %}activity{% endif %}"
-                                                style="width:14px; height:14px;"></i>
+                                                style="width:15px; height:15px;"></i>
                                         </div>
                                         <div class="flex-grow-1 min-w-0">
-                                            <div class="text-dark fw-semibold"
-                                                style="font-size: 0.78rem; white-space: normal; word-break: break-word; overflow-wrap: anywhere; line-height: 1.45;"
+                                            <div class="text-dark fw-bold notification-item-title"
+                                                style="font-size: 0.8rem; line-height: 1.4; word-break: break-word;"
                                                 title="{{ n.action }}">{{ n.action }}</div>
                                             {% if n.type == 'log' %}
-                                            <div class="text-muted small mt-0.5"
-                                                style="font-size: 0.72rem; line-height: 1.3;">by {{ n.user|default:n.username }}</div>
-                                            <div class="text-muted text-end mt-1" style="font-size:0.65rem;">{{ n.performed_at|timesince }} ago</div>
+                                            <div class="d-flex align-items-center justify-content-between mt-1.5" style="font-size: 0.72rem;">
+                                                <span class="text-muted">by {{ n.user|default:n.username }}</span>
+                                                <span class="text-muted fw-medium">{{ n.performed_at|timesince }} ago</span>
+                                            </div>
                                             {% else %}
-                                            {% if n.time %}
-                                            <div class="text-muted small mt-0.5"
-                                                style="font-size: 0.72rem; line-height: 1.3;">{{ n.time }}</div>
-                                            {% endif %}
-                                            <div class="text-end mt-1">
-                                                <span class="badge"
-                                                    style="font-size:0.6rem; padding: 2px 6px; border-radius: 4px; 
-                                                        {% if n.type == 'security' or n.type == 'expired' %}background:#fee2e2; color:#b91c1c;
-                                                        {% else %}background:#fef3c7; color:#d97706;{% endif %}">Urgent</span>
+                                            <div class="d-flex align-items-center justify-content-between mt-1.5" style="font-size: 0.72rem;">
+                                                <span class="text-muted fw-medium">{{ n.time|default:'' }}</span>
+                                                <span class="badge" style="font-size:0.64rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; 
+                                                    {% if n.type == 'security' or n.type == 'expired' %}background:#fee2e2; color:#b91c1c;
+                                                    {% else %}background:#fef3c7; color:#d97706;{% endif %}">Urgent</span>
                                             </div>
                                             {% endif %}
                                         </div>
                                     </div>
                                     {% empty %}
-                                    <div class="p-4 text-center text-muted small">
-                                        No recent system activities.
+                                    <div class="py-4 text-center text-muted small">
+                                        No recent system notifications.
                                     </div>
                                     {% endfor %}
                                 </div>
+                                <a href="{% url 'activity_logs' %}" class="d-block text-center py-2.5 px-3 border-top text-decoration-none fw-bold notification-card-footer" style="background:#f8fafc; font-size: 0.76rem; color:#002855; transition: background 0.15s;">
+                                    <span>View All Activity Logs</span>
+                                    <i class="fa-solid fa-arrow-right ms-1" style="font-size: 11px;"></i>
+                                </a>
                             </div>
                         </div>
                         <!-- Current date -->
@@ -452,11 +423,23 @@
                         <!-- User dropdown -->
                         <div class="dropdown">
                             <button class="header-user-btn" data-bs-toggle="dropdown">
-                                <div class="header-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+                                <div class="header-avatar overflow-hidden">
+                                    {% if request.user.profile_picture %}
+                                    <img src="{{ request.user.profile_picture.url }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                                    {% else %}
+                                    {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
+                                    {% endif %}
+                                </div>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end erarms-dropdown">
                                 <div class="dropdown-profile">
-                                    <div class="dropdown-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+                                    <div class="dropdown-avatar overflow-hidden">
+                                        {% if request.user.profile_picture %}
+                                        <img src="{{ request.user.profile_picture.url }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                                        {% else %}
+                                        {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
+                                        {% endif %}
+                                    </div>
                                     <div>
                                         <div class="dropdown-name">{{ request.user.full_name|default:request.user.username }}</div>
                                         <div class="dropdown-role">{{ request.user.get_role_display }}</div>
@@ -469,6 +452,12 @@
                                 <a href="{% url 'settings' %}" class="dropdown-item"><i data-lucide="settings"></i>
                                     Settings</a>
                                 {% endif %}
+                                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#globalHelpModal">
+                                    <i data-lucide="help-circle"></i> Help & FAQs
+                                </button>
+                                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#aboutEtalaModal">
+                                    <i data-lucide="info"></i> About & Developers
+                                </button>
                                 <hr class="dropdown-divider">
                                 <a href="{% url 'logout' %}" class="dropdown-item text-danger"><i
                                         data-lucide="log-out"></i> Log out</a>
@@ -829,6 +818,549 @@
     {% include 'permits/includes/flag_illegal_modal.html' %}
     {% endif %}
     <script src="{% static 'js/premium_components.js' %}"></script>
+
+    <!-- Smooth Page Transitions & Consistent Button Press Feedback -->
+    <script>
+    (function() {
+        const TRANSITION_DURATION = 180; // matches CSS .page-exit duration
+
+        // ── Page Exit Transition ──────────────────────────────────────
+        // Intercept internal navigation links and add a fade-out before navigating
+        function shouldTransition(anchor) {
+            // Skip if no href or javascript: void, #, mailto, tel
+            if (!anchor.href) return false;
+            const href = anchor.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return false;
+            // Skip external links
+            if (anchor.hostname && anchor.hostname !== window.location.hostname) return false;
+            // Skip if target is _blank or has download attribute
+            if (anchor.target === '_blank' || anchor.hasAttribute('download')) return false;
+            // Skip if it's a dropdown toggle, modal trigger, or has data-bs attributes
+            if (anchor.hasAttribute('data-bs-toggle') || anchor.hasAttribute('data-bs-target')) return false;
+            // Skip if inside a dropdown menu (those are UI actions, not page navigations)
+            if (anchor.closest('.dropdown-menu')) return false;
+            // Skip if event was prevented by other handlers
+            return true;
+        }
+
+        let isTransitioning = false;
+
+        document.addEventListener('click', function(e) {
+            if (isTransitioning) { e.preventDefault(); return; }
+
+            const anchor = e.target.closest('a');
+            if (!anchor || !shouldTransition(anchor)) return;
+
+            // Don't intercept if modifier keys are held (new tab, etc.)
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+            e.preventDefault();
+            isTransitioning = true;
+
+            const content = document.querySelector('.erarms-content');
+            if (content) {
+                content.classList.add('page-exit');
+                setTimeout(function() {
+                    window.location.href = anchor.href;
+                }, TRANSITION_DURATION);
+            } else {
+                window.location.href = anchor.href;
+            }
+        });
+
+        // ── Form Submit Transition ────────────────────────────────────
+        // Add exit transition when forms are submitted (non-AJAX)
+        document.addEventListener('submit', function(e) {
+            if (isTransitioning) return;
+            const form = e.target;
+            // Skip AJAX forms (ones with data-ajax or fetch-based)
+            if (form.hasAttribute('data-ajax') || form.hasAttribute('data-no-transition')) return;
+
+            const content = document.querySelector('.erarms-content');
+            if (content) {
+                content.classList.add('page-exit');
+            }
+        });
+
+        // ── Restore on back/forward navigation (bfcache) ─────────────
+        window.addEventListener('pageshow', function(e) {
+            isTransitioning = false;
+            const content = document.querySelector('.erarms-content');
+            if (content) {
+                content.classList.remove('page-exit');
+            }
+        });
+
+        // ── Consistent Button Press Feedback ──────────────────────────
+        // Adds a micro scale-down on mousedown for all buttons and clickable elements
+        const PRESS_SELECTORS = '.action-btn, .btn, .nav-item, .mobile-nav-item, .sidebar-new-record-btn, .brgy-card, .gradient-stat-card, .filter-tab, .pill-tab, .row-action-btn, .doc-action-btn, .btn-flag-illegal, .header-user-btn, .header-back-btn, .sidebar-collapse-btn, .mobile-drawer-close-btn, .sidebar-logout-btn';
+
+        document.addEventListener('mousedown', function(e) {
+            const el = e.target.closest(PRESS_SELECTORS);
+            if (!el) return;
+            el.style.transform = 'scale(0.97)';
+            el.style.transition = 'transform 0.1s cubic-bezier(0.4, 0, 0.2, 1)';
+        });
+
+        document.addEventListener('mouseup', function() {
+            document.querySelectorAll('[style*="scale(0.97)"]').forEach(function(el) {
+                el.style.transform = '';
+                setTimeout(function() { el.style.transition = ''; }, 150);
+            });
+        });
+
+        document.addEventListener('mouseleave', function() {
+            document.querySelectorAll('[style*="scale(0.97)"]').forEach(function(el) {
+                el.style.transform = '';
+                setTimeout(function() { el.style.transition = ''; }, 150);
+            });
+        }, true);
+    })();
+    </script>
+
+    <!-- ══ GLOBAL SYSTEM LEGEND & HELP GUIDE MODAL ═════════════════════════════ -->
+    <div class="modal fade" id="globalHelpModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+                <!-- Modal Header -->
+                <div class="modal-header text-white" style="background: #002855; padding: 16px 20px;">
+                    <div>
+                        <h5 class="modal-title fw-bold d-flex align-items-center gap-2" style="font-size: 1.05rem;">
+                            <i data-lucide="help-circle" style="width: 18px; height: 18px;"></i>
+                            e-TALA Help Center & System Guide
+                        </h5>
+                        <div class="text-white-50 small mt-0.5" style="font-size: 0.72rem;">Municipal Engineering Office — Carigara LGU</div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <div class="bg-light border-bottom px-3 pt-2">
+                    <ul class="nav nav-tabs border-0 gap-2" id="helpCenterTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-semibold small py-2 px-3 border-0 rounded-top" id="legend-tab" data-bs-toggle="tab" data-bs-target="#legend-pane" type="button" role="tab" style="font-size: 0.82rem;">
+                                <i data-lucide="layers" class="me-1" style="width:14px;height:14px;"></i> System Legend & Badges
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-semibold small py-2 px-3 border-0 rounded-top" id="solutions-tab" data-bs-toggle="tab" data-bs-target="#solutions-pane" type="button" role="tab" style="font-size: 0.82rem;">
+                                <i data-lucide="life-buoy" class="me-1" style="width:14px;height:14px;"></i> Common Solutions & Guides
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="modal-body p-4" style="font-size: 0.85rem;">
+                    <div class="tab-content" id="helpCenterTabContent">
+                        
+                        <!-- TAB 1: SYSTEM LEGEND -->
+                        <div class="tab-pane fade show active" id="legend-pane" role="tabpanel">
+                            <!-- Record Categories -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold text-dark mb-2.5 pb-1 border-bottom d-flex align-items-center gap-2">
+                                    <i data-lucide="layers" class="text-primary" style="width: 16px; height: 16px;"></i>
+                                    1. Record Type Badges
+                                </h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="p-3 rounded border bg-light h-100 shadow-sm">
+                                            <span class="tag tag-permit mb-2 d-inline-block">Building Permit</span>
+                                            <div class="text-muted small">Issued building permits & construction clearances for private or commercial structures.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="p-3 rounded border bg-light h-100 shadow-sm">
+                                            <span class="tag tag-municipal mb-2 d-inline-block">Municipal Project</span>
+                                            <div class="text-muted small">Municipal-wide infrastructure projects managed by Carigara LGU (e.g. Bridges, Main Roads).</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="p-3 rounded border bg-light h-100 shadow-sm">
+                                            <span class="tag tag-barangay mb-2 d-inline-block">Barangay Project</span>
+                                            <div class="text-muted small">Localized barangay infrastructure projects funded or implemented per barangay unit.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Record Statuses Legend -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold text-dark mb-2.5 pb-1 border-bottom d-flex align-items-center gap-2">
+                                    <i data-lucide="check-circle-2" class="text-success" style="width: 16px; height: 16px;"></i>
+                                    2. Record Lifecycle Statuses
+                                </h6>
+                                <div class="row g-2">
+                                    <div class="col-sm-6">
+                                        <div class="d-flex align-items-start gap-2.5 p-2.5 rounded border shadow-sm bg-white">
+                                            <span class="status-indicator status-indicator-active mt-0.5" style="flex-shrink:0;">Active</span>
+                                            <div>
+                                                <div class="fw-bold text-dark" style="font-size: 0.8rem;">Active / Approved</div>
+                                                <div class="text-muted small">Permit is issued or project construction is ongoing.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="d-flex align-items-start gap-2.5 p-2.5 rounded border shadow-sm bg-white">
+                                            <span class="badge bg-warning text-dark mt-0.5" style="font-weight: 700; font-size: 0.7rem; flex-shrink:0;">Pending</span>
+                                            <div>
+                                                <div class="fw-bold text-dark" style="font-size: 0.8rem;">Pending Review</div>
+                                                <div class="text-muted small">Under initial evaluation; missing checklist items or unassigned permit number.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="d-flex align-items-start gap-2.5 p-2.5 rounded border shadow-sm bg-white">
+                                            <span class="badge bg-info text-white mt-0.5" style="font-weight: 700; font-size: 0.7rem; flex-shrink:0;">Completed</span>
+                                            <div>
+                                                <div class="fw-bold text-dark" style="font-size: 0.8rem;">Completed / Occupancy Issued</div>
+                                                <div class="text-muted small">Construction is 100% finished or Occupancy Certificate is released.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="d-flex align-items-start gap-2.5 p-2.5 rounded border shadow-sm bg-white">
+                                            <span class="badge bg-secondary mt-0.5" style="font-weight: 700; font-size: 0.7rem; flex-shrink:0;">Archived</span>
+                                            <div>
+                                                <div class="fw-bold text-dark" style="font-size: 0.8rem;">Archived</div>
+                                                <div class="text-muted small">Record has been archived for historical engineering reference.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Special Violation Flags Legend -->
+                            <div>
+                                <h6 class="fw-bold text-dark mb-2.5 pb-1 border-bottom d-flex align-items-center gap-2">
+                                    <i data-lucide="shield-alert" class="text-danger" style="width: 16px; height: 16px;"></i>
+                                    3. Special Violation Flags
+                                </h6>
+                                <div class="p-3 rounded border shadow-sm" style="background: #fff5f5; border-color: #feb2b2 !important;">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="badge d-inline-flex align-items-center gap-1" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; font-weight: 800;">
+                                            <i data-lucide="shield-alert" style="width:12px; height:12px;"></i> Illegal Construction
+                                        </span>
+                                        <span class="fw-bold text-danger" style="font-size: 0.82rem;">Unpermitted Construction Flag</span>
+                                    </div>
+                                    <div class="text-muted small">Structures built or started without securing a prior Building Permit from the Carigara LGU. Requires compliance regularization or legal resolution.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: COMMON SOLUTIONS & STEP-BY-STEP GUIDES -->
+                        <div class="tab-pane fade" id="solutions-pane" role="tabpanel">
+                            <!-- Solution Detail Views Container -->
+                            <div id="solutionDetailContainer" class="d-none mb-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-3 d-inline-flex align-items-center gap-1.5" onclick="showSolutionsGrid()" style="border-radius: 6px; font-weight: 600;">
+                                    <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to Common Solutions
+                                </button>
+                                <div id="solutionDetailContent" class="p-4 rounded border bg-white shadow-sm"></div>
+                            </div>
+
+                            <!-- 6 Common Solution Tiles Grid -->
+                            <div id="solutionsGrid">
+                                <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+                                    <i data-lucide="help-circle" class="text-primary" style="width: 18px; height: 18px;"></i>
+                                    Common Solutions & Troubleshooting Guides
+                                </h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4 col-6">
+                                        <div class="p-3 rounded border text-center bg-white shadow-sm h-100 solution-tile" onclick="openSolutionStep(1)" style="cursor: pointer; transition: all 0.2s;">
+                                            <div class="icon-wrap mx-auto mb-2.5 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: #fef3c7; color: #d97706;">
+                                                <i data-lucide="key" style="width: 22px; height: 22px;"></i>
+                                            </div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Password & Lockout</div>
+                                            <div class="text-muted small mt-1" style="font-size: 0.74rem;">Reset passwords or unlock accounts after 10 failed logins.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-6">
+                                        <div class="p-3 rounded border text-center bg-white shadow-sm h-100 solution-tile" onclick="openSolutionStep(2)" style="cursor: pointer; transition: all 0.2s;">
+                                            <div class="icon-wrap mx-auto mb-2.5 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: #e0f2fe; color: #0284c7;">
+                                                <i data-lucide="file-check" style="width: 22px; height: 22px;"></i>
+                                            </div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Document Uploads</div>
+                                            <div class="text-muted small mt-1" style="font-size: 0.74rem;">Manage building clearances, PDF plans & checklist items.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-6">
+                                        <div class="p-3 rounded border text-center bg-white shadow-sm h-100 solution-tile" onclick="openSolutionStep(3)" style="cursor: pointer; transition: all 0.2s;">
+                                            <div class="icon-wrap mx-auto mb-2.5 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: #fee2e2; color: #dc2626;">
+                                                <i data-lucide="shield-alert" style="width: 22px; height: 22px;"></i>
+                                            </div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Illegal Construction</div>
+                                            <div class="text-muted small mt-1" style="font-size: 0.74rem;">Report unpermitted structures & monitor regularization.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-6">
+                                        <div class="p-3 rounded border text-center bg-white shadow-sm h-100 solution-tile" onclick="openSolutionStep(4)" style="cursor: pointer; transition: all 0.2s;">
+                                            <div class="icon-wrap mx-auto mb-2.5 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: #f0fdfa; color: #0d9488;">
+                                                <i data-lucide="map-pin" style="width: 22px; height: 22px;"></i>
+                                            </div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Barangay Maps & Pins</div>
+                                            <div class="text-muted small mt-1" style="font-size: 0.74rem;">Locate engineering records on GIS Map & Google Pin.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-6">
+                                        <div class="p-3 rounded border text-center bg-white shadow-sm h-100 solution-tile" onclick="openSolutionStep(5)" style="cursor: pointer; transition: all 0.2s;">
+                                            <div class="icon-wrap mx-auto mb-2.5 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: #f3e8ff; color: #7c3aed;">
+                                                <i data-lucide="download" style="width: 22px; height: 22px;"></i>
+                                            </div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Reports & Audit Logs</div>
+                                            <div class="text-muted small mt-1" style="font-size: 0.74rem;">Export municipal reports & system activity logs.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-6">
+                                        <div class="p-3 rounded border text-center bg-white shadow-sm h-100 solution-tile" onclick="openSolutionStep(6)" style="cursor: pointer; transition: all 0.2s;">
+                                            <div class="icon-wrap mx-auto mb-2.5 rounded-circle d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; background: #dcfce7; color: #16a34a;">
+                                                <i data-lucide="search" style="width: 22px; height: 22px;"></i>
+                                            </div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Search 100k+ Records</div>
+                                            <div class="text-muted small mt-1" style="font-size: 0.74rem;">Instant search by year, permit #, or page jump.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-3">
+                    <button type="button" class="action-btn action-btn-secondary px-4 py-1.5" data-bs-dismiss="modal" style="font-weight: 600;">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const solutionStepsData = {
+            1: {
+                title: "Forgot Password & Staff Account Recovery",
+                desc: "Troubleshoot staff logins, reset forgotten passwords, or unlock accounts.",
+                icon: "key",
+                color: "#d97706",
+                bgColor: "#fef3c7",
+                steps: [
+                    "Go to the Login Screen and click on the 'Forgot Password?' link below the input fields.",
+                    "Enter your registered Carigara LGU Staff email address to request a 6-digit password reset OTP code.",
+                    "Check your email inbox or contact your Municipal Admin if your account is locked (locked after 10 failed login attempts).",
+                    "Enter the verification code and set a strong new password containing uppercase, lowercase, and numbers."
+                ]
+            },
+            2: {
+                title: "Permit Document Checklist & Clearances",
+                desc: "Manage required building clearances and requirement checklists.",
+                icon: "file-check",
+                color: "#0284c7",
+                bgColor: "#e0f2fe",
+                steps: [
+                    "Open any Permit Record details page from the Records Browse list or Barangay Workspace.",
+                    "Locate the 'Document Checklist Requirements' card on the left column.",
+                    "Click the 'Upload' button next to any requirement item (e.g. Architectural Permit, Sanitary Permit).",
+                    "Select your PDF or Image file (max 10MB) and click Save to automatically update checklist progress."
+                ]
+            },
+            3: {
+                title: "Flagging Unpermitted Illegal Construction",
+                desc: "Report unpermitted structures and monitor compliance regularization.",
+                icon: "shield-alert",
+                color: "#dc2626",
+                bgColor: "#fee2e2",
+                steps: [
+                    "Click the 'Flag Illegal Construction' button in the main sidebar or records top action bar.",
+                    "Select the Barangay location and provide the Property Owner / Building details.",
+                    "The system automatically flags the record with a red 'Illegal Construction' shield alert badge.",
+                    "Update status to 'Permit Application Filed' or 'Regularized / Complied' once owner secures permit."
+                ]
+            },
+            4: {
+                title: "Barangay GIS Interactive Map Navigation",
+                desc: "Locate engineering records and pins on the interactive map.",
+                icon: "map-pin",
+                color: "#0d9488",
+                bgColor: "#f0fdfa",
+                steps: [
+                    "Navigate to the 'Barangays' page from the main navigation menu.",
+                    "Hover over any Barangay Card on the list to highlight its exact location pin on the map.",
+                    "Click 'View in Maps ↗' on any record card to open exact pin coordinates in Google Maps.",
+                    "Toggle between 'Streets Map' and 'Satellite View' using the map layer control in the bottom left corner."
+                ]
+            },
+            5: {
+                title: "Exporting Reports & System Activity Logs",
+                desc: "Generate monthly engineering reports and audit logs for LGU management.",
+                icon: "download",
+                color: "#7c3aed",
+                bgColor: "#f3e8ff",
+                steps: [
+                    "Navigate to 'Reports' or 'Activity Logs' from the main navigation menu.",
+                    "Select your desired Date Range, Record Type (Permits / Projects), or Barangay filter.",
+                    "Click the 'Export Report' button to generate official CSV spreadsheet files.",
+                    "Activity Logs track all user logins, record edits, document uploads, and deletions for auditing."
+                ]
+            },
+            6: {
+                title: "Searching 100k+ Records & Page Jumping",
+                desc: "Fast searching and instant navigation across large municipal archives.",
+                icon: "search",
+                color: "#16a34a",
+                bgColor: "#dcfce7",
+                steps: [
+                    "Type any year (e.g. '2026'), permit # (e.g. 'BP-2026-001'), barangay name, or applicant name in the top live search bar.",
+                    "Use the 'Filters' dropdown to narrow records by Permit Type, Project Type, or Status.",
+                    "For large record archives, use the 'Page: [ 1 ] / 1,000' input box at the bottom of the table.",
+                    "Type any page number and press 'Enter' to jump directly to that page in milliseconds."
+                ]
+            }
+        };
+
+        function openSolutionStep(id) {
+            const data = solutionStepsData[id];
+            if (!data) return;
+
+            const grid = document.getElementById('solutionsGrid');
+            const container = document.getElementById('solutionDetailContainer');
+            const content = document.getElementById('solutionDetailContent');
+
+            let stepsHtml = '';
+            data.steps.forEach((stepText, index) => {
+                stepsHtml += `
+                    <div class="d-flex align-items-center gap-3 p-3 rounded-3 mb-2.5" style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid ${data.color};">
+                        <div class="fw-bold fs-6" style="color: ${data.color}; min-width: 22px;">${index + 1}.</div>
+                        <div class="text-dark fw-medium" style="font-size: 0.84rem; line-height: 1.45;">${stepText}</div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = `
+                <div class="d-flex align-items-center gap-2.5 mb-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; background: ${data.bgColor}; color: ${data.color};">
+                        <i data-lucide="${data.icon}" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark" style="font-size: 1.05rem;">${data.title}</h5>
+                        <div class="text-muted small" style="font-size: 0.78rem;">${data.desc}</div>
+                    </div>
+                </div>
+                <hr class="my-3">
+                <div class="fw-bold mb-2.5" style="font-size: 0.88rem; color: #002855;">Resolution Steps:</div>
+                <div class="steps-wrapper">${stepsHtml}</div>
+            `;
+
+            grid.classList.add('d-none');
+            container.classList.remove('d-none');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function showSolutionsGrid() {
+            const grid = document.getElementById('solutionsGrid');
+            const container = document.getElementById('solutionDetailContainer');
+            grid.classList.remove('d-none');
+            container.classList.add('d-none');
+        }
+    </script>
+
+    <!-- ══ ABOUT E-TALA & DEVELOPERS MODAL ═════════════════════════════════════ -->
+    <div class="modal fade" id="aboutEtalaModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <!-- Modal Header -->
+                <div class="modal-header text-white" style="background: linear-gradient(135deg, #002855 0%, #0284c7 100%); padding: 20px 24px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center bg-white fw-bold shadow-sm" style="width: 44px; height: 44px; flex-shrink: 0;">
+                            <i data-lucide="building-2" style="width: 24px; height: 24px; color: #002855;"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.15rem; letter-spacing: 0.3px;">e-TALA Engineering System</h5>
+                            <div class="text-white-50 small mt-0.5" style="font-size: 0.76rem;">Municipal Engineering Office — LGU Carigara, Leyte</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4" style="font-size: 0.86rem;">
+                    <!-- About Section -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-dark mb-2 d-flex align-items-center gap-2" style="font-size: 0.92rem;">
+                            <i data-lucide="info" class="text-primary" style="width: 18px; height: 18px;"></i>
+                            About the Platform
+                        </h6>
+                        <p class="text-muted leading-relaxed mb-3" style="font-size: 0.84rem; line-height: 1.6;">
+                            <strong>e-TALA</strong> (<em>Electronic Tracking, Archiving, and Location Architecture</em>) is the official digital management system designed specifically for the <strong>Municipal Engineering Office of Carigara, Leyte</strong>. It streamlines building permit applications, tracks municipal & barangay infrastructure projects, geocodes records onto interactive GIS maps, and enforces compliance against unpermitted illegal construction.
+                        </p>
+                        <div class="row g-2">
+                            <div class="col-sm-6">
+                                <div class="p-2.5 rounded border bg-light d-flex align-items-center gap-2">
+                                    <i data-lucide="shield-check" class="text-success" style="width: 18px; height: 18px;"></i>
+                                    <div>
+                                        <div class="fw-bold text-dark" style="font-size: 0.8rem;">Official LGU Software</div>
+                                        <div class="text-muted small" style="font-size: 0.72rem;">Carigara Engineering Office</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="p-2.5 rounded border bg-light d-flex align-items-center gap-2">
+                                    <i data-lucide="cpu" class="text-info" style="width: 18px; height: 18px;"></i>
+                                    <div>
+                                        <div class="fw-bold text-dark" style="font-size: 0.8rem;">System Build</div>
+                                        <div class="text-muted small" style="font-size: 0.72rem;">Version 2.4.0 (2026 Release)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Developers & Team Section -->
+                    <div>
+                        <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2" style="font-size: 0.92rem;">
+                            <i data-lucide="code" class="text-primary" style="width: 18px; height: 18px;"></i>
+                            Development Team & Credits
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <div class="p-3 rounded-3 border bg-white shadow-sm h-100">
+                                    <div class="d-flex align-items-center gap-3 mb-2">
+                                        <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold fs-5 flex-shrink-0" style="width: 42px; height: 42px; background: #002855 !important;">
+                                            MF
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.88rem;">Mardion Fuerte</div>
+                                            <div class="text-primary fw-semibold" style="font-size: 0.76rem;">Lead System Developer & Architect</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-muted small" style="font-size: 0.76rem; line-height: 1.45;">
+                                        Full-stack architecture, Django database design, GIS map engine integration, and UI/UX optimization for Carigara Engineering Office.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="p-3 rounded-3 border bg-white shadow-sm h-100">
+                                    <div class="d-flex align-items-center gap-3 mb-2">
+                                        <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold fs-5 flex-shrink-0" style="width: 42px; height: 42px; background: #0d9488 !important;">
+                                            ME
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.88rem;">Municipal Engineering Team</div>
+                                            <div class="text-teal fw-semibold" style="font-size: 0.76rem; color: #0d9488;">LGU Carigara, Leyte</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-muted small" style="font-size: 0.76rem; line-height: 1.45;">
+                                        Domain requirements, building permit workflow specifications, barangay geocoding data, and operational compliance standards.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light py-2 px-3">
+                    <button type="button" class="action-btn action-btn-secondary px-4 py-1.5" data-bs-dismiss="modal" style="font-weight: 600;">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% block extra_js %}{% endblock %}
 </body>
 
