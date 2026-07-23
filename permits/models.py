@@ -257,8 +257,6 @@ class PermitDetail(models.Model):
         ('Electrical', 'Electrical'),
         ('Occupancy', 'Occupancy'),
         ('Fencing', 'Fencing'),
-        ('Demolition', 'Demolition'),
-        ('Renovation', 'Renovation'),
     )
     BUILDING_TYPE_CHOICES = (
         ('Residential', 'Residential'),

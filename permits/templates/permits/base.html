@@ -25,7 +25,18 @@
         } else {
             document.documentElement.classList.remove('dark-mode');
         }
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.documentElement.classList.add('sidebar-is-collapsed');
+        }
     </script>
+    <style>
+        html.sidebar-is-collapsed #sidebar { width: 72px !important; }
+        html.sidebar-is-collapsed .erarms-main { margin-left: 72px !important; }
+        html.sidebar-is-collapsed .brand-text,
+        html.sidebar-is-collapsed .nav-label,
+        html.sidebar-is-collapsed .new-record-label,
+        html.sidebar-is-collapsed .user-info { opacity: 0 !important; max-width: 0 !important; }
+    </style>
     <style>
         /* Bulletproof inline Dark Mode overrides to prevent browser caching issues */
         .dark-mode, .dark-mode body, .dark-mode .erarms-main {
@@ -223,14 +234,14 @@
 
             <nav class="sidebar-nav">
                 {% if request.user.role == 'staff' or request.user.role == 'admin' %}
-                <a href="{% url 'create_record' %}" class="sidebar-new-record-btn" title="New Record">
+                <a href="{% url 'create_record' %}" class="sidebar-new-record-btn mobile-hide-duplicate" title="New Record">
                     <i data-lucide="plus-circle"></i>
                     <span class="new-record-label">New Record</span>
                 </a>
                 {% endif %}
 
                 <div class="nav-section">
-                    <a href="{% url 'dashboard' %}" class="nav-item {% if active_tab == 'dashboard' %}active{% endif %}"
+                    <a href="{% url 'dashboard' %}" class="nav-item mobile-hide-duplicate {% if active_tab == 'dashboard' %}active{% endif %}"
                         title="Dashboard">
                         <div class="nav-item-content">
                             <i data-lucide="layout-dashboard"></i>
@@ -238,20 +249,21 @@
                         </div>
                     </a>
                     <a href="{% url 'records_browse' %}"
-                        class="nav-item {% if active_tab == 'records' or active_tab == 'municipal' or active_tab == 'permits' or active_tab == 'search' %}active{% endif %}"
+                        class="nav-item mobile-hide-duplicate {% if active_tab == 'records' or active_tab == 'municipal' or active_tab == 'permits' or active_tab == 'search' %}active{% endif %}"
                         title="Records">
                         <div class="nav-item-content">
                             <i data-lucide="folder-open"></i>
                             <span class="nav-label">Records</span>
                         </div>
                     </a>
-                    <a href="{% url 'barangays' %}" class="nav-item {% if active_tab == 'barangays' %}active{% endif %}"
+                    <a href="{% url 'barangays' %}" class="nav-item mobile-hide-duplicate {% if active_tab == 'barangays' %}active{% endif %}"
                         title="Barangays">
                         <div class="nav-item-content">
                             <i data-lucide="map-pin"></i>
                             <span class="nav-label">Barangays</span>
                         </div>
                     </a>
+                    <div class="mobile-drawer-section-label">Tools & System Controls</div>
                     {% if request.user.role == 'admin' or request.user.role == 'engineer' %}
                     <a href="{% url 'reports' %}" class="nav-item {% if active_tab == 'reports' %}active{% endif %}"
                         title="Reports">
@@ -321,13 +333,14 @@
                         </nav>
                     </div>
                     <div class="header-right">
-                        <!-- Global Search -->
-                        <div class="header-search" id="headerSearch">
-                            <i data-lucide="search" class="search-icon" id="globalSearchIcon" style="cursor: pointer;" title="Search records"></i>
-                            <input type="text" id="globalSearchInput" placeholder="Search records..."
-                                autocomplete="off" value="{{ q|default:'' }}">
+                        <!-- Global Search Form -->
+                        <form action="{% url 'search' %}" method="GET" class="header-search" id="headerSearch">
+                            <button type="submit" class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted hover-primary" style="outline: none; cursor: pointer;" title="Search records">
+                                <i data-lucide="search" class="search-icon" id="globalSearchIcon"></i>
+                            </button>
+                            <input type="text" name="q" id="globalSearchInput" placeholder="Search records..." autocomplete="off" value="{{ q|default:'' }}">
                             <kbd class="search-shortcut">/</kbd>
-                        </div>
+                        </form>
                         <!-- Premium Theme Toggle Switch Button -->
                         <button id="themeToggleBtn" class="theme-switch-btn me-2" type="button" aria-label="Toggle dark mode" title="Switch to Dark / Light Mode">
                             <span class="theme-switch-track">
@@ -360,7 +373,7 @@
                                     class="position-absolute bg-danger text-white rounded-circle d-none"
                                     style="font-size: 9px; font-weight: 700; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; top: 1px; right: 1px; border: 2px solid white; padding: 0; line-height: 1;"></span>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card" style="margin-top: 10px; z-index: 1050;">
+                            <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card" style="min-width: 320px; border-radius: 12px; overflow: hidden; z-index: 99999;">
                                 <div class="px-3.5 py-3 border-bottom d-flex justify-content-between align-items-center notification-card-header" style="background:#f8fafc;">
                                     <div class="d-flex align-items-center gap-2">
                                         <i class="fa-solid fa-bell flex-shrink-0" style="font-size: 14px; color: #0284c7;"></i>
@@ -469,51 +482,42 @@
 
             <!-- Page Content -->
             <main class="erarms-content">
-                <!-- Toast Notifications -->
-                {% if messages %}
-                <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
-                    {% for message in messages %}
-                    <div class="erarms-toast toast show {% if message.tags == 'error' %}toast-error{% elif message.tags == 'warning' %}toast-warning{% elif message.tags == 'info' %}toast-info{% else %}toast-success{% endif %}"
-                        role="alert">
-                        <div class="toast-body-content">
-                            <i
-                                data-lucide="{% if message.tags == 'error' %}alert-circle{% elif message.tags == 'warning' %}alert-triangle{% elif message.tags == 'info' %}info{% else %}check-circle{% endif %}"></i>
-                            <span>{{ message }}</span>
-                        </div>
-                        <button type="button" class="toast-close" aria-label="Close">&times;</button>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
                 {% block content %}{% endblock %}
             </main>
         </div>
     </div>
 
-    <!-- Mobile Bottom Nav Bar -->
+    <!-- Mobile Bottom Nav Bar (GCash-Inspired Modern Floating Center Action Bar) -->
     <nav class="mobile-bottom-nav">
         <a href="{% url 'dashboard' %}" class="mobile-nav-item {% if active_tab == 'dashboard' %}active{% endif %}">
             <i data-lucide="layout-dashboard"></i>
-            <span class="mobile-nav-label">Dashboard</span>
+            <span class="mobile-nav-label">Home</span>
         </a>
+
         <a href="{% url 'records_browse' %}"
             class="mobile-nav-item {% if active_tab == 'records' or active_tab == 'municipal' or active_tab == 'permits' or active_tab == 'search' %}active{% endif %}">
             <i data-lucide="folder-open"></i>
             <span class="mobile-nav-label">Records</span>
         </a>
+
+        {% if request.user.role == 'staff' or request.user.role == 'admin' %}
+        <!-- GCash-Style Elevated Center Floating Action Button (+ New Record) -->
+        <a href="{% url 'create_step1' %}" class="mobile-fab-item" title="Create New Record">
+            <div class="mobile-fab-circle">
+                <i data-lucide="plus"></i>
+            </div>
+        </a>
+        {% endif %}
+
         <a href="{% url 'barangays' %}" class="mobile-nav-item {% if active_tab == 'barangays' %}active{% endif %}">
             <i data-lucide="map-pin"></i>
             <span class="mobile-nav-label">Barangays</span>
         </a>
+
         <button type="button" class="mobile-nav-item border-0 bg-transparent" id="mobileNavMoreBtn" title="Open navigation drawer" style="cursor: pointer;">
             <i data-lucide="menu"></i>
             <span class="mobile-nav-label">Menu</span>
         </button>
-        <a href="{% url 'profile' %}" class="mobile-nav-item {% if active_tab == 'profile' %}active{% endif %}">
-            <i data-lucide="user"></i>
-            <span class="mobile-nav-label">Profile</span>
-        </a>
     </nav>
 
     <!-- Mobile overlay -->
@@ -524,19 +528,6 @@
     {% else %}
     <!-- Unauthenticated layout -->
     <div class="erarms-auth-layout">
-        {% if messages %}
-        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
-            {% for message in messages %}
-            <div class="erarms-toast toast show {% if message.tags == 'error' %}toast-error{% else %}toast-success{% endif %}"
-                role="alert">
-                <div class="toast-body-content">
-                    <span>{{ message }}</span>
-                </div>
-                <button type="button" class="toast-close" aria-label="Close">&times;</button>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
         {% block auth_content %}{% endblock %}
     </div>
     {% endif %}
@@ -595,6 +586,7 @@
                 collapseIcon.setAttribute('data-lucide', 'chevrons-right');
             }
         }
+        document.documentElement.classList.remove('sidebar-is-collapsed');
         lucide.createIcons();
 
         if (collapseBtn) {
@@ -763,57 +755,95 @@
         });
     </script>
 
-    <!-- Global Toast Notifications Container -->
-    <div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999; pointer-events: none;"></div>
+    <!-- Global Toast Notifications Container (Top-Right) -->
+    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 10000; pointer-events: none;"></div>
 
     <script>
-    function showToast(type, title, message) {
+    function showToast(type, title, message, duration = 4000) {
         const container = document.getElementById('toastContainer');
-        if (!container) {
-            alert(message || title);
-            return;
-        }
+        if (!container) return;
 
         const isSuccess = type === 'success';
         const isWarning = type === 'warning' || type === 'alert';
+        const isInfo = type === 'info';
         const isError = type === 'error' || type === 'danger';
 
-        const bgClass = isSuccess ? 'bg-success text-white' : (isWarning ? 'bg-warning text-dark' : 'bg-danger text-white');
-        const icon = isSuccess ? 'check-circle' : (isWarning ? 'alert-triangle' : 'alert-circle');
+        let color = '#3b82f6';
+        let bgIcon = '#eff6ff';
+        let iconName = 'info';
+        let defaultTitle = 'Info';
 
+        if (isSuccess) {
+            color = '#10b981';
+            bgIcon = '#ecfdf5';
+            iconName = 'check-circle-2';
+            defaultTitle = 'Success';
+        } else if (isError) {
+            color = '#ef4444';
+            bgIcon = '#fef2f2';
+            iconName = 'x-circle';
+            defaultTitle = 'Error';
+        } else if (isWarning) {
+            color = '#f59e0b';
+            bgIcon = '#fffbeb';
+            iconName = 'alert-triangle';
+            defaultTitle = 'Warning';
+        }
+
+        const finalTitle = title || defaultTitle;
         const toastId = 'toast-' + Date.now() + Math.random().toString(36).substr(2, 4);
+
         const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center ${bgClass} border-0 shadow-lg mb-2 fade show" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto; border-radius: 10px;">
-                <div class="d-flex">
-                    <div class="toast-body d-flex align-items-center gap-2 py-2.5 px-3">
-                        <i data-lucide="${icon}" style="width: 18px; height: 18px; flex-shrink: 0;"></i>
-                        <div>
-                            ${title ? `<strong class="d-block" style="font-size: 0.82rem; line-height: 1.2;">${title}</strong>` : ''}
-                            <span style="font-size: 0.78rem;">${message || ''}</span>
-                        </div>
+            <div id="${toastId}" class="toast border-0 shadow-lg mb-2.5 fade show position-relative overflow-hidden" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto; border-radius: 12px; background: #ffffff; border: 1px solid #cbd5e1 !important; min-width: 320px; max-width: 450px;">
+                <div class="d-flex align-items-center p-3">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle me-3 flex-shrink-0" style="width: 32px; height: 32px; background: ${bgIcon}; color: ${color};">
+                        <i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i>
                     </div>
-                    <button type="button" class="btn-close ${isSuccess || isError ? 'btn-close-white' : ''} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    <div class="flex-grow-1 min-w-0 me-2" style="font-size: 0.83rem; line-height: 1.4;">
+                        <span class="fw-bold" style="color: var(--gray-900);">${finalTitle}:</span>
+                        <span class="text-secondary ms-1">${message || ''}</span>
+                    </div>
+                    <button type="button" class="btn-close ms-auto flex-shrink-0" data-bs-dismiss="toast" aria-label="Close" style="font-size: 0.72rem; opacity: 0.6;"></button>
                 </div>
+                <div class="toast-progress-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; background: ${color}; width: 100%; animation: toastProgressCountdown ${duration}ms linear forwards;"></div>
             </div>
         `;
 
         container.insertAdjacentHTML('beforeend', toastHtml);
         const toastEl = document.getElementById(toastId);
         if (window.lucide) lucide.createIcons();
-        
+
+        // Trigger smooth countdown progress line animation
+        setTimeout(() => {
+            const pBar = toastEl.querySelector('.toast-progress-bar');
+            if (pBar) {
+                pBar.style.transition = `width ${duration}ms linear`;
+                pBar.style.width = '0%';
+            }
+        }, 30);
+
         if (window.bootstrap && bootstrap.Toast) {
-            const bsToast = new bootstrap.Toast(toastEl, { delay: 4500 });
+            const bsToast = new bootstrap.Toast(toastEl, { delay: duration });
             bsToast.show();
             toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
         } else {
             setTimeout(() => {
                 toastEl.classList.remove('show');
                 setTimeout(() => toastEl.remove(), 300);
-            }, 4500);
+            }, duration);
         }
     }
     window.showToast = showToast;
     </script>
+    {% if messages %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% for message in messages %}
+            showToast('{{ message.tags }}', '', '{{ message.message|escapejs }}');
+        {% endfor %}
+    });
+    </script>
+    {% endif %}
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
     {% include 'permits/includes/flag_illegal_modal.html' %}
     {% endif %}

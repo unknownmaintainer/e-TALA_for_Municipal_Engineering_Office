@@ -43,6 +43,7 @@ urlpatterns = [
     path('records/<int:record_id>/illegal-status/', views.update_illegal_status_view, name='update_illegal_status'),
     path('records/<int:record_id>/archive/', views.record_archive_view, name='archive_record'),
     path('records/<int:record_id>/restore/', views.record_restore_view, name='restore_record'),
+    path('records/<int:record_id>/download-zip/', views.download_record_zip_view, name='download_record_zip'),
 
     # Documents
     path('documents/serve/<str:token>/', views.serve_document_view, name='serve_document'),

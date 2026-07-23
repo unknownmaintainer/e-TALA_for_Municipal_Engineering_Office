@@ -701,8 +701,6 @@ def record_create_step2_view(request):
             {'value': 'Electrical', 'label': 'Electrical Permit', 'icon': 'zap', 'desc': 'Electrical wiring and electrical installation approvals.'},
             {'value': 'Occupancy', 'label': 'Occupancy Permit', 'icon': 'check-square', 'desc': 'Certificate of occupancy approvals.'},
             {'value': 'Fencing', 'label': 'Fencing Permit', 'icon': 'fence', 'desc': 'Fencing installation clearances.'},
-            {'value': 'Demolition', 'label': 'Demolition Permit', 'icon': 'trash-2', 'desc': 'Demolition and site clearing approvals.'},
-            {'value': 'Renovation', 'label': 'Renovation Permit', 'icon': 'file-text', 'desc': 'Minor renovation and building repair approvals.'},
         ]
     else:
         types = [
@@ -1607,7 +1605,7 @@ def serve_document_view(request, token):
         doc = get_object_or_404(Document, document_id=int(token))
     else:
         try:
-            data = signing.loads(token, salt='document-download', max_age=600)
+            data = signing.loads(token, salt='document-download')
             doc = get_object_or_404(Document, document_id=data['document_id'])
         except (signing.SignatureExpired, signing.BadSignature):
             try:
@@ -1690,6 +1688,7 @@ def document_upload_view(request, record_id):
             except ValueError:
                 pass
 
+        new_version = 1
         req_item = None
         if requirement_item_id:
             try:
@@ -1699,6 +1698,7 @@ def document_upload_view(request, record_id):
                 existing_req = RecordRequirement.objects.filter(record=record, requirement_item=req_item).first()
                 if existing_req and existing_req.document:
                     old_doc = existing_req.document
+                    new_version = (old_doc.version or 1) + 1
                     try:
                         old_doc.file.delete()
                         old_doc.delete()
@@ -1715,6 +1715,7 @@ def document_upload_view(request, record_id):
                 file=document_file,
                 file_name=document_file.name,
                 file_size=document_file.size,
+                version=new_version,
                 uploaded_by=request.user,
                 expiry_date=parsed_expiry_date,
             )
@@ -1800,6 +1801,51 @@ def document_delete_view(request, record_id, document_id):
     log_audit(request.user, f"Deleted: {doc_label} from '{record.title}'", record.record_id, request)
     messages.success(request, f"Deleted: {doc_label} successfully.")
     return redirect('record_detail', record_id=record.record_id)
+
+
+@login_required
+def download_record_zip_view(request, record_id):
+    """
+    Downloads all uploaded document files for a specific engineering record packaged in a clean ZIP file.
+    Organizes files neatly named after their requirement item names (e.g. '01_Building_Permit.pdf').
+    """
+    import zipfile
+    import io
+    from django.utils.text import slugify
+
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    
+    # Collect all fulfilled requirements with an attached document file
+    reqs = record.requirements.filter(is_fulfilled=True, document__isnull=False)
+    
+    if not reqs.exists():
+        messages.warning(request, f"No uploaded documents available to download for {record.title}.")
+        return redirect('record_detail', record_id=record_id)
+    
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for idx, req in enumerate(reqs, start=1):
+            doc = req.document
+            if doc and doc.file:
+                try:
+                    file_path = doc.file.path
+                    if os.path.exists(file_path):
+                        ext = os.path.splitext(doc.file.name)[1] or '.pdf'
+                        clean_item_name = slugify(req.requirement_item.name).replace('-', '_')
+                        zip_filename = f"{idx:02d}_{clean_item_name}{ext}"
+                        zip_file.write(file_path, arcname=zip_filename)
+                except Exception as e:
+                    logger.error(f"Error adding file {doc.file} to ZIP: {e}")
+
+    buffer.seek(0)
+    record_slug = slugify(record.title).replace('-', '_')[:30] or f"Record_{record.record_id}"
+    filename = f"eTALA_Record_{record.record_id}_{record_slug}_Documents.zip"
+    
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    log_audit(request.user, f"Downloaded ZIP document archive for Record #{record.record_id} ({record.title})", target_record_id=record.record_id, request=request)
+    return response
 
 
 # ─── ARCHIVE / RESTORE ──────────────────────────────────────────────────────

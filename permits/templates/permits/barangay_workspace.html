@@ -9,51 +9,66 @@
 <span class="breadcrumb-item active">Brgy. {{ barangay.barangay_name }}</span>
 {% endblock %}
 
+{% block back_button %}
+<a href="{% url 'barangays' %}" class="header-back-btn d-inline-flex align-items-center gap-1 text-decoration-none" title="Back to Barangays">
+    <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i>
+    <span>Barangays</span>
+</a>
+{% endblock %}
+
 {% block content %}
 
-<!-- ══ PAGE HEADER — Modern clean layout without bulky card wrapper ══════ -->
-<div class="page-title-row">
+<!-- ══ PAGE HEADER — Modern clean layout without redundant back buttons ══════ -->
+<div class="page-title-row d-flex justify-content-between align-items-start flex-wrap gap-2">
     <div>
-        <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
             <span class="tag tag-workspace">Barangay Workspace</span>
             <span class="tag tag-id">ID: #{{ barangay.barangay_id }}</span>
         </div>
-        <h1>
+        <h1 style="word-break: break-word; overflow-wrap: break-word;">
             Brgy. {{ barangay.barangay_name }}
         </h1>
-        <p class="page-subtitle">
+        <p class="page-subtitle mb-0">
             Total Records: <strong style="color: var(--gray-900);">{{ total_records }}</strong> ({{ total_projects }} projects, {{ total_permits }} permits, {{ total_documents }} documents)
         </p>
     </div>
+    {% if request.user.role == 'staff' or request.user.role == 'admin' %}
     <div class="d-flex gap-2">
-        <a href="{% url 'barangays' %}" class="action-btn action-btn-secondary">
-            <i data-lucide="arrow-left"></i>
-            Back to Barangays
+        <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 36px;">
+            <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+            <span>Add Record</span>
         </a>
     </div>
+    {% endif %}
 </div>
 
-<!-- ══ TABS & SEARCH ROW — Integrated design matching other search states ═ -->
+<!-- ══ TABS & SEARCH ROW — Integrated design matching records_browse ══════ -->
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 section-gap">
-    <!-- Tabs Navigation -->
-    <div class="d-flex gap-1 bg-white p-1 rounded-3 border" style="width: fit-content; align-items: center; background: #ffffff; border-color: var(--border-default) !important; border-radius: 8px;">
-        <a href="?tab=all{% if q %}&q={{ q }}{% endif %}" class="pill-tab {% if current_tab == 'all' %}active{% endif %}" {% if current_tab != 'all' %}style="border-color: transparent; background: transparent; padding: 6px 16px;"{% else %}style="padding: 6px 16px;"{% endif %}>All Records</a>
-        <a href="?tab=projects{% if q %}&q={{ q }}{% endif %}" class="pill-tab {% if current_tab == 'projects' %}active{% endif %}" {% if current_tab != 'projects' %}style="border-color: transparent; background: transparent; padding: 6px 16px;"{% else %}style="padding: 6px 16px;"{% endif %}>Projects</a>
-        <a href="?tab=permits{% if q %}&q={{ q }}{% endif %}" class="pill-tab {% if current_tab == 'permits' %}active{% endif %}" {% if current_tab != 'permits' %}style="border-color: transparent; background: transparent; padding: 6px 16px;"{% else %}style="padding: 6px 16px;"{% endif %}>Permits</a>
+    <!-- Category Tabs (Standard System Filter Tabs) -->
+    <div class="filter-tabs m-0" style="overflow-x: auto; max-width: 100%;">
+        <a href="?tab=all{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'all' %}active{% endif %}">
+            All Records
+        </a>
+        <a href="?tab=projects{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'projects' %}active{% endif %}">
+            Projects
+        </a>
+        <a href="?tab=permits{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'permits' %}active{% endif %}">
+            Permits
+        </a>
     </div>
 
-    <!-- Clean unified search wrapper (No search button!) -->
+    <!-- Clean unified search wrapper -->
     <form method="GET" class="d-flex flex-grow-1 align-items-center mb-0" style="max-width:320px;">
         <input type="hidden" name="tab" value="{{ current_tab }}">
         <div class="d-flex align-items-center filter-search-group w-100 px-3" style="height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
             <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
             <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-            <input type="text" name="q" value="{{ q }}" class="form-control flex-grow-1"
+            <input type="text" name="q" value="{{ q }}" class="form-control border-0 p-0 flex-grow-1"
                    placeholder="Search..."
                    style="font-size: var(--text-sm); border: none !important; padding: 0 !important; outline: none !important; box-shadow: none !important; height: 100%; background: transparent;">
             {% if q %}
             <a href="?tab={{ current_tab }}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background: transparent;" title="Clear search">
-                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                <i data-lucide="x" style="width: 15px; height: 15px;"></i>
             </a>
             {% endif %}
         </div>
@@ -66,8 +81,9 @@
     <div class="col-12">
         {% if page_obj %}
         <div class="content-card" style="overflow: hidden;">
-            <div class="table-responsive">
-                <table class="data-table">
+            <!-- Desktop Table View -->
+            <div class="table-responsive d-none d-md-block">
+                <table class="data-table" style="width: 100%;">
                     <thead>
                         <tr>
                             <th>Record Title</th>
@@ -79,7 +95,7 @@
                     </thead>
                     <tbody>
                         {% for r in page_obj %}
-                        <tr onclick="window.location='{% url 'record_detail' r.record_id %}'">
+                        <tr onclick="window.location='{% url 'record_detail' r.record_id %}'" style="cursor: pointer;">
                             <td>
                                 <div class="cell-title">
                                     {% if r.record_type == 'Permit' %}
@@ -127,6 +143,30 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Mobile Card List View (Consistent with Records Browse) -->
+            <div class="d-block d-md-none">
+                <div class="d-flex flex-column gap-0">
+                    {% for r in page_obj %}
+                    <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item">
+                        <div class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
+                            <i data-lucide="{% if r.record_type == 'Permit' %}file-check{% elif r.project_scope == 'Municipal' %}landmark{% else %}map-pin{% endif %}"></i>
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="mobile-record-title">
+                                {% if r.record_type == 'Permit' %}
+                                    {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
+                                {% else %}
+                                    {{ r.title }}
+                                {% endif %}
+                            </div>
+                            <div class="mobile-record-meta">{{ r.barangay.barangay_name|default:barangay.barangay_name }} · {{ r.year|default:"—" }} · {{ r.get_status_display }}</div>
+                        </div>
+                        <i data-lucide="chevron-right" class="flex-shrink-0" style="width:14px;height:14px;color:var(--gray-300);"></i>
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
             <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <div class="d-flex align-items-center gap-3">

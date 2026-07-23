@@ -119,33 +119,33 @@
 {% endif %}
 
 <!-- Page Header -->
-<div class="page-title-row">
+<div class="page-title-row d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-        <h1>
-            <i data-lucide="map-pin" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
-            Barangay Workspaces
+        <h1 class="d-flex align-items-center gap-2">
+            <i data-lucide="map-pin" class="text-teal" style="width: 22px; height: 22px;"></i>
+            <span>Barangay Workspaces</span>
         </h1>
-        <p class="page-subtitle">Browse and manage records across the 49 barangays of Carigara, Leyte</p>
+        <p class="page-subtitle mb-0">Browse and manage records across the 49 barangays of Carigara, Leyte</p>
     </div>
     
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <!-- Toggle Map Button -->
-        <button type="button" id="toggleMapBtn" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
-            <i data-lucide="map"></i>
+        <button type="button" id="toggleMapBtn" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 36px;">
+            <i data-lucide="map" style="width: 15px; height: 15px;"></i>
             <span>Show Map</span>
         </button>
         <!-- Add Barangay Button -->
         {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-        <button type="button" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" data-bs-toggle="modal" data-bs-target="#addBarangayModal" style="height: 38px;">
-            <i data-lucide="plus"></i>
+        <button type="button" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" data-bs-toggle="modal" data-bs-target="#addBarangayModal" style="height: 36px;">
+            <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
             <span>Add Barangay</span>
         </button>
         {% endif %}
     </div>
 </div>
 
-<!-- Premium Pill-Shaped Search Bar -->
-<div class="filter-bar section-gap">
+<!-- Premium Pill-Shaped Search Bar & Barangay Counter -->
+<div class="filter-bar section-gap d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div class="d-flex align-items-center filter-search-group px-3 search-premium-group" style="max-width: 320px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
         <i data-lucide="search" id="searchIcon" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0; transition: color 0.2s;" class="me-1"></i>
         <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
@@ -155,6 +155,12 @@
         <button type="button" id="clearSearchBtn" class="btn border-0 p-0 d-none text-muted" style="background: transparent;" title="Clear search">
             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
         </button>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-light text-secondary border px-3 py-2 rounded-pill fw-bold" style="font-size: 0.75rem; letter-spacing: 0.2px;">
+            <i class="fa-solid fa-map-pin me-1 text-teal"></i>
+            <span id="barangayCountBadge">{{ barangays|length }} Barangays</span>
+        </span>
     </div>
 </div>
 
@@ -246,7 +252,7 @@
 
                         <!-- Card Body -->
                         <div class="d-flex flex-column flex-grow-1" style="color: inherit;">
-                            <div class="brgy-card-title mt-1" style="font-size: 1.08rem; font-weight: 800; color: var(--gray-900, #0f172a); margin-bottom: 12px;">
+                            <div class="brgy-card-title mt-1" style="font-size: 1.05rem; font-weight: 800; color: var(--gray-900, #0f172a); margin-bottom: 12px; word-break: break-word; overflow-wrap: break-word; line-height: 1.25;">
                                 {{ b.barangay_name }}
                             </div>
                             
@@ -861,6 +867,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // LIVE FILTERING SEARCH LOGIC
     // ═════════════════════════════════════════════════════════════════════════
 
+    const countBadge = document.getElementById('barangayCountBadge');
+
     if (searchInput.value.trim().length > 0) {
         clearBtn.classList.remove('d-none');
     }
@@ -894,6 +902,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
+        // Update count badge dynamically
+        if (countBadge) {
+            countBadge.textContent = `${matchCount} Barangay${matchCount === 1 ? '' : 's'}`;
+        }
+
         // Handle empty states
         if (matchCount === 0) {
             if (clientEmptyState) clientEmptyState.classList.remove('d-none');
@@ -912,6 +925,13 @@ document.addEventListener('DOMContentLoaded', function() {
         searchInput.focus();
         
         // Reset all cards
+        cards.forEach(card => card.style.display = '');
+        if (countBadge) {
+            countBadge.textContent = `${cards.length} Barangays`;
+        }
+        if (clientEmptyState) clientEmptyState.classList.add('d-none');
+        if (barangayGrid) barangayGrid.classList.remove('d-none');
+    });
         cards.forEach(card => {
             card.style.display = '';
         });
