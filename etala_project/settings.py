@@ -53,15 +53,21 @@ if render_host:
 # Allow Render's HTTPS proxy headers when deployed
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+    'http://127.0.0.1',
+    'http://localhost',
+]
 for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(','):
     o = origin.strip().strip("'\"")
     if o:
         if not o.startswith('http://') and not o.startswith('https://'):
             o = f'https://{o}'
-        CSRF_TRUSTED_ORIGINS.append(o)
+        if o not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(o)
 
-if render_host:
+if render_host and f'https://{render_host}' not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(f'https://{render_host}')
 
 
@@ -237,7 +243,7 @@ LOGOUT_REDIRECT_URL = 'login'
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG and not TESTING
 SECURE_SSL_REDIRECT = not DEBUG and not TESTING
