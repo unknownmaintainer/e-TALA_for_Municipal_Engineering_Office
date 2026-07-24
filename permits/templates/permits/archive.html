@@ -35,65 +35,73 @@
 </div>
 
 <style>
-    /* Bulletproof contrast, hover readability, and card styling for Archived section in Light & Dark modes */
-    .table-card-responsive tbody tr,
-    .data-table tbody tr {
+    /* Light mode specific rules - strictly scoped so they NEVER run in dark mode */
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .table-card-responsive tbody tr,
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr {
         background-color: #ffffff !important;
         border-color: #e2e8f0 !important;
     }
-    .table-card-responsive tbody tr:hover,
-    .data-table tbody tr:hover {
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .table-card-responsive tbody tr:hover,
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr:hover {
         background-color: #f8fafc !important;
     }
-    .data-table .cell-title {
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-title {
         color: #0f172a !important;
         font-weight: 700 !important;
     }
-    .data-table .cell-subtitle {
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-subtitle {
         color: #475569 !important;
     }
-    .data-table .cell-subtitle strong {
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-subtitle strong {
         color: #0f172a !important;
     }
-    .data-table .cell-subtitle span.bullet-divider {
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-subtitle span.bullet-divider {
         color: #94a3b8 !important;
     }
-    .data-table td.cell-muted {
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table td.cell-muted {
         color: #475569 !important;
     }
 
-    /* Dark Mode Overrides */
+    /* Dark Mode Overrides - Bulletproof Crisp White Text */
     .dark-mode .table-card-responsive tbody tr,
-    .dark-mode .data-table tbody tr {
+    .dark-mode .data-table tbody tr,
+    .dark-mode .table-card-responsive tbody td,
+    .dark-mode .data-table tbody td,
+    .dark-mode .cell-title,
+    [data-bs-theme="dark"] .table-card-responsive tbody tr,
+    [data-bs-theme="dark"] .data-table tbody tr,
+    [data-bs-theme="dark"] .table-card-responsive tbody td,
+    [data-bs-theme="dark"] .data-table tbody td,
+    [data-bs-theme="dark"] .cell-title {
         background-color: #1e293b !important;
+        background: #1e293b !important;
         border-color: #334155 !important;
-    }
-    .dark-mode .table-card-responsive tbody tr:hover,
-    .dark-mode .data-table tbody tr:hover {
-        background-color: #334155 !important;
-    }
-    .dark-mode .table-card-responsive tbody tr:hover td,
-    .dark-mode .table-card-responsive tbody tr:hover .cell-title,
-    .dark-mode .table-card-responsive tbody tr:hover .cell-subtitle,
-    .dark-mode .data-table tbody tr:hover .cell-title,
-    .dark-mode .data-table tbody tr:hover .cell-subtitle {
         color: #ffffff !important;
     }
-    .dark-mode .data-table .cell-title {
-        color: #f8fafc !important;
+    .dark-mode .data-table .cell-title,
+    [data-bs-theme="dark"] .data-table .cell-title,
+    .dark-mode .cell-title,
+    [data-bs-theme="dark"] .cell-title {
+        color: #ffffff !important;
     }
-    .dark-mode .data-table .cell-subtitle {
-        color: #94a3b8 !important;
-    }
-    .dark-mode .data-table .cell-subtitle strong {
-        color: #f8fafc !important;
-    }
-    .dark-mode .data-table .cell-subtitle span.bullet-divider {
-        color: #475569 !important;
-    }
-    .dark-mode .data-table td.cell-muted {
+    .dark-mode .data-table .cell-subtitle,
+    [data-bs-theme="dark"] .data-table .cell-subtitle {
         color: #cbd5e1 !important;
     }
+    .dark-mode .data-table .cell-subtitle strong,
+    [data-bs-theme="dark"] .data-table .cell-subtitle strong {
+        color: #ffffff !important;
+    }
+    .dark-mode .data-table .cell-subtitle span.bullet-divider,
+    [data-bs-theme="dark"] .data-table .cell-subtitle span.bullet-divider {
+        color: #64748b !important;
+    }
+    .dark-mode .data-table td.cell-muted,
+    [data-bs-theme="dark"] .data-table td.cell-muted {
+        color: #cbd5e1 !important;
+    }
+
+
     .dark-mode .table-card-responsive tbody td[data-label]::before {
         color: #94a3b8 !important;
     }
@@ -158,10 +166,11 @@
                                 {% if request.user.role == 'admin' %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-success" href="{% url 'restore_record' record.record_id %}" onclick="return confirm('Restore this record?')">
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-success" href="javascript:void(0)" onclick="confirmRestoreRecord('{% url 'restore_record' record.record_id %}', '{{ record.title|escapejs }}')">
                                         <i data-lucide="rotate-ccw" style="width:14px;height:14px; color:#10b981;"></i> Restore
                                     </a>
                                 </li>
+
                                 {% endif %}
                             </ul>
                         </div>
@@ -240,4 +249,43 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmRestoreRecord(restoreUrl, recordTitle) {
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Restore Record',
+            message: "Are you sure you want to restore '" + recordTitle + "'? It will be moved back to active records.",
+            confirmText: 'Restore Record',
+            confirmClass: 'action-btn-primary',
+            icon: 'rotate-ccw',
+            onConfirm: function() {
+                window.location.href = restoreUrl;
+            }
+        });
+    } else {
+        if (confirm("Restore '" + recordTitle + "'?")) {
+            window.location.href = restoreUrl;
+        }
+    }
+}
+
+function changePerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function jumpToPage(page, maxPage) {
+    page = parseInt(page);
+    if (page >= 1 && page <= maxPage) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        window.location.href = url.toString();
+    }
+}
+</script>
 {% endblock %}

@@ -46,10 +46,30 @@
         {% endif %}
         
         {% if can_archive and record.status != 'archived' %}
-        <a href="{% url 'archive_record' record.record_id %}" class="action-btn action-btn-secondary text-danger border-danger-subtle d-inline-flex align-items-center gap-1.5 text-decoration-none fw-semibold" onclick="return confirm('Archive this record?')" title="Archive Record" style="height: 36px;">
+        <a href="javascript:void(0)" class="action-btn action-btn-secondary text-danger border-danger-subtle d-inline-flex align-items-center gap-1.5 text-decoration-none fw-semibold" onclick="confirmArchiveDetail()" title="Archive Record" style="height: 36px;">
             <i data-lucide="archive" style="width: 14px; height: 14px; color: #dc2626;"></i>
             <span>Archive</span>
         </a>
+        <script>
+        function confirmArchiveDetail() {
+            if (window.showConfirmModal) {
+                showConfirmModal({
+                    title: 'Archive Record',
+                    message: "Are you sure you want to archive '{{ record.title|escapejs }}'? It will be moved to the archive section.",
+                    confirmText: 'Archive Record',
+                    confirmClass: 'action-btn-danger',
+                    icon: 'archive',
+                    onConfirm: function() {
+                        window.location.href = "{% url 'archive_record' record.record_id %}";
+                    }
+                });
+            } else {
+                if (confirm("Archive this record?")) {
+                    window.location.href = "{% url 'archive_record' record.record_id %}";
+                }
+            }
+        }
+        </script>
         {% endif %}
     </div>
 </div>

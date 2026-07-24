@@ -230,7 +230,7 @@
                                 {% if request.user.role == 'admin' %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="{% url 'delete_record' record.record_id %}" onclick="return confirm('Archive this record?')">
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="confirmArchiveFromSearch('{% url 'delete_record' record.record_id %}', '{{ record.title|escapejs }}')">
                                         <i data-lucide="archive" style="width:14px;height:14px; color:#ef4444;"></i> Archive
                                     </a>
                                 </li>
@@ -294,4 +294,25 @@
 </div>
 
 {% include 'permits/includes/flag_illegal_modal.html' %}
+
+<script>
+function confirmArchiveFromSearch(archiveUrl, recordTitle) {
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Archive Record',
+            message: "Are you sure you want to archive '" + recordTitle + "'? It will be moved to the archive section.",
+            confirmText: 'Archive Record',
+            confirmClass: 'action-btn-danger',
+            icon: 'archive',
+            onConfirm: function() {
+                window.location.href = archiveUrl;
+            }
+        });
+    } else {
+        if (confirm("Archive '" + recordTitle + "'?")) {
+            window.location.href = archiveUrl;
+        }
+    }
+}
+</script>
 {% endblock %}

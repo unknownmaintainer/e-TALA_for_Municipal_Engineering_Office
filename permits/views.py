@@ -106,8 +106,24 @@ def get_year_choices():
     return sorted(list(db_years.union(default_years)), reverse=True)
 
 
+def resolve_scope(request):
+    """
+    Resolves record filtering scope ('my' vs 'all') based on 'scope' GET parameter.
+    If scope is not explicitly passed:
+    - Admin / Municipal Engineer: default to 'all'
+    - Engineering Staff: default to 'my'
+    """
+    scope = request.GET.get('scope', '').strip().lower()
+    if scope not in ['my', 'all']:
+        if hasattr(request, 'user') and request.user.is_authenticated and getattr(request.user, 'role', '') == 'staff':
+            scope = 'my'
+        else:
+            scope = 'all'
+    return scope
+
 
 # ─── PUBLIC LANDING ─────────────────────────────────────────────────────────
+
 
 def landing_view(request):
     if request.user.is_authenticated:
@@ -278,10 +294,19 @@ def dashboard_view(request):
     compliance_incomplete = compliance_total - compliance_completed
     compliance_rate = int((compliance_completed / compliance_total) * 100) if compliance_total > 0 else 100
 
-    # Recent records
-    recent_records = records.select_related(
-        'barangay', 'created_by', 'permit_detail', 'project_detail'
-    ).order_by('-created_at')[:8]
+    # Scope resolution & Recent records
+    selected_scope = resolve_scope(request)
+    my_records_count = records.filter(created_by=request.user).count() if request.user.is_authenticated else 0
+    all_records_count = records.count()
+
+    if selected_scope == 'my':
+        recent_records = records.filter(created_by=request.user).select_related(
+            'barangay', 'created_by', 'permit_detail', 'project_detail'
+        ).order_by('-created_at')[:8]
+    else:
+        recent_records = records.select_related(
+            'barangay', 'created_by', 'permit_detail', 'project_detail'
+        ).order_by('-created_at')[:8]
 
     # Activity feed
     if request.user.role == 'admin':
@@ -292,12 +317,13 @@ def dashboard_view(request):
     # Recent Uploads
     recent_uploads = Document.objects.select_related('engineering_record', 'uploaded_by').order_by('-uploaded_at')[:5]
 
-    # Incomplete Records list
+    # Incomplete Records list (select created_by for instant JS scope filtering)
     incomplete_list = records.filter(
         requirements__isnull=False,
         requirements__is_fulfilled=False,
         requirements__is_waived=False
-    ).distinct().select_related('barangay')[:15]
+    ).distinct().select_related('barangay', 'created_by', 'permit_detail', 'project_detail')[:30]
+
 
     # Pending records
     pending_records = records.filter(status='pending').select_related('barangay').order_by('-created_at')[:5]
@@ -395,6 +421,9 @@ def dashboard_view(request):
         'chart_year_counts_json': json.dumps(chart_year_counts),
         'chart_permits_json': json.dumps(chart_permits),
         'chart_permit_counts_json': json.dumps(chart_permit_counts),
+        'selected_scope': selected_scope,
+        'my_records_count': my_records_count,
+        'all_records_count': all_records_count,
         'active_tab': 'dashboard',
     }
     return render(request, 'permits/dashboard.html', context)
@@ -597,6 +626,14 @@ def records_browse_view(request):
     elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
         base_records = base_records.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
 
+    # Scope resolution
+    selected_scope = resolve_scope(request)
+    my_scope_count = base_records.filter(created_by=request.user).count() if request.user.is_authenticated else 0
+    all_scope_count = base_records.count()
+
+    if selected_scope == 'my':
+        base_records = base_records.filter(created_by=request.user)
+
     # Compute tab counts BEFORE applying current active tab filter
     all_count = base_records.count()
     municipal_count = base_records.filter(record_type='Project', project_scope='Municipal').count()
@@ -642,6 +679,9 @@ def records_browse_view(request):
         'active_filters_count': active_filters_count,
         'q': query,
         'selected_record_type': record_type,
+        'selected_scope': selected_scope,
+        'my_scope_count': my_scope_count,
+        'all_scope_count': all_scope_count,
         'selected_illegal': illegal_filter,
         'selected_project_scope': project_scope,
         'selected_barangay': barangay_id,
@@ -885,9 +925,18 @@ def record_create_step3_view(request):
 @login_required
 def municipal_projects_view(request):
     """Lists all Municipal Project records."""
-    records = EngineeringRecord.objects.filter(
+    selected_scope = resolve_scope(request)
+    base_qs = EngineeringRecord.objects.filter(
         record_type='Project', project_scope='Municipal'
-    ).exclude(status='archived').select_related('barangay', 'created_by', 'project_detail').order_by('-created_at')
+    ).exclude(status='archived')
+
+    my_scope_count = base_qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
+    all_scope_count = base_qs.count()
+
+    if selected_scope == 'my':
+        base_qs = base_qs.filter(created_by=request.user)
+
+    records = base_qs.select_related('barangay', 'created_by', 'project_detail').order_by('-created_at')
 
     query = request.GET.get('q', '').strip()
     project_type = request.GET.get('project_type', '')
@@ -931,6 +980,9 @@ def municipal_projects_view(request):
         'selected_status': status,
         'selected_year': year,
         'selected_barangay': barangay_id,
+        'selected_scope': selected_scope,
+        'my_scope_count': my_scope_count,
+        'all_scope_count': all_scope_count,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'barangays': Barangay.objects.all(),
@@ -946,9 +998,18 @@ def municipal_projects_view(request):
 @login_required
 def barangay_projects_view(request):
     """Lists all Barangay Project records."""
-    records = EngineeringRecord.objects.filter(
+    selected_scope = resolve_scope(request)
+    base_qs = EngineeringRecord.objects.filter(
         record_type='Project', project_scope='Barangay'
-    ).exclude(status='archived').select_related('barangay', 'created_by', 'project_detail').order_by('-created_at')
+    ).exclude(status='archived')
+
+    my_scope_count = base_qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
+    all_scope_count = base_qs.count()
+
+    if selected_scope == 'my':
+        base_qs = base_qs.filter(created_by=request.user)
+
+    records = base_qs.select_related('barangay', 'created_by', 'project_detail').order_by('-created_at')
 
     query = request.GET.get('q', '').strip()
     project_type = request.GET.get('project_type', '')
@@ -992,6 +1053,9 @@ def barangay_projects_view(request):
         'selected_status': status,
         'selected_year': year,
         'selected_barangay': barangay_id,
+        'selected_scope': selected_scope,
+        'my_scope_count': my_scope_count,
+        'all_scope_count': all_scope_count,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'barangays': Barangay.objects.all(),
@@ -1007,9 +1071,18 @@ def barangay_projects_view(request):
 @login_required
 def permit_records_view(request):
     """Lists all Permit records."""
-    records = EngineeringRecord.objects.filter(
+    selected_scope = resolve_scope(request)
+    base_qs = EngineeringRecord.objects.filter(
         record_type='Permit'
-    ).exclude(status='archived').select_related('barangay', 'created_by', 'permit_detail').order_by('-created_at')
+    ).exclude(status='archived')
+
+    my_scope_count = base_qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
+    all_scope_count = base_qs.count()
+
+    if selected_scope == 'my':
+        base_qs = base_qs.filter(created_by=request.user)
+
+    records = base_qs.select_related('barangay', 'created_by', 'permit_detail').order_by('-created_at')
 
     query = request.GET.get('q', '').strip()
     permit_type = request.GET.get('permit_type', '')
@@ -1063,6 +1136,9 @@ def permit_records_view(request):
         'selected_status': status,
         'selected_year': year,
         'selected_barangay': barangay_id,
+        'selected_scope': selected_scope,
+        'my_scope_count': my_scope_count,
+        'all_scope_count': all_scope_count,
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'barangays': Barangay.objects.all(),

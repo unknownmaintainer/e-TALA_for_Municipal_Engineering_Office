@@ -197,13 +197,12 @@
         <div id="log-tab-content-login" class="tab-pane-custom" style="display:none;">
             
             <!-- Status Filter Buttons -->
-            <div class="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2 d-print-none">
-                <div class="d-flex align-items-center gap-1 bg-white p-1 rounded-3 border" style="width: fit-content; border-radius: 8px !important;">
-                    <a href="?status=all&q={{ query }}" class="pill-tab {% if status_filter == 'all' or not status_filter %}active{% endif %}" onclick="saveLogTabState('login')">All Attempts</a>
-                    <a href="?status=success&q={{ query }}" class="pill-tab {% if status_filter == 'success' %}active{% endif %}" onclick="saveLogTabState('login')">Successful</a>
-                    <a href="?status=failed&q={{ query }}" class="pill-tab {% if status_filter == 'failed' %}active{% endif %}" onclick="saveLogTabState('login')">Failed</a>
+                <div class="scope-segmented-control p-1">
+                    <a href="?status=all&q={{ query }}" class="scope-pill-btn {% if status_filter == 'all' or not status_filter %}active{% endif %}" onclick="saveLogTabState('login')">All Attempts</a>
+                    <a href="?status=success&q={{ query }}" class="scope-pill-btn {% if status_filter == 'success' %}active{% endif %}" onclick="saveLogTabState('login')">Successful</a>
+                    <a href="?status=failed&q={{ query }}" class="scope-pill-btn {% if status_filter == 'failed' %}active{% endif %}" onclick="saveLogTabState('login')">Failed</a>
                 </div>
-            </div>
+
 
             {% if login_page_obj %}
                 <div class="table-responsive mb-4">
@@ -249,20 +248,20 @@
                                 <td class="text-end" data-label="Action">
                                     {% if attempt.ip_address %}
                                         {% if attempt.ip_address in blocked_ips %}
-                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to unblock this IP address?');">
+                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" id="unblockForm-{{ attempt.ip_address|slugify }}">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="action" value="unblock_ip">
                                                 <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
-                                                <button type="submit" class="action-btn action-btn-secondary action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
+                                                <button type="button" class="action-btn action-btn-secondary action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;" onclick="confirmIPAction('unblockForm-{{ attempt.ip_address|slugify }}', 'Unblock IP', 'Are you sure you want to unblock IP {{ attempt.ip_address }}?', 'Unblock', 'action-btn-primary', 'shield')">
                                                     Unblock
                                                 </button>
                                             </form>
                                         {% else %}
-                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to block this IP address?');">
+                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" id="blockForm-{{ attempt.ip_address|slugify }}">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="action" value="block_ip">
                                                 <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
-                                                <button type="submit" class="action-btn action-btn-danger action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; background-color: #ef4444; border-color: #ef4444; color: #fff;">
+                                                <button type="button" class="action-btn action-btn-danger action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; background-color: #ef4444; border-color: #ef4444; color: #fff;" onclick="confirmIPAction('blockForm-{{ attempt.ip_address|slugify }}', 'Block IP', 'Are you sure you want to block IP {{ attempt.ip_address }}? Blocked IPs will not be able to log in.', 'Block IP', 'action-btn-danger', 'shield-alert')">
                                                     Block
                                                 </button>
                                             </form>
@@ -481,5 +480,24 @@
         {% endif %}
         updateSettingsExportUrl();
     });
+    function confirmIPAction(formId, title, message, confirmText, confirmClass, icon) {
+        if (window.showConfirmModal) {
+            showConfirmModal({
+                title: title,
+                message: message,
+                confirmText: confirmText,
+                confirmClass: confirmClass,
+                icon: icon,
+                onConfirm: function() {
+                    document.getElementById(formId).submit();
+                }
+            });
+        } else {
+            if (confirm(message)) {
+                document.getElementById(formId).submit();
+            }
+        }
+    }
 </script>
 {% endblock %}
+

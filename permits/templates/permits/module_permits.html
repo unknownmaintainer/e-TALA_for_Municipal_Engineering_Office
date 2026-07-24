@@ -1,5 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static %}
+{% load permit_filters %}
+
 
 {% block title %}Building Permits | e-TALA{% endblock %}
 
@@ -61,11 +63,28 @@
 
         {% if q or selected_barangay or selected_permit_type or selected_status or selected_year %}
         <a href="{% url 'permit_records' %}"
-           class="action-btn action-btn-ghost action-btn-sm ms-auto" style="height: 38px;" title="Reset all filters">
+           class="action-btn action-btn-ghost action-btn-sm" style="height: 38px;" title="Reset all filters">
             Reset All
         </a>
         {% endif %}
+
+        <!-- Role-Based Scope Toggle ("My Permits" vs "All Permits") -->
+        <div class="scope-segmented-control ms-md-auto">
+
+            <a href="?{% param_replace scope='my' page=1 %}" class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}" title="Show permits created by you">
+                <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                <span>My Permits</span>
+                <span class="scope-count-badge">{{ my_scope_count }}</span>
+            </a>
+            <a href="?{% param_replace scope='all' page=1 %}" class="scope-pill-btn {% if selected_scope == 'all' %}active{% endif %}" title="Show all municipal permits">
+                <i data-lucide="layers" style="width: 14px; height: 14px;"></i>
+                <span>All Permits</span>
+                <span class="scope-count-badge">{{ all_scope_count }}</span>
+            </a>
+
+        </div>
     </div>
+
 
     <!-- Collapsible filters panel (Dropdown select options) -->
     <div class="collapse {% if selected_barangay or selected_permit_type or selected_status or selected_year %}show{% endif %}" id="advancedFiltersCollapse">

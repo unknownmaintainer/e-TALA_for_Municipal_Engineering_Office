@@ -389,14 +389,33 @@ function openEditBarangayModal(id, name) {
 
 function confirmDeleteBarangay(id, name, totalRecords) {
     if (totalRecords > 0) {
-        alert("Cannot delete '" + name + "' because it contains active engineering records. Please reassign or delete the records first.");
+        if (window.showToast) {
+            showToast('warning', 'Action Prevented', "Cannot delete '" + name + "' because it contains active engineering records. Please reassign or delete the records first.");
+        } else {
+            alert("Cannot delete '" + name + "' because it contains active engineering records. Please reassign or delete the records first.");
+        }
         return;
     }
-    if (confirm("Are you sure you want to delete Barangay '" + name + "'? This action cannot be undone.")) {
-        document.getElementById('delete_barangay_id').value = id;
-        document.getElementById('deleteBarangayForm').submit();
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Delete Barangay',
+            message: "Are you sure you want to delete Barangay '" + name + "'? This action cannot be undone.",
+            confirmText: 'Delete Barangay',
+            confirmClass: 'action-btn-danger',
+            icon: 'trash-2',
+            onConfirm: function() {
+                document.getElementById('delete_barangay_id').value = id;
+                document.getElementById('deleteBarangayForm').submit();
+            }
+        });
+    } else {
+        if (confirm("Are you sure you want to delete Barangay '" + name + "'? This action cannot be undone.")) {
+            document.getElementById('delete_barangay_id').value = id;
+            document.getElementById('deleteBarangayForm').submit();
+        }
     }
 }
+
 
 document.addEventListener('DOMContentLoaded', function() {
     const addModal = document.getElementById('addBarangayModal');

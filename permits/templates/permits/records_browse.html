@@ -1,6 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 {% load humanize %}
+{% load permit_filters %}
 
 {% block title %}Engineering Records | e-TALA{% endblock %}
 
@@ -21,7 +22,6 @@
 {% endif %}
 
 <!-- ══ HEADING ════════════════════════════════════════════════════════ -->
-<!-- ══ HEADING ════════════════════════════════════════════════════════ -->
 <div class="page-title-row">
     <div>
         <h1>Records</h1>
@@ -39,25 +39,25 @@
     {% endif %}
 </div>
 
-<!-- ══ CATEGORY TABS + INLINE SEARCH ═════════════════════════════════ -->
-<div class="filter-tabs section-gap">
-    <a href="?q={{ q }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+<!-- ══ CATEGORY TABS (Horizontal scroll) ═════════════════════════════ -->
+<div class="filter-tabs mb-3">
+    <a href="?{% param_replace record_type='' illegal='' page=1 %}"
        class="filter-tab {% if not selected_record_type and not selected_illegal %}active{% endif %}">
         All <span class="tab-count {% if not selected_record_type and not selected_illegal %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
     </a>
-    <a href="?q={{ q }}&record_type=Project&project_scope=Municipal&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+    <a href="?{% param_replace record_type='Project' project_scope='Municipal' illegal='' page=1 %}"
        class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">
         Municipal <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">{{ municipal_count }}</span>
     </a>
-    <a href="?q={{ q }}&record_type=Project&project_scope=Barangay&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+    <a href="?{% param_replace record_type='Project' project_scope='Barangay' illegal='' page=1 %}"
        class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">
         Barangay <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">{{ barangay_count }}</span>
     </a>
-    <a href="?q={{ q }}&record_type=Permit&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+    <a href="?{% param_replace record_type='Permit' project_scope='' illegal='' page=1 %}"
        class="filter-tab {% if selected_record_type == 'Permit' and not selected_illegal %}active{% endif %}">
         Permits <span class="tab-count {% if selected_record_type == 'Permit' and not selected_illegal %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
     </a>
-    <a href="?q={{ q }}&illegal=1"
+    <a href="?{% param_replace illegal='1' record_type='' project_scope='' page=1 %}"
        class="filter-tab {% if selected_illegal or selected_record_type == 'Illegal' %}active{% endif %}" style="color: #dc2626;">
         <i data-lucide="shield-alert" style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px;"></i>
         Illegal Constructions <span class="tab-count" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">{{ illegal_count }}</span>
@@ -89,10 +89,10 @@
     <input type="hidden" name="record_type" value="{{ selected_record_type }}">
     <input type="hidden" name="project_scope" value="{{ selected_project_scope }}">
 
-    <!-- Sleek persistent search row with Live Auto-Search & Search Button -->
-    <div class="filter-bar">
+    <!-- Sleek persistent search row with Live Auto-Search, Scope Toggle & Filters -->
+    <div class="filter-bar mb-3">
         <!-- Always visible Search input group -->
-        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 450px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
+        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 420px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
             <button type="submit" class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted me-2" style="cursor: pointer;" title="Click to Search">
                 <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;"></i>
             </button>
@@ -119,7 +119,21 @@
             {% endif %}
         </button>
 
+        <!-- Role-Based Scope Toggle ("My Records" vs "All Records") -->
+        <div class="scope-segmented-control ms-md-auto flex-shrink-0">
+            <a href="?{% param_replace scope='my' page=1 %}" class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}" title="Show records created by you">
+                <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                <span>My Records</span>
+                <span class="scope-count-badge">{{ my_scope_count }}</span>
+            </a>
+            <a href="?{% param_replace scope='all' page=1 %}" class="scope-pill-btn {% if selected_scope == 'all' %}active{% endif %}" title="Show all municipal records">
+                <i data-lucide="layers" style="width: 14px; height: 14px;"></i>
+                <span>All Records</span>
+                <span class="scope-count-badge">{{ all_scope_count }}</span>
+            </a>
+        </div>
     </div>
+
 
     <!-- Active Filter Chips -->
     {% if active_filters_count > 0 %}
@@ -352,13 +366,14 @@
                                         {% if r.status != 'archived' %}
                                         <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'edit_record' r.record_id %}"><i data-lucide="pencil" style="width:14px;height:14px;"></i> Edit</a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="{% url 'archive_record' r.record_id %}" onclick="return confirm('Archive this record?')"><i data-lucide="archive" style="width:14px;height:14px;"></i> Archive</a></li>
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="confirmArchiveRecord('{% url 'archive_record' r.record_id %}', '{{ r.title|escapejs }}')"><i data-lucide="archive" style="width:14px;height:14px;"></i> Archive</a></li>
                                         {% endif %}
                                     {% endif %}
                                 </ul>
                             </div>
                         </td>
                     </tr>
+
                     {% endfor %}
                     {% else %}
                     <tr>
@@ -539,7 +554,25 @@
                 }
             });
         });
-    });
+function confirmArchiveRecord(archiveUrl, recordTitle) {
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Archive Record',
+            message: "Are you sure you want to archive '" + recordTitle + "'? It will be moved to the archive section.",
+            confirmText: 'Archive Record',
+            confirmClass: 'action-btn-danger',
+            icon: 'archive',
+            onConfirm: function() {
+                window.location.href = archiveUrl;
+            }
+        });
+    } else {
+        if (confirm("Archive record '" + recordTitle + "'?")) {
+            window.location.href = archiveUrl;
+        }
+    }
+}
 </script>
 {% endblock %}
+
 
