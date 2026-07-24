@@ -2400,12 +2400,16 @@ def reports_view(request):
     # 3. Illegal Construction Metrics
     illegal_cases_qs = records.filter(is_illegal_construction=True)
     total_illegal_cases = illegal_cases_qs.count()
-    active_illegal_cases = illegal_cases_qs.exclude(illegal_construction_status__in=['regularized', 'demolished', 'case_closed']).count()
-    resolved_illegal_cases = illegal_cases_qs.filter(illegal_construction_status__in=['regularized', 'demolished', 'case_closed']).count()
+    active_illegal_cases = illegal_cases_qs.exclude(illegal_compliance_status='resolved').count()
+    resolved_illegal_cases = illegal_cases_qs.filter(illegal_compliance_status='resolved').count()
     illegal_cases_list = illegal_cases_qs.select_related('barangay')[:6]
 
     # 4. Document Completion Metrics
-    completed_records_count = records.filter(is_complete=True).count()
+    completed_records_count = records.exclude(
+        requirements__isnull=False,
+        requirements__is_fulfilled=False,
+        requirements__is_waived=False
+    ).count()
     completion_rate_pct = round((completed_records_count / total_count * 100)) if total_count > 0 else 85
 
     barangays = Barangay.objects.all()
