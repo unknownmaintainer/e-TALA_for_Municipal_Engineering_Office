@@ -3,399 +3,295 @@
 
 {% block title %}Search Results | e-TALA{% endblock %}
 
+{% block breadcrumb %}
+<span class="breadcrumb-item">Search Results</span>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid px-0">
-    <div class="row g-4">
-        <!-- COLUMN 1: Left Sidebar Filters -->
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm p-4">
-                <h5 class="fw-bold mb-3 text-dark" style="font-size: 1.1rem;">
-                    <i data-lucide="sliders-horizontal" class="me-2 text-teal" style="width: 18px; height: 18px; color: #1e3a8a; vertical-align: -2px;"></i>
-                    Filters
-                </h5>
-                
-                <form method="GET" id="searchForm" action="{% url 'search' %}" class="d-flex flex-column gap-3">
-                    <!-- Search Query -->
-                    <div>
-                        <label for="searchQuery" class="form-label small fw-semibold text-muted mb-1">Keywords</label>
-                        <div class="input-group" style="border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1;">
-                            <button type="submit" class="input-group-text bg-white border-0 text-muted me-0 pe-1" style="cursor: pointer;" title="Search">
-                                <i data-lucide="search" style="width: 14px; height: 14px;"></i>
-                            </button>
-                            <input type="text" name="q" id="searchQuery" class="form-control border-0 bg-white py-1-5 small" placeholder="Search year (2026), permit, barangay, owner..." value="{{ q }}" style="font-size: 0.85rem; outline: none; box-shadow: none;">
-                        </div>
-                    </div>
-                    
-                    <!-- Record Category Filter -->
-                    <div>
-                        <label for="filterCategory" class="form-label small fw-semibold text-muted mb-1">Category</label>
-                        <select name="record_type" id="filterCategory" class="form-select form-select-sm border-color py-1-5" style="border-radius: 8px; font-size: 0.85rem;">
-                            <option value="">All Categories</option>
-                            <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Project Records</option>
-                            <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permit Records</option>
-                        </select>
-                    </div>
+<!-- ══ PAGE TITLE & ACTIONS ═══════════════════════════════════════════════ -->
+<div class="page-title-row">
+    <div>
+        <h1>
+            <i data-lucide="search" class="text-teal me-1" style="width: 24px; height: 24px; vertical-align: -3px;"></i>
+            Search Results
+        </h1>
+        <p class="page-subtitle">
+            {% if q %}
+            Showing matching records for <strong>"{{ q }}"</strong>
+            {% else %}
+            Browse and filter all digitized engineering records, permits, and municipal projects.
+            {% endif %}
+        </p>
+    </div>
+    
+    <div class="d-flex gap-2">
+        {% if request.user.role == 'staff' or request.user.role == 'admin' %}
+        <button type="button" class="action-btn action-btn-secondary action-btn-sm" data-bs-toggle="modal" data-bs-target="#flagIllegalModal" style="color: #b91c1c; border-color: #fca5a5; background: #fff5f5;">
+            <i data-lucide="shield-alert" style="color: #dc2626;"></i> Flag Illegal Structure
+        </button>
+        <a href="{% url 'create_record' %}" class="action-btn action-btn-primary action-btn-sm">
+            <i data-lucide="plus"></i> New Record
+        </a>
+        {% endif %}
+    </div>
+</div>
 
-                    <!-- Barangay Filter -->
-                    <div>
-                        <label for="filterBarangay" class="form-label small fw-semibold text-muted mb-1">Barangay</label>
-                        <select name="barangay" id="filterBarangay" class="form-select form-select-sm border-color py-1-5" style="border-radius: 8px; font-size: 0.85rem;">
-                            <option value="">All Barangays</option>
-                            {% for b in barangays %}
-                            <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"s" %}selected{% endif %}>{{ b.barangay_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+<!-- ══ CATEGORY TABS ═════════════════════════════════════════════════════ -->
+<div class="filter-tabs section-gap">
+    <a href="?q={{ q }}" class="filter-tab {% if not selected_record_type %}active{% endif %}">
+        All <span class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
+    </a>
+    <a href="?q={{ q }}&record_type=Project&project_scope=Municipal" class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">
+        Municipal <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ municipal_count }}</span>
+    </a>
+    <a href="?q={{ q }}&record_type=Project&project_scope=Barangay" class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">
+        Barangay <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ barangay_count }}</span>
+    </a>
+    <a href="?q={{ q }}&record_type=Permit" class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}">
+        Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
+    </a>
+    {% if illegal_count > 0 %}
+    <a href="?q={{ q }}&illegal=1" class="filter-tab" style="color: #dc2626;">
+        <i data-lucide="shield-alert" style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px;"></i>
+        Illegal Constructions <span class="tab-count" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">{{ illegal_count }}</span>
+    </a>
+    {% endif %}
+</div>
 
-                    <!-- Year Filter -->
-                    <div>
-                        <label for="filterYear" class="form-label small fw-semibold text-muted mb-1">Year</label>
-                        <select name="year" id="filterYear" class="form-select form-select-sm border-color py-1-5" style="border-radius: 8px; font-size: 0.85rem;">
-                            <option value="">All Years</option>
-                            {% for y in year_choices %}
-                            <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+<!-- ══ SEARCH & FILTER BAR ═══════════════════════════════════════════════ -->
+<form method="GET" action="{% url 'search' %}" id="filterForm">
+    <input type="hidden" name="record_type" value="{{ selected_record_type }}">
 
-                    <!-- Status Filter -->
-                    <div>
-                        <label for="filterStatus" class="form-label small fw-semibold text-muted mb-1">Status</label>
-                        <select name="status" id="filterStatus" class="form-select form-select-sm border-color py-1-5" style="border-radius: 8px; font-size: 0.85rem;">
-                            <option value="">All</option>
-                            {% for val, label in status_choices %}
-                            <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- Clear filters button -->
-                    <a href="{% url 'search' %}" class="btn btn-sm btn-light border w-100 fw-semibold mt-2" style="border-radius: 8px; font-size: 0.8rem; color: #475569;">
-                        Reset Filters
-                    </a>
-                </form>
-            </div>
+    <div class="filter-bar">
+        <!-- Search Input Group -->
+        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 480px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
+            <button type="submit" class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted me-2" style="cursor: pointer;" title="Search">
+                <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b;"></i>
+            </button>
+            <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Type year (2026), permit, barangay, owner..." value="{{ q }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            {% if q %}
+            <a href="{% url 'search' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
+                <i data-lucide="x" style="width:16px;height:16px;"></i>
+            </a>
+            {% endif %}
         </div>
 
-        <!-- COLUMN 2: Center Documents List Table -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-body p-0">
-                    <!-- Table header -->
-                    <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="fw-bold mb-1 text-dark" style="font-size: 1.1rem;">Engineering Records</h5>
-                            <p class="text-muted small mb-0">Select a record to inspect metadata and view checklist</p>
-                        </div>
-                        <div class="small text-muted fw-semibold">
-                            Total: <span id="resultsCount">{{ page_obj.paginator.count }}</span>
-                        </div>
-                    </div>
+        <!-- Filter Toggle button -->
+        <button class="action-btn action-btn-secondary action-btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#searchFiltersCollapse" aria-expanded="false" style="height: 38px;">
+            <i data-lucide="sliders-horizontal"></i>
+            Filters
+        </button>
 
-                    <!-- Table container -->
-                    <div id="searchResultsContainer">
-                        {% if page_obj %}
-                        <div class="table-responsive">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Title / Name</th>
-                                        <th>Category</th>
-                                        <th>Barangay</th>
-                                        <th>Year</th>
-                                        <th class="text-end">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="resultsTableBody">
-                                    {% for r in page_obj %}
-                                    <tr class="record-row" 
-                                        data-id="{{ r.record_id }}"
-                                        data-title="{{ r.title }}"
-                                        data-category="{{ r.record_type }}{% if r.project_scope %} - {{ r.project_scope }}{% endif %}"
-                                        data-barangay="{{ r.barangay.barangay_name }}"
-                                        data-year="{{ r.year|default:'N/A' }}"
-                                        data-description="{{ r.description|default:'No description' }}"
-                                        data-created-by="{{ r.created_by.full_name|default:r.created_by.username }}"
-                                        data-created-at="{{ r.created_at|date:'M d, Y' }}"
-                                        data-status="{{ r.status }}"
-                                        data-details-url="{% url 'record_detail' r.record_id %}"
-                                        data-documents='[
-                                            {% for doc in r.documents.all %}
-                                            {
-                                                "document_id": "{{ doc.document_id }}",
-                                                "document_type": "{{ doc.document_type }}",
-                                                "file_name": "{{ doc.file_name|escapejs }}",
-                                                "file_size": {{ doc.file_size }}
-                                            }{% if not forloop.last %},{% endif %}
-                                            {% endfor %}
-                                        ]'>
-                                        <td>
-                                            <div class="cell-title">
-                                                {% if r.record_type == 'Permit' %}
-                                                    {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
-                                                {% else %}
-                                                    {{ r.title }}
-                                                {% endif %}
-                                            </div>
-                                            <div class="cell-subtitle" style="font-size: 0.72rem; color: #64748b;">
-                                                {% if r.record_type == 'Permit' and r.permit_detail %}
-                                                    Applicant: {{ r.permit_detail.applicant_name }}
-                                                    <span style="color: #cbd5e1; margin: 0 4px;">•</span>
-                                                {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
-                                                    Contractor: {{ r.project_detail.contractor }}
-                                                    <span style="color: #cbd5e1; margin: 0 4px;">•</span>
-                                                {% endif %}
-                                                <span style="color: #94a3b8;">Encoded by: {{ r.created_by.full_name|default:r.created_by.username }}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            {% if r.record_type == 'Permit' %}
-                                            <span class="tag tag-permit">{{ r.specific_type_label }}</span>
-                                            {% else %}
-                                            <span class="tag tag-project">{{ r.specific_type_label }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="cell-muted">{{ r.barangay.barangay_name }}</td>
-                                        <td class="cell-muted">{{ r.year|default:"—" }}</td>
-                                        <td class="text-end">
-                                            <a href="{% url 'record_detail' r.record_id %}" class="action-btn action-btn-secondary action-btn-xs">
-                                                Open
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+        {% if selected_barangay or selected_year or selected_status or selected_record_type %}
+        <a href="{% url 'search' %}" class="action-btn action-btn-secondary action-btn-sm text-danger" style="height: 38px;">
+            <i data-lucide="rotate-ccw" style="width:13px;height:13px;"></i> Reset Filters
+        </a>
+        {% endif %}
+    </div>
 
-                        <!-- Pagination -->
-                        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2" id="resultsPagination">
-                            <span class="pagination-info m-0">
-                                {% if page_obj.paginator.count > 0 %}
-                                Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records
-                                {% else %}
-                                Showing 0–0 of 0 records
-                                {% endif %}
-                            </span>
-                            {% if page_obj.has_other_pages %}
-                            <nav class="pagination-controls">
-                                <ul class="pagination pagination-sm mb-0 gap-1">
-                                    {% if page_obj.has_previous %}
-                                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.previous_page_number }}">‹ Prev</a></li>
-                                    {% else %}
-                                    <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
-                                    {% endif %}
-
-                                    {% for p in page_obj.paginator.page_range %}
-                                    {% if page_obj.number == p %}
-                                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ p }}">{{ p }}</a></li>
-                                    {% endif %}
-                                    {% endfor %}
-
-                                    {% if page_obj.has_next %}
-                                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.next_page_number }}">Next ›</a></li>
-                                    {% else %}
-                                    <li class="page-item disabled"><span class="page-link">Next ›</span></li>
-                                    {% endif %}
-                                </ul>
-                            </nav>
-                            {% endif %}
-                        </div>
-
-                        {% else %}
-                        <div class="text-center py-5 text-muted" id="noResultsBlock">
-                            <i data-lucide="folder-search" class="display-4 mb-3 text-teal" style="width: 48px; height: 48px; display: inline-block; color: #1e3a8a; opacity: 0.8;"></i>
-                            <h6 class="fw-semibold text-dark">No documents found</h6>
-                            <p class="mb-0 small">Try searching another keyword or remove filters.</p>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- COLUMN 3: Right Side Document Preview Panel -->
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm p-4 sticky-top rounded-4" style="top: 95px; max-height: calc(100vh - 120px); overflow-y: auto;">
-                <!-- Empty State -->
-                <div id="previewEmptyState" class="text-center py-5 text-muted">
-                    <i data-lucide="eye" class="mb-3 text-teal" style="width: 44px; height: 44px; opacity: 0.6; display: inline-block; color: #1e3a8a;"></i>
-                    <h6 class="fw-semibold text-dark">Record Preview</h6>
-                    <p class="small mb-0">Select any record from the center table to preview details and checklist status.</p>
+    <!-- Advanced Filter Options Collapsible -->
+    <div class="collapse {% if selected_barangay or selected_year or selected_status %}show{% endif %} mt-3 mb-4" id="searchFiltersCollapse">
+        <div class="content-card" style="border-radius: 14px; padding: 16px 20px;">
+            <div class="row g-3 align-items-center">
+                <!-- Barangay filter -->
+                <div class="col-md-4 col-sm-6">
+                    <label class="form-label small fw-bold text-muted mb-1">Barangay</label>
+                    <select name="barangay" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1;">
+                        <option value="">All Barangays</option>
+                        {% for b in barangays %}
+                        <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"s" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
 
-                <!-- Preview Panel Content (Initially Hidden) -->
-                <div id="previewContent" style="display: none;">
-                    <div class="preview-panel-header">
-                        <div>
-                            <span class="badge rounded-pill bg-light-subtle border text-uppercase mb-2 d-inline-block" id="previewCategory" style="font-size:0.68rem; color:#475569;">Category</span>
-                            <h5 class="fw-bold text-dark mb-3" id="previewTitle" style="font-size: 1.1rem; line-height:1.3;">Record Title</h5>
-                        </div>
-                    </div>
+                <!-- Year filter -->
+                <div class="col-md-4 col-sm-6">
+                    <label class="form-label small fw-bold text-muted mb-1">Year</label>
+                    <select name="year" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1;">
+                        <option value="">All Years</option>
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-                    <!-- Metadata Grid -->
-                    <div class="metadata-grid mt-2" style="display:grid; grid-template-columns:auto 1fr; gap:6px 12px; font-size:0.8rem;">
-                        <span class="metadata-label text-muted">Barangay</span>
-                        <span class="metadata-value fw-semibold text-dark" id="previewBarangay">Barangay</span>
-
-                        <span class="metadata-label text-muted">Year</span>
-                        <span class="metadata-value fw-semibold text-dark" id="previewYear">Year</span>
-
-                        <span class="metadata-label text-muted">Status</span>
-                        <span class="metadata-value fw-semibold text-dark text-capitalize" id="previewStatus">Active</span>
-
-                        <span class="metadata-label text-muted">Encoded By</span>
-                        <span class="metadata-value fw-semibold text-dark" id="previewUploadedBy">User</span>
-
-                        <span class="metadata-label text-muted">Date</span>
-                        <span class="metadata-value fw-semibold text-dark" id="previewUploadDate">Date</span>
-                    </div>
-
-                    <hr class="my-3 text-muted" style="opacity: 0.15;">
-
-                    <!-- Description -->
-                    <div class="mb-3">
-                        <span class="small fw-bold text-muted d-block mb-1">Remarks / Description</span>
-                        <p class="small text-muted mb-0" id="previewDescription" style="line-height: 1.5;"></p>
-                    </div>
-
-                    <hr class="my-3 text-muted" style="opacity: 0.15;">
-
-                    <!-- Document Files List -->
-                    <div class="mb-3">
-                        <span class="small fw-bold text-muted d-block mb-2">Checklist Documents</span>
-                        <div id="previewFilesContainer" class="d-flex flex-column gap-1.5">
-                            <!-- Dynamically filled with file links -->
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="d-grid gap-2 mt-4">
-                        <a href="#" id="previewOpenWorkspaceBtn" class="btn btn-sm py-2 fw-semibold d-flex align-items-center justify-content-center gap-2" style="background-color: #1e3a8a; color:#fff; border-radius: 8px;">
-                            <i data-lucide="folder-open" style="width: 14px; height: 14px;"></i>
-                            Open Record Detail
-                        </a>
-                    </div>
+                <!-- Status filter -->
+                <div class="col-md-4 col-sm-6">
+                    <label class="form-label small fw-bold text-muted mb-1">Status</label>
+                    <select name="status" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1;">
+                        <option value="">All Statuses</option>
+                        {% for val, label in status_choices %}
+                        <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
+</form>
 
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const queryInput = document.getElementById('searchQuery');
-        const categorySelect = document.getElementById('filterCategory');
-        const barangaySelect = document.getElementById('filterBarangay');
-        const yearSelect = document.getElementById('filterYear');
-        const statusSelect = document.getElementById('filterStatus');
-        const searchForm = document.getElementById('searchForm');
-
-        if (searchForm) {
-            [categorySelect, barangaySelect, yearSelect, statusSelect].forEach(select => {
-                if (select) {
-                    select.addEventListener('change', function() {
-                        searchForm.submit();
-                    });
-                }
-            });
-        }
-
-        const previewEmptyState = document.getElementById('previewEmptyState');
-        const previewContent = document.getElementById('previewContent');
-        const previewTitle = document.getElementById('previewTitle');
-        const previewCategory = document.getElementById('previewCategory');
-        const previewBarangay = document.getElementById('previewBarangay');
-        const previewYear = document.getElementById('previewYear');
-        const previewStatus = document.getElementById('previewStatus');
-        const previewUploadedBy = document.getElementById('previewUploadedBy');
-        const previewUploadDate = document.getElementById('previewUploadDate');
-        const previewDescription = document.getElementById('previewDescription');
-        const previewFilesContainer = document.getElementById('previewFilesContainer');
-        const previewOpenWorkspaceBtn = document.getElementById('previewOpenWorkspaceBtn');
-
-        // Preview update trigger
-        function selectRecord(rowElement) {
-            // Remove active states
-            document.querySelectorAll('.record-row').forEach(tr => tr.classList.remove('table-active'));
-            rowElement.classList.add('table-active');
-
-            previewEmptyState.style.display = 'none';
-            previewContent.style.display = 'block';
-
-            previewTitle.textContent = rowElement.dataset.title || 'Untitled Record';
-            previewCategory.textContent = rowElement.dataset.category || 'N/A';
-            previewBarangay.textContent = rowElement.dataset.barangay || 'N/A';
-            previewYear.textContent = rowElement.dataset.year || 'N/A';
-            previewStatus.textContent = rowElement.dataset.status || 'Active';
-            previewUploadedBy.textContent = rowElement.dataset.createdBy || 'System';
-            previewUploadDate.textContent = rowElement.dataset.createdAt || 'N/A';
-            previewDescription.textContent = rowElement.dataset.description || 'No description notes.';
-
-            // Render attached documents list
-            previewFilesContainer.innerHTML = '';
-            let docs = [];
-            try {
-                docs = JSON.parse(rowElement.dataset.documents || '[]');
-            } catch(e) {
-                console.error(e);
-            }
-
-            if (docs.length === 0) {
-                previewFilesContainer.innerHTML = '<div class="small text-muted py-2"><i data-lucide="info" class="me-1 d-inline-block" style="width: 14px; height: 14px;"></i> No files uploaded yet.</div>';
-            } else {
-                docs.forEach(doc => {
-                    const chip = document.createElement('div');
-                    chip.className = 'p-2 rounded bg-light border d-flex align-items-center justify-content-between';
-                    chip.style.fontSize = '0.75rem';
-                    chip.innerHTML = `
-                        <div class="d-flex align-items-center gap-2 text-truncate">
-                            <i data-lucide="file" class="text-muted" style="width:13px;height:13px;"></i>
-                            <span class="text-truncate fw-semibold" style="max-width:140px;">${doc.file_name}</span>
+<!-- ══ FULL-WIDTH DATA TABLE ═════════════════════════════════════════════ -->
+<div class="content-card overflow-hidden mb-4" style="border-radius: 16px;">
+    {% if page_obj.object_list %}
+    <div class="table-responsive">
+        <table class="data-table table-card-responsive">
+            <thead>
+                <tr>
+                    <th>Record Title & Reference</th>
+                    <th>Category / Type</th>
+                    <th>Barangay</th>
+                    <th>Year</th>
+                    <th>Status</th>
+                    <th class="text-end" style="width: 80px;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in page_obj %}
+                <tr onclick="window.location='{% url 'record_detail' record.record_id %}'" style="cursor: pointer;">
+                    <!-- Record Title & Details -->
+                    <td data-label="Record Title">
+                        <div class="cell-title d-flex align-items-center gap-1.5">
+                            {% if record.is_illegal_construction %}
+                            <i data-lucide="shield-alert" class="text-rose flex-shrink-0" style="width: 15px; height: 15px;"></i>
+                            {% endif %}
+                            <span>
+                                {% if record.record_type == 'Permit' %}
+                                    {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
+                                {% else %}
+                                    {{ record.title }}
+                                {% endif %}
+                            </span>
                         </div>
-                        <span class="text-muted" style="font-size:0.68rem;">${doc.document_type}</span>
-                    `;
-                    previewFilesContainer.appendChild(chip);
-                });
-            }
+                        <div class="cell-subtitle mt-1" style="font-size: 0.76rem;">
+                            {% if record.record_type == 'Permit' and record.permit_detail %}
+                                Applicant: <strong>{{ record.permit_detail.applicant_name|default:"N/A" }}</strong>
+                            {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
+                                Contractor: <strong>{{ record.project_detail.contractor }}</strong>
+                            {% endif %}
+                            <span class="bullet-divider mx-1.5">•</span>
+                            Encoded by: {{ record.created_by.full_name|default:record.created_by.username }}
+                        </div>
+                    </td>
 
-            // Update workspace link button
-            previewOpenWorkspaceBtn.href = rowElement.dataset.detailsUrl;
+                    <!-- Type Tag -->
+                    <td data-label="Category">
+                        {% if record.record_type == 'Permit' %}
+                        <span class="tag tag-permit">{{ record.specific_type_label }}</span>
+                        {% else %}
+                        <span class="tag tag-project">{{ record.specific_type_label }}</span>
+                        {% endif %}
+                    </td>
 
-            // Bind new lucide icons
-            lucide.createIcons();
-        }
+                    <!-- Barangay -->
+                    <td class="cell-muted" data-label="Barangay">
+                        <i data-lucide="map-pin" class="me-1 text-muted" style="width: 13px; height: 13px;"></i>
+                        {{ record.barangay.barangay_name }}
+                    </td>
 
-        // Auto debounce live search on typing
-        const searchQueryInput = document.getElementById('searchQuery');
-        const searchForm = document.getElementById('searchForm');
-        let searchDebounceTimer;
+                    <!-- Year -->
+                    <td class="cell-muted" data-label="Year">
+                        {{ record.year|default:"—" }}
+                    </td>
 
-        if (searchQueryInput && searchForm) {
-            searchQueryInput.addEventListener('input', function() {
-                clearTimeout(searchDebounceTimer);
-                searchDebounceTimer = setTimeout(function() {
-                    searchForm.submit();
-                }, 400);
-            });
-        }
+                    <!-- Status -->
+                    <td data-label="Status">
+                        {% if record.is_illegal_construction %}
+                            <span class="badge" style="{{ record.illegal_status_info.bg_style }} font-size: 0.72rem; padding: 4px 8px;">
+                                {{ record.illegal_status_info.short_label }}
+                            </span>
+                        {% elif record.status == 'active' or record.status == 'completed' %}
+                            <span class="tag tag-workspace px-2.5 py-1 fw-bold" style="background:#e6f4ea; color:#137333; font-size: 0.7rem;">Active</span>
+                        {% elif record.status == 'in_progress' %}
+                            <span class="tag px-2.5 py-1 fw-bold" style="background:#e0f2fe; color:#0369a1; font-size: 0.7rem;">In Progress</span>
+                        {% else %}
+                            <span class="tag px-2.5 py-1 fw-bold" style="background:#f1f5f9; color:#475569; font-size: 0.7rem;">{{ record.get_status_display }}</span>
+                        {% endif %}
+                    </td>
 
-        // Attach click listener to record rows
-        document.querySelectorAll('.record-row').forEach(row => {
-            row.addEventListener('click', function() {
-                selectRecord(this);
-            });
-        });
+                    <!-- Actions -->
+                    <td class="text-end" data-label="Action" onclick="event.stopPropagation()">
+                        <div class="dropdown d-inline-block">
+                            <button class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
+                                <i data-lucide="more-horizontal"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:140px; font-size: var(--text-xs); border-radius:8px;">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'record_detail' record.record_id %}">
+                                        <i data-lucide="eye" style="width:14px;height:14px;"></i> Inspect
+                                    </a>
+                                </li>
+                                {% if request.user.role == 'staff' or request.user.role == 'admin' %}
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'edit_record' record.record_id %}">
+                                        <i data-lucide="edit-3" style="width:14px;height:14px;"></i> Edit
+                                    </a>
+                                </li>
+                                {% endif %}
+                                {% if request.user.role == 'admin' %}
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="{% url 'delete_record' record.record_id %}" onclick="return confirm('Archive this record?')">
+                                        <i data-lucide="archive" style="width:14px;height:14px; color:#ef4444;"></i> Archive
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-        // Highlight first item automatically
-        const firstRow = document.querySelector('.record-row');
-        if (firstRow) {
-            selectRecord(firstRow);
-        }
-    });
-</script>
+    <!-- Pagination Footer -->
+    <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 border-top">
+        <div class="text-muted small">
+            Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Search pagination">
+            <ul class="pagination pagination-sm m-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.previous_page_number }}">Previous</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                {% endif %}
+
+                {% for pnum in page_obj.paginator.page_range %}
+                    {% if pnum == page_obj.number %}
+                    <li class="page-item active"><span class="page-link">{{ pnum }}</span></li>
+                    {% elif pnum > page_obj.number|add:"-3" and pnum < page_obj.number|add:"3" %}
+                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ pnum }}">{{ pnum }}</a></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.next_page_number }}">Next</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Next</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <div class="empty-state-unified py-5 text-center">
+        <i data-lucide="search-x" class="mb-3 text-muted" style="width: 42px; height: 42px;"></i>
+        <h5 class="fw-bold text-dark mb-1">No Matching Records Found</h5>
+        <p class="text-muted small mb-3">We couldn't find any records matching "{{ q }}". Try searching for a different keyword, year, or barangay.</p>
+        <a href="{% url 'records_browse' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1">
+            <i data-lucide="folder-open" style="width: 14px; height: 14px;"></i> Browse All Records
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% include 'permits/includes/flag_illegal_modal.html' %}
 {% endblock %}

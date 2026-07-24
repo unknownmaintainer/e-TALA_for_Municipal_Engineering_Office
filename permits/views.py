@@ -1952,7 +1952,11 @@ def search_view(request):
     if status:
         records = records.filter(status=status)
 
-    records = records.order_by('-created_at')
+    all_count = records.count()
+    municipal_count = records.filter(record_type='Project', project_scope='Municipal').count()
+    barangay_count = records.filter(record_type='Project', project_scope='Barangay').count()
+    permits_count = records.filter(record_type='Permit').count()
+    illegal_count = records.filter(is_illegal_construction=True).count()
 
     per_page = get_per_page(request, 10)
     paginator = Paginator(records, per_page)
@@ -1963,6 +1967,11 @@ def search_view(request):
     context = {
         'page_obj': page_obj,
         'q': query,
+        'all_count': all_count,
+        'municipal_count': municipal_count,
+        'barangay_count': barangay_count,
+        'permits_count': permits_count,
+        'illegal_count': illegal_count,
         'selected_record_type': record_type,
         'selected_barangay': barangay_id,
         'selected_year': year,
