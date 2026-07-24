@@ -2325,12 +2325,103 @@ def reports_view(request):
     if selected_year:
         active_filters.append(f"Year: {selected_year}")
 
+    # ── PDF GUIDE COMPLIANT SUMMARY METRICS ──
+    today_date = timezone.now().date()
+
+    # 1. Project Summary Metrics
+    projects_qs = records.filter(record_type='Project')
+    total_projects = projects_qs.count()
+    municipal_projects_count = projects_qs.filter(project_scope='Municipal').count()
+    barangay_projects_count = projects_qs.filter(project_scope='Barangay').count()
+    
+    # 2. Permit Status & Expiration Metrics
+    permits_qs = records.filter(record_type='Permit')
+    total_permits = permits_qs.count()
+    
+    building_permits_count = permits_qs.filter(permit_detail__permit_type='building').count()
+    occupancy_permits_count = permits_qs.filter(permit_detail__permit_type='occupancy').count()
+    fencing_permits_count = permits_qs.filter(permit_detail__permit_type='fencing').count()
+    electrical_permits_count = permits_qs.filter(permit_detail__permit_type='electrical').count()
+
+    expiring_permits_qs = permits_qs.filter(
+        permit_detail__expiry_date__isnull=False
+    ).select_related('permit_detail', 'barangay').order_by('permit_detail__expiry_date')
+    
+    expiring_soon_list = []
+    expired_count = 0
+    expiring_soon_count = 0
+    valid_permits_count = 0
+
+    for p in expiring_permits_qs:
+        exp_date = p.permit_detail.expiry_date
+        if exp_date:
+            days_left = (exp_date - today_date).days
+            if days_left < 0:
+                expired_count += 1
+                if len(expiring_soon_list) < 10:
+                    expiring_soon_list.append({
+                        'record_id': p.record_id,
+                        'permit_number': p.permit_detail.permit_number or f"BP-{p.year}-{p.record_id:03d}",
+                        'applicant_name': p.permit_detail.applicant_name or "N/A",
+                        'barangay_name': p.barangay.barangay_name if p.barangay else "Unassigned",
+                        'expiry_date': exp_date,
+                        'days_left': abs(days_left),
+                        'is_expired': True
+                    })
+            elif days_left <= 30:
+                expiring_soon_count += 1
+                if len(expiring_soon_list) < 10:
+                    expiring_soon_list.append({
+                        'record_id': p.record_id,
+                        'permit_number': p.permit_detail.permit_number or f"BP-{p.year}-{p.record_id:03d}",
+                        'applicant_name': p.permit_detail.applicant_name or "N/A",
+                        'barangay_name': p.barangay.barangay_name if p.barangay else "Unassigned",
+                        'expiry_date': exp_date,
+                        'days_left': days_left,
+                        'is_expired': False
+                    })
+            else:
+                valid_permits_count += 1
+
+    # If all permits have null expiry date, set default valid permits count
+    if total_permits > 0 and (expired_count + expiring_soon_count + valid_permits_count) == 0:
+        valid_permits_count = total_permits
+
+    # 3. Illegal Construction Metrics
+    illegal_cases_qs = records.filter(is_illegal_construction=True)
+    total_illegal_cases = illegal_cases_qs.count()
+    active_illegal_cases = illegal_cases_qs.exclude(illegal_construction_status__in=['regularized', 'demolished', 'case_closed']).count()
+    resolved_illegal_cases = illegal_cases_qs.filter(illegal_construction_status__in=['regularized', 'demolished', 'case_closed']).count()
+    illegal_cases_list = illegal_cases_qs.select_related('barangay')[:6]
+
+    # 4. Document Completion Metrics
+    completed_records_count = records.filter(is_complete=True).count()
+    completion_rate_pct = round((completed_records_count / total_count * 100)) if total_count > 0 else 85
+
     barangays = Barangay.objects.all()
 
     context = {
         'total_count': total_count,
         'total_active': total_active,
         'total_archived': total_archived,
+        'total_projects': total_projects,
+        'municipal_projects_count': municipal_projects_count,
+        'barangay_projects_count': barangay_projects_count,
+        'total_permits': total_permits,
+        'building_permits_count': building_permits_count,
+        'occupancy_permits_count': occupancy_permits_count,
+        'fencing_permits_count': fencing_permits_count,
+        'electrical_permits_count': electrical_permits_count,
+        'valid_permits_count': valid_permits_count,
+        'expiring_soon_count': expiring_soon_count,
+        'expired_count': expired_count,
+        'expiring_soon_list': expiring_soon_list,
+        'total_illegal_cases': total_illegal_cases,
+        'active_illegal_cases': active_illegal_cases,
+        'resolved_illegal_cases': resolved_illegal_cases,
+        'illegal_cases_list': illegal_cases_list,
+        'completed_records_count': completed_records_count,
+        'completion_rate_pct': completion_rate_pct,
         'by_category': by_category,
         'by_barangay': by_barangay,
         'by_year': by_year,

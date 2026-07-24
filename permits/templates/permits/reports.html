@@ -11,145 +11,313 @@
             color: #000000 !important;
             padding-top: 0 !important;
         }
-        .sidebar, .erarms-header, .btn, button, nav, .d-print-none, .card-header-actions {
+        .sidebar, .erarms-header, .btn, button, nav, .d-print-none, .card-header-actions, .filter-bar, .nav-pills {
             display: none !important;
         }
         .erarms-content {
             margin-left: 0 !important;
             padding: 0 !important;
         }
-        .card {
+        .content-card {
             border: 1px solid #e2e8f0 !important;
             box-shadow: none !important;
             background: #ffffff !important;
+            break-inside: avoid;
         }
         .print-header {
             display: block !important;
             text-align: center;
             margin-bottom: 2rem;
-            border-bottom: 2px solid #1e3a8a;
+            border-bottom: 2px solid #002855;
             padding-bottom: 1rem;
         }
+    }
+
+    .report-kpi-card {
+        background: var(--card-bg, #ffffff);
+        border: 1px solid var(--border-default, #e2e8f0);
+        border-radius: 14px;
+        padding: 1.25rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+    }
+    .dark-mode .report-kpi-card {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    .report-kpi-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .report-nav-pill .nav-link {
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.82rem;
+        padding: 8px 16px;
+        border-radius: 20px;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+    .dark-mode .report-nav-pill .nav-link {
+        color: #94a3b8;
+    }
+    .report-nav-pill .nav-link.active {
+        background-color: #002855 !important;
+        color: #ffffff !important;
+        border-color: #002855 !important;
+        box-shadow: 0 2px 6px rgba(0, 40, 85, 0.25);
+    }
+    .dark-mode .report-nav-pill .nav-link.active {
+        background-color: #0d9488 !important;
+        color: #ffffff !important;
+        border-color: #0d9488 !important;
+    }
+
+    .status-badge-expired {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+    }
+    .status-badge-warning {
+        background: #fffbebf;
+        color: #d97706;
+        border: 1px solid #fde68a;
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
     }
 </style>
 {% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item">Reports</span>
+<span class="breadcrumb-item">Reports & Analytics</span>
 {% endblock %}
 
 {% block content %}
 <!-- Print Header (Hidden on screen, shown in print) -->
 <div class="print-header d-none">
     <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
-        <img src="{% static 'carigara_logo.png' %}" alt="Municipal Logo" style="width: 55px; height: 55px; object-fit: contain;">
+        <img src="{% static 'carigara_logo.png' %}" alt="Municipal Logo" style="width: 50px; height: 50px; object-fit: contain;">
         <div class="text-start">
-            <h4 class="fw-bold m-0" style="color: #1e3a8a;">Municipal Engineering Office</h4>
-            <h6 class="text-muted m-0">Engineering Records Summary Report</h6>
+            <h4 class="fw-bold m-0" style="color: #002855;">Municipal Engineering Office</h4>
+            <h6 class="text-muted m-0">Engineering Records & Document Summary Report</h6>
         </div>
     </div>
     <div class="text-center text-muted small mt-2">
         Municipality of Carigara, Leyte • Generated: {% now "F d, Y" %}
     </div>
 </div>
-<!-- ══ PAGE HEADER — Modern layout with export actions ══════════════════ -->
-<div class="page-title-row d-print-none">
+
+<!-- ══ PAGE HEADER — Standard Alignment with Action Buttons ══════════════════ -->
+<div class="page-title-row d-print-none mb-4">
     <div>
-        <h1>
-            <i data-lucide="bar-chart-3" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
-            Summary Reports
+        <h1 class="d-flex align-items-center gap-2">
+            <i data-lucide="bar-chart-3" class="text-teal" style="width: 24px; height: 24px;"></i>
+            <span>Engineering Reports & Summary</span>
         </h1>
-        <p class="page-subtitle">
-            Use this page to generate a report of your records — filter by category, barangay, or year, then export it as Excel or PDF for printing or submission.
-        </p>
+        <p class="page-subtitle mb-0">Generate, filter, and export municipal engineering project summaries, permit tracking, and compliance reports.</p>
     </div>
     
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
         <button onclick="triggerExport('excel')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
-            <i data-lucide="file-spreadsheet" style="width: 14px; height: 14px; color:#15803d;"></i> Export Excel
+            <i data-lucide="file-spreadsheet" style="width: 15px; height: 15px; color:#15803d;"></i>
+            <span>Export Excel</span>
         </button>
         <button onclick="triggerExport('pdf')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
-            <i data-lucide="file-text" style="width: 14px; height: 14px; color:#b91c1c;"></i> Export PDF
+            <i data-lucide="file-text" style="width: 15px; height: 15px; color:#b91c1c;"></i>
+            <span>Export PDF</span>
         </button>
         <button onclick="window.print()" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
-            <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Print Report
+            <i data-lucide="printer" style="width: 15px; height: 15px;"></i>
+            <span>Print Report</span>
         </button>
     </div>
 </div>
 
-<!-- ══ FILTER BAR ══════════════════════════════════════════════════════════ -->
-<div class="content-card section-gap d-print-none">
-    <div class="content-card-body" style="padding: 16px 20px;">
-        <form method="GET" action="{% url 'reports' %}" class="d-flex flex-wrap gap-2 align-items-center">
-            <!-- Record Type filter -->
-            <select name="record_type" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#e2e8f0; min-width:160px; max-width:180px; cursor: pointer;">
-                <option value="">All Categories</option>
-                <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permits Only</option>
-                <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Projects Only</option>
-            </select>
+<!-- ══ STANDARDIZED FILTER TOOLBAR ══════════════════════════════════════════ -->
+<div class="content-card mb-4 d-print-none" style="border-radius: 16px;">
+    <div class="content-card-body p-3">
+        <form method="GET" action="{% url 'reports' %}" class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <div class="d-flex flex-wrap gap-2 align-items-center flex-grow-1">
+                <!-- Category Filter -->
+                <select name="record_type" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1; min-width:160px; max-width:190px; cursor: pointer;">
+                    <option value="">All Categories</option>
+                    <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permits Only</option>
+                    <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Projects Only</option>
+                </select>
 
-            <!-- Barangay filter -->
-            <select name="barangay" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#e2e8f0; min-width:160px; max-width:180px; cursor: pointer;">
-                <option value="">All Barangays</option>
-                {% for b in barangays %}
-                <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
-                {% endfor %}
-            </select>
+                <!-- Barangay Filter -->
+                <select name="barangay" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1; min-width:170px; max-width:200px; cursor: pointer;">
+                    <option value="">All Barangays</option>
+                    {% for b in barangays %}
+                    <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                    {% endfor %}
+                </select>
 
-            <!-- Year filter -->
-            <input type="number" name="year" class="form-control rounded-3" placeholder="Year" value="{{ selected_year }}" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#e2e8f0; width:100px;">
+                <!-- Year Filter -->
+                <input type="number" name="year" class="form-control rounded-3" placeholder="Year (e.g. 2024)" value="{{ selected_year }}" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1; width:130px;">
+            </div>
+
+            {% if active_filters %}
+            <a href="{% url 'reports' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1 text-danger" style="height: 36px;">
+                <i data-lucide="x" style="width: 14px; height: 14px;"></i> Reset Filters
+            </a>
+            {% endif %}
         </form>
     </div>
 </div>
 
-<!-- ══ FILTER APPLICATION NOTIFICATION ═══════════════════════════════════ -->
-<div class="d-print-none">
-    {% if active_filters %}
-    <div class="alert alert-info py-2.5 px-3 mb-4 d-flex align-items-center justify-content-between rounded-3 border-0 shadow-sm" style="font-size: var(--text-sm); background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe !important;">
-        <div class="d-flex align-items-center gap-2">
-            <i data-lucide="filter" style="width: 16px; height: 16px; color: #3b82f6;"></i>
-            <span>Showing filtered results for: <strong>{{ active_filters|join:", " }}</strong></span>
+<!-- ══ ESSENTIAL KPI OVERVIEW CARDS (4-Column Layout) ═══════════════════════ -->
+<div class="row g-3 mb-4">
+    <!-- Total Records KPI -->
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="report-kpi-card d-flex align-items-center gap-3">
+            <div class="report-kpi-icon" style="background: #e0f2fe; color: #0284c7;">
+                <i data-lucide="folder-check" style="width: 22px; height: 22px;"></i>
+            </div>
+            <div>
+                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Digitized Records</span>
+                <h3 class="fw-bold m-0 text-dark" style="font-size: 1.5rem;">{{ total_count }}</h3>
+                <span class="small text-muted" style="font-size: 0.72rem;">{{ total_active }} Active · {{ total_archived }} Archived</span>
+            </div>
         </div>
-        <a href="{% url 'reports' %}" class="action-btn action-btn-secondary action-btn-xs" style="background: #ffffff; border: 1px solid #dbeafe; color: #1e40af; border-radius: 4px; padding: 4px 8px; font-size: 11px;">
-            <i data-lucide="x" style="width: 11px; height: 11px;"></i> Reset Filters
-        </a>
     </div>
-    {% else %}
-    <div class="alert alert-light py-2.5 px-3 mb-4 d-flex align-items-center rounded-3 border-0 text-muted" style="font-size: var(--text-sm); background: #f8fafc; border: 1px solid #e2e8f0 !important;">
-        <i data-lucide="info" class="me-2" style="width: 16px; height: 16px; color: #64748b;"></i>
-        <span>Showing overall summary across all records. Use the filters above to generate a specific report.</span>
+
+    <!-- Projects Overview KPI -->
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="report-kpi-card d-flex align-items-center gap-3">
+            <div class="report-kpi-icon" style="background: #fef3c7; color: #d97706;">
+                <i data-lucide="landmark" style="width: 22px; height: 22px;"></i>
+            </div>
+            <div>
+                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Infrastructure Projects</span>
+                <h3 class="fw-bold m-0 text-dark" style="font-size: 1.5rem;">{{ total_projects }}</h3>
+                <span class="small text-muted" style="font-size: 0.72rem;">{{ municipal_projects_count }} Municipal · {{ barangay_projects_count }} Barangay</span>
+            </div>
+        </div>
     </div>
-    {% endif %}
+
+    <!-- Permits Monitored KPI -->
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="report-kpi-card d-flex align-items-center gap-3">
+            <div class="report-kpi-icon" style="background: #e0f2fe; color: #002855;">
+                <i data-lucide="file-check-2" style="width: 22px; height: 22px;"></i>
+            </div>
+            <div>
+                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Permit Expiration</span>
+                <h3 class="fw-bold m-0 text-dark" style="font-size: 1.5rem;">{{ total_permits }}</h3>
+                <span class="small text-muted" style="font-size: 0.72rem;">
+                    {% if expired_count > 0 %}<span class="text-danger fw-bold">{{ expired_count }} Expired</span>{% else %}<span class="text-success fw-bold">{{ valid_permits_count }} Valid</span>{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Completion KPI -->
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="report-kpi-card d-flex align-items-center gap-3">
+            <div class="report-kpi-icon" style="background: #ccfbf1; color: #0d9488;">
+                <i data-lucide="shield-check" style="width: 22px; height: 22px;"></i>
+            </div>
+            <div>
+                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Document Completion</span>
+                <h3 class="fw-bold m-0 text-dark" style="font-size: 1.5rem;">{{ completion_rate_pct }}%</h3>
+                <span class="small text-muted" style="font-size: 0.72rem;">{{ completed_records_count }} Complete Records</span>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- ══ OVERVIEW GROUP & SECURITY PANEL ═══════════════════════════════════ -->
-<div class="row g-4 mb-4">
-    <!-- Group: Record Counts and Status Comparison -->
-    <div class="col-lg-8">
-        <div class="content-card h-100" style="padding: 24px;">
-            <h6 class="fw-bold text-dark mb-4" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px;">
-                Record Summary Overview
-            </h6>
-            
-            <div class="row g-3 align-items-center h-100">
-                <!-- Total Indexed Records -->
-                <div class="col-sm-6 text-center border-end" style="border-color: var(--border-default) !important;">
-                    <span class="text-muted small fw-bold text-uppercase mb-2 d-block" style="letter-spacing: 0.5px; font-size:0.68rem;">Total Digitized Records</span>
-                    <h1 class="fw-bold m-0" style="color: var(--navy); font-size: 3rem;">{{ total_count }}</h1>
-                    <p class="text-muted small mt-2 mb-0" style="font-size:0.75rem;">Records matching the filter criteria.</p>
-                </div>
-                <!-- Active vs Archived Comparison (always sum exactly to total_count) -->
-                <div class="col-sm-6">
-                    <span class="text-muted small fw-bold text-uppercase mb-4 d-block text-center" style="letter-spacing: 0.5px; font-size:0.68rem;">Archiving Status Comparison</span>
-                    <div class="d-flex justify-content-around align-items-center">
-                        <div class="text-center">
-                            <span class="tag tag-workspace px-3 py-1 fw-bold d-inline-block" style="font-size: 0.65rem; background: #e6f4ea; color: #137333; border-radius: 12px; margin-bottom: 6px;">ACTIVE</span>
-                            <h2 class="fw-bold m-0 text-dark" style="font-size:1.6rem;">{{ total_active }}</h2>
+<!-- ══ INTERACTIVE REPORT CATEGORY NAV PILLS ═════════════════════════════════ -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4 d-print-none">
+    <ul class="nav nav-pills report-nav-pill gap-1" id="reportTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="pill" data-bs-target="#tab-overview" type="button" role="tab">
+                <i data-lucide="layout-grid" class="me-1" style="width: 14px; height: 14px;"></i> All Overview
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="permits-tab" data-bs-toggle="pill" data-bs-target="#tab-permits" type="button" role="tab">
+                <i data-lucide="file-text" class="me-1" style="width: 14px; height: 14px;"></i> Permit Status & Expiration
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="illegal-tab" data-bs-toggle="pill" data-bs-target="#tab-illegal" type="button" role="tab">
+                <i data-lucide="shield-alert" class="me-1" style="width: 14px; height: 14px;"></i> Illegal Construction
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="analytics-tab" data-bs-toggle="pill" data-bs-target="#tab-analytics" type="button" role="tab">
+                <i data-lucide="line-chart" class="me-1" style="width: 14px; height: 14px;"></i> Barangay & Growth Trends
+            </button>
+        </li>
+    </ul>
+</div>
+
+<!-- ══ REPORT TAB CONTENT PANELS ═════════════════════════════════════════════ -->
+<div class="tab-content" id="reportTabContent">
+    
+    <!-- ── TAB 1: ALL OVERVIEW & SUMMARY CHARTS ── -->
+    <div class="tab-pane fade show active" id="tab-overview" role="tabpanel">
+        <div class="row g-4">
+            <!-- Record Category Distribution -->
+            <div class="col-lg-6 col-12">
+                <div class="content-card h-100" style="border-radius: 16px;">
+                    <div class="content-card-body p-4 d-flex flex-column h-100">
+                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3" style="font-size: 0.95rem;">
+                            <i data-lucide="pie-chart" class="me-2 text-primary" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                            Records Distribution by Category
+                        </h6>
+                        {% if total_count > 0 %}
+                        <div class="flex-grow-1 position-relative" style="height: 240px;">
+                            <canvas id="categoryChart"></canvas>
                         </div>
-                        <div style="width: 1px; height: 35px; background-color: #cbd5e1;"></div>
-                        <div class="text-center">
-                            <span class="tag tag-permit px-3 py-1 fw-bold d-inline-block" style="font-size: 0.65rem; background: #f1f5f9; color: #475569; border-radius: 12px; margin-bottom: 6px;">ARCHIVED</span>
-                            <h2 class="fw-bold m-0 text-dark" style="font-size:1.6rem;">{{ total_archived }}</h2>
+                        {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <i data-lucide="inbox" class="mb-2" style="width: 32px; height: 32px;"></i>
+                            <h6>No records found matching current filters.</h6>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Breakdowns & Permit Types -->
+            <div class="col-lg-6 col-12">
+                <div class="content-card h-100" style="border-radius: 16px;">
+                    <div class="content-card-body p-4">
+                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3" style="font-size: 0.95rem;">
+                            <i data-lucide="layers" class="me-2 text-teal" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                            Permit Type Breakdown
+                        </h6>
+                        <div class="list-group list-group-flush border-0">
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-2.5">
+                                <span class="fw-medium text-dark" style="font-size: 0.85rem;"><i class="fa-solid fa-building me-2 text-primary"></i>Building Permits</span>
+                                <span class="badge bg-light text-dark border fw-bold px-3 py-1.5 rounded-pill">{{ building_permits_count }}</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-2.5">
+                                <span class="fw-medium text-dark" style="font-size: 0.85rem;"><i class="fa-solid fa-house-chimney-user me-2 text-teal"></i>Certificates of Occupancy</span>
+                                <span class="badge bg-light text-dark border fw-bold px-3 py-1.5 rounded-pill">{{ occupancy_permits_count }}</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-2.5">
+                                <span class="fw-medium text-dark" style="font-size: 0.85rem;"><i class="fa-solid fa-border-all me-2 text-warning"></i>Fencing Permits</span>
+                                <span class="badge bg-light text-dark border fw-bold px-3 py-1.5 rounded-pill">{{ fencing_permits_count }}</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-2.5">
+                                <span class="fw-medium text-dark" style="font-size: 0.85rem;"><i class="fa-solid fa-bolt me-2 text-danger"></i>Electrical Permits</span>
+                                <span class="badge bg-light text-dark border fw-bold px-3 py-1.5 rounded-pill">{{ electrical_permits_count }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -157,118 +325,177 @@
         </div>
     </div>
 
-    <!-- Group: Separate Security & Backups -->
-    <div class="col-lg-4">
-        <div class="content-card text-center h-100 d-flex flex-column justify-content-center" style="padding: 24px;">
-            <span class="text-muted small fw-bold text-uppercase mb-3 d-block" style="letter-spacing: 0.5px; font-size:0.68rem;">Security & Backups</span>
-            <div class="d-inline-flex align-items-center justify-content-center gap-2 mb-2">
-                <i data-lucide="shield-check" class="text-success" style="width: 26px; height: 26px; color: #15803d;"></i>
-                <span class="fw-bold text-dark" style="font-size: 1.15rem;">System Protected</span>
-            </div>
-            <p class="text-muted small mb-0" style="font-size:0.75rem;">Backup schedule active.</p>
-        </div>
-    </div>
-</div>
+    <!-- ── TAB 2: PERMIT STATUS & EXPIRATION MONITORING ── -->
+    <div class="tab-pane fade" id="tab-permits" role="tabpanel">
+        <div class="content-card" style="border-radius: 16px;">
+            <div class="content-card-body p-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom pb-3 mb-3">
+                    <div>
+                        <h6 class="fw-bold text-dark m-0" style="font-size: 0.98rem;">
+                            <i data-lucide="clock" class="me-2 text-danger" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                            Permit Expiration Warning List (Next 30 Days & Expired)
+                        </h6>
+                        <span class="text-muted small">Tracks permits requiring renewal action or applicant follow-up</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1.5 rounded-pill fw-bold">{{ expired_count }} Expired</span>
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1.5 rounded-pill fw-bold">{{ expiring_soon_count }} Expiring Soon</span>
+                    </div>
+                </div>
 
-<!-- ══ DETAILED METRICS GRID ═════════════════════════════════════════════ -->
-<div class="row g-4 mb-5">
-    <!-- Category Distribution (always matches total_count) -->
-    <div class="col-md-6">
-        <div class="content-card h-100">
-            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
-                <h5 class="content-card-title border-bottom pb-2">
-                    <i data-lucide="folder-tree" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
-                    Records by Category
-                </h5>
-                <p class="text-muted small mb-3">Shows how many records fall under each record type.</p>
-                
-                {% if total_count > 0 %}
-                <div class="flex-grow-1 position-relative" style="height: 240px;">
-                    <canvas id="categoryChart"></canvas>
+                {% if expiring_soon_list %}
+                <div class="table-responsive">
+                    <table class="data-table table-card-responsive">
+                        <thead>
+                            <tr>
+                                <th>Permit No.</th>
+                                <th>Applicant Name</th>
+                                <th>Barangay</th>
+                                <th>Expiration Date</th>
+                                <th>Days Remaining / Overdue</th>
+                                <th>Action Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in expiring_soon_list %}
+                            <tr onclick="window.location='{% url 'record_detail' p.record_id %}'" style="cursor: pointer;">
+                                <td class="fw-bold text-dark">{{ p.permit_number }}</td>
+                                <td class="fw-semibold text-dark">{{ p.applicant_name }}</td>
+                                <td class="cell-muted">{{ p.barangay_name }}</td>
+                                <td>{{ p.expiry_date|date:"M d, Y" }}</td>
+                                <td>
+                                    {% if p.is_expired %}
+                                    <span class="status-badge-expired"><i data-lucide="alert-circle" style="width:12px;height:12px;" class="me-1"></i>{{ p.days_left }} days overdue</span>
+                                    {% else %}
+                                    <span class="status-badge-warning"><i data-lucide="clock" style="width:12px;height:12px;" class="me-1"></i>{{ p.days_left }} days left</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if p.is_expired %}
+                                    <span class="text-danger fw-bold small">Contact Applicant / Renewal Required</span>
+                                    {% else %}
+                                    <span class="text-warning fw-bold small">Renewal Notice Recommended</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
                 {% else %}
-                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
-                    <i data-lucide="clipboard-list" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
-                    <h6>No records matching filters in these categories.</h6>
+                <div class="text-center py-5 text-muted">
+                    <i data-lucide="check-circle-2" class="text-success mb-2" style="width: 36px; height: 36px;"></i>
+                    <h6>All monitored permits are currently valid. No expiring or overdue permits found.</h6>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Growth (Cumulative) -->
-    <div class="col-md-6">
-        <div class="content-card h-100">
-            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
-                <h5 class="content-card-title border-bottom pb-2">
-                    <i data-lucide="trending-up" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
-                    Archive Growth (Cumulative)
-                </h5>
-                <p class="text-muted small mb-3">Tracks how many total records have been added to the system over time.</p>
-                
-                {% if growth_data %}
-                <div class="flex-grow-1 position-relative" style="height: 240px;">
-                    <canvas id="growthChart"></canvas>
+    <!-- ── TAB 3: ILLEGAL CONSTRUCTION MONITORING ── -->
+    <div class="tab-pane fade" id="tab-illegal" role="tabpanel">
+        <div class="content-card" style="border-radius: 16px;">
+            <div class="content-card-body p-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom pb-3 mb-3">
+                    <div>
+                        <h6 class="fw-bold text-dark m-0" style="font-size: 0.98rem;">
+                            <i data-lucide="shield-alert" class="me-2 text-rose" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                            Illegal Construction Cases Summary
+                        </h6>
+                        <span class="text-muted small">Tracking unauthorized construction projects and enforcement actions</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <span class="badge bg-rose-subtle text-rose border border-rose-subtle px-3 py-1.5 rounded-pill fw-bold">{{ active_illegal_cases }} Active Cases</span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1.5 rounded-pill fw-bold">{{ resolved_illegal_cases }} Resolved</span>
+                    </div>
+                </div>
+
+                {% if illegal_cases_list %}
+                <div class="table-responsive">
+                    <table class="data-table table-card-responsive">
+                        <thead>
+                            <tr>
+                                <th>Case / Record ID</th>
+                                <th>Title</th>
+                                <th>Barangay</th>
+                                <th>Reported Date</th>
+                                <th>Enforcement Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in illegal_cases_list %}
+                            <tr onclick="window.location='{% url 'record_detail' c.record_id %}'" style="cursor: pointer;">
+                                <td class="fw-bold text-dark">#{{ c.record_id }}</td>
+                                <td class="cell-title">{{ c.title }}</td>
+                                <td class="cell-muted">{{ c.barangay.barangay_name }}</td>
+                                <td class="cell-muted">{{ c.created_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <span class="badge" style="{{ c.illegal_status_info.bg_style }} font-size: 0.72rem; padding: 4px 9px;">
+                                        {{ c.illegal_status_info.label }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
                 {% else %}
-                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
-                    <i data-lucide="trending-up" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
-                    <h6>No historical upload data available.</h6>
+                <div class="text-center py-5 text-muted">
+                    <i data-lucide="shield-check" class="text-teal mb-2" style="width: 36px; height: 36px;"></i>
+                    <h6>No active illegal construction cases reported.</h6>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Documents by Barangay -->
-    <div class="col-md-6">
-        <div class="content-card h-100">
-            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
-                <h5 class="content-card-title border-bottom pb-2">
-                    <i data-lucide="map-pin" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
-                    Records by Barangay
-                </h5>
-                <p class="text-muted small mb-3">Shows document counts for each barangay location.</p>
-                
-                {% if by_barangay %}
-                <div class="flex-grow-1 position-relative" style="height: 240px; overflow-y: auto;">
-                    <canvas id="barangayChart"></canvas>
+    <!-- ── TAB 4: BARANGAY & GROWTH ANALYTICS ── -->
+    <div class="tab-pane fade" id="tab-analytics" role="tabpanel">
+        <div class="row g-4">
+            <!-- Records by Barangay Bar Chart -->
+            <div class="col-lg-6 col-12">
+                <div class="content-card h-100" style="border-radius: 16px;">
+                    <div class="content-card-body p-4 d-flex flex-column h-100">
+                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3" style="font-size: 0.95rem;">
+                            <i data-lucide="map-pin" class="me-2 text-teal" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                            Records Distribution by Barangay
+                        </h6>
+                        {% if by_barangay %}
+                        <div class="flex-grow-1 position-relative" style="height: 250px;">
+                            <canvas id="barangayChart"></canvas>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <h6>No barangay distribution data.</h6>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% else %}
-                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
-                    <i data-lucide="map-pin" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
-                    <h6>No barangay records.</h6>
-                    <p class="text-muted small">No records found matching the current filters in any barangay.</p>
+            </div>
+
+            <!-- Archive Growth Trend Line Chart -->
+            <div class="col-lg-6 col-12">
+                <div class="content-card h-100" style="border-radius: 16px;">
+                    <div class="content-card-body p-4 d-flex flex-column h-100">
+                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3" style="font-size: 0.95rem;">
+                            <i data-lucide="trending-up" class="me-2 text-primary" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
+                            Archive Growth Trend (Cumulative)
+                        </h6>
+                        {% if growth_data %}
+                        <div class="flex-grow-1 position-relative" style="height: 250px;">
+                            <canvas id="growthChart"></canvas>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <h6>No growth history available.</h6>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Documents by Year -->
-    <div class="col-md-6">
-        <div class="content-card h-100">
-            <div class="content-card-body d-flex flex-column h-100" style="padding: 24px;">
-                <h5 class="content-card-title border-bottom pb-2">
-                    <i data-lucide="calendar-days" class="me-2 text-muted" style="width: 18px; height: 18px; vertical-align: -2px;"></i>
-                    Records by Year
-                </h5>
-                <p class="text-muted small mb-3">Shows document counts organized by construction/filing year.</p>
-                
-                {% if by_year %}
-                <div class="flex-grow-1 position-relative" style="height: 240px;">
-                    <canvas id="yearChart"></canvas>
-                </div>
-                {% else %}
-                <div class="empty-state-unified py-5 flex-grow-1 d-flex flex-column justify-content-center align-items-center">
-                    <i data-lucide="calendar" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
-                    <h6>No yearly records.</h6>
-                    <p class="text-muted small">No records found matching the current filters for any year.</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
 </div>
 
 {% endblock %}
@@ -285,14 +512,14 @@ document.addEventListener("DOMContentLoaded", function() {
         new Chart(ctxCategory, {
             type: 'doughnut',
             data: {
-                labels: ['Permit Records', 'Municipal Projects', 'Barangay Projects'],
+                labels: ['Permits', 'Municipal Projects', 'Barangay Projects'],
                 datasets: [{
                     data: [
                         {% if by_category.0.count %}{{ by_category.0.count }}{% else %}0{% endif %},
                         {% if by_category.1.count %}{{ by_category.1.count }}{% else %}0{% endif %},
                         {% if by_category.2.count %}{{ by_category.2.count }}{% else %}0{% endif %}
                     ],
-                    backgroundColor: ['#002855', '#C5A059', '#3b82f6'],
+                    backgroundColor: ['#002855', '#C5A059', '#0d9488'],
                     borderWidth: 2,
                     borderColor: '#ffffff'
                 }]
@@ -306,7 +533,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         labels: {
                             boxWidth: 12,
                             padding: 15,
-                            font: { size: 11, family: 'Inter, system-ui, sans-serif' }
+                            font: { size: 11, family: 'Inter, sans-serif' }
                         }
                     }
                 }
@@ -331,25 +558,16 @@ document.addEventListener("DOMContentLoaded", function() {
                     borderWidth: 2.5,
                     fill: true,
                     tension: 0.35,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#0284c7'
+                    pointRadius: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1, font: { size: 10 } }
-                    },
-                    x: {
-                        ticks: { font: { size: 10 } }
-                    }
+                    y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } },
+                    x: { ticks: { font: { size: 10 } } }
                 }
             }
         });
@@ -375,52 +593,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1, font: { size: 10 } }
-                    },
-                    y: {
-                        ticks: { font: { size: 10 } }
-                    }
-                }
-            }
-        });
-    }
-
-    // 4. Records by Year Vertical Bar Chart
-    const ctxYear = document.getElementById('yearChart');
-    if (ctxYear) {
-        const yearLabels = [{% for y in by_year %}"{{ y.year|default:'Unspecified' }}"{% if not forloop.last %}, {% endif %}{% endfor %}].reverse();
-        const yearCounts = [{% for y in by_year %}{{ y.count }}{% if not forloop.last %}, {% endif %}{% endfor %}].reverse();
-        new Chart(ctxYear, {
-            type: 'bar',
-            data: {
-                labels: yearLabels,
-                datasets: [{
-                    label: 'Records',
-                    data: yearCounts,
-                    backgroundColor: '#0ea5e9',
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1, font: { size: 10 } }
-                    },
-                    x: {
-                        ticks: { font: { size: 10 } }
-                    }
+                    x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } },
+                    y: { ticks: { font: { size: 10 } } }
                 }
             }
         });
