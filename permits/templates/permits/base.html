@@ -253,6 +253,146 @@
             color: #94a3b8 !important;
             border-top-color: #334155 !important;
         }
+
+        /* ── PREMIUM EXPANDABLE MOBILE SEARCH SYSTEM ── */
+        .header-search {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .header-search-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--gray-100, #f1f5f9);
+            border: 1px solid var(--border-default, #e2e8f0);
+            border-radius: 20px;
+            padding: 5px 12px;
+            min-width: 240px;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .dark-mode .header-search-wrapper {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        .header-search-wrapper:focus-within {
+            background: #ffffff !important;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+        }
+        .dark-mode .header-search-wrapper:focus-within {
+            background: #0f172a !important;
+            border-color: #0d9488 !important;
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.25) !important;
+        }
+        .search-submit-btn,
+        .mobile-search-toggle-btn {
+            border: none;
+            background: transparent;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            cursor: pointer;
+            outline: none;
+        }
+        .dark-mode .search-submit-btn,
+        .dark-mode .mobile-search-toggle-btn {
+            color: #94a3b8 !important;
+        }
+        .search-clear-btn {
+            border: none;
+            background: transparent;
+            padding: 3px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        .search-clear-btn:hover {
+            color: #ef4444 !important;
+            background: rgba(239, 68, 68, 0.12);
+        }
+
+        /* Mobile specific expandable overlay styling (< 768px) */
+        @media (max-width: 768px) {
+            .mobile-search-toggle-btn {
+                width: 36px !important;
+                height: 36px !important;
+                border-radius: 50% !important;
+                background: #f1f5f9 !important;
+                border: 1px solid #e2e8f0 !important;
+                transition: transform 0.2s ease, background-color 0.2s ease;
+            }
+            .dark-mode .mobile-search-toggle-btn {
+                background: #1e293b !important;
+                border-color: #334155 !important;
+            }
+            .mobile-search-toggle-btn:active {
+                transform: scale(0.92);
+            }
+
+            .header-search:not(.mobile-expanded) .header-search-wrapper {
+                display: none !important;
+            }
+            .header-search.mobile-expanded .mobile-search-toggle-btn {
+                display: none !important;
+            }
+
+            .header-search.mobile-expanded {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: 99999 !important;
+                background: #ffffff !important;
+                padding: 0 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12) !important;
+                animation: mobileSearchSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            .dark-mode .header-search.mobile-expanded {
+                background: #0f172a !important;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+            }
+
+            .header-search.mobile-expanded .header-search-wrapper {
+                display: flex !important;
+                width: 100% !important;
+                height: 40px !important;
+                padding: 4px 14px !important;
+                border-radius: 20px !important;
+                min-width: unset !important;
+                border-color: #3b82f6 !important;
+            }
+            .dark-mode .header-search.mobile-expanded .header-search-wrapper {
+                border-color: #0d9488 !important;
+            }
+
+            .header-search.mobile-expanded input {
+                font-size: 0.9rem !important;
+            }
+        }
+
+        @keyframes mobileSearchSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-6px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
         /* Dynamic contrast protection for hardcoded text colors */
         .dark-mode *[style*="color: #0f172a"],
         .dark-mode *[style*="color:#0f172a"],
@@ -407,11 +547,22 @@
                     <div class="header-right">
                         <!-- Global Search Form -->
                         <form action="{% url 'search' %}" method="GET" class="header-search" id="headerSearch">
-                            <button type="submit" class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted hover-primary" style="outline: none; cursor: pointer;" title="Search records">
-                                <i data-lucide="search" class="search-icon" id="globalSearchIcon"></i>
+                            <!-- Mobile Search Icon Trigger -->
+                            <button type="button" class="mobile-search-toggle-btn d-md-none" id="mobileSearchOpenBtn" title="Search records" aria-label="Open Search">
+                                <i data-lucide="search" style="width: 17px; height: 17px;"></i>
                             </button>
-                            <input type="text" name="q" id="globalSearchInput" placeholder="Search records..." autocomplete="off" value="{{ q|default:'' }}">
-                            <kbd class="search-shortcut">/</kbd>
+                            
+                            <!-- Search Field Wrapper -->
+                            <div class="header-search-wrapper" id="headerSearchWrapper">
+                                <button type="submit" class="search-submit-btn" title="Search records" aria-label="Submit search">
+                                    <i data-lucide="search" class="search-icon" id="globalSearchIcon"></i>
+                                </button>
+                                <input type="text" name="q" id="globalSearchInput" placeholder="Search records..." autocomplete="off" value="{{ q|default:'' }}">
+                                <button type="button" class="search-clear-btn" id="searchClearBtn" title="Clear or close search" aria-label="Clear search">
+                                    <i data-lucide="x" style="width: 15px; height: 15px;"></i>
+                                </button>
+                                <kbd class="search-shortcut d-none d-md-inline-block">/</kbd>
+                            </div>
                         </form>
                         <!-- Premium Theme Toggle Switch Button -->
                         <button id="themeToggleBtn" class="theme-switch-btn me-2" type="button" aria-label="Toggle dark mode" title="Switch to Dark / Light Mode">
@@ -822,15 +973,78 @@
         // Theme switching logic
         document.addEventListener("DOMContentLoaded", function () {
             const toggleBtn = document.getElementById('themeToggleBtn');
-            if (!toggleBtn) return;
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function () {
+                    if (document.documentElement.classList.contains('dark-mode')) {
+                        document.documentElement.classList.remove('dark-mode');
+                        localStorage.setItem('theme', 'light');
+                    } else {
+                        document.documentElement.classList.add('dark-mode');
+                        localStorage.setItem('theme', 'dark');
+                    }
+                });
+            }
 
-            toggleBtn.addEventListener('click', function () {
-                if (document.documentElement.classList.contains('dark-mode')) {
-                    document.documentElement.classList.remove('dark-mode');
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    document.documentElement.classList.add('dark-mode');
-                    localStorage.setItem('theme', 'dark');
+            // Mobile Search Toggle & Auto-focus Handler
+            const searchForm = document.getElementById('headerSearch');
+            const searchInput = document.getElementById('globalSearchInput');
+            const mobileSearchOpenBtn = document.getElementById('mobileSearchOpenBtn');
+            const searchClearBtn = document.getElementById('searchClearBtn');
+
+            function updateClearBtnVisibility() {
+                if (searchClearBtn && searchInput) {
+                    if (searchInput.value.trim().length > 0 || (searchForm && searchForm.classList.contains('mobile-expanded'))) {
+                        searchClearBtn.style.display = 'flex';
+                    } else if (window.innerWidth > 768 && searchInput.value.trim().length === 0) {
+                        searchClearBtn.style.display = 'none';
+                    }
+                }
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', updateClearBtnVisibility);
+                updateClearBtnVisibility();
+            }
+
+            if (mobileSearchOpenBtn && searchForm && searchInput) {
+                mobileSearchOpenBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    searchForm.classList.add('mobile-expanded');
+                    updateClearBtnVisibility();
+                    setTimeout(() => {
+                        searchInput.focus();
+                    }, 100);
+                });
+            }
+
+            if (searchClearBtn && searchInput && searchForm) {
+                searchClearBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (searchInput.value.trim().length > 0) {
+                        searchInput.value = '';
+                        searchInput.focus();
+                        updateClearBtnVisibility();
+                    } else {
+                        searchForm.classList.remove('mobile-expanded');
+                        updateClearBtnVisibility();
+                    }
+                });
+            }
+
+            // Close mobile search on Escape or outside click
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && searchForm && searchForm.classList.contains('mobile-expanded')) {
+                    searchForm.classList.remove('mobile-expanded');
+                    updateClearBtnVisibility();
+                }
+            });
+
+            document.addEventListener('click', function (e) {
+                if (window.innerWidth <= 768 && searchForm && searchForm.classList.contains('mobile-expanded')) {
+                    if (!searchForm.contains(e.target)) {
+                        searchForm.classList.remove('mobile-expanded');
+                        updateClearBtnVisibility();
+                    }
                 }
             });
         });
