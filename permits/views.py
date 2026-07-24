@@ -167,6 +167,15 @@ def login_view(request):
             LoginAttempt.objects.create(email_attempted=email, success=True, ip_address=ip_address)
             login(request, user)
 
+            # Handle Remember Me checkbox (Standard Security Best Practice)
+            remember_me = request.POST.get('remember_me')
+            if remember_me:
+                # 14 days (2 weeks) industry standard session persistence
+                request.session.set_expiry(1209600)
+            else:
+                # Expire session on browser close if unchecked
+                request.session.set_expiry(0)
+
             user.session_key = request.session.session_key
             user.save()
 
@@ -440,11 +449,19 @@ def barangays_view(request):
 
         if action == 'add_barangay':
             name = request.POST.get('barangay_name', '').strip()
+            latitude = request.POST.get('latitude', '').strip()
+            longitude = request.POST.get('longitude', '').strip()
             if name:
                 if Barangay.objects.filter(barangay_name__iexact=name).exists():
                     messages.error(request, f"Barangay '{name}' already exists.")
                 else:
-                    b = Barangay.objects.create(barangay_name=name)
+                    lat_val = float(latitude) if latitude else None
+                    lng_val = float(longitude) if longitude else None
+                    b = Barangay.objects.create(
+                        barangay_name=name,
+                        latitude=lat_val,
+                        longitude=lng_val
+                    )
                     log_audit(request.user, f"Created Barangay '{b.barangay_name}'", request=request)
                     messages.success(request, f"Barangay '{b.barangay_name}' has been created successfully.")
             return redirect('barangays')
@@ -452,6 +469,8 @@ def barangays_view(request):
         elif action == 'edit_barangay':
             barangay_id = request.POST.get('barangay_id')
             name = request.POST.get('barangay_name', '').strip()
+            latitude = request.POST.get('latitude', '').strip()
+            longitude = request.POST.get('longitude', '').strip()
             if barangay_id and name:
                 barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
                 if Barangay.objects.filter(barangay_name__iexact=name).exclude(barangay_id=barangay_id).exists():
@@ -459,9 +478,15 @@ def barangays_view(request):
                 else:
                     old_name = barangay.barangay_name
                     barangay.barangay_name = name
+                    if latitude:
+                        try: barangay.latitude = float(latitude)
+                        except (ValueError, TypeError): pass
+                    if longitude:
+                        try: barangay.longitude = float(longitude)
+                        except (ValueError, TypeError): pass
                     barangay.save()
-                    log_audit(request.user, f"Renamed Barangay '{old_name}' to '{name}'", request=request)
-                    messages.success(request, f"Barangay '{old_name}' renamed to '{name}' successfully.")
+                    log_audit(request.user, f"Updated Barangay '{name}'", request=request)
+                    messages.success(request, f"Barangay '{name}' updated successfully.")
             return redirect('barangays')
 
         elif action == 'delete_barangay':
@@ -479,9 +504,9 @@ def barangays_view(request):
             return redirect('barangays')
 
     barangays = Barangay.objects.annotate(
-        total_records=Count('engineering_records'),
-        permit_count=Count('engineering_records', filter=Q(engineering_records__record_type='Permit')),
-        project_count=Count('engineering_records', filter=Q(engineering_records__record_type='Project')),
+        total_records=Count('engineering_records', filter=~Q(engineering_records__status='archived')),
+        permit_count=Count('engineering_records', filter=Q(engineering_records__record_type='Permit') & ~Q(engineering_records__status='archived')),
+        project_count=Count('engineering_records', filter=Q(engineering_records__record_type='Project') & ~Q(engineering_records__status='archived')),
     ).order_by('barangay_name')
 
     query = request.GET.get('q', '').strip()
@@ -2075,9 +2100,10 @@ def reports_view(request):
     selected_record_type = request.GET.get('record_type', '').strip()
     selected_barangay = request.GET.get('barangay', '').strip()
     selected_year = request.GET.get('year', '').strip()
+    selected_status = request.GET.get('status', '').strip()
 
     # 2. Start with all records
-    records = EngineeringRecord.objects.all().select_related('barangay')
+    records = EngineeringRecord.objects.all().select_related('barangay', 'permit_detail', 'project_detail')
 
     # Apply filters to base queryset
     if selected_record_type:
@@ -2086,6 +2112,8 @@ def reports_view(request):
         records = records.filter(barangay_id=selected_barangay)
     if selected_year:
         records = records.filter(year=selected_year)
+    if selected_status:
+        records = records.filter(status=selected_status)
 
     # Intercept for exports
     export_format = request.GET.get('export', '').strip().lower()
@@ -2409,6 +2437,9 @@ def reports_view(request):
             active_filters.append(f"Barangay: {barangay_obj.barangay_name}")
     if selected_year:
         active_filters.append(f"Year: {selected_year}")
+    if selected_status:
+        status_name = dict(EngineeringRecord.STATUS_CHOICES).get(selected_status, selected_status)
+        active_filters.append(f"Status: {status_name}")
 
     # ── PDF GUIDE COMPLIANT SUMMARY METRICS ──
     today_date = timezone.now().date()
@@ -2529,6 +2560,9 @@ def reports_view(request):
         'selected_record_type': selected_record_type,
         'selected_barangay': selected_barangay,
         'selected_year': selected_year,
+        'selected_status': selected_status,
+        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'year_choices': get_year_choices(),
         'active_filters': active_filters,
         'active_tab': 'reports',
     }
@@ -2560,6 +2594,32 @@ def activity_logs_view(request):
                 BlockedIP.objects.filter(ip_address=ip).delete()
                 log_audit(request.user, f"Unblocked IP address: {ip}", request=request)
                 messages.success(request, f"Successfully unblocked IP address: {ip}")
+            return redirect('activity_logs')
+        elif action == 'block_email':
+            email = request.POST.get('email', '').strip()
+            ip = request.POST.get('ip_address', '').strip()
+            if email:
+                user_obj = CustomUser.objects.filter(email__iexact=email).first()
+                if user_obj:
+                    user_obj.is_active = False
+                    user_obj.save()
+                if ip:
+                    BlockedIP.objects.get_or_create(ip_address=ip, blocked_by=request.user)
+                log_audit(request.user, f"Blocked login for email: {email}", request=request)
+                messages.success(request, f"Successfully blocked email access for: {email}")
+            return redirect('activity_logs')
+        elif action == 'unblock_email':
+            email = request.POST.get('email', '').strip()
+            ip = request.POST.get('ip_address', '').strip()
+            if email:
+                user_obj = CustomUser.objects.filter(email__iexact=email).first()
+                if user_obj:
+                    user_obj.is_active = True
+                    user_obj.save()
+                if ip:
+                    BlockedIP.objects.filter(ip_address=ip).delete()
+                log_audit(request.user, f"Unblocked login for email: {email}", request=request)
+                messages.success(request, f"Successfully restored email access for: {email}")
             return redirect('activity_logs')
 
     # 1. Audit Logs (System Activity Log)

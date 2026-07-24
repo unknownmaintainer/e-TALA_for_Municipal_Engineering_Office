@@ -86,6 +86,7 @@
                 <table class="data-table" style="width: 100%;">
                     <thead>
                         <tr>
+                            <th style="width:75px; min-width:75px; white-space:nowrap;"># ID</th>
                             <th>Record Title</th>
                             <th>Type</th>
                             <th>Year</th>
@@ -96,6 +97,7 @@
                     <tbody>
                         {% for r in page_obj %}
                         <tr onclick="window.location='{% url 'record_detail' r.record_id %}'" style="cursor: pointer;">
+                            <td class="cell-id">#{{ r.record_id }}</td>
                             <td>
                                 <div class="cell-title">
                                     {% if r.record_type == 'Permit' %}
@@ -137,7 +139,33 @@
                                 {% endif %}
                             </td>
                             <td class="text-end" onclick="event.stopPropagation();">
-                                <a href="{% url 'record_detail' r.record_id %}" class="action-btn action-btn-secondary action-btn-xs">Open</a>
+                                <div class="dropdown">
+                                    <button class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
+                                        <i class="fa-solid fa-ellipsis-vertical" style="font-size: 13px;"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width: 140px; font-size: 0.78rem; border-radius: 8px; z-index: 1050;">
+                                        <li>
+                                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" href="{% url 'record_detail' r.record_id %}">
+                                                <i class="fa-solid fa-eye" style="font-size: 11px; color: #0284c7;"></i> View Details
+                                            </a>
+                                        </li>
+                                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                                            {% if r.status != 'archived' %}
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" href="{% url 'edit_record' r.record_id %}">
+                                                    <i class="fa-solid fa-pen" style="font-size: 11px; color: #3b82f6;"></i> Edit Record
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider my-1"></li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="confirmArchiveRecord('{% url 'archive_record' r.record_id %}', '{{ r.title|escapejs }}')">
+                                                    <i class="fa-solid fa-box-archive" style="font-size: 11px; color: #ef4444;"></i> Archive
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                        {% endif %}
+                                    </ul>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -238,4 +266,27 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmArchiveRecord(archiveUrl, recordTitle) {
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Archive Record',
+            message: "Are you sure you want to archive '" + recordTitle + "'? It will be moved to the archive section.",
+            confirmText: 'Archive Record',
+            confirmClass: 'action-btn-danger',
+            icon: 'archive',
+            onConfirm: function() {
+                window.location.href = archiveUrl;
+            }
+        });
+    } else {
+        if (confirm("Archive record '" + recordTitle + "'?")) {
+            window.location.href = archiveUrl;
+        }
+    }
+}
+</script>
 {% endblock %}

@@ -13,15 +13,17 @@ def recent_notifications(request):
         if request.user.role == 'admin':
             failed_logins = LoginAttempt.objects.filter(success=False).count()
             if failed_logins > 0:
+                latest_failed = LoginAttempt.objects.filter(success=False).first()
+                time_str = f"Latest attempt: {latest_failed.timestamp.strftime('%b %d, %Y')}" if latest_failed else 'Action required'
                 alerts.append({
                     'type': 'security',
                     'action': f'{failed_logins} failed login attempt(s) recorded.',
                     'url': f"{reverse('settings')}?tab=logs&status=failed",
-                    'badge': 'security',
-                    'time': None,
+                    'badge': 'Security',
+                    'time': time_str,
                     'user': None,
                     'username': None,
-                    'performed_at': None,
+                    'performed_at': latest_failed.timestamp if latest_failed else None,
                 })
         
         # Expiry tracking for documents

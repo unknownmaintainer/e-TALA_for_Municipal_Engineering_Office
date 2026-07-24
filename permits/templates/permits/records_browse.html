@@ -32,7 +32,7 @@
         <button type="button" class="btn-flag-illegal" data-bs-toggle="modal" data-bs-target="#flagIllegalModal">
             <i data-lucide="plus"></i> Flag Illegal Structure
         </button>
-        <a href="{% url 'create_record' %}" class="action-btn action-btn-primary">
+        <a href="{% url 'create_step1' %}" class="action-btn action-btn-primary">
             <i data-lucide="plus"></i> New Record
         </a>
     </div>
@@ -88,6 +88,8 @@
 <form method="GET" action="{% url 'records_browse' %}" id="filterForm">
     <input type="hidden" name="record_type" value="{{ selected_record_type }}">
     <input type="hidden" name="project_scope" value="{{ selected_project_scope }}">
+    <input type="hidden" name="scope" value="{{ selected_scope }}">
+    <input type="hidden" name="illegal" value="{{ selected_illegal }}">
 
     <!-- Sleek persistent search row with Live Auto-Search, Scope Toggle & Filters -->
     <div class="filter-bar mb-3">
@@ -191,7 +193,7 @@
                 {% if selected_record_type == 'Permit' %}
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Type</label>
-                    <select name="permit_type" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="permit_type" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Permit Types</option>
                         {% for val, label in permit_types %}
                         <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
@@ -201,7 +203,7 @@
                 {% else %}
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Type</label>
-                    <select name="project_type" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="project_type" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Project Types</option>
                         {% for type in project_type_choices %}
                         <option value="{{ type }}" {% if selected_project_type == type %}selected{% endif %}>{{ type }}</option>
@@ -212,7 +214,7 @@
 
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="barangay" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -222,7 +224,7 @@
 
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
-                    <select name="status" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Statuses</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
@@ -232,7 +234,7 @@
 
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
-                    <select name="year" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -245,7 +247,7 @@
             <div class="row row-cols-md-3 row-cols-sm-2 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="barangay" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -254,7 +256,7 @@
                 </div>
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
-                    <select name="status" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Statuses</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
@@ -263,7 +265,7 @@
                 </div>
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
-                    <select name="year" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()" style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -278,14 +280,14 @@
 
 
 <!-- ══ DATA TABLE ════════════════════════════════════════════════════════ -->
-<div class="content-card" style="overflow: hidden;">
+<div class="content-card" style="overflow: hidden; height: auto !important; min-height: 0 !important;">
     <div class="card-body p-0">
         <!-- Desktop Table View -->
         <div class="table-responsive d-none d-md-block" style="overflow-x: hidden !important;">
             <table class="data-table" style="width: 100%;">
                 <thead>
                     <tr>
-                        <th style="width:50px;">#</th>
+                        <th style="width:75px; min-width:75px; white-space:nowrap;"># ID</th>
                         <th>Title</th>
                         <th style="width:90px;">Type</th>
                         <th>Barangay</th>
@@ -298,7 +300,7 @@
                     {% if page_obj %}
                     {% for r in page_obj %}
                     <tr onclick="window.location='{% url 'record_detail' r.record_id %}'">
-                        <td class="cell-id">{{ r.record_id }}</td>
+                        <td class="cell-id">#{{ r.record_id }}</td>
                         <td>
                             <div class="cell-title" title="{% if r.record_type == 'Permit' %}{{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}{% else %}{{ r.title }}{% endif %}">
                                 {% if r.record_type == 'Permit' %}
@@ -332,13 +334,14 @@
                             <span class="tag tag-barangay">{{ r.specific_type_label }}</span>
                             {% endif %}
                         </td>
-                        <td class="cell-muted">
+                        <td>
                             {% if r.barangay %}
-                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" onclick="event.stopPropagation();" class="text-decoration-none" style="color: var(--navy); font-weight: 600;">
-                                {{ r.barangay.barangay_name }}
+                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" onclick="event.stopPropagation();" class="barangay-table-link text-decoration-none d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size: 0.8rem;">
+                                <i data-lucide="map-pin" style="width: 12px; height: 12px; opacity: 0.7;"></i>
+                                <span>{{ r.barangay.barangay_name }}</span>
                             </a>
                             {% else %}
-                            —
+                            <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td class="cell-muted">{{ r.year|default:"—" }}</td>
@@ -515,31 +518,135 @@
         const searchInput = document.getElementById('liveSearchInput');
         const searchSpinner = document.getElementById('searchSpinner');
 
-        // Show spinner on form submission (Enter key press or Search button click)
+        // Zero-Flicker Executive AJAX Table Refresh
+        async function updateRecordsTableAJAX(url) {
+            const tableCard = document.querySelector('.content-card');
+            const searchSpinner = document.getElementById('searchSpinner');
+
+            // Show subtle spinner in search bar without dimming table
+            if (searchSpinner) searchSpinner.classList.remove('d-none');
+
+            try {
+                // 1. Fetch response in background FIRST while page stays solid and smooth
+                const response = await fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const text = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+
+                const newTableCard = doc.querySelector('.content-card');
+                const newScopeControl = doc.querySelector('.scope-segmented-control');
+                const currentScopeControl = document.querySelector('.scope-segmented-control');
+
+                // 2. Perform smooth 80ms micro-fade swap
+                if (tableCard) {
+                    tableCard.style.transition = 'opacity 0.09s cubic-bezier(0.4, 0, 0.2, 1)';
+                    tableCard.style.opacity = '0.75';
+
+                    setTimeout(() => {
+                        if (newScopeControl && currentScopeControl) {
+                            currentScopeControl.innerHTML = newScopeControl.innerHTML;
+                        }
+
+                        if (newTableCard) {
+                            tableCard.innerHTML = newTableCard.innerHTML;
+                        }
+
+                        if (window.lucide) {
+                            lucide.createIcons();
+                        }
+
+                        tableCard.style.opacity = '1';
+                    }, 80);
+                } else {
+                    if (newScopeControl && currentScopeControl) {
+                        currentScopeControl.innerHTML = newScopeControl.innerHTML;
+                    }
+                    if (window.lucide) lucide.createIcons();
+                }
+
+                // 3. Update browser history URL silently
+                window.history.pushState({}, '', url);
+
+            } catch (err) {
+                console.error("AJAX table refresh fallback:", err);
+                window.location.href = url;
+            } finally {
+                if (searchSpinner) searchSpinner.classList.add('d-none');
+            }
+        }
+
+        // Intercept click on Scope Pill Buttons (My Records vs All Records) and Pagination
+        document.addEventListener('click', function(e) {
+            const scopeLink = e.target.closest('.scope-pill-btn');
+            if (scopeLink) {
+                e.preventDefault();
+                const url = scopeLink.getAttribute('href');
+                if (url && url !== '#') {
+                    document.querySelectorAll('.scope-pill-btn').forEach(btn => btn.classList.remove('active'));
+                    scopeLink.classList.add('active');
+                    updateRecordsTableAJAX(url);
+                }
+                return;
+            }
+
+            const pageLink = e.target.closest('.pagination-bar a.page-link');
+            if (pageLink && !pageLink.closest('.disabled')) {
+                e.preventDefault();
+                const url = pageLink.getAttribute('href');
+                if (url && url !== '#') {
+                    updateRecordsTableAJAX(url);
+                }
+            }
+        });
+
+        // Intercept form submission for smooth AJAX table update
         if (form) {
-            form.addEventListener('submit', () => {
-                if (searchSpinner) searchSpinner.classList.remove('d-none');
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(form);
+                const params = new URLSearchParams(formData);
+                const url = window.location.pathname + '?' + params.toString();
+                updateRecordsTableAJAX(url);
             });
         }
-        
-        // Auto-submit filterForm when select dropdowns are changed
+
+        // Auto-submit dropdown filters via AJAX
         if (form) {
             form.querySelectorAll('select').forEach(elem => {
                 elem.addEventListener('change', () => {
-                    if (searchSpinner) searchSpinner.classList.remove('d-none');
-                    form.submit();
+                    const formData = new FormData(form);
+                    const params = new URLSearchParams(formData);
+                    const url = window.location.pathname + '?' + params.toString();
+                    updateRecordsTableAJAX(url);
                 });
             });
         }
 
-        // Maintain cursor focus at the end of search input if search query is active
+        // Maintain cursor focus at end of search input
         if (searchInput && searchInput.value) {
             const val = searchInput.value;
             searchInput.focus();
             searchInput.setSelectionRange(val.length, val.length);
         }
 
-        // Handle active chip dismissals
+        // Live auto-search input via AJAX (450ms debounce)
+        let searchTimer;
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                if (searchSpinner) searchSpinner.classList.remove('d-none');
+                searchTimer = setTimeout(() => {
+                    const formData = new FormData(form);
+                    const params = new URLSearchParams(formData);
+                    const url = window.location.pathname + '?' + params.toString();
+                    updateRecordsTableAJAX(url);
+                }, 450);
+            });
+        }
+
+        // Handle active chip dismissals via AJAX
         document.querySelectorAll('.clear-chip-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -548,30 +655,34 @@
                     const targetElem = form.querySelector(`[name="${filterName}"]`);
                     if (targetElem) {
                         targetElem.value = '';
-                        if (searchSpinner) searchSpinner.classList.remove('d-none');
-                        form.submit();
+                        const formData = new FormData(form);
+                        const params = new URLSearchParams(formData);
+                        const url = window.location.pathname + '?' + params.toString();
+                        updateRecordsTableAJAX(url);
                     }
                 }
             });
         });
-function confirmArchiveRecord(archiveUrl, recordTitle) {
-    if (window.showConfirmModal) {
-        showConfirmModal({
-            title: 'Archive Record',
-            message: "Are you sure you want to archive '" + recordTitle + "'? It will be moved to the archive section.",
-            confirmText: 'Archive Record',
-            confirmClass: 'action-btn-danger',
-            icon: 'archive',
-            onConfirm: function() {
+    });
+
+    function confirmArchiveRecord(archiveUrl, recordTitle) {
+        if (window.showConfirmModal) {
+            showConfirmModal({
+                title: 'Archive Record',
+                message: "Are you sure you want to archive '" + recordTitle + "'? It will be moved to the archive section.",
+                confirmText: 'Archive Record',
+                confirmClass: 'action-btn-danger',
+                icon: 'archive',
+                onConfirm: function() {
+                    window.location.href = archiveUrl;
+                }
+            });
+        } else {
+            if (confirm("Archive record '" + recordTitle + "'?")) {
                 window.location.href = archiveUrl;
             }
-        });
-    } else {
-        if (confirm("Archive record '" + recordTitle + "'?")) {
-            window.location.href = archiveUrl;
         }
     }
-}
 </script>
 {% endblock %}
 

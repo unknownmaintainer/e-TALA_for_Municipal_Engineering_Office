@@ -212,9 +212,9 @@
                                 <th style="width: 180px; white-space: nowrap;">Date &amp; Time</th>
                                 <th>Email Attempted</th>
                                 <th>Status</th>
-                                <th style="width: 140px; white-space: nowrap;">IP Address</th>
+                                <th style="width: 150px; white-space: nowrap;">IP Address</th>
                                 {% if request.user.role == 'admin' %}
-                                <th class="text-end" style="width: 120px; white-space: nowrap;">Action</th>
+                                <th class="text-end" style="width: 80px; white-space: nowrap;">Action</th>
                                 {% endif %}
                             </tr>
                         </thead>
@@ -229,46 +229,66 @@
                                 </td>
                                 <td data-label="Status">
                                     {% if attempt.success %}
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 4px;">
-                                            Success
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i data-lucide="check-circle-2" style="width: 13px; height: 13px;"></i> Success
                                         </span>
                                     {% else %}
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 4px;">
-                                            Failed
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i data-lucide="alert-circle" style="width: 13px; height: 13px;"></i> Failed
                                         </span>
                                     {% endif %}
                                 </td>
-                                <td class="font-monospace cell-muted" data-label="IP Address" style="font-size: 0.78rem;">
-                                    <code>{{ attempt.ip_address|default:"127.0.0.1" }}</code>
+                                <td data-label="IP Address">
+                                    <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.76rem; font-weight: 600; padding: 3px 8px; border-radius: 6px;">{{ attempt.ip_address|default:"127.0.0.1" }}</span>
                                     {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
-                                        <span class="badge bg-danger text-white ms-1" style="font-size: 0.65rem; padding: 1px 4px; border-radius: 3px; background-color: #ef4444;">Blocked</span>
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle ms-1" style="font-size: 0.68rem; padding: 2px 7px; border-radius: 6px; font-weight: 700;">Blocked</span>
                                     {% endif %}
                                 </td>
                                 {% if request.user.role == 'admin' %}
-                                <td class="text-end" data-label="Action">
-                                    {% if attempt.ip_address %}
-                                        {% if attempt.ip_address in blocked_ips %}
-                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" id="unblockForm-{{ attempt.ip_address|slugify }}">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="action" value="unblock_ip">
-                                                <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
-                                                <button type="button" class="action-btn action-btn-secondary action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;" onclick="confirmIPAction('unblockForm-{{ attempt.ip_address|slugify }}', 'Unblock IP', 'Are you sure you want to unblock IP {{ attempt.ip_address }}?', 'Unblock', 'action-btn-primary', 'shield')">
-                                                    Unblock
+                                <td class="text-end" data-label="Action" onclick="event.stopPropagation();">
+                                    <div class="dropdown">
+                                        <button class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Actions for {{ attempt.email_attempted }}">
+                                            <i data-lucide="more-horizontal" style="width: 16px; height: 16px;"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width: 175px; font-size: 0.82rem; border-radius: 10px; padding: 6px;">
+                                            <!-- Option 1: View Details 👀 -->
+                                            <li>
+                                                <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2" onclick="showLogDetailsModal('{{ attempt.email_attempted|escapejs }}', '{{ attempt.timestamp|date:"M d, Y - h:i A" }}', '{{ attempt.ip_address|default:"127.0.0.1" }}', '{% if attempt.success %}Success{% else %}Failed{% endif %}', '{% if attempt.success %}N/A (Authenticated Successfully){% else %}Incorrect Password / Invalid Credentials{% endif %}')">
+                                                    <i data-lucide="eye" style="width: 14px; height: 14px; color: #0284c7;"></i>
+                                                    <span>View Details</span>
                                                 </button>
-                                            </form>
-                                        {% else %}
-                                            <form method="POST" action="{% url 'activity_logs' %}" style="display:inline;" id="blockForm-{{ attempt.ip_address|slugify }}">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="action" value="block_ip">
-                                                <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
-                                                <button type="button" class="action-btn action-btn-danger action-btn-xs" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; background-color: #ef4444; border-color: #ef4444; color: #fff;" onclick="confirmIPAction('blockForm-{{ attempt.ip_address|slugify }}', 'Block IP', 'Are you sure you want to block IP {{ attempt.ip_address }}? Blocked IPs will not be able to log in.', 'Block IP', 'action-btn-danger', 'shield-alert')">
-                                                    Block
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="text-muted small" style="font-size: 0.72rem;">—</span>
-                                    {% endif %}
+                                            </li>
+                                            <li><hr class="dropdown-divider my-1"></li>
+                                            <!-- Option 2: Block Email ⛔ / Unblock Email ✅ -->
+                                            {% if attempt.email_attempted in blocked_emails or attempt.ip_address in blocked_ips %}
+                                            <li>
+                                                <form method="POST" action="{% url 'activity_logs' %}" id="unblockEmailForm-{{ forloop.counter }}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="unblock_email">
+                                                    <input type="hidden" name="email" value="{{ attempt.email_attempted }}">
+                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                    <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2 text-success" onclick="confirmIPAction('unblockEmailForm-{{ forloop.counter }}', 'Unblock Email', 'Are you sure you want to restore login access for {{ attempt.email_attempted }}?', 'Unblock Email', 'action-btn-primary', 'shield-check')">
+                                                        <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i>
+                                                        <span>Unblock Email</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% else %}
+                                            <li>
+                                                <form method="POST" action="{% url 'activity_logs' %}" id="blockEmailForm-{{ forloop.counter }}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="block_email">
+                                                    <input type="hidden" name="email" value="{{ attempt.email_attempted }}">
+                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                    <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2 text-danger" onclick="confirmIPAction('blockEmailForm-{{ forloop.counter }}', 'Block Email Access', 'Are you sure you want to block login access for {{ attempt.email_attempted }}? This email will be barred from logging in.', 'Block Email', 'action-btn-danger', 'shield-off')">
+                                                        <i data-lucide="shield-off" style="width: 14px; height: 14px;"></i>
+                                                        <span>Block Email ⛔</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
                                 </td>
                                 {% endif %}
                             </tr>
@@ -467,17 +487,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        {% if request.user.role == 'admin' %}
         const urlParams = new URLSearchParams(window.location.search);
-        const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
+        // ALWAYS default to Audit Trail ('audit') unless URL explicitly contains pagination/filters for Login History
         if (urlParams.has('login_page') || urlParams.has('status')) {
             switchLogTab('login', true);
         } else {
-            switchLogTab(activeSubTab, true);
+            switchLogTab('audit', true);
+            localStorage.setItem('active_settings_log_tab', 'audit');
         }
-        {% else %}
-        switchLogTab('audit', true);
-        {% endif %}
         updateSettingsExportUrl();
     });
     function confirmIPAction(formId, title, message, confirmText, confirmClass, icon) {
@@ -498,6 +515,95 @@
             }
         }
     }
+
+    function showLogDetailsModal(email, timestamp, ip, status, reason) {
+        // 1. Close any open dropdown menus immediately so they don't float on top of the modal backdrop
+        document.querySelectorAll('.dropdown-menu.show').forEach(el => {
+            el.classList.remove('show');
+        });
+        document.querySelectorAll('.row-action-btn[aria-expanded="true"]').forEach(el => {
+            el.setAttribute('aria-expanded', 'false');
+        });
+
+        // 2. Populate modal details
+        document.getElementById('modalDetailEmail').textContent = email;
+        document.getElementById('modalDetailDate').textContent = timestamp;
+        document.getElementById('modalDetailIP').textContent = ip;
+        document.getElementById('modalDetailReason').textContent = reason;
+        
+        const badgeContainer = document.getElementById('modalDetailStatusBadge');
+        if (status === 'Success') {
+            badgeContainer.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.74rem; font-weight: 700; border-radius: 6px;"><i data-lucide="check-circle-2" class="me-1"></i> Success</span>';
+        } else {
+            badgeContainer.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1" style="font-size: 0.74rem; font-weight: 700; border-radius: 6px;"><i data-lucide="alert-circle" class="me-1"></i> Failed</span>';
+        }
+        
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+        
+        // 3. Guarantee body-level stacking context (like Upload & Confirm Modals!)
+        const modalEl = document.getElementById('logDetailsModal');
+        if (modalEl && modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
+        
+        let bsModal = bootstrap.Modal.getInstance(modalEl);
+        if (!bsModal) {
+            bsModal = new bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+        }
+        bsModal.show();
+    }
 </script>
+
+<!-- ══ VIEW LOG DETAILS MODAL (PERFECTLY CENTERED, BODY-APPENDED & ELEVATED) ══════════════════════ -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1" aria-labelledby="logDetailsModalLabel" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header py-3 px-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff;">
+                <h5 class="modal-title fs-6 fw-bold d-flex align-items-center gap-2 m-0" id="logDetailsModalLabel" style="color: #ffffff;">
+                    <i data-lucide="shield-info" style="width: 18px; height: 18px; color: #38bdf8;"></i> Authentication Attempt Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white opacity-75" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex flex-column gap-3">
+                    <div class="d-flex justify-content-between align-items-center pb-2.5 border-bottom">
+                        <span class="text-muted small fw-medium">Attempted Email</span>
+                        <span class="fw-bold text-dark cell-title" id="modalDetailEmail" style="font-size: 0.9rem;">—</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pb-2.5 border-bottom">
+                        <span class="text-muted small fw-medium">Date &amp; Time</span>
+                        <span class="fw-semibold text-secondary small" id="modalDetailDate">—</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pb-2.5 border-bottom">
+                        <span class="text-muted small fw-medium">Authentication Status</span>
+                        <span id="modalDetailStatusBadge">—</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pb-2.5 border-bottom">
+                        <span class="text-muted small fw-medium">IP Address</span>
+                        <span class="badge bg-light text-dark border font-monospace" id="modalDetailIP" style="font-size: 0.78rem; font-weight: 600; padding: 3px 8px; border-radius: 6px;">—</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pb-2.5 border-bottom">
+                        <span class="text-muted small fw-medium">Network Location</span>
+                        <span class="text-muted small" id="modalDetailLocation">Carigara Municipal Intranet (LGU Subnet)</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-start pt-1">
+                        <span class="text-muted small fw-medium">Result / Reason</span>
+                        <span class="text-muted small fw-semibold text-end ms-3" id="modalDetailReason" style="max-width: 220px;">—</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2.5 px-4 border-top">
+                <button type="button" class="action-btn action-btn-secondary px-4" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 600;">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 

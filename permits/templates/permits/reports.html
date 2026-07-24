@@ -131,53 +131,60 @@
 <!-- ══ STANDARDIZED UNIFIED FILTER & EXPORT TOOLBAR ══════════════════════════════ -->
 <div class="content-card mb-4 d-print-none" style="border-radius: 14px;">
     <div class="content-card-body p-3">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5">
-            <!-- Left: Filter Inputs in a single horizontal row -->
-            <form method="GET" action="{% url 'reports' %}" class="d-flex align-items-center gap-2 flex-wrap m-0 flex-grow-1">
+        <form method="GET" action="{% url 'reports' %}" class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 m-0 w-100" id="filterForm">
+            <!-- Left: Filter Dropdowns in a clean horizontal group -->
+            <div class="d-flex align-items-center flex-wrap gap-2 flex-grow-1">
                 <!-- Category Filter -->
-                <div class="d-flex align-items-center">
-                    <select name="record_type" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.82rem; height: 38px; min-width: 155px; cursor: pointer;">
-                        <option value="">All Categories</option>
-                        <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permits Only</option>
-                        <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Projects Only</option>
-                    </select>
-                </div>
+                <select name="record_type" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.82rem; height: 38px; width: auto; min-width: 145px; cursor: pointer;">
+                    <option value="">All Categories</option>
+                    <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permits Only</option>
+                    <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Projects Only</option>
+                </select>
 
                 <!-- Barangay Filter -->
-                <div class="d-flex align-items-center">
-                    <select name="barangay" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.82rem; height: 38px; min-width: 165px; cursor: pointer;">
-                        <option value="">All Barangays</option>
-                        {% for b in barangays %}
-                        <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <select name="barangay" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.82rem; height: 38px; width: auto; min-width: 155px; cursor: pointer;">
+                    <option value="">All Barangays</option>
+                    {% for b in barangays %}
+                    <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                    {% endfor %}
+                </select>
 
                 <!-- Year Filter -->
-                <div class="d-flex align-items-center">
-                    <input type="number" name="year" class="form-control form-control-sm rounded-3" placeholder="Year (e.g. 2024)" value="{{ selected_year }}" onchange="this.form.submit()" style="font-size: 0.82rem; height: 38px; width: 130px;">
-                </div>
+                <select name="year" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.82rem; height: 38px; width: auto; min-width: 115px; cursor: pointer;">
+                    <option value="">All Years</option>
+                    {% for y in year_choices %}
+                    <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Status Filter (The Missing Essential Filter!) -->
+                <select name="status" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.82rem; height: 38px; width: auto; min-width: 135px; cursor: pointer;">
+                    <option value="">All Statuses</option>
+                    {% for val, lbl in status_choices %}
+                    <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ lbl }}</option>
+                    {% endfor %}
+                </select>
 
                 {% if active_filters %}
-                <a href="{% url 'reports' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1 text-danger" style="height: 38px;" title="Reset filters">
-                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                <a href="{% url 'reports' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1 text-danger ms-1" style="height: 38px;" title="Reset filters">
+                    <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i>
                     <span>Reset</span>
                 </a>
                 {% endif %}
-            </form>
+            </div>
 
-            <!-- Right: Export Buttons -->
+            <!-- Right: Export Action Buttons -->
             <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
-                <button onclick="triggerExport('excel')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
+                <button type="button" onclick="triggerExport('excel')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px; border-radius: 8px;">
                     <i class="fa-solid fa-file-excel text-success" style="font-size: 14px;"></i>
                     <span>Export Excel</span>
                 </button>
-                <button onclick="triggerExport('pdf')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px;">
+                <button type="button" onclick="triggerExport('pdf')" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 38px; border-radius: 8px;">
                     <i class="fa-solid fa-file-pdf text-danger" style="font-size: 14px;"></i>
                     <span>Export PDF</span>
                 </button>
             </div>
-        </div>
+        </form>
     </div>
 </div>
 
@@ -189,10 +196,10 @@
             <div class="report-kpi-icon" style="background: rgba(3, 105, 161, 0.18); color: #38bdf8;">
                 <i class="fa-solid fa-folder-closed" style="font-size: 20px;"></i>
             </div>
-            <div>
-                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Digitized Records</span>
-                <h3 class="fw-bold m-0" style="font-size: 1.5rem;">{{ total_count }}</h3>
-                <span class="small text-muted" style="font-size: 0.72rem;">{{ total_active }} Active · {{ total_archived }} Archived</span>
+            <div class="min-w-0 flex-grow-1">
+                <span class="text-muted small fw-bold text-uppercase d-block text-truncate" style="font-size: 0.68rem; letter-spacing: 0.5px;">Digitized Records</span>
+                <h3 class="fw-bold m-0" style="font-size: 1.4rem;">{{ total_count }}</h3>
+                <span class="small text-muted d-block text-truncate" style="font-size: 0.72rem;">{{ total_active }} Active · {{ total_archived }} Archived</span>
             </div>
         </div>
     </div>
@@ -203,10 +210,10 @@
             <div class="report-kpi-icon" style="background: rgba(217, 119, 6, 0.18); color: #fbbf24;">
                 <i class="fa-solid fa-city" style="font-size: 20px;"></i>
             </div>
-            <div>
-                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Infrastructure Projects</span>
-                <h3 class="fw-bold m-0" style="font-size: 1.5rem;">{{ total_projects }}</h3>
-                <span class="small text-muted" style="font-size: 0.72rem;">{{ municipal_projects_count }} Municipal · {{ barangay_projects_count }} Barangay</span>
+            <div class="min-w-0 flex-grow-1">
+                <span class="text-muted small fw-bold text-uppercase d-block text-truncate" style="font-size: 0.68rem; letter-spacing: 0.5px;">Infrastructure Projects</span>
+                <h3 class="fw-bold m-0" style="font-size: 1.4rem;">{{ total_projects }}</h3>
+                <span class="small text-muted d-block text-truncate" style="font-size: 0.72rem;">{{ municipal_projects_count }} Municipal · {{ barangay_projects_count }} Barangay</span>
             </div>
         </div>
     </div>
@@ -217,10 +224,10 @@
             <div class="report-kpi-icon" style="background: rgba(14, 165, 233, 0.18); color: #38bdf8;">
                 <i class="fa-solid fa-clock-rotate-left" style="font-size: 20px;"></i>
             </div>
-            <div>
-                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Permit Expiration</span>
-                <h3 class="fw-bold m-0" style="font-size: 1.5rem;">{{ total_permits }}</h3>
-                <span class="small text-muted" style="font-size: 0.72rem;">
+            <div class="min-w-0 flex-grow-1">
+                <span class="text-muted small fw-bold text-uppercase d-block text-truncate" style="font-size: 0.68rem; letter-spacing: 0.5px;">Permit Expiration</span>
+                <h3 class="fw-bold m-0" style="font-size: 1.4rem;">{{ total_permits }}</h3>
+                <span class="small text-muted d-block text-truncate" style="font-size: 0.72rem;">
                     {% if expired_count > 0 %}<span class="text-danger fw-bold">{{ expired_count }} Expired</span>{% else %}<span class="text-success fw-bold">{{ valid_permits_count }} Valid</span>{% endif %}
                 </span>
             </div>
@@ -233,10 +240,10 @@
             <div class="report-kpi-icon" style="background: rgba(13, 148, 136, 0.18); color: #2dd4bf;">
                 <i class="fa-solid fa-shield-halved" style="font-size: 20px;"></i>
             </div>
-            <div>
-                <span class="text-muted small fw-bold text-uppercase d-block" style="font-size: 0.68rem; letter-spacing: 0.5px;">Document Completion</span>
-                <h3 class="fw-bold m-0" style="font-size: 1.5rem;">{{ completion_rate_pct }}%</h3>
-                <span class="small text-muted" style="font-size: 0.72rem;">{{ completed_records_count }} Complete Records</span>
+            <div class="min-w-0 flex-grow-1">
+                <span class="text-muted small fw-bold text-uppercase d-block text-truncate" style="font-size: 0.68rem; letter-spacing: 0.5px;">Document Completion</span>
+                <h3 class="fw-bold m-0" style="font-size: 1.4rem;">{{ completion_rate_pct }}%</h3>
+                <span class="small text-muted d-block text-truncate" style="font-size: 0.72rem;">{{ completed_records_count }} Complete Records</span>
             </div>
         </div>
     </div>
@@ -613,5 +620,27 @@ function triggerExport(format) {
     urlParams.set('export', format);
     window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
 }
+
+// 450ms Debounced Live Search Listener for Reports
+document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("liveSearchInput");
+    const filterForm = document.getElementById("filterForm");
+    if (searchInput && filterForm) {
+        let debounceTimer;
+        searchInput.addEventListener("input", function () {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                filterForm.submit();
+            }, 450);
+        });
+        searchInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                clearTimeout(debounceTimer);
+                filterForm.submit();
+            }
+        });
+    }
+});
 </script>
 {% endblock %}
