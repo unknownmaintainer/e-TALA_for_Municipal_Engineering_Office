@@ -2343,9 +2343,7 @@ def reports_view(request):
     fencing_permits_count = permits_qs.filter(permit_detail__permit_type='fencing').count()
     electrical_permits_count = permits_qs.filter(permit_detail__permit_type='electrical').count()
 
-    expiring_permits_qs = permits_qs.filter(
-        permit_detail__expiry_date__isnull=False
-    ).select_related('permit_detail', 'barangay').order_by('permit_detail__expiry_date')
+    expiring_permits_qs = permits_qs.select_related('permit_detail', 'barangay').prefetch_related('documents')
     
     expiring_soon_list = []
     expired_count = 0
@@ -2353,16 +2351,26 @@ def reports_view(request):
     valid_permits_count = 0
 
     for p in expiring_permits_qs:
-        exp_date = p.permit_detail.expiry_date
+        permit_det = getattr(p, 'permit_detail', None)
+        exp_date = None
+        doc_with_expiry = p.documents.filter(expiry_date__isnull=False).order_by('expiry_date').first()
+        if doc_with_expiry:
+            exp_date = doc_with_expiry.expiry_date
+        elif permit_det and permit_det.date_issued:
+            import datetime
+            exp_date = permit_det.date_issued + datetime.timedelta(days=365)
+
         if exp_date:
             days_left = (exp_date - today_date).days
+            permit_num = permit_det.permit_number if (permit_det and permit_det.permit_number) else f"BP-{p.year or 2026}-{p.record_id:03d}"
+            applicant = permit_det.applicant_name if (permit_det and permit_det.applicant_name) else "N/A"
             if days_left < 0:
                 expired_count += 1
                 if len(expiring_soon_list) < 10:
                     expiring_soon_list.append({
                         'record_id': p.record_id,
-                        'permit_number': p.permit_detail.permit_number or f"BP-{p.year}-{p.record_id:03d}",
-                        'applicant_name': p.permit_detail.applicant_name or "N/A",
+                        'permit_number': permit_num,
+                        'applicant_name': applicant,
                         'barangay_name': p.barangay.barangay_name if p.barangay else "Unassigned",
                         'expiry_date': exp_date,
                         'days_left': abs(days_left),
@@ -2373,8 +2381,8 @@ def reports_view(request):
                 if len(expiring_soon_list) < 10:
                     expiring_soon_list.append({
                         'record_id': p.record_id,
-                        'permit_number': p.permit_detail.permit_number or f"BP-{p.year}-{p.record_id:03d}",
-                        'applicant_name': p.permit_detail.applicant_name or "N/A",
+                        'permit_number': permit_num,
+                        'applicant_name': applicant,
                         'barangay_name': p.barangay.barangay_name if p.barangay else "Unassigned",
                         'expiry_date': exp_date,
                         'days_left': days_left,
@@ -2382,8 +2390,10 @@ def reports_view(request):
                     })
             else:
                 valid_permits_count += 1
+        else:
+            valid_permits_count += 1
 
-    # If all permits have null expiry date, set default valid permits count
+    # If all permits have no expiry date, set default valid permits count
     if total_permits > 0 and (expired_count + expiring_soon_count + valid_permits_count) == 0:
         valid_permits_count = total_permits
 
