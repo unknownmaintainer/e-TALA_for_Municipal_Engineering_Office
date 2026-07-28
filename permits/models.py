@@ -289,6 +289,11 @@ class ProjectDetail(models.Model):
         ('Vertical Structure', 'Vertical Structure'),
         ('Flood Control', 'Flood Control'),
         ('Potable Water', 'Potable Water'),
+        ('Building', 'Building'),
+        ('Water System', 'Water System'),
+        ('Drainage', 'Drainage'),
+        ('Multi-purpose Hall', 'Multi-purpose Hall'),
+        ('Others', 'Others'),
     )
     PROJECT_STATUS_CHOICES = (
         ('Planning', 'Planning'),

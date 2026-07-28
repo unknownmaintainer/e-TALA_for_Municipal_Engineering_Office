@@ -180,6 +180,56 @@ TEMPLATES = [
             ('Inspection Report', 'Official inspection report from the Municipal Engineering Office.'),
         ],
     },
+    {
+        'record_type': 'Project',
+        'subtype': 'Building',
+        'scope': 'Barangay',
+        'items': [
+            ('Building Plans', 'Building plans or engineering drawings for the project.'),
+            ('Program of Works', 'Program of Works detailing activities, quantities, unit costs, and schedule.'),
+            ('Inspection Report', 'Official inspection report from the Municipal Engineering Office.'),
+        ],
+    },
+    {
+        'record_type': 'Project',
+        'subtype': 'Water System',
+        'scope': 'Barangay',
+        'items': [
+            ('Building Plans', 'Building plans or engineering drawings for the project.'),
+            ('Program of Works', 'Program of Works detailing activities, quantities, unit costs, and schedule.'),
+            ('Inspection Report', 'Official inspection report from the Municipal Engineering Office.'),
+        ],
+    },
+    {
+        'record_type': 'Project',
+        'subtype': 'Drainage',
+        'scope': 'Barangay',
+        'items': [
+            ('Building Plans', 'Building plans or engineering drawings for the project.'),
+            ('Program of Works', 'Program of Works detailing activities, quantities, unit costs, and schedule.'),
+            ('Inspection Report', 'Official inspection report from the Municipal Engineering Office.'),
+        ],
+    },
+    {
+        'record_type': 'Project',
+        'subtype': 'Multi-purpose Hall',
+        'scope': 'Barangay',
+        'items': [
+            ('Building Plans', 'Building plans or engineering drawings for the project.'),
+            ('Program of Works', 'Program of Works detailing activities, quantities, unit costs, and schedule.'),
+            ('Inspection Report', 'Official inspection report from the Municipal Engineering Office.'),
+        ],
+    },
+    {
+        'record_type': 'Project',
+        'subtype': 'Others',
+        'scope': 'Barangay',
+        'items': [
+            ('Building Plans', 'Building plans or engineering drawings for the project.'),
+            ('Program of Works', 'Program of Works detailing activities, quantities, unit costs, and schedule.'),
+            ('Inspection Report', 'Official inspection report from the Municipal Engineering Office.'),
+        ],
+    },
 ]
 
 
