@@ -313,10 +313,10 @@
 
 
 <!-- ══ DATA TABLE ════════════════════════════════════════════════════════ -->
-<div class="content-card" style="height: auto !important; min-height: 0 !important;">
-    <div class="card-body p-0">
+<div class="content-card" style="height: auto !important; min-height: 0 !important; overflow: visible !important;">
+    <div class="card-body p-0" style="overflow: visible !important;">
         <!-- Desktop Table View -->
-        <div class="table-responsive d-none d-md-block" style="overflow-x: auto;">
+        <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important;">
             <table class="data-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
@@ -391,18 +391,18 @@
                             <span class="status-indicator">{{ r.get_status_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-end pe-3" style="width: 55px;" onclick="event.stopPropagation();">
-                            <div class="dropdown" onclick="event.stopPropagation();">
-                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();" title="Options">
-                                    <i class="fa-solid fa-ellipsis" style="font-size: 1.05rem;"></i>
+                        <td class="text-end pe-3" style="width: 55px; position: relative; overflow: visible;" onclick="event.stopPropagation();">
+                            <div class="dropdown" onclick="event.stopPropagation();" style="position: static;">
+                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-offset="0,8" onclick="event.stopPropagation();" title="Actions">
+                                    <i data-lucide="more-vertical" style="width: 16px; height: 16px;"></i>
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border" style="min-width:145px; font-size: var(--text-xs); border-radius:10px; z-index:99999;" onclick="event.stopPropagation();">
-                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'record_detail' r.record_id %}"><i data-lucide="eye" style="width:14px;height:14px;"></i> View</a></li>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 200px; font-size: var(--text-sm); border-radius: 12px; padding: 8px; z-index: 9999;" onclick="event.stopPropagation();">
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium" href="{% url 'record_detail' r.record_id %}"><i data-lucide="eye" style="width:14px;height:14px;"></i> View Details</a></li>
                                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                         {% if r.status != 'archived' %}
-                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'edit_record' r.record_id %}"><i data-lucide="pencil" style="width:14px;height:14px;"></i> Edit</a></li>
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium" href="{% url 'edit_record' r.record_id %}"><i data-lucide="pencil" style="width:14px;height:14px;"></i> Edit Record</a></li>
                                         <li><hr class="dropdown-divider my-1"></li>
-                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="confirmArchiveRecord('{% url 'archive_record' r.record_id %}', '{{ r.title|escapejs }}')"><i data-lucide="archive" style="width:14px;height:14px;"></i> Archive</a></li>
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger action-dropdown-danger" href="javascript:void(0)" onclick="confirmArchiveRecord('{% url 'archive_record' r.record_id %}', '{{ r.title|escapejs }}')"><i data-lucide="archive" style="width:14px;height:14px;"></i> Archive Record</a></li>
                                         {% endif %}
                                     {% endif %}
                                 </ul>
@@ -740,6 +740,21 @@
             });
         }
         bindChipDismissHandlers();
+
+        // Auto-close dropdowns when hovering over different rows
+        const tableRows = document.querySelectorAll('.data-table tbody tr');
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                // Close all open dropdowns when hovering a new row
+                const openDropdowns = document.querySelectorAll('.dropdown-menu.show');
+                openDropdowns.forEach(dropdown => {
+                    const bsDropdown = bootstrap.Dropdown.getInstance(dropdown.previousElementSibling);
+                    if (bsDropdown) {
+                        bsDropdown.hide();
+                    }
+                });
+            });
+        });
     });
 
     function confirmArchiveRecord(archiveUrl, recordTitle) {
