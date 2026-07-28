@@ -10,6 +10,39 @@
 {% endblock %}
 
 {% block content %}
+<style>
+.erarms-content {
+    max-width: 100% !important;
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+}
+.data-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+.data-table th,
+.data-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.data-table .cell-title,
+.data-table .cell-subtitle {
+    max-width: 100% !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.data-table .tag-permit,
+.data-table .tag-municipal,
+.data-table .tag-project,
+.data-table .tag-barangay,
+.data-table .barangay-table-link {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
 
 {% if messages %}
 <div class="mb-3">
@@ -41,23 +74,23 @@
 
 <!-- ══ CATEGORY TABS (Horizontal scroll) ═════════════════════════════ -->
 <div class="filter-tabs mb-3">
-    <a href="?{% param_replace record_type='' illegal='' page=1 %}"
+    <a href="?{% if selected_scope %}scope={{ selected_scope }}{% endif %}"
        class="filter-tab {% if not selected_record_type and not selected_illegal %}active{% endif %}">
         All <span class="tab-count {% if not selected_record_type and not selected_illegal %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
     </a>
-    <a href="?{% param_replace record_type='Project' project_scope='Municipal' illegal='' page=1 %}"
+    <a href="?record_type=Project&project_scope=Municipal{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
        class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">
         Municipal <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">{{ municipal_count }}</span>
     </a>
-    <a href="?{% param_replace record_type='Project' project_scope='Barangay' illegal='' page=1 %}"
+    <a href="?record_type=Project&project_scope=Barangay{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
        class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">
         Barangay <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">{{ barangay_count }}</span>
     </a>
-    <a href="?{% param_replace record_type='Permit' project_scope='' illegal='' page=1 %}"
+    <a href="?record_type=Permit{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
        class="filter-tab {% if selected_record_type == 'Permit' and not selected_illegal %}active{% endif %}">
         Permits <span class="tab-count {% if selected_record_type == 'Permit' and not selected_illegal %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
     </a>
-    <a href="?{% param_replace illegal='1' record_type='' project_scope='' page=1 %}"
+    <a href="?illegal=1{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
        class="filter-tab {% if selected_illegal or selected_record_type == 'Illegal' %}active{% endif %}" style="color: #dc2626;">
         <i data-lucide="shield-alert" style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px;"></i>
         Illegal Constructions <span class="tab-count" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">{{ illegal_count }}</span>
@@ -280,20 +313,20 @@
 
 
 <!-- ══ DATA TABLE ════════════════════════════════════════════════════════ -->
-<div class="content-card" style="overflow: hidden; height: auto !important; min-height: 0 !important;">
+<div class="content-card" style="height: auto !important; min-height: 0 !important;">
     <div class="card-body p-0">
         <!-- Desktop Table View -->
-        <div class="table-responsive d-none d-md-block" style="overflow-x: hidden !important;">
-            <table class="data-table" style="width: 100%;">
+        <div class="table-responsive d-none d-md-block" style="overflow-x: auto;">
+            <table class="data-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th style="width:75px; min-width:75px; white-space:nowrap;"># ID</th>
-                        <th>Title</th>
-                        <th style="width:90px;">Type</th>
-                        <th>Barangay</th>
-                        <th style="width:55px;">Year</th>
-                        <th style="width:90px;">Status</th>
-                        <th class="text-end" style="width:50px;"></th>
+                        <th style="width: 65px; min-width: 65px;"># ID</th>
+                        <th style="width: 34%;">Title</th>
+                        <th style="width: 18%;">Type</th>
+                        <th style="width: 16%;">Barangay</th>
+                        <th style="width: 65px;">Year</th>
+                        <th style="width: 110px;">Status</th>
+                        <th class="text-end" style="width: 55px; padding-right: 14px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -308,21 +341,22 @@
                                 {% else %}
                                     {{ r.title }}
                                 {% endif %}
-                                {% if r.is_illegal_construction %}
-                                <span class="badge ms-1 d-inline-flex align-items-center gap-1" style="{{ r.illegal_status_info.bg_style }} font-size: 0.68rem; padding: 2px 7px; border-radius: 6px;">
-                                    <i data-lucide="shield-alert" style="width:11px; height:11px;"></i>{{ r.illegal_status_info.short_label }}
-                                </span>
-                                {% endif %}
                             </div>
-                            <div class="cell-subtitle" style="font-size: 0.72rem; color: #64748b;">
+                            <div class="cell-subtitle">
                                 {% if r.record_type == 'Permit' and r.permit_detail and r.permit_detail.applicant_name and r.permit_detail.applicant_name != ',,' and r.permit_detail.applicant_name != ',' and r.permit_detail.applicant_name != ', ' and r.permit_detail.applicant_name != 'N/A' %}
-                                    Applicant: <strong>{{ r.permit_detail.applicant_name }}</strong>
-                                    <span style="color: #cbd5e1; margin: 0 4px;">•</span>
+                                    Applicant: {{ r.permit_detail.applicant_name }}
+                                    <span style="margin: 0 3px;">·</span>
                                 {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
-                                    Contractor: <strong>{{ r.project_detail.contractor }}</strong>
-                                    <span style="color: #cbd5e1; margin: 0 4px;">•</span>
+                                    Contractor: {{ r.project_detail.contractor }}
+                                    <span style="margin: 0 3px;">·</span>
                                 {% endif %}
-                                <span style="color: #94a3b8;">Encoded by: {{ r.created_by.full_name|default:r.created_by.username }}</span>
+                                Encoded by: {{ r.created_by.full_name|default:r.created_by.username }}
+                                {% if r.is_illegal_construction %}
+                                    <span style="margin: 0 3px;">·</span>
+                                    <span class="badge-illegal-inline">
+                                        <i data-lucide="shield-alert" style="width:10px; height:10px;"></i>{{ r.illegal_status_info.short_label }}
+                                    </span>
+                                {% endif %}
                             </div>
                         </td>
                         <td>
@@ -334,11 +368,10 @@
                             <span class="tag tag-barangay">{{ r.specific_type_label }}</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="cell-barangay" style="white-space: nowrap;">
                             {% if r.barangay %}
-                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" onclick="event.stopPropagation();" class="barangay-table-link text-decoration-none d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size: 0.8rem;">
-                                <i data-lucide="map-pin" style="width: 12px; height: 12px; opacity: 0.7;"></i>
-                                <span>{{ r.barangay.barangay_name }}</span>
+                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" onclick="event.stopPropagation();" class="barangay-table-link text-decoration-none d-inline-flex align-items-center gap-1.5 fw-semibold" style="font-size: 0.8rem; white-space: nowrap;">
+                                <span class="barangay-name-text" style="white-space: nowrap;">{{ r.barangay.barangay_name }}</span>
                             </a>
                             {% else %}
                             <span class="text-muted">—</span>
@@ -358,7 +391,7 @@
                             <span class="status-indicator">{{ r.get_status_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-end" onclick="event.stopPropagation();">
+                        <td class="text-end pe-2" style="width: 55px;" onclick="event.stopPropagation();">
                             <div class="dropdown">
                                 <button class="row-action-btn" data-bs-toggle="dropdown">
                                     <i data-lucide="more-horizontal"></i>
@@ -407,7 +440,7 @@
                 {% for r in page_obj %}
                 <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item">
                     <div class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
-                        <i data-lucide="{% if r.record_type == 'Permit' %}file-check{% elif r.project_scope == 'Municipal' %}landmark{% else %}map-pin{% endif %}"></i>
+                        <i data-lucide="{% if r.record_type == 'Permit' %}file-check{% elif r.project_scope == 'Municipal' %}landmark{% else %}folder{% endif %}"></i>
                     </div>
                     <div class="flex-grow-1 min-w-0">
                         <div class="mobile-record-title">{{ r.title }}</div>
@@ -538,6 +571,8 @@
                 const newTableCard = doc.querySelector('.content-card');
                 const newScopeControl = doc.querySelector('.scope-segmented-control');
                 const currentScopeControl = document.querySelector('.scope-segmented-control');
+                const newChipsContainer = doc.querySelector('.active-filter-chips');
+                const currentChipsContainer = document.querySelector('.active-filter-chips');
 
                 // 2. Perform smooth 80ms micro-fade swap
                 if (tableCard) {
@@ -553,6 +588,24 @@
                             tableCard.innerHTML = newTableCard.innerHTML;
                         }
 
+                        // Update filter chips from AJAX response
+                        if (currentChipsContainer) {
+                            if (newChipsContainer) {
+                                currentChipsContainer.innerHTML = newChipsContainer.innerHTML;
+                            } else {
+                                currentChipsContainer.remove();
+                            }
+                        } else if (newChipsContainer) {
+                            // Chips appeared in response but don't exist yet on page
+                            const filtersCollapse = document.getElementById('advancedFiltersCollapse');
+                            if (filtersCollapse) {
+                                filtersCollapse.insertAdjacentElement('beforebegin', newChipsContainer);
+                            }
+                        }
+
+                        // Re-attach chip dismiss handlers after DOM swap
+                        bindChipDismissHandlers();
+
                         if (window.lucide) {
                             lucide.createIcons();
                         }
@@ -563,6 +616,15 @@
                     if (newScopeControl && currentScopeControl) {
                         currentScopeControl.innerHTML = newScopeControl.innerHTML;
                     }
+                    // Update filter chips from AJAX response (fallback path)
+                    if (currentChipsContainer) {
+                        if (newChipsContainer) {
+                            currentChipsContainer.innerHTML = newChipsContainer.innerHTML;
+                        } else {
+                            currentChipsContainer.remove();
+                        }
+                    }
+                    bindChipDismissHandlers();
                     if (window.lucide) lucide.createIcons();
                 }
 
@@ -647,22 +709,37 @@
         }
 
         // Handle active chip dismissals via AJAX
-        document.querySelectorAll('.clear-chip-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                const filterName = this.getAttribute('data-filter-name');
-                if (form) {
-                    const targetElem = form.querySelector(`[name="${filterName}"]`);
-                    if (targetElem) {
-                        targetElem.value = '';
-                        const formData = new FormData(form);
-                        const params = new URLSearchParams(formData);
-                        const url = window.location.pathname + '?' + params.toString();
-                        updateRecordsTableAJAX(url);
+        function bindChipDismissHandlers() {
+            document.querySelectorAll('.clear-chip-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Immediately hide the chip for instant visual feedback
+                    const chip = this.closest('.filter-chip');
+                    if (chip) chip.style.display = 'none';
+
+                    const filterName = this.getAttribute('data-filter-name');
+                    if (form) {
+                        const targetElem = form.querySelector(`[name="${filterName}"]`);
+                        if (targetElem) {
+                            targetElem.value = '';
+                            const formData = new FormData(form);
+                            const params = new URLSearchParams(formData);
+                            const url = window.location.pathname + '?' + params.toString();
+                            updateRecordsTableAJAX(url);
+                        }
                     }
-                }
+
+                    // If no chips left visible, hide the entire chips container
+                    const container = document.querySelector('.active-filter-chips');
+                    if (container) {
+                        const visibleChips = container.querySelectorAll('.filter-chip:not([style*="display: none"])');
+                        // Only the "Reset All" link remains, no visible chips
+                        if (visibleChips.length === 0) container.style.display = 'none';
+                    }
+                });
             });
-        });
+        }
+        bindChipDismissHandlers();
     });
 
     function confirmArchiveRecord(archiveUrl, recordTitle) {

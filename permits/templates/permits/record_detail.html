@@ -123,11 +123,20 @@
         <!-- Checklist Card Wrapper -->
         <div class="content-card flex-grow-1 d-flex flex-column">
             <div class="content-card-body d-flex flex-column flex-grow-1" style="padding: 24px;">
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                    <h3 class="section-heading mb-0" style="font-size: var(--text-md); font-weight: 700;">
-                        <i data-lucide="clipboard-list" class="me-2 text-teal" style="width: 18px; height: 18px; vertical-align: -3px; color: #0d9488;"></i>
-                        Document Checklist Requirements
-                    </h3>
+                <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h3 class="section-heading mb-0" style="font-size: var(--text-md); font-weight: 700;">
+                            <i data-lucide="clipboard-list" class="me-2 text-teal" style="width: 18px; height: 18px; vertical-align: -3px; color: #0d9488;"></i>
+                            Document Checklist Requirements
+                        </h3>
+                        {% with stats=record.completion_stats %}
+                        <span class="badge rounded-pill px-2.5 py-1 fw-semibold d-inline-flex align-items-center gap-1"
+                              style="font-size: 0.73rem; background: {% if stats.is_complete %}#dcfce7{% elif stats.fulfilled == 0 %}#fee2e2{% else %}#e0f2fe{% endif %}; color: {% if stats.is_complete %}#15803d{% elif stats.fulfilled == 0 %}#b91c1c{% else %}#0369a1{% endif %}; border: 1px solid {% if stats.is_complete %}#bbf7d0{% elif stats.fulfilled == 0 %}#fca5a5{% else %}#bae6fd{% endif %};">
+                            <i data-lucide="{% if stats.is_complete %}check-circle{% else %}file-text{% endif %}" style="width: 12px; height: 12px;"></i>
+                            {{ stats.fulfilled }} of {{ stats.total }} Uploaded
+                        </span>
+                        {% endwith %}
+                    </div>
                     {% if can_edit and record.status != 'archived' and requirements and not record.completion_stats.is_complete %}
                     <button type="button" class="action-btn action-btn-teal action-btn-xs text-decoration-none" onclick="openBatchUploadModal()" style="font-size: 11px;">
                         <i data-lucide="layers" style="width:12px;height:12px;"></i> Batch Upload
@@ -136,8 +145,8 @@
                 </div>
 
                 <!-- Checklist Progress Bar -->
-                {% if requirements %}
                 {% with stats=record.completion_stats %}
+                {% if stats.total > 0 %}
                 
                 {% if stats.is_complete %}
                 <div class="alert alert-success d-flex align-items-start gap-3 p-3 mb-4 rounded-3 border-0" style="background: #f0fdf4; border: 1px solid #bbf7d0 !important; border-radius: 8px;">
@@ -171,8 +180,8 @@
                         </div>
                     </div>
                 </div>
-                {% endwith %}
                 {% endif %}
+                {% endwith %}
 
                 <!-- Document Checklist Cards -->
                 <div class="doc-checklist-scroll-wrap">
