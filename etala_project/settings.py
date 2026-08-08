@@ -140,8 +140,6 @@ if database_url:
         )
     }
 else:
-    if os.getenv('RENDER') and not TESTING:
-        raise ImproperlyConfigured("DATABASE_URL must be set when deploying on Render.")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
