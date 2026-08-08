@@ -213,75 +213,85 @@ def logout_view(request):
 def forgot_password_view(request):
     if request.method == 'POST':
         email = request.POST.get('email', '').strip().lower()
-        # Always show success message to prevent email enumeration attacks
-        messages.info(request, "If the email is registered, a password reset link has been sent.")
+
+        if not email:
+            messages.error(request, "Please enter your registered email address.")
+            return render(request, 'permits/forgot_password.html')
 
         User = get_user_model()
         user = User.objects.filter(email=email).first()
-        if user:
-            try:
-                # Generate a signed token (valid for 30 minutes)
-                token_data = {
-                    'user_id': user.pk,
-                    'email': user.email,
-                }
-                token = signing.dumps(token_data, salt='password-reset')
 
-                # Build reset URL
-                reset_url = request.build_absolute_uri(
-                    reverse('reset_password') + f'?token={token}'
-                )
+        # Check if user exists in database
+        if not user:
+            messages.error(request, f"No account found with email '{email}'. Please check your spelling or contact your administrator.")
+            return render(request, 'permits/forgot_password.html')
 
-                # Send email via Django's configured email backend (Resend SMTP)
-                from django.core.mail import send_mail
-                from django.conf import settings
+        # User exists: generate secure signed token (valid for 30 minutes)
+        try:
+            token_data = {
+                'user_id': user.pk,
+                'email': user.email,
+            }
+            token = signing.dumps(token_data, salt='password-reset')
 
-                subject = 'eTala — Password Reset Request'
-                html_message = f'''
-                <div style="font-family: 'Inter', Arial, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-                    <div style="background: linear-gradient(135deg, #002855 0%, #001f42 100%); padding: 24px 28px; text-align: center;">
-                        <h1 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: 700;">eTala</h1>
-                        <p style="color: #C5A059; font-size: 11px; margin: 4px 0 0 0; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;">Municipal Engineering Office &bull; Carigara, Leyte</p>
-                    </div>
-                    <div style="padding: 28px 28px 20px 28px;">
-                        <h2 style="color: #0f172a; font-size: 17px; margin: 0 0 12px 0;">Password Reset Request</h2>
-                        <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
-                            We received a request to reset your password for <strong>{user.full_name or user.username}</strong>.
-                            Click the button below to set a new password. This link is valid for <strong>30 minutes</strong>.
-                        </p>
-                        <div style="text-align: center; margin: 24px 0;">
-                            <a href="{reset_url}" style="background: linear-gradient(135deg, #002855 0%, #001f42 100%); color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 700; display: inline-block; box-shadow: 0 4px 12px rgba(0, 40, 85, 0.3);">
-                                Reset My Password
-                            </a>
-                        </div>
-                        <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 20px 0 0 0;">
-                            If you did not request this, you can safely ignore this email. Your password will remain unchanged.
-                        </p>
-                    </div>
-                    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; text-align: center;">
-                        <p style="color: #94a3b8; font-size: 10px; margin: 0;">
-                            eTala &mdash; Engineering Records Archiving and Document Management System<br>
-                            Municipal Engineering Office of Carigara, Leyte
-                        </p>
-                    </div>
+            # Build reset URL
+            reset_url = request.build_absolute_uri(
+                reverse('reset_password') + f'?token={token}'
+            )
+
+            # Send email via Django's configured email backend (Resend SMTP)
+            from django.core.mail import send_mail
+            from django.conf import settings
+
+            subject = 'eTala — Password Reset Request'
+            html_message = f'''
+            <div style="font-family: 'Inter', Arial, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                <div style="background: linear-gradient(135deg, #002855 0%, #001f42 100%); padding: 24px 28px; text-align: center;">
+                    <h1 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: 700;">eTala</h1>
+                    <p style="color: #C5A059; font-size: 11px; margin: 4px 0 0 0; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;">Municipal Engineering Office &bull; Carigara, Leyte</p>
                 </div>
-                '''
-                plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 30 minutes.'
+                <div style="padding: 28px 28px 20px 28px;">
+                    <h2 style="color: #0f172a; font-size: 17px; margin: 0 0 12px 0;">Password Reset Request</h2>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+                        We received a request to reset your password for <strong>{user.full_name or user.username}</strong>.
+                        Click the button below to set a new password. This link is valid for <strong>30 minutes</strong>.
+                    </p>
+                    <div style="text-align: center; margin: 24px 0;">
+                        <a href="{reset_url}" style="background: linear-gradient(135deg, #002855 0%, #001f42 100%); color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 700; display: inline-block; box-shadow: 0 4px 12px rgba(0, 40, 85, 0.3);">
+                            Reset My Password
+                        </a>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 20px 0 0 0;">
+                        If you did not request this, you can safely ignore this email. Your password will remain unchanged.
+                    </p>
+                </div>
+                <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 10px; margin: 0;">
+                        eTala &mdash; Engineering Records Archiving and Document Management System<br>
+                        Municipal Engineering Office of Carigara, Leyte
+                    </p>
+                </div>
+            </div>
+            '''
+            plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 30 minutes.'
 
-                send_mail(
-                    subject=subject,
-                    message=plain_message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    html_message=html_message,
-                    fail_silently=False,
-                )
-                log_audit(user, "Password reset email sent", request=request)
-                logger.info(f"Password reset email sent to {email}")
-            except Exception as exc:
-                logger.error(f"Failed to send password reset email to {email}: {exc}")
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            log_audit(user, "Password reset email sent", request=request)
+            logger.info(f"Password reset email sent to {email}")
+            messages.success(request, f"Password reset link successfully sent to {email}. Please check your inbox!")
+            return redirect('login')
+        except Exception as exc:
+            logger.error(f"Failed to send password reset email to {email}: {exc}")
+            messages.error(request, f"Unable to send reset email at this moment: {exc}. Please try again later.")
+            return render(request, 'permits/forgot_password.html')
 
-        return redirect('login')
     return render(request, 'permits/forgot_password.html')
 
 
