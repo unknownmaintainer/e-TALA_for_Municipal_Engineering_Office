@@ -320,17 +320,18 @@ CORS_ALLOWED_ORIGINS = [
 
 WHITENOISE_MANIFEST_STRICT = False
 
-# ── Gmail SMTP Email Configuration ────────────────────────────────────────────
-# To enable: set EMAIL_HOST_USER to your Gmail address and
-# EMAIL_HOST_PASSWORD to a Gmail App Password (not your regular password).
-# Generate App Password: myaccount.google.com → Security → App Passwords
-EMAIL_BACKEND     = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST        = 'smtp.gmail.com'
-EMAIL_PORT        = 587
-EMAIL_USE_TLS     = True
-EMAIL_HOST_USER   = os.environ.get('EMAIL_HOST_USER', '')   # e.g. youraccount@gmail.com
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # Gmail App Password
-DEFAULT_FROM_EMAIL  = EMAIL_HOST_USER or 'noreply@etala.local'
+# ── Resend SMTP Email Configuration ───────────────────────────────────────────
+# Resend provides reliable transactional email delivery via SMTP.
+# Set RESEND_API_KEY in environment variables to enable.
+EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST          = 'smtp.resend.com'
+EMAIL_PORT          = 465
+EMAIL_USE_SSL       = True
+EMAIL_USE_TLS       = False
+EMAIL_HOST_USER     = 'resend'
+EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY', '')
+DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
+
 
 # Configure file-based loggers
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
@@ -374,11 +375,3 @@ LOGGING = {
     },
 }
 
-# Email Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
