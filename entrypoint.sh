@@ -4,6 +4,9 @@ set -e
 echo "==> Running database migrations..."
 python manage.py migrate --no-input
 
+echo "==> Seeding initial user accounts..."
+python manage.py seed_users || true
+
 echo "==> Seeding requirement templates..."
 python manage.py seed_requirement_templates || true
 
