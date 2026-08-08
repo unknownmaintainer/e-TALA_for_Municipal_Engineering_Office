@@ -27,6 +27,9 @@ COPY . /app/
 # Build static assets (WhiteNoise will serve them)
 RUN python manage.py collectstatic --no-input
 
+# Set executable permission on entrypoint script
+RUN chmod +x /app/entrypoint.sh
+
 # Create non-root user for container security
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
 USER appuser
@@ -34,6 +37,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Start gunicorn WSGI server
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "etala_project.wsgi:application"]
-
+# Start via entrypoint script (runs migrations automatically before gunicorn)
+CMD ["/app/entrypoint.sh"]
