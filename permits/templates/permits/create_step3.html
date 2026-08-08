@@ -137,8 +137,14 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.82rem;">Funding Source</label>
-                        <input type="text" name="funding_source" class="form-control rounded-3"
-                               placeholder="e.g. LGSF, MDRRMO, Barangay Fund" autocomplete="off">
+                        <select name="funding_source" id="fundingSourceSelect" class="form-select rounded-3" onchange="toggleFundingOther(this.value)">
+                            {% for val, label in funding_sources %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <div id="fundingOtherWrapper" class="mt-2" style="display: none;">
+                            <input type="text" name="funding_source_other" class="form-control rounded-3" placeholder="Specify other funding source...">
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.82rem;">Contractor</label>
@@ -163,51 +169,38 @@
                 {% endif %}
 
                 <!-- ── ILLEGAL CONSTRUCTION FLAG ── -->
-                <div class="mt-4 pt-3 border-top">
-                    <div class="form-check form-switch p-3 rounded-3 border" style="background: #fff5f5; border-color: #fca5a5 !important;">
-                        <input class="form-check-input ms-0 me-2" type="checkbox" name="is_illegal_construction" id="illegalCheck" style="cursor: pointer;">
-                        <label class="form-check-label fw-bold text-danger" for="illegalCheck" style="cursor: pointer; font-size: 0.88rem;">
-                            <i data-lucide="shield-alert" style="width: 16px; height: 16px; vertical-align: -2px;" class="me-1"></i>
-                            Flag as Discovered Illegal Construction (Unpermitted Building)
+                <div class="mt-3 pt-3 border-top">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_illegal_construction" id="illegalCheck">
+                        <label class="form-check-label fw-semibold text-danger small" for="illegalCheck">
+                            Flag as Unpermitted / Discovered Illegal Construction
                         </label>
-                        <p class="text-muted small mb-0 mt-1" style="font-size: 0.78rem;">
-                            Check this box if this structure/building was constructed without a prior building permit from the Municipal Engineering Office.
-                        </p>
                     </div>
                 </div>
 
             </div>
         </div>
 
-        <!-- What happens next -->
-        {% if template %}
-        <div class="alert border-0 rounded-4 mb-4 d-flex align-items-start gap-3"
-             style="background:#eff6ff; border-left: 4px solid #002855 !important; border-left-width: 4px;">
-            <i data-lucide="list-checks" style="width:20px;height:20px;color:#002855;flex-shrink:0;margin-top:2px;"></i>
-            <div>
-                <div class="fw-semibold mb-1" style="color:#002855;font-size:0.85rem;">What happens after you save</div>
-                <div class="text-muted" style="font-size:0.8rem;">
-                    The system will automatically load <strong>{{ template.active_items.count }} required document checklist items</strong> for this
-                    {{ subtype }}{% if scope %} ({{ scope }}){% endif %} record. You will then upload each document one by one.
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="d-flex justify-content-between align-items-center">
-            <a href="{% url 'create_step2' %}" class="btn btn-outline-secondary px-4" style="border-radius:10px;">
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <a href="{% url 'create_step2' %}" class="btn btn-outline-secondary px-4 rounded-3" style="font-size: 0.88rem;">
                 ← Back
             </a>
-            <button type="submit" class="btn px-5 py-2 fw-semibold"
-                    style="background:#002855;color:#fff;border-radius:10px;font-size:0.9rem;">
+            <button type="submit" class="btn text-white px-4 py-2 fw-semibold rounded-3"
+                    style="background:#002855; font-size: 0.88rem;">
                 <i data-lucide="save" style="width:16px;height:16px;vertical-align:-2px;margin-right:4px;"></i>
-                Save Record & Load Checklist
+                Save Record &amp; Continue
             </button>
         </div>
     </form>
 </div>
 
 <script>
+function toggleFundingOther(val) {
+    const wrapper = document.getElementById('fundingOtherWrapper');
+    if (wrapper) {
+        wrapper.style.display = (val === 'Others') ? 'block' : 'none';
+    }
+}
 {% if category == 'permit' %}
 // Auto-populate hidden title field from applicant name for permit records
 const applicantInput = document.querySelector('input[name="applicant_name"]');

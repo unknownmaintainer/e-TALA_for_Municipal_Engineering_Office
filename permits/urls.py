@@ -44,6 +44,11 @@ urlpatterns = [
     path('records/<int:record_id>/archive/', views.record_archive_view, name='archive_record'),
     path('records/<int:record_id>/restore/', views.record_restore_view, name='restore_record'),
     path('records/<int:record_id>/download-zip/', views.download_record_zip_view, name='download_record_zip'),
+    path('records/<int:record_id>/download-category/<int:req_id>/', views.download_category_zip_view, name='download_category_zip'),
+    path('records/<int:record_id>/requirement/<int:req_id>/', views.record_requirement_detail_view, name='record_requirement_detail'),
+    path('records/<int:record_id>/batch-upload/', views.batch_upload_documents_view, name='batch_upload_documents'),
+    path('records/bulk-encoding/', views.bulk_encoding_view, name='bulk_encoding'),
+    path('records/<int:record_id>/permanent-delete/', views.permanent_delete_record_view, name='permanent_delete_record'),
 
     # Documents
     path('documents/serve/<str:token>/', views.serve_document_view, name='serve_document'),

@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}Barangays | e-TALA{% endblock %}
+{% block title %}Barangays | eTala{% endblock %}
 
 {% block extra_css %}
 <!-- Leaflet Map CSS -->
@@ -132,7 +132,7 @@
     }
 
     /* CRITICAL: Make page body NOT scroll the whole content together */
-    .erarms-content {
+    .etala-content {
         overflow: visible !important;
     }
     
@@ -801,32 +801,15 @@ document.addEventListener('DOMContentLoaded', function() {
             preferCanvas: true
         }).setView([centerLat, centerLng], 13);
         
-        // Define base maps with optimized lazy tile loading
-        const roadmap = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
+        // Free OpenStreetMap tile layer via Leaflet (No Google Maps API fees)
+        const osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
             keepBuffer: 2,
             updateWhenIdle: true,
-            updateWhenZooming: false,
-            attribution: '© Google Maps'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         });
 
-        const hybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            keepBuffer: 2,
-            updateWhenIdle: true,
-            updateWhenZooming: false,
-            attribution: '© Google Satellite'
-        });
-        
-        // Default base layer: High-definition Google Satellite Hybrid View
-        hybrid.addTo(map);
-        
-        const baseMaps = {
-            "Satellite View": hybrid,
-            "Streets Map": roadmap
-        };
-        
-        L.control.layers(baseMaps, null, { position: 'bottomleft', collapsed: true }).addTo(map);
+        osmMap.addTo(map);
 
         // Reset highlight if user clicks on map background
         map.on('click', function() {

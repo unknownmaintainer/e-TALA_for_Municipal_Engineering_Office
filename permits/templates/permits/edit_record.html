@@ -1,11 +1,11 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}Edit Record — {{ record.title }} — e-TALA{% endblock %}
+{% block title %}Edit Record — {{ record.title }} — eTala{% endblock %}
 
 {% block breadcrumb %}
 <a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none">Records</a>
-<a href="{% url 'record_detail' record.record_id %}" class="breadcrumb-item text-decoration-none">#{{ record.record_id }}</a>
+<a href="{% url 'record_detail' record.record_id %}" class="breadcrumb-item text-decoration-none">{{ record.title|truncatechars:30 }}</a>
 <span class="breadcrumb-item">Edit</span>
 {% endblock %}
 
@@ -28,7 +28,6 @@
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <span class="tag tag-workspace">{% if record.record_type == 'Project' %}Project Record{% else %}Permit Record{% endif %}</span>
-                <span class="tag tag-id">ID: #{{ record.record_id }}</span>
             </div>
             <h1 class="mb-0" style="font-size: 1.5rem;">Edit Record Information</h1>
         </div>
@@ -158,7 +157,14 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label text-muted small fw-semibold mb-1">Funding Source</label>
-                                <input type="text" name="funding_source" class="form-control" value="{{ project_detail.funding_source|default:'' }}" placeholder="e.g. DPWH, LGU Fund" style="border-radius: 6px; font-size: 0.85rem; padding: 7px 11px;">
+                                <select name="funding_source" id="editFundingSourceSelect" class="form-select" onchange="toggleEditFundingOther(this.value)" style="border-radius: 6px; font-size: 0.85rem; padding: 7px 11px;">
+                                    {% for val, label in funding_sources %}
+                                    <option value="{{ val }}" {% if project_detail and project_detail.funding_source == val %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div id="editFundingOtherWrapper" class="mt-2" style="display: {% if project_detail and project_detail.funding_source == 'Others' %}block{% else %}none{% endif %};">
+                                    <input type="text" name="funding_source_other" class="form-control" value="{{ project_detail.funding_source_other|default:'' }}" placeholder="Specify other funding source..." style="border-radius: 6px; font-size: 0.85rem; padding: 7px 11px;">
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label text-muted small fw-semibold mb-1">Project Cost (₱)</label>
@@ -195,42 +201,38 @@
         <!-- RIGHT COLUMN: Record Summary & Actions -->
         <div class="col-lg-4 d-flex flex-column">
             <div class="content-card record-summary-card flex-grow-1 d-flex flex-column">
-                <div class="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom">
+                <div class="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom gap-2">
                     <h6 class="record-summary-header m-0 d-flex align-items-center gap-2">
-                        <i data-lucide="info" style="width: 16px; height: 16px; color: #64748b;"></i> RECORD SUMMARY
+                        <i data-lucide="info" style="width: 16px; height: 16px; color: #64748b; flex-shrink: 0;"></i> RECORD SUMMARY
                     </h6>
-                    <span class="status-indicator status-indicator-{{ record.status }}">{{ record.get_status_display }}</span>
+                    <span class="status-indicator status-indicator-{{ record.status }}" style="white-space: nowrap; flex-shrink: 0;">{{ record.get_status_display }}</span>
                 </div>
 
                 <div class="d-flex flex-column">
-                    <div class="record-summary-row">
-                        <span class="record-summary-label">Record ID</span>
-                        <span class="record-summary-value fw-bold">#{{ record.record_id }}</span>
-                    </div>
 
                     <div class="record-summary-row">
                         <span class="record-summary-label">Record Type</span>
-                        <span class="badge" style="background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; font-size: 0.75rem; font-weight: 600; padding: 4px 12px; border-radius: 6px;">{{ record.record_type }}</span>
+                        <span class="badge" style="background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; font-size: 0.75rem; font-weight: 600; padding: 4px 12px; border-radius: 6px; white-space: nowrap;">{{ record.record_type }}</span>
                     </div>
 
                     <div class="record-summary-row">
                         <span class="record-summary-label">Barangay</span>
-                        <span class="record-summary-value">{{ record.barangay.barangay_name|default:"Unassigned" }}</span>
+                        <span class="record-summary-value" title="{{ record.barangay.barangay_name|default:'Unassigned' }}">{{ record.barangay.barangay_name|default:"Unassigned" }}</span>
                     </div>
 
                     <div class="record-summary-row">
                         <span class="record-summary-label">Encoded By</span>
-                        <span class="record-summary-value fw-bold">{{ record.created_by.full_name|default:record.created_by.username }}</span>
+                        <span class="record-summary-value fw-bold" title="{{ record.created_by.full_name|default:record.created_by.username }}">{{ record.created_by.full_name|default:record.created_by.username }}</span>
                     </div>
 
                     <div class="record-summary-row">
                         <span class="record-summary-label">Encoded Date</span>
-                        <span class="text-muted small fw-medium">{{ record.created_at|date:"M d, Y" }}</span>
+                        <span class="record-summary-value">{{ record.created_at|date:"M d, Y" }}</span>
                     </div>
 
                     <div class="record-summary-row">
                         <span class="record-summary-label">Last Updated</span>
-                        <span class="text-muted small fw-medium">{{ record.updated_at|date:"M d, Y" }}</span>
+                        <span class="record-summary-value">{{ record.updated_at|date:"M d, Y" }}</span>
                     </div>
                 </div>
 
@@ -247,5 +249,14 @@
         </div>
     </div>
 </form>
+
+<script>
+function toggleEditFundingOther(val) {
+    const wrapper = document.getElementById('editFundingOtherWrapper');
+    if (wrapper) {
+        wrapper.style.display = (val === 'Others') ? 'block' : 'none';
+    }
+}
+</script>
 
 {% endblock %}

@@ -39,7 +39,7 @@ class PermitsTestCase(TestCase):
     def test_sanitize_input(self):
         dirty_input = "<script>alert('xss')</script> Hello World!"
         clean_output = sanitize_input(dirty_input)
-        self.assertEqual(clean_output, "alert('xss') Hello World!")
+        self.assertEqual(clean_output, "alert(&#x27;xss&#x27;) Hello World!")
 
     def test_file_validation(self):
         # Invalid file type

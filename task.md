@@ -27,7 +27,7 @@
     - [x] Remove the redundant Search button
 - [x] Modify `permits/templates/permits/archive.html`
     - [x] Set search group wrapper style to `max-width: 320px; width: 100%;`
-    - `[x]` Update `assets/css/erarms.css` to fix header font clipping globally
+    - `[x]` Update `assets/css/etala.css` to fix header font clipping globally
 - `[x]` Redesign `permits/templates/permits/edit_record.html` layout (move buttons to bottom of form, fix header alignment)
 - `[x]` Clean up duplicate status fields (hide record status for projects, sync in backend)
 - `[x]` Verify changes and test edit form behavior

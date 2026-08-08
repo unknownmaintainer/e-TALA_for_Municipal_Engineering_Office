@@ -195,17 +195,38 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
-# Cloudinary Storage Configuration
+# Storage Configuration: Supabase Storage (Preferred) -> Cloudinary -> FileSystemStorage
+supabase_url = os.getenv('SUPABASE_URL', '').strip()
+supabase_key = (os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY', '')).strip()
+supabase_bucket = os.getenv('SUPABASE_BUCKET_NAME', 'etala-documents').strip()
+
+SUPABASE_URL = supabase_url
+SUPABASE_KEY = supabase_key
+SUPABASE_BUCKET_NAME = supabase_bucket
+
+# Cloudinary Storage Configuration (Legacy / Alternative)
+cloudinary_name = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
+cloudinary_key = os.getenv('CLOUDINARY_API_KEY', '').strip()
+cloudinary_secret = os.getenv('CLOUDINARY_API_SECRET', '').strip()
+cloudinary_url = os.getenv('CLOUDINARY_URL', '').strip()
+
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME', '').strip(),
-    'API_KEY': os.getenv('CLOUDINARY_API_KEY', '').strip(),
-    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET', '').strip(),
+    'CLOUD_NAME': cloudinary_name or 'placeholder',
+    'API_KEY': cloudinary_key or 'placeholder',
+    'API_SECRET': cloudinary_secret or 'placeholder',
 }
 
-cloudinary_url = os.getenv('CLOUDINARY_URL', '').strip()
-cloudinary_name = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
-
-if cloudinary_url or (cloudinary_name and os.getenv('CLOUDINARY_API_KEY')):
+if supabase_url and supabase_key:
+    DEFAULT_FILE_STORAGE = 'permits.storage.SupabaseStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "permits.storage.SupabaseStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+elif (cloudinary_url and cloudinary_key) or (cloudinary_name and cloudinary_key and cloudinary_secret):
     DEFAULT_FILE_STORAGE = 'permits.storage.DynamicCloudinaryStorage'
     STORAGES = {
         "default": {
@@ -290,23 +311,12 @@ AXES_CLIENT_IP_CALLABLE = 'permits.utils.get_client_ip'
 AXES_VERBOSE = False  # Suppress noisy terminal output during development
 
 # CORS
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').strip().lower() in ('true', '1', 't', 'y', 'yes')
+CORS_ALLOWED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+]
 
-# Cloudinary Storage Settings (will use CLOUDINARY_URL from environment)
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
-    'SECURE': True,
-}
-STORAGES = {
-    "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
 
 WHITENOISE_MANIFEST_STRICT = False
 

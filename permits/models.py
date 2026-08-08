@@ -27,6 +27,15 @@ class CustomUser(AbstractUser):
             self.role = 'admin'
         super().save(*args, **kwargs)
 
+    @property
+    def profile_picture_url(self):
+        if not self.profile_picture:
+            return ''
+        try:
+            return self.profile_picture.url
+        except Exception:
+            return ''
+
 
 class PasswordHistory(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='password_histories')
@@ -219,16 +228,19 @@ class EngineeringRecord(models.Model):
 
     @property
     def completion_stats(self):
-        """Returns dict with total, fulfilled, pct, and missing item names."""
+        """Returns dict with total, fulfilled, pct, and missing item names for leaf requirement uploads."""
         reqs = self.requirements.select_related('requirement_item', 'document')
-        total = reqs.count()
+        
+        # Leaf requirement items (not parent container groups)
+        leaf_reqs = [r for r in reqs if not r.requirement_item.is_parent_group]
+        total = len(leaf_reqs)
         
         from django.utils import timezone
         today = timezone.now().date()
         
         fulfilled = 0
         missing = []
-        for r in reqs:
+        for r in leaf_reqs:
             is_ok = (r.is_fulfilled and r.document is not None) or r.is_waived
             if is_ok and r.document and r.document.expiry_date:
                 if r.document.expiry_date < today:
@@ -303,13 +315,30 @@ class ProjectDetail(models.Model):
         ('Suspended', 'Suspended'),
     )
 
+    FUNDING_SOURCE_CHOICES = (
+        ('General Fund', 'General Fund'),
+        ('20% Development Fund', '20% Development Fund'),
+        ('LDRRM Fund', 'LDRRM Fund'),
+        ('Trust Fund', 'Trust Fund'),
+        ('National Government Fund', 'National Government Fund'),
+        ('Provincial Government Fund', 'Provincial Government Fund'),
+        ('DPWH', 'DPWH'),
+        ('DILG', 'DILG'),
+        ('DOH', 'DOH'),
+        ('DepEd', 'DepEd'),
+        ('Private', 'Private'),
+        ('NGO', 'NGO'),
+        ('Others', 'Others'),
+    )
+
     engineering_record = models.OneToOneField(
         EngineeringRecord, on_delete=models.CASCADE, related_name='project_detail'
     )
     project_type = models.CharField(max_length=50, choices=PROJECT_TYPE_CHOICES)
-    funding_source = models.CharField(max_length=255, blank=True, default='')
+    funding_source = models.CharField(max_length=255, choices=FUNDING_SOURCE_CHOICES, blank=True, default='General Fund')
+    funding_source_other = models.CharField(max_length=255, blank=True, default='', help_text='Specified if Funding Source is Others')
     contractor = models.CharField(max_length=255, blank=True, default='')
-    project_cost = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    project_cost = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
     project_status = models.CharField(max_length=20, choices=PROJECT_STATUS_CHOICES, default='Planning')
 
     def __str__(self):
@@ -405,6 +434,14 @@ class RequirementItem(models.Model):
     template = models.ForeignKey(
         RequirementTemplate, on_delete=models.CASCADE, related_name='items'
     )
+    parent = models.ForeignKey(
+        'self', on_delete=models.CASCADE, null=True, blank=True, related_name='sub_items',
+        help_text='Parent requirement item if this is a sub-document (e.g. Architectural Plan under Building Plan)'
+    )
+    is_group = models.BooleanField(
+        default=False,
+        help_text='True if this item is a parent container group holding child requirements (e.g. Building Plans).'
+    )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default='')
     order = models.PositiveIntegerField(default=0)
@@ -416,6 +453,10 @@ class RequirementItem(models.Model):
 
     def __str__(self):
         return f"{self.template} › {self.name}"
+
+    @property
+    def is_parent_group(self):
+        return self.is_group or self.sub_items.filter(is_active=True).exists()
 
 
 class RecordRequirement(models.Model):
@@ -446,6 +487,44 @@ class RecordRequirement(models.Model):
     def __str__(self):
         status = '✓' if self.is_fulfilled else '☐'
         return f"{status} {self.record.title} › {self.requirement_item.name}"
+
+    @property
+    def is_parent_group(self):
+        return self.requirement_item.is_parent_group
+
+    @property
+    def child_requirements(self):
+        return RecordRequirement.objects.filter(
+            record=self.record,
+            requirement_item__parent=self.requirement_item,
+            requirement_item__is_active=True
+        ).select_related('requirement_item', 'document', 'fulfilled_by')
+
+    @property
+    def group_stats(self):
+        """Computes completion statistics for a parent group container."""
+        children = list(self.child_requirements)
+        total = len(children)
+        if total == 0:
+            return {'total': 0, 'fulfilled': 0, 'is_complete': False, 'pct': 0}
+        
+        from django.utils import timezone
+        today = timezone.now().date()
+        fulfilled = 0
+        for c in children:
+            is_ok = (c.is_fulfilled and c.document is not None) or c.is_waived
+            if is_ok and c.document and c.document.expiry_date:
+                if c.document.expiry_date < today:
+                    is_ok = False
+            if is_ok:
+                fulfilled += 1
+        pct = int((fulfilled / total) * 100)
+        return {
+            'total': total,
+            'fulfilled': fulfilled,
+            'is_complete': fulfilled == total,
+            'pct': pct,
+        }
 
 
 # ─── LEGACY Record model (kept for migration) ────────────────────────────────

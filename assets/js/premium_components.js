@@ -1,5 +1,5 @@
 /**
- * ERARMS Premium Components JS
+ * eTala Premium Components JS
  */
 
 function changePerPage(val) {

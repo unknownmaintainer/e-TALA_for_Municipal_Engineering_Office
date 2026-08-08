@@ -1,8 +1,8 @@
-# e-TALA_for_Municipal_Engineering_Office
+# eTala for Municipal Engineering Office
 
-# Engineering Records Archiving & Retrieval Management System (ERARMS)
+# eTala Engineering Records Archiving & Retrieval System
 
-ERARMS is a comprehensive, Django-based records management system designed for the Municipal Engineering Office. It serves as a central repository for digitizing, tracking, and managing building permits, municipal and barangay projects, and all associated documentation.
+eTala is a comprehensive, Django-based records management system designed for the Municipal Engineering Office. It serves as a central repository for digitizing, tracking, and managing building permits, municipal and barangay projects, and all associated documentation.
 
 The system is built with a clean, accessible, and government-standard design philosophy, ensuring ease of use for all staff members while maintaining robust functionality.
 

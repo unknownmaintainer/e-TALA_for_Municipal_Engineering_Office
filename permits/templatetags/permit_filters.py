@@ -31,3 +31,15 @@ def param_replace(context, **kwargs):
     return d.urlencode()
 
 
+@register.filter(name='safe_url')
+def safe_url(file_field):
+    """Safely retrieves the .url property of a FieldFile without raising Cloudinary/Storage exceptions."""
+    if not file_field:
+        return ''
+    try:
+        return file_field.url
+    except Exception:
+        return ''
+
+
+

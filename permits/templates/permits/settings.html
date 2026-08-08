@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}Settings | e-TALA{% endblock %}
+{% block title %}Settings | eTala{% endblock %}
 
 {% block content %}
 
@@ -184,6 +184,8 @@
                                                 {% for item in t.items.all %}
                                                 {
                                                     "id": "{{ item.item_id }}",
+                                                    "parent_id": "{{ item.parent_id|default:'' }}",
+                                                    "is_group": {{ item.is_parent_group|yesno:"true,false" }},
                                                     "name": "{{ item.name|escapejs }}",
                                                     "description": "{{ item.description|escapejs }}",
                                                     "is_required": {{ item.is_required|yesno:"true,false" }},
@@ -329,15 +331,28 @@
 
                                 <!-- 3. Add New Requirement Form -->
                                 <div class="border-top pt-4">
-                                    <h6 class="fw-bold text-dark mb-3" style="font-size: 0.85rem;">Add New Requirement Item</h6>
+                                    <h6 class="fw-bold text-dark mb-3" style="font-size: 0.85rem;">Add New Requirement Item / Group</h6>
                                     <form method="POST" action="{% url 'settings' %}">
                                         {% csrf_token %}
                                         <input type="hidden" name="action" value="add_requirement_item">
                                         <input type="hidden" name="template_id" id="modal-add-template-id" value="">
                                         <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label text-muted small fw-semibold">Item Category / Type</label>
+                                                <select name="is_group" id="modal-add-is-group" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;" onchange="toggleAddParentSelect()">
+                                                    <option value="false">Child / Single Requirement Document</option>
+                                                    <option value="true">📁 Document Group (Parent Container)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6" id="modal-add-parent-container">
+                                                <label class="form-label text-muted small fw-semibold">Parent Group (Optional)</label>
+                                                <select name="parent_id" id="modal-add-parent-id" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
+                                                    <option value="">None (Top-Level Requirement)</option>
+                                                </select>
+                                            </div>
                                             <div class="col-md-8">
                                                 <label class="form-label text-muted small fw-semibold">Requirement Title</label>
-                                                <input type="text" name="name" class="form-control form-control-sm" placeholder="E.g. Barangay Clearance, Zoning Certificate" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
+                                                <input type="text" name="name" class="form-control form-control-sm" placeholder="E.g. Building Plans, Tax Declaration, Architectural Plan" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label text-muted small fw-semibold">Mandatory / Optional</label>
@@ -351,7 +366,7 @@
                                                 <input type="text" name="description" class="form-control form-control-sm" placeholder="Helpful details, instructions, or format requirements for users" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
                                             </div>
                                             <div class="col-md-12 d-flex justify-content-end mt-2">
-                                                <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4" style="font-size:0.8rem; border-radius: 6px;">Add Item</button>
+                                                <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4" style="font-size:0.8rem; border-radius: 6px;">Add Requirement</button>
                                             </div>
                                         </div>
                                     </form>
@@ -383,38 +398,20 @@
         border-left: 4px solid var(--ph-gold) !important;
         box-shadow: var(--shadow-sm);
     }
-
-    /* Inner Logs Tab Navigation Styling */
-    .logs-tab-btn {
-        background: transparent;
-        border: none;
-        padding: 0.5rem 1.1rem;
-        font-weight: 700;
-        font-size: 0.85rem;
-        color: var(--gray-500);
-        position: relative;
-        transition: all 0.22s ease;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        border-radius: 6px;
-        border-bottom: 2px solid transparent;
-    }
-    .logs-tab-btn:hover {
-        color: var(--navy);
-        background-color: var(--gray-100);
-    }
-    .logs-tab-btn.active {
-        color: var(--navy);
-        background-color: var(--ph-gold-light) !important;
-        border-bottom: 2px solid var(--ph-gold) !important;
-    }
-    .tab-pane-custom {
-        transition: opacity 0.15s ease-in-out;
-    }
 </style>
 
 <script>
+    function toggleAddParentSelect() {
+        const isGroup = document.getElementById('modal-add-is-group').value === 'true';
+        const parentContainer = document.getElementById('modal-add-parent-container');
+        if (isGroup) {
+            parentContainer.style.display = 'none';
+            document.getElementById('modal-add-parent-id').value = '';
+        } else {
+            parentContainer.style.display = 'block';
+        }
+    }
+
     function openManageModal(templateId) {
         const dataEl = document.getElementById('template-data-' + templateId);
         if (!dataEl) return;
@@ -428,6 +425,18 @@
         document.getElementById('modal-is-active').value = data.is_active ? 'true' : 'false';
         document.getElementById('modal-title-text').textContent = 'Manage Checklist: ' + data.record_type + ' — ' + data.subtype;
         
+        // Populate Parent Group select options
+        const parentSelect = document.getElementById('modal-add-parent-id');
+        parentSelect.innerHTML = '<option value="">None (Top-Level Requirement)</option>';
+        
+        const parentGroups = data.items.filter(item => item.is_group || (!item.parent_id && data.items.some(child => child.parent_id === item.id)));
+        parentGroups.forEach(group => {
+            const opt = document.createElement('option');
+            opt.value = group.id;
+            opt.textContent = '📁 Group: ' + group.name;
+            parentSelect.appendChild(opt);
+        });
+
         // Clear & populate items list
         const listContainer = document.getElementById('modal-requirements-list');
         listContainer.innerHTML = '';
@@ -437,25 +446,75 @@
         if (data.items.length === 0) {
             listContainer.innerHTML = '<div class="text-center py-4 text-muted small bg-light rounded-3">No requirements configured for this template.</div>';
         } else {
-            data.items.forEach(item => {
+            // Group items by parent_id
+            const parents = data.items.filter(i => !i.parent_id);
+            
+            parents.forEach(item => {
+                const children = data.items.filter(c => c.parent_id === item.id);
+                const isGroup = item.is_group || children.length > 0;
+                
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'p-3 border rounded-3 bg-white mb-2';
+                itemDiv.className = isGroup ? 'p-3 border rounded-3 bg-light mb-2.5' : 'p-3 border rounded-3 bg-white mb-2';
                 itemDiv.style.borderRadius = '8px';
+                if (isGroup) {
+                    itemDiv.style.borderLeft = '4px solid #2563eb';
+                }
                 
                 const requiredBadge = item.is_required 
                     ? '<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #fee2e2; color: #b91c1c;">Required</span>'
                     : '<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #475569;">Optional</span>';
+
+                const groupBadge = isGroup 
+                    ? `<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0284c7;">📁 Document Group (${children.length} child reqs)</span>`
+                    : '';
                 
                 const descriptionHtml = item.description 
                     ? `<div class="text-muted small mt-0.5" style="font-size: 0.72rem;">${escapeHtml(item.description)}</div>`
                     : '';
 
+                let childrenHtml = '';
+                if (children.length > 0) {
+                    childrenHtml = '<div class="mt-2.5 pt-2 border-top d-flex flex-column gap-1.5 ps-2" style="border-left: 2px solid #cbd5e1; margin-left: 4px;">';
+                    children.forEach(child => {
+                        const childReqBadge = child.is_required 
+                            ? '<span class="badge" style="font-size: 0.58rem; padding: 1px 5px; background: #fee2e2; color: #b91c1c;">Required</span>'
+                            : '<span class="badge" style="font-size: 0.58rem; padding: 1px 5px; background: #f1f5f9; color: #475569;">Optional</span>';
+
+                        childrenHtml += `
+                            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-white border">
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-dark" style="font-size: 0.78rem;">📄 ${escapeHtml(child.name)}</div>
+                                    <div class="d-flex gap-1 mt-0.5">${childReqBadge}</div>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary p-0" style="width: 24px; height: 24px; border-radius: 4px;" onclick="toggleEditItemCollapse('${child.id}')" title="Edit">
+                                        <i data-lucide="edit-3" style="width:11px; height:11px;"></i>
+                                    </button>
+                                    <form method="POST" action="{% url 'settings' %}" id="deleteReqItemForm-${child.id}">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
+                                        <input type="hidden" name="action" value="delete_requirement_item">
+                                        <input type="hidden" name="item_id" value="${child.id}">
+                                        <input type="hidden" name="template_id" value="${data.id}">
+                                        <button type="button" class="btn btn-sm btn-outline-danger p-0" style="width: 24px; height: 24px; border-radius: 4px;" title="Delete" onclick="confirmDeleteReqItem('deleteReqItemForm-${child.id}', '${child.name.replace(/'/g, "\\'")}')">
+                                            <i data-lucide="trash" style="width:11px; height:11px;"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    childrenHtml += '</div>';
+                }
+
                 itemDiv.innerHTML = `
                     <div class="d-flex align-items-center justify-content-between gap-3">
                         <div class="min-w-0">
-                            <div class="fw-semibold text-dark" style="font-size: 0.82rem;">${escapeHtml(item.name)}</div>
+                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">
+                                ${isGroup ? '📁' : '📄'} ${escapeHtml(item.name)}
+                            </div>
                             ${descriptionHtml}
                             <div class="mt-1 d-flex gap-1.5 flex-wrap">
+                                ${groupBadge}
                                 ${requiredBadge}
                             </div>
                         </div>
@@ -464,7 +523,7 @@
                                 <i data-lucide="edit-3" style="width:13px; height:13px;"></i>
                             </button>
                             <form method="POST" action="{% url 'settings' %}" id="deleteReqItemForm-${item.id}">
-                                {% csrf_token %}
+                                <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
                                 <input type="hidden" name="action" value="delete_requirement_item">
                                 <input type="hidden" name="item_id" value="${item.id}">
                                 <input type="hidden" name="template_id" value="${data.id}">
@@ -474,22 +533,28 @@
                             </form>
                         </div>
                     </div>
-                    
+
                     <!-- Edit Requirement Item form -->
                     <div class="mt-3 border-top pt-3" id="edit-item-form-${item.id}" style="display: none;">
                         <form method="POST" action="{% url 'settings' %}">
-                            {% csrf_token %}
-
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
                             <input type="hidden" name="action" value="edit_requirement_item">
                             <input type="hidden" name="item_id" value="${item.id}">
                             <input type="hidden" name="template_id" value="${data.id}">
                             <div class="row g-2">
-                                <div class="col-md-8">
+                                <div class="col-md-6">
                                     <label class="form-label text-muted small fw-semibold">Requirement Title</label>
                                     <input type="text" name="name" class="form-control form-control-sm" value="${escapeHtml(item.name)}" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label text-muted small fw-semibold">Type</label>
+                                    <select name="is_group" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
+                                        <option value="false" ${!item.is_group ? 'selected' : ''}>Document</option>
+                                        <option value="true" ${item.is_group ? 'selected' : ''}>📁 Document Group</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label text-muted small fw-semibold">Mandatory</label>
                                     <select name="is_required" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
                                         <option value="true" ${item.is_required ? 'selected' : ''}>Required</option>
                                         <option value="false" ${!item.is_required ? 'selected' : ''}>Optional</option>
@@ -506,6 +571,8 @@
                             </div>
                         </form>
                     </div>
+
+                    ${childrenHtml}
                 `;
                 listContainer.appendChild(itemDiv);
             });

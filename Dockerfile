@@ -27,8 +27,13 @@ COPY . /app/
 # Build static assets (WhiteNoise will serve them)
 RUN python manage.py collectstatic --no-input
 
+# Create non-root user for container security
+RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Expose port
 EXPOSE 8000
 
 # Start gunicorn WSGI server
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "etala_project.wsgi:application"]
+
