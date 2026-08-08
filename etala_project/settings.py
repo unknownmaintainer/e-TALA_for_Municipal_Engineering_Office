@@ -318,17 +318,36 @@ CORS_ALLOWED_ORIGINS = [
 
 WHITENOISE_MANIFEST_STRICT = False
 
-# ── Resend SMTP Email Configuration ───────────────────────────────────────────
-# Resend provides reliable transactional email delivery via SMTP.
-# Set RESEND_API_KEY in environment variables to enable.
-EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST          = 'smtp.resend.com'
-EMAIL_PORT          = 465
-EMAIL_USE_SSL       = True
-EMAIL_USE_TLS       = False
-EMAIL_HOST_USER     = 'resend'
-EMAIL_HOST_PASSWORD = os.getenv('RESEND_API_KEY', '')
-DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
+# ── Hybrid Email Configuration: Gmail SMTP (All Emails) -> Resend -> Console ──
+# If Gmail App Password is provided (EMAIL_HOST_USER + EMAIL_HOST_PASSWORD), sends to ANY email in the world.
+# If RESEND_API_KEY is provided, uses Resend transactional delivery.
+# Otherwise, prints to console for offline development.
+
+gmail_user = os.getenv('EMAIL_HOST_USER', '').strip()
+gmail_pass = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
+resend_key = os.getenv('RESEND_API_KEY', '').strip()
+
+if gmail_user and gmail_pass:
+    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST          = 'smtp.gmail.com'
+    EMAIL_PORT          = 587
+    EMAIL_USE_TLS       = True
+    EMAIL_USE_SSL       = False
+    EMAIL_HOST_USER     = gmail_user
+    EMAIL_HOST_PASSWORD = gmail_pass
+    DEFAULT_FROM_EMAIL  = gmail_user
+elif resend_key:
+    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST          = 'smtp.resend.com'
+    EMAIL_PORT          = 465
+    EMAIL_USE_SSL       = True
+    EMAIL_USE_TLS       = False
+    EMAIL_HOST_USER     = 'resend'
+    EMAIL_HOST_PASSWORD = resend_key
+    DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
+else:
+    EMAIL_BACKEND       = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL  = 'noreply@etala.local'
 
 
 # Configure file-based loggers
