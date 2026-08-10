@@ -143,18 +143,10 @@ class PermitsTestCase(TestCase):
         # Should be masked
         self.assertEqual(response.data['budget_amount'], '₱*,***,***.**')
 
-    def test_api_records_engineer_unmasking(self):
+    def test_api_records_admin_unmasking(self):
         from django.urls import reverse
         from rest_framework_simplejwt.tokens import RefreshToken
         from permits.models import Record, Category
-        
-        # Create engineer
-        engineer = CustomUser.objects.create_user(
-            username='engineeruser',
-            email='engineeruser@gmail.com',
-            password='Password123',
-            role='engineer'
-        )
         
         # Create category
         cat = Category.objects.create(category_name="Building Permit")
@@ -169,8 +161,8 @@ class PermitsTestCase(TestCase):
             created_by=self.staff
         )
         
-        # Authenticate as engineer
-        refresh = RefreshToken.for_user(engineer)
+        # Authenticate as admin (Engineering Office Head)
+        refresh = RefreshToken.for_user(self.admin)
         auth_header = f'Bearer {refresh.access_token}'
         
         url = reverse('api_record-detail', kwargs={'pk': rec.record_id})
@@ -242,41 +234,22 @@ class RolePermissionsAndCleanupTestCase(TestCase):
             requirement_item=self.item
         )
 
-    def test_engineer_reports_access(self):
+    def test_staff_reports_access(self):
         from django.urls import reverse
-        # Logged in as staff -> Blocked
+        # Logged in as staff -> Allowed
         self.client.login(username='staffuser', password='Password123')
-        response = self.client.get(reverse('reports'))
-        self.assertEqual(response.status_code, 403)
-
-        # Logged in as engineer -> Allowed
-        self.client.login(username='engineeruser', password='Password123')
         response = self.client.get(reverse('reports'))
         self.assertEqual(response.status_code, 200)
 
-    def test_engineer_read_only_restriction(self):
-        from django.urls import reverse
-        self.client.login(username='engineeruser', password='Password123')
-        
-        # Creating a record should be blocked
-        response = self.client.get(reverse('create_record'))
-        self.assertEqual(response.status_code, 403)
-
-        # Document upload should be blocked
-        url = reverse('upload_document', kwargs={'record_id': self.record.record_id})
-        doc_file = SimpleUploadedFile("test.pdf", b"pdf content", content_type="application/pdf")
-        response = self.client.post(url, {'document_file': doc_file})
-        self.assertEqual(response.status_code, 403)
+        # Logged in as admin -> Allowed
+        self.client.login(username='adminuser', password='Password123')
+        response = self.client.get(reverse('reports'))
+        self.assertEqual(response.status_code, 200)
 
     def test_archive_view_restricted_to_admin(self):
         from django.urls import reverse
         # Logged in as staff -> Blocked
         self.client.login(username='staffuser', password='Password123')
-        response = self.client.get(reverse('archive'))
-        self.assertEqual(response.status_code, 403)
-
-        # Logged in as engineer -> Blocked
-        self.client.login(username='engineeruser', password='Password123')
         response = self.client.get(reverse('archive'))
         self.assertEqual(response.status_code, 403)
 
@@ -426,7 +399,7 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         # Check Audit Log
         audit_entry = AuditLog.objects.filter(target_record_id=record.record_id).first()
         self.assertIsNotNone(audit_entry)
-        self.assertIn("Flagged Illegal Construction", audit_entry.action)
+        self.assertIn("Reported violation", audit_entry.action)
 
     def test_dynamic_cloudinary_storage_routing(self):
         from permits.storage import DynamicCloudinaryStorage

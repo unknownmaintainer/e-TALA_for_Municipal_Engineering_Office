@@ -23,8 +23,8 @@ class RecordViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Record.objects.filter(status='active').select_related('barangay', 'category', 'created_by')
         
-        # Admin and Engineer can see all active records.
-        if user.role in ['admin', 'engineer']:
+        # Admin (Engineering Office Head) can see all active records.
+        if user.role == 'admin':
             return queryset
         
         # Staff can only see their own created records.

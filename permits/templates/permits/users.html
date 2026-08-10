@@ -1,39 +1,151 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}User Management | eTala{% endblock %}
+{% block title %}User Management — eTala{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Modern User Management & Settings ("After" Design System) ─────────────── */
+.user-stat-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px 20px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.user-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+}
+.dark-mode .user-stat-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+/* Grouped List Items ("After" reference) */
+.user-group-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    position: relative;
+}
+.user-group-card > div:first-child {
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+}
+.user-group-card > div:last-child {
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+}
+.dark-mode .user-group-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.user-row-item {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.user-row-item:last-child {
+    border-bottom: none;
+}
+.user-row-item:hover {
+    background-color: #f8fafc;
+}
+.dark-mode .user-row-item {
+    border-bottom-color: #334155;
+}
+.dark-mode .user-row-item:hover {
+    background-color: rgba(51, 65, 85, 0.4);
+}
+
+/* Modern Switch Toggle */
+.custom-switch-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    margin: 0;
+}
+.custom-switch-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.custom-switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #cbd5e1;
+    transition: .3s;
+    border-radius: 24px;
+}
+.custom-switch-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.custom-switch-toggle input:checked + .custom-switch-slider {
+    background-color: #10b981;
+}
+.custom-switch-toggle input:checked + .custom-switch-slider:before {
+    transform: translateX(20px);
+}
+.dark-mode .custom-switch-slider {
+    background-color: #475569;
+}
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'dashboard' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Dashboard</a>
+<span class="breadcrumb-item">User Management</span>
+{% endblock %}
 
 {% block content %}
 
 {% if messages %}
-<div class="mb-3">
+<div class="mb-4">
     {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size:0.85rem;">
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-3 border-0 py-2.5 px-3.5 shadow-sm" role="alert" style="font-size: 0.86rem;">
         {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     {% endfor %}
 </div>
 {% endif %}
 
-<!-- ══ HEADING & TOOLBAR ══════════════════════════════════════════════════ -->
+<!-- ══ HEADER & ACTIONS ═══════════════════════════════════════════════════ -->
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
     <div>
-        <h1 class="h3 fw-bold text-dark mb-1 d-flex align-items-center gap-2">
-            <i class="fa-solid fa-users text-teal" style="font-size: 1.25rem; color: #0d9488;"></i>
-            User Management
+        <h1 class="mb-1 fw-bold" style="font-size: 1.55rem; color: #0f172a; letter-spacing: -0.4px;">
+            User Accounts &amp; Access Control
         </h1>
-        <p class="text-muted mb-0" style="font-size: 0.84rem;">Create new operator accounts, edit profiles, and reset passwords</p>
+        <p class="text-muted mb-0" style="font-size: 0.88rem; font-weight: 500;">
+            Manage operator credentials, roles, and administrative permissions.
+        </p>
     </div>
     
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <!-- Search Input -->
         <form method="GET" action="{% url 'users' %}" class="m-0">
-            <div class="d-flex align-items-center filter-search-group px-3" style="width: 260px; height: 38px; border-radius: 10px;">
-                <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b;"></i>
-
+            <div class="d-flex align-items-center px-3 rounded-3 border shadow-2xs" style="background: #ffffff; width: 240px; height: 38px; border-color: #cbd5e1;">
+                <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #94a3b8;"></i>
                 <input type="text" name="q" class="form-control border-0 p-0 shadow-none bg-transparent" placeholder="Search user..." value="{{ q|default:'' }}" style="font-size: 0.82rem;">
                 {% if q %}
-                <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-1 text-decoration-none" title="Clear search">
+                <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-1 text-decoration-none" title="Clear">
                     <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                 </a>
                 {% endif %}
@@ -41,226 +153,356 @@
         </form>
 
         {% if request.user.role == 'admin' %}
-        <button class="btn btn-primary d-inline-flex align-items-center gap-2 fw-bold" data-bs-toggle="modal" data-bs-target="#addUserModal" style="height: 38px; border-radius: 10px; background: #002855; border-color: #002855; font-size: 0.82rem; padding: 0 16px;">
+        <button class="btn btn-dark d-inline-flex align-items-center gap-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#addUserModal" style="height: 38px; border-radius: 10px; font-size: 0.82rem; padding: 0 16px; background: #064e3b; border-color: #064e3b;">
             <i class="fa-solid fa-user-plus" style="font-size: 13px;"></i>
-            <span>Add New User</span>
+            <span>Add User</span>
         </button>
         {% endif %}
     </div>
 </div>
 
-<!-- ══ USERS TABLE CARD ════════════════════════════════════════════════ -->
-<div class="content-card shadow-sm border-0 rounded-4 mb-4">
-    <div class="content-card-body p-0">
-        <div class="table-responsive">
-            <table class="data-table align-middle mb-0" style="width: 100%;">
-                <thead>
-                    <tr>
-                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">User Name</th>
-                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Email Address</th>
-                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Role</th>
-                        <th style="padding: 14px 18px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Date Joined</th>
-                        <th class="text-end" style="padding: 14px 18px; width: 80px;"></th>
-                    </tr>
+<!-- ══ INTERACTIVE USER & ROLE TABS ═════════════════════════════════════ -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+    <ul class="nav nav-pills report-nav-pill gap-1" id="userTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="user-accounts-tab" data-bs-toggle="pill" data-bs-target="#tab-user-accounts" type="button" role="tab" onclick="updateUserGuide('User Accounts & Access Control', 'Manage active operator accounts, credentials, and toggle account activation status.')">
+                <i class="fa-solid fa-users me-1.5" style="font-size: 13px;"></i> User Accounts ({{ stats.total|default:users.count }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="user-roles-tab" data-bs-toggle="pill" data-bs-target="#tab-user-roles" type="button" role="tab" onclick="updateUserGuide('Roles & Permissions Matrix', 'Full breakdown of authority levels and module capabilities for Administrator, Municipal Engineer, and Engineering Staff.')">
+                <i class="fa-solid fa-shield-halved me-1.5" style="font-size: 13px;"></i> Roles &amp; Permissions Matrix
+            </button>
+        </li>
+    </ul>
+</div>
 
-                </thead>
-                <tbody id="userTableBody">
-                    {% for u in users %}
-                    <tr onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})" style="cursor: pointer; transition: background 0.15s;">
-                        <td class="align-middle" style="padding: 14px 18px;">
-                            <div class="d-flex align-items-center gap-3">
-                                {% if u.profile_picture_url %}
-                                <img src="{{ u.profile_picture_url }}" class="rounded-circle border" style="width:36px; height:36px; object-fit:cover; flex-shrink:0;">
-                                {% else %}
-                                    {% if u.role == 'admin' %}
-                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width:36px; height:36px; font-size:0.8rem; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd;">
-                                        {{ u.username|slice:":2"|upper }}
-                                    </div>
-                                    {% else %}
-                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width:36px; height:36px; font-size:0.8rem; background: #f0fdfa; color: #0d9488; border: 1px solid #ccfbf1;">
-                                        {{ u.username|slice:":2"|upper }}
-                                    </div>
-                                    {% endif %}
-                                {% endif %}
-                                <div>
-                                    <div class="fw-bold text-dark" style="font-size: 0.88rem;">
-                                        {{ u.full_name|default:u.username }}
-                                        {% if not u.is_active %}
-                                        <span class="badge bg-secondary ms-1 fw-bold" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;">Inactive</span>
-                                        {% endif %}
-                                    </div>
-                                    <div class="text-muted" style="font-size:0.75rem;">@{{ u.username }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="text-muted align-middle" style="padding: 14px 18px; font-size: 0.85rem;">{{ u.email }}</td>
-                        <td class="align-middle" style="padding: 14px 18px;">
-                            {% if u.role == 'admin' %}
-                            <span class="badge" style="background: #eff6ff; color: #1d4ed8; font-size: 0.72rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #dbeafe;">Administrator</span>
-                            {% else %}
-                            <span class="badge" style="background: #f0fdfa; color: #0d9488; font-size: 0.72rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #ccfbf1;">Engineering Staff</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-muted align-middle" style="padding: 14px 18px; font-size: 0.82rem;">{{ u.created_at|date:"M d, Y" }}</td>
-                        <td class="text-end align-middle" style="padding: 14px 18px;" onclick="event.stopPropagation();">
-                            <div class="dropdown d-inline-block">
-                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" style="border: none; background: transparent; color: #94a3b8; padding: 4px 8px; border-radius: 6px;">
-                                    <i class="fa-solid fa-ellipsis" style="font-size: 14px;"></i>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end border shadow-sm py-1" style="min-width: 160px; font-size: 0.82rem; border-radius: 8px;">
-                                    <li>
-                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" 
-                                                onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})">
-                                            <i class="fa-solid fa-pen" style="font-size: 12px; color: #3b82f6;"></i>
-                                            Edit Profile
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" 
-                                                onclick="openResetModal('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}')">
-                                            <i class="fa-solid fa-key" style="font-size: 12px; color: #0d9488;"></i>
-                                            Reset Password
-                                        </button>
-                                    </li>
-                                    {% if u != request.user %}
-                                    <li><hr class="dropdown-divider my-1"></li>
-                                    <li>
-                                        <form method="POST" action="{% url 'users' %}" class="d-block m-0">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="action" value="toggle_status">
-                                            <input type="hidden" name="user_id" value="{{ u.id }}">
-                                            {% if u.is_active %}
-                                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger">
-                                                <i class="fa-solid fa-user-xmark" style="font-size: 12px; color: #ef4444;"></i>
-                                                Deactivate Account
-                                            </button>
-                                            {% else %}
-                                            <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 text-success">
-                                                <i class="fa-solid fa-user-check" style="font-size: 12px; color: #10b981;"></i>
-                                                Activate Account
-                                            </button>
-                                            {% endif %}
-                                        </form>
-                                    </li>
-                                    {% endif %}
-                                </ul>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5">
-                            <div class="empty-state-unified py-4 text-center">
-                                <i class="fa-solid fa-users text-muted mb-2" style="font-size: 24px;"></i>
-                                <h6>No users found</h6>
-                                <p class="text-muted small">No registered operators matched your search query.</p>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+<!-- ══ TAB CONTENT ═════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="userTabsContent">
+    <!-- ── TAB 1: USER ACCOUNTS TABLE ── -->
+    <div class="tab-pane fade show active" id="tab-user-accounts" role="tabpanel">
+        <div class="user-group-card shadow-sm mb-4">
+            <!-- Header of Group -->
+            <div class="px-4 py-3 border-bottom d-flex align-items-center justify-content-between" style="background: #ffffff;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-user-group text-muted" style="font-size: 14px;"></i>
+                    <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.92rem;">Registered Operators &amp; Staff</h6>
+                </div>
+                <span class="badge rounded-pill fw-semibold" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 4px 10px;">
+                    {{ page_obj.paginator.count|default:users.count }} total
+                </span>
+            </div>
 
-        <!-- Pagination -->
-        <div class="pagination-bar px-4 py-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2" style="background: var(--gray-50, #f8fafc); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
-            <div class="d-flex align-items-center gap-3">
-                <span class="pagination-info m-0">Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> users</span>
-                <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
-                    <span>Show:</span>
-                    <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 62px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
-                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-                    </select>
+            <!-- Rows -->
+            <div>
+        {% for u in users %}
+        <div class="user-row-item">
+            <!-- Left: Avatar + Details -->
+            <div class="d-flex align-items-center gap-3 min-w-0" style="flex: 1 1 280px;">
+                {% if u.profile_picture_url %}
+                <img src="{{ u.profile_picture_url }}" class="rounded-circle border flex-shrink-0" style="width: 42px; height: 42px; object-fit: cover;">
+                {% else %}
+                    {% if u.role == 'admin' %}
+                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 42px; height: 42px; font-size: 0.85rem; background: #e0f2fe; color: #0284c7; border: 1.5px solid #bae6fd;">
+                        {{ u.username|slice:":2"|upper }}
+                    </div>
+                    {% elif u.role == 'engineer' %}
+                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 42px; height: 42px; font-size: 0.85rem; background: #fef3c7; color: #d97706; border: 1.5px solid #fde68a;">
+                        {{ u.username|slice:":2"|upper }}
+                    </div>
+                    {% else %}
+                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 42px; height: 42px; font-size: 0.85rem; background: #f0fdf4; color: #15803d; border: 1.5px solid #bbf7d0;">
+                        {{ u.username|slice:":2"|upper }}
+                    </div>
+                    {% endif %}
+                {% endif %}
+
+                <div class="min-w-0">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="fw-bold text-dark text-truncate" style="font-size: 0.9rem;">
+                            {{ u.full_name|default:u.username }}
+                        </span>
+                        {% if u.role == 'admin' %}
+                        <span class="badge rounded-pill fw-bold" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; font-size: 0.65rem; padding: 2px 7px;">
+                            Administrator
+                        </span>
+                        {% elif u.role == 'engineer' %}
+                        <span class="badge rounded-pill fw-bold" style="background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; font-size: 0.65rem; padding: 2px 7px;">
+                            Municipal Engineer
+                        </span>
+                        {% else %}
+                        <span class="badge rounded-pill fw-bold" style="background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; font-size: 0.65rem; padding: 2px 7px;">
+                            Engineering Staff
+                        </span>
+                        {% endif %}
+
+                        {% if u == request.user %}
+                        <span class="badge bg-secondary text-white" style="font-size: 0.6rem; padding: 1px 5px;">You</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-muted text-truncate" style="font-size: 0.76rem;">
+                        <span>{{ u.email }}</span> &bull; <span>@{{ u.username }}</span>
+                    </div>
                 </div>
             </div>
-            
-            <div class="d-flex align-items-center gap-2 pagination-controls">
-                {% if page_obj.paginator.num_pages > 5 %}
-                <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
-                    <span>Page:</span>
-                    <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
-                    <span>/ {{ page_obj.paginator.num_pages }}</span>
+
+            <!-- Middle: Joined Date -->
+            <div class="d-none d-lg-block text-muted text-nowrap" style="font-size: 0.78rem;">
+                <i class="fa-regular fa-calendar me-1"></i> Joined {{ u.created_at|date:"M j, Y" }}
+            </div>
+
+            <!-- Right: Status Toggle Switch + Actions Menu -->
+            <div class="d-flex align-items-center gap-3 flex-shrink-0 ms-auto">
+                <!-- Status Toggle Form -->
+                {% if u != request.user %}
+                <form method="POST" action="{% url 'users' %}" class="m-0 d-flex align-items-center gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_status">
+                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                    <label class="custom-switch-toggle" title="{% if u.is_active %}Active Account (Click to deactivate){% else %}Inactive Account (Click to activate){% endif %}">
+                        <input type="checkbox" {% if u.is_active %}checked{% endif %} onchange="this.form.submit()">
+                        <span class="custom-switch-slider"></span>
+                    </label>
+                    <span class="d-none d-sm-inline small fw-medium {% if u.is_active %}text-success{% else %}text-muted{% endif %}" style="font-size: 0.74rem;">
+                        {% if u.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </form>
+                {% else %}
+                <div class="d-flex align-items-center gap-1.5 text-success" style="font-size: 0.74rem;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 13px;"></i>
+                    <span class="fw-semibold">Active</span>
                 </div>
                 {% endif %}
 
-                {% if page_obj.has_other_pages %}
-                <nav>
-                    <ul class="pagination pagination-sm mb-0 gap-1">
-                        {% if page_obj.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}&per_page={{ per_page }}">‹ Prev</a></li>
-                        {% else %}
-                        <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
-                        {% endif %}
-
-                        {% for p in page_obj.paginator.page_range %}
-                        {% if page_obj.number == p %}
-                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                        {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                        <li class="page-item"><a class="page-link" href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}&per_page={{ per_page }}">{{ p }}</a></li>
-                        {% endif %}
-                        {% endfor %}
-
-                        {% if page_obj.has_next %}
-                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}&per_page={{ per_page }}">Next ›</a></li>
-                        {% else %}
-                        <li class="page-item disabled"><span class="page-link">Next ›</span></li>
-                        {% endif %}
+                <!-- Action Dropdown -->
+                <div class="dropdown" onclick="event.stopPropagation();" style="position: relative;">
+                    <button type="button" class="btn btn-light btn-sm border d-flex align-items-center justify-content-center" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-offset="0,8" style="width: 32px; height: 32px; border-radius: 8px; background: #ffffff;">
+                        <i class="fa-solid fa-ellipsis-vertical text-muted" style="font-size: 13px;"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border p-1" style="border-radius: 12px; font-size: 0.82rem; min-width: 175px; z-index: 1050;" onclick="event.stopPropagation();">
+                        <li>
+                            <button type="button" class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2" 
+                                    onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})">
+                                <i class="fa-solid fa-pen-to-square text-primary" style="font-size: 12px; width: 14px;"></i>
+                                <span>Edit Profile</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2" 
+                                    onclick="openResetModal('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}')">
+                                <i class="fa-solid fa-key text-teal" style="font-size: 12px; width: 14px; color: #0d9488;"></i>
+                                <span>Reset Password</span>
+                            </button>
+                        </li>
                     </ul>
-                </nav>
-                {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="py-5 text-center text-muted">
+            <i class="fa-solid fa-users text-muted mb-2" style="font-size: 28px;"></i>
+            <h6>No users found</h6>
+            <p class="small">No operator accounts matched your search query.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination Footer -->
+    {% if page_obj.has_other_pages %}
+    <div class="px-4 py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: #ffffff;">
+        <span class="text-muted small" style="font-size: 0.76rem;">
+            Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        <div class="d-flex align-items-center gap-1.5">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm btn-outline-secondary px-3" style="font-size: 0.76rem; border-radius: 6px;">Previous</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm btn-outline-secondary px-3" style="font-size: 0.76rem; border-radius: 6px;">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+    <!-- ── TAB 2: ROLES & PERMISSIONS MATRIX ── -->
+    <div class="tab-pane fade" id="tab-user-roles" role="tabpanel">
+        <div class="row g-4 mb-4">
+            <!-- Administrator Role Card -->
+            <div class="col-md-4">
+                <div class="content-card h-100 p-4" style="border-radius: 14px;">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; font-size: 0.76rem;">Administrator</span>
+                        <span class="badge bg-light text-muted border">Tier 1 Authority</span>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-2">Full System Administration</h6>
+                    <p class="text-muted small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+                        Complete access to all municipal operations, user provisioning, system security, database backups, audit trail inspection, and document template builders.
+                    </p>
+                    <ul class="list-unstyled mb-0 d-flex flex-column gap-1.5 text-secondary" style="font-size: 0.76rem;">
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Create, edit, and deactivate user accounts</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Backup &amp; restore municipal database</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> System audit trail &amp; IP access control</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Configure document requirement templates</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Municipal Engineer Role Card -->
+            <div class="col-md-4">
+                <div class="content-card h-100 p-4" style="border-radius: 14px;">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge" style="background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; font-size: 0.76rem;">Municipal Engineer</span>
+                        <span class="badge bg-light text-muted border">Tier 2 Technical</span>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-2">Executive Technical Review</h6>
+                    <p class="text-muted small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+                        Technical validation of permits, project verification, issuing official notices for illegal structures, and generating executive reports.
+                    </p>
+                    <ul class="list-unstyled mb-0 d-flex flex-column gap-1.5 text-secondary" style="font-size: 0.76rem;">
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Export Excel and PDF municipal reports</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Flag &amp; regularize illegal construction</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> View system analytics and audit summaries</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Waive or verify checklist requirements</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Engineering Staff Role Card -->
+            <div class="col-md-4">
+                <div class="content-card h-100 p-4" style="border-radius: 14px;">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge" style="background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; font-size: 0.76rem;">Engineering Staff</span>
+                        <span class="badge bg-light text-muted border">Tier 3 Operational</span>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-2">Encoding &amp; Document Operations</h6>
+                    <p class="text-muted small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+                        Daily operational workflow for digitizing paper records, batch uploading applicant plans, and verifying required compliance items.
+                    </p>
+                    <ul class="list-unstyled mb-0 d-flex flex-column gap-1.5 text-secondary" style="font-size: 0.76rem;">
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Create &amp; encode new engineering records</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Batch upload and preview PDF documents</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Instant search &amp; retrieval across barangays</li>
+                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Update document completion statuses</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Permissions Matrix Table -->
+        <div class="content-card shadow-sm p-4" style="border-radius: 14px;">
+            <h6 class="fw-bold text-dark mb-3">System Permissions Matrix</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="font-weight: 700;">Functional Module / Action</th>
+                            <th class="text-center" style="font-weight: 700; width: 140px;">Staff</th>
+                            <th class="text-center" style="font-weight: 700; width: 150px;">Engineer</th>
+                            <th class="text-center" style="font-weight: 700; width: 140px;">Admin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Record Search &amp; Document Retrieval</td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                        </tr>
+                        <tr>
+                            <td>Encode Records &amp; Batch Upload Plans</td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                        </tr>
+                        <tr>
+                            <td>Flag Illegal Construction &amp; Issue Notices</td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                        </tr>
+                        <tr>
+                            <td>Export Comprehensive Analytics &amp; Reports</td>
+                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                        </tr>
+                        <tr>
+                            <td>Manage User Accounts &amp; Access Controls</td>
+                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
+                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                        </tr>
+                        <tr>
+                            <td>System Settings &amp; Checklist Templates</td>
+                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
+                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                        </tr>
+                        <tr>
+                            <td>Database Backup &amp; Disaster Recovery</td>
+                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
+                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
+                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ══ MODALS (RENDERING DIRECTLY IN CONTENT BLOCK TO ENSURE DOM INJECTION) ══ -->
+<!-- ══ MODALS (ADD, EDIT, RESET) ══════════════════════════════════════════ -->
 
 <!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
-            <div class="modal-header border-0 pb-0 px-4 pt-4">
-                <h5 class="modal-title fw-bold text-dark"><i data-lucide="user-plus" class="me-2 text-dark" style="vertical-align: -2px;"></i>Add New User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: #064e3b; padding: 18px 24px;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-user-plus" style="font-size: 16px;"></i>
+                    <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.05rem;">Add New User</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
+            <div class="modal-body p-4" style="background: #ffffff;">
                 <form action="{% url 'users' %}" method="POST" autocomplete="off">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="add_user">
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">Full Name</label>
-                        <input type="text" name="full_name" class="form-control" placeholder="Enter user's full name" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                        <label class="form-label fw-semibold text-dark small mb-1">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" class="form-control form-control-sm obo-input" placeholder="e.g., Engr. Juan Dela Cruz" required>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">Email Address</label>
-                        <input type="email" name="email" class="form-control" placeholder="Enter email address" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                        <label class="form-label fw-semibold text-dark small mb-1">Email Address <span class="text-danger">*</span></label>
+                        <input type="email" name="email" class="form-control form-control-sm obo-input" placeholder="e.g., user@gmail.com" required>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">Role</label>
-                        <select name="role" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; cursor: pointer;">
-                            <option value="" disabled selected>Select role</option>
+                        <label class="form-label fw-semibold text-dark small mb-1">Assigned Role <span class="text-danger">*</span></label>
+                        <select name="role" class="form-select form-select-sm obo-select" required>
+                            <option value="" disabled selected>Select role...</option>
+                            <option value="admin">Engineering Office Head (Admin)</option>
                             <option value="staff">Engineering Staff</option>
-                            <option value="admin">Administrator</option>
                         </select>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">Temporary Password</label>
-                        <div class="input-group" style="border: 1px solid var(--border-default); border-radius: var(--border-radius-sm); background: var(--card-bg, #ffffff); overflow: hidden;">
-                            <span class="input-group-text bg-transparent border-0 text-muted" style="padding-left: 12px; padding-right: 8px;"><i data-lucide="lock" style="width: 16px; height: 16px;"></i></span>
-                            <input type="password" name="password" class="form-control border-0 p-0" placeholder="Enter temporary password" required style="font-size: var(--text-sm); outline: none; box-shadow: none; height: 38px; background: transparent;">
-                            <button type="button" class="btn border-0 text-muted toggle-password-visibility" style="padding: 0 12px; background: transparent;">
-                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                        <label class="form-label fw-semibold text-dark small mb-1">Initial Password <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="password" name="password" class="form-control form-control-sm obo-input" placeholder="Enter password (min 8 chars)" required id="newPasswordInput">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="togglePassVisibility('newPasswordInput')">
+                                <i class="fa-solid fa-eye" style="font-size: 12px;"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                        <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4 d-inline-flex align-items-center gap-1" style="background: #0f172a; border-color: #0f172a;">
-                            <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i> Add User
+
+                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
+                        <button type="submit" class="btn btn-dark btn-sm px-4 fw-semibold" style="background: #064e3b; border-color: #064e3b; border-radius: 8px;">
+                            <i class="fa-solid fa-plus me-1"></i> Create Account
                         </button>
                     </div>
                 </form>
@@ -271,38 +513,43 @@
 
 <!-- Edit User Modal -->
 <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
-            <div class="modal-header border-0 pb-0 px-4 pt-4">
-                <h5 class="modal-title fw-bold text-dark"><i data-lucide="edit-3" class="me-2 text-primary" style="vertical-align: -2px;"></i>Edit User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: #0f172a; padding: 18px 24px;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square" style="font-size: 16px;"></i>
+                    <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.05rem;">Edit User Profile</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
+            <div class="modal-body p-4" style="background: #ffffff;">
                 <form action="{% url 'users' %}" method="POST" autocomplete="off">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="edit_user">
                     <input type="hidden" name="user_id" id="edit_user_id">
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">Full Name</label>
-                        <input type="text" name="full_name" id="edit_full_name" class="form-control" placeholder="Enter user's full name" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                        <label class="form-label fw-semibold text-dark small mb-1">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" id="edit_full_name" class="form-control form-control-sm obo-input" required>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">Email Address</label>
-                        <input type="email" name="email" id="edit_email" class="form-control" placeholder="Enter email address" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                        <label class="form-label fw-semibold text-dark small mb-1">Email Address <span class="text-danger">*</span></label>
+                        <input type="email" name="email" id="edit_email" class="form-control form-control-sm obo-input" required>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">Role</label>
-                        <select name="role" id="edit_role" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; cursor: pointer;">
+                        <label class="form-label fw-semibold text-dark small mb-1">Role <span class="text-danger">*</span></label>
+                        <select name="role" id="edit_role" class="form-select form-select-sm obo-select" required>
+                            <option value="admin">Engineering Office Head (Admin)</option>
                             <option value="staff">Engineering Staff</option>
-                            <option value="admin">Administrator</option>
                         </select>
                     </div>
-                    
-                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                        <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4 d-inline-flex align-items-center gap-1" style="background: #2563eb; border-color: #2563eb;">
-                            <i data-lucide="save" style="width: 14px; height: 14px;"></i> Save Changes
+
+                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold" style="border-radius: 8px;">
+                            <i class="fa-solid fa-save me-1"></i> Save Changes
                         </button>
                     </div>
                 </form>
@@ -313,34 +560,34 @@
 
 <!-- Reset Password Modal -->
 <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
-            <div class="modal-header border-0 pb-0 px-4 pt-4">
-                <h5 class="modal-title fw-bold text-dark"><i data-lucide="key" class="me-2 text-teal" style="vertical-align: -2px;"></i>Reset User Password</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: #0d9488; padding: 18px 24px;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-key" style="font-size: 16px;"></i>
+                    <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.05rem;">Reset User Password</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
+            <div class="modal-body p-4" style="background: #ffffff;">
                 <form action="{% url 'users' %}" method="POST">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="reset_password">
                     <input type="hidden" name="user_id" id="reset_user_id">
 
-                    <p class="text-muted small mb-3">You are resetting the password for <strong id="reset_user_name" class="text-dark"></strong>.</p>
+                    <p class="text-muted small mb-3">
+                        Enter a new password for <strong id="reset_user_name" class="text-dark"></strong>.
+                    </p>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-muted small">New Password</label>
-                        <div class="input-group" style="border: 1px solid var(--border-default); border-radius: var(--border-radius-sm); background: var(--card-bg, #ffffff); overflow: hidden;">
-                            <span class="input-group-text bg-transparent border-0 text-muted" style="padding-left: 12px; padding-right: 8px;"><i data-lucide="lock" style="width: 16px; height: 16px;"></i></span>
-                            <input type="password" name="new_password" class="form-control border-0 p-0" placeholder="Enter new password" required style="font-size: var(--text-sm); outline: none; box-shadow: none; height: 38px; background: transparent;">
-                            <button type="button" class="btn border-0 text-muted toggle-password-visibility" style="padding: 0 12px; background: transparent;">
-                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
-                            </button>
-                        </div>
+                        <label class="form-label fw-semibold text-dark small mb-1">New Password <span class="text-danger">*</span></label>
+                        <input type="password" name="new_password" class="form-control form-control-sm obo-input" placeholder="Enter new password (min 8 chars)" required>
                     </div>
-                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                        <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4 d-inline-flex align-items-center gap-1">
-                            <i data-lucide="key" style="width: 14px; height: 14px;"></i> Reset Password
+
+                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
+                        <button type="submit" class="btn btn-teal btn-sm px-4 fw-semibold text-white" style="background: #0d9488; border-color: #0d9488; border-radius: 8px;">
+                            <i class="fa-solid fa-key me-1"></i> Reset Password
                         </button>
                     </div>
                 </form>
@@ -351,68 +598,80 @@
 
 {% endblock %}
 
+
 {% block extra_js %}
 <script>
-    let resetPasswordModalObj;
-    let editUserModalObj;
+let resetPasswordModalObj;
+let editUserModalObj;
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Toggle Password Visibility Eye-Buttons
-        const toggleButtons = document.querySelectorAll('.toggle-password-visibility');
-        toggleButtons.forEach(btn => {
-            btn.addEventListener('click', function () {
-                const input = this.closest('.input-group').querySelector('input');
-                const icon = this.querySelector('[data-lucide]');
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icon.setAttribute('data-lucide', 'eye-off');
-                } else {
-                    input.type = 'password';
-                    icon.setAttribute('data-lucide', 'eye');
-                }
-                lucide.createIcons();
-            });
-        });
+document.addEventListener('DOMContentLoaded', function() {
+    // Append modals to body
+    const addModal = document.getElementById('addUserModal');
+    const editModal = document.getElementById('editUserModal');
+    const resetModal = document.getElementById('resetPasswordModal');
+    if (addModal && addModal.parentElement !== document.body) document.body.appendChild(addModal);
+    if (editModal && editModal.parentElement !== document.body) document.body.appendChild(editModal);
+    if (resetModal && resetModal.parentElement !== document.body) document.body.appendChild(resetModal);
 
-        // Move modals to body to prevent stacking context z-index bugs
-        const addModal = document.getElementById('addUserModal');
-        const editModal = document.getElementById('editUserModal');
-        const resetModal = document.getElementById('resetPasswordModal');
-        if (addModal) document.body.appendChild(addModal);
-        if (editModal) document.body.appendChild(editModal);
-        if (resetModal) document.body.appendChild(resetModal);
+    if (resetModal) resetPasswordModalObj = new bootstrap.Modal(resetModal);
+    if (editModal) editUserModalObj = new bootstrap.Modal(editModal);
 
-        // Initialize Modals
-        resetPasswordModalObj = new bootstrap.Modal(resetModal);
-        editUserModalObj = new bootstrap.Modal(editModal);
-    });
+function updateUserGuide(title, description) {
+    const t = document.getElementById('userGuideTitle');
+    const d = document.getElementById('userGuideDesc');
+    if (t) t.textContent = title;
+    if (d) d.textContent = description;
+}
 
-    // Modal Triggers (Declared globally for inline onclick execution)
-    function openResetModal(userId, userName) {
-        document.getElementById('reset_user_id').value = userId;
-        document.getElementById('reset_user_name').textContent = userName;
-        if (!resetPasswordModalObj) {
-            resetPasswordModalObj = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+    // Auto-switch to Roles tab if ?tab=roles or #roles is requested
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    const hash = window.location.hash;
+    if (tabParam === 'roles' || hash === '#roles') {
+        const rolesTabBtn = document.getElementById('user-roles-tab');
+        if (rolesTabBtn) {
+            if (window.bootstrap && window.bootstrap.Tab) {
+                new bootstrap.Tab(rolesTabBtn).show();
+            } else {
+                rolesTabBtn.click();
+            }
+            updateUserGuide('Roles & Permissions Matrix', 'Full breakdown of authority levels and module capabilities for Administrator, Municipal Engineer, and Engineering Staff.');
         }
-        resetPasswordModalObj.show();
     }
+});
 
-    function openEditModal(userId, fullName, email, role, isSelf) {
-        document.getElementById('edit_user_id').value = userId;
-        document.getElementById('edit_full_name').value = fullName;
-        document.getElementById('edit_email').value = email;
-        document.getElementById('edit_role').value = role;
-        
-        if (isSelf) {
-            document.getElementById('edit_role').disabled = true;
-        } else {
-            document.getElementById('edit_role').disabled = false;
-        }
-        
-        if (!editUserModalObj) {
-            editUserModalObj = new bootstrap.Modal(document.getElementById('editUserModal'));
-        }
-        editUserModalObj.show();
+function openResetModal(userId, userName) {
+    document.getElementById('reset_user_id').value = userId;
+    document.getElementById('reset_user_name').textContent = userName;
+    if (!resetPasswordModalObj) {
+        resetPasswordModalObj = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
     }
+    resetPasswordModalObj.show();
+}
+
+function openEditModal(userId, fullName, email, role, isSelf) {
+    document.getElementById('edit_user_id').value = userId;
+    document.getElementById('edit_full_name').value = fullName;
+    document.getElementById('edit_email').value = email;
+    document.getElementById('edit_role').value = role;
+    
+    if (isSelf) {
+        document.getElementById('edit_role').disabled = true;
+    } else {
+        document.getElementById('edit_role').disabled = false;
+    }
+    
+    if (!editUserModalObj) {
+        editUserModalObj = new bootstrap.Modal(document.getElementById('editUserModal'));
+    }
+    editUserModalObj.show();
+}
+
+function togglePassVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.type = (input.type === 'password') ? 'text' : 'password';
+    }
+}
 </script>
 {% endblock %}

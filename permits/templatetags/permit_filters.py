@@ -42,4 +42,34 @@ def safe_url(file_field):
         return ''
 
 
+@register.filter(name='compact_number')
+def compact_number(value):
+    """
+    Auto-formats numbers into clean, compact, human-readable formats:
+    - 59 -> '59'
+    - 9999 -> '9,999'
+    - 12500 -> '12.5K'
+    - 1238237 -> '1.2M' (or exact on hover)
+    """
+    try:
+        num = float(value)
+    except (ValueError, TypeError):
+        return value
+
+    if num >= 1_000_000_000:
+        val = num / 1_000_000_000
+        return f"{val:.1f}B".replace(".0B", "B")
+    elif num >= 1_000_000:
+        val = num / 1_000_000
+        return f"{val:.1f}M".replace(".0M", "M")
+    elif num >= 10_000:
+        val = num / 1_000
+        return f"{val:.1f}K".replace(".0K", "K")
+    elif num >= 1_000:
+        return f"{int(num):,}"
+    else:
+        return str(int(num))
+
+
+
 

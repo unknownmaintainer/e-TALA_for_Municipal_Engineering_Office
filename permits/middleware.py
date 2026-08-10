@@ -34,12 +34,15 @@ class IPBlockMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Skip database IP checks for static assets, media, and CSS/JS files
+        if request.path.startswith('/static/') or request.path.startswith('/media/'):
+            return self.get_response(request)
+
         try:
             ip = get_client_ip(request)
             if ip and BlockedIP.objects.filter(ip_address=ip).exists():
                 return HttpResponseForbidden("Access Denied: Your IP address has been blocked by the administrator.")
         except Exception as exc:
-            # If database tables are being migrated, pass cleanly instead of crashing
             logger.debug(f"IPBlockMiddleware check skipped during startup: {exc}")
 
         response = self.get_response(request)

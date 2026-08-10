@@ -26,12 +26,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').strip().lower() in ('true', '1', 't', 'y', 'yes')
 TESTING = 'test' in sys.argv
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG or TESTING:
+        SECRET_KEY = 'django-insecure-dev-only-key-change-in-production'
+    else:
+        raise ImproperlyConfigured("SECRET_KEY environment variable must be set in production!")
+
 
 raw_hosts = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost')
 ALLOWED_HOSTS = []
@@ -136,6 +142,7 @@ if database_url:
         'default': dj_database_url.config(
             default=database_url,
             conn_max_age=600,
+            conn_health_checks=True,
             ssl_require=not DEBUG,
         )
     }
@@ -171,7 +178,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -267,8 +274,10 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG and not TESTING
 SECURE_SSL_REDIRECT = not DEBUG and not TESTING
 CSRF_COOKIE_SECURE = not DEBUG and not TESTING
-SESSION_COOKIE_AGE = 1800  # 30 minutes
+SESSION_COOKIE_AGE = 7200  # 2 hours
 SESSION_SAVE_EVERY_REQUEST = True  # reset expiry timer on every request
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour password reset link expiration
+SECURE_REFERRER_POLICY = 'same-origin'
 
 
 # Custom Authentication Backends (Axes)
@@ -289,7 +298,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '10/minute',
-        'user': '60/minute'
+        'user': '300/minute'
     }
 }
 
@@ -302,7 +311,7 @@ SIMPLE_JWT = {
 
 # Axes Security Settings
 AXES_FAILURE_LIMIT = 5
-AXES_COOLOFF_TIME = timedelta(minutes=1)
+AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_TEMPLATE = 'permits/access_denied.html'
 AXES_LOCKOUT_PARAMETERS = [["ip_address", "username"]]
 AXES_CLIENT_IP_CALLABLE = 'permits.utils.get_client_ip'

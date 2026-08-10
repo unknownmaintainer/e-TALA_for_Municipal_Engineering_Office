@@ -46,10 +46,10 @@ class RecordSerializer(serializers.ModelSerializer):
         rep = super().to_representation(instance)
         request = self.context.get('request')
         
-        # Role-based field masking: Only Admins and Engineers can see raw budget amount.
+        # Role-based field masking: Only Engineering Office Head (admin) can see raw budget amount.
         # Engineering Staff and external API users see masked string.
         if request and request.user:
-            if request.user.role not in ['admin', 'engineer']:
+            if request.user.role != 'admin':
                 rep['budget_amount'] = '₱*,***,***.**'
         else:
             rep['budget_amount'] = '₱*,***,***.**'

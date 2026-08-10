@@ -94,8 +94,8 @@ class SupabaseStorage(Storage):
         if self.fallback_storage.exists(clean_name):
             try:
                 return self.fallback_storage.open(clean_name, mode)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(f"Failed opening {clean_name} from local fallback: {exc}")
 
         if not self._is_configured():
             return self.fallback_storage.open(clean_name, mode)
@@ -127,33 +127,13 @@ class SupabaseStorage(Storage):
         return self.open(name, mode)
 
     def url(self, name, expires_in=600):
-        """Generates a secure private signed URL or public URL for client viewing."""
+        """Generates Supabase storage URL directly without blocking synchronous network requests during page rendering."""
         clean_name = self._clean_path(name)
         
         if not self._is_configured():
             return self.fallback_storage.url(clean_name)
 
         url, _, bucket = self._get_supabase_config()
-        sign_endpoint = f"{url}/storage/v1/object/sign/{bucket}/{clean_name}"
-        
-        try:
-            resp = requests.post(
-                sign_endpoint,
-                headers=self._headers(),
-                json={'expiresIn': int(expires_in)},
-                timeout=8
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                signed_rel_url = data.get('signedURL') or data.get('signedUrl')
-                if signed_rel_url:
-                    if signed_rel_url.startswith('http'):
-                        return signed_rel_url
-                    return f"{url}/storage/v1{signed_rel_url}"
-        except Exception as exc:
-            logger.warning(f"Error signing Supabase URL for {clean_name}: {exc}")
-
-        # Public URL fallback
         return f"{url}/storage/v1/object/public/{bucket}/{clean_name}"
 
     def delete(self, name):
@@ -161,8 +141,8 @@ class SupabaseStorage(Storage):
         if self.fallback_storage.exists(clean_name):
             try:
                 self.fallback_storage.delete(clean_name)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(f"Error removing local copy of {clean_name}: {exc}")
 
         if self._is_configured():
             url, _, bucket = self._get_supabase_config()
@@ -278,13 +258,13 @@ class DynamicCloudinaryStorage(Storage):
         if self.fallback_storage.exists(name):
             try:
                 self.fallback_storage.delete(name)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(f"Local deletion error for {name}: {exc}")
         if self._has_cloudinary():
             try:
                 self._get_storage(name).delete(name)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(f"Cloudinary deletion error for {name}: {exc}")
 
     def exists(self, name):
         if self.fallback_storage.exists(name):

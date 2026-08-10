@@ -1,13 +1,21 @@
-import logging
-import os
+import csv
+import datetime
 from datetime import timedelta
+from decimal import Decimal
+import io
+import json
+import logging
+import mimetypes
+import os
+import zipfile
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed, FileResponse, Http404
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError, ImproperlyConfigured
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Sum, F
 from django.utils import timezone
@@ -99,11 +107,17 @@ def get_per_page(request, default=10):
 
 
 def get_year_choices():
+    from django.core.cache import cache
+    cached = cache.get('year_choices_list')
+    if cached is not None:
+        return cached
     db_years = set(EngineeringRecord.objects.exclude(year__isnull=True).values_list('year', flat=True))
     from datetime import date
     current_year = date.today().year
     default_years = set(range(current_year + 1, current_year - 15, -1))
-    return sorted(list(db_years.union(default_years)), reverse=True)
+    all_years = sorted(list(db_years.union(default_years)), reverse=True)
+    cache.set('year_choices_list', all_years, timeout=300)
+    return all_years
 
 
 def resolve_scope(request):
@@ -396,8 +410,7 @@ def register_view(request):
             email=email,
             password=password,
             full_name=full_name,
-            role='staff',
-            profile_picture=government_id
+            role='staff'
         )
         new_user.save()
 
@@ -448,10 +461,14 @@ def dashboard_view(request):
     if selected_scope == 'my':
         recent_records = records.filter(created_by=request.user).select_related(
             'barangay', 'created_by', 'permit_detail', 'project_detail'
+        ).prefetch_related(
+            'requirements__requirement_item', 'requirements__document'
         ).order_by('-created_at')[:8]
     else:
         recent_records = records.select_related(
             'barangay', 'created_by', 'permit_detail', 'project_detail'
+        ).prefetch_related(
+            'requirements__requirement_item', 'requirements__document'
         ).order_by('-created_at')[:8]
 
     # Activity feed
@@ -468,7 +485,11 @@ def dashboard_view(request):
         requirements__isnull=False,
         requirements__is_fulfilled=False,
         requirements__is_waived=False
-    ).distinct().select_related('barangay', 'created_by', 'permit_detail', 'project_detail')[:30]
+    ).distinct().select_related(
+        'barangay', 'created_by', 'permit_detail', 'project_detail'
+    ).prefetch_related(
+        'requirements__requirement_item', 'requirements__document'
+    )[:30]
 
 
     # Pending records
@@ -539,6 +560,17 @@ def dashboard_view(request):
     illegal_resolved = illegal_qs.filter(illegal_compliance_status='resolved').count()
     illegal_recent = illegal_qs.select_related('barangay').order_by('-created_at')[:5]
 
+    # Active users count
+    active_users_count = CustomUser.objects.filter(is_active=True).count()
+    if active_users_count < 1:
+        active_users_count = 1
+
+    # Calculation for Donut Chart (Municipal, Barangay, Permit)
+    total_recs = total_records if total_records > 0 else 1
+    municipal_pct = round((total_municipal / total_recs) * 100, 1)
+    barangay_pct = round((total_barangay / total_recs) * 100, 1)
+    permits_pct = round(max(0, 100 - (municipal_pct + barangay_pct)), 1) if (municipal_pct + barangay_pct + round((total_permits / total_recs) * 100, 1)) == 100 else round((total_permits / total_recs) * 100, 1)
+
     context = {
         'total_permits': total_permits,
         'total_municipal': total_municipal,
@@ -546,6 +578,10 @@ def dashboard_view(request):
         'total_documents': total_documents,
         'total_archived': total_archived,
         'total_records': total_records,
+        'active_users_count': active_users_count,
+        'municipal_pct': municipal_pct,
+        'barangay_pct': barangay_pct,
+        'permits_pct': permits_pct,
         'incomplete_records': incomplete_records,
         'recent_records': recent_records,
         'activity_feed': activity_feed,
@@ -661,7 +697,11 @@ def barangays_view(request):
 @login_required
 def barangay_workspace_view(request, barangay_id):
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
-    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').select_related('created_by')
+    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').select_related(
+        'created_by', 'barangay', 'permit_detail', 'project_detail'
+    ).prefetch_related(
+        'requirements__requirement_item', 'requirements__document'
+    )
 
     # Stats
     total_permits = records.filter(record_type='Permit').count()
@@ -731,7 +771,11 @@ def barangay_workspace_view(request, barangay_id):
 
 @login_required
 def records_browse_view(request):
-    base_records = EngineeringRecord.objects.exclude(status='archived').select_related('barangay', 'created_by', 'permit_detail', 'project_detail')
+    base_records = EngineeringRecord.objects.exclude(status='archived').select_related(
+        'barangay', 'created_by', 'permit_detail', 'project_detail'
+    ).prefetch_related(
+        'requirements__requirement_item', 'requirements__document'
+    )
     barangays = Barangay.objects.all()
 
     # Filters
@@ -1449,7 +1493,15 @@ def record_detail_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
 
     # Auto-populate checklist requirements if missing
-    if not record.requirements.exists():
+    # Skip for pure violation reports (no permit_detail = just an incident report, no checklist needed)
+    is_pure_violation = record.is_illegal_construction
+    try:
+        _ = record.permit_detail
+    except PermitDetail.DoesNotExist:
+        if record.record_type == 'Permit':
+            is_pure_violation = True
+    
+    if not record.requirements.exists() and not is_pure_violation:
         template = None
         if record.record_type == 'Permit':
             subtype = record.permit_detail.permit_type if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.permit_type else 'Building'
@@ -1658,7 +1710,8 @@ def update_illegal_status_view(request, record_id):
 
 @login_required
 def flag_illegal_construction_view(request):
-    """Handles direct reporting/flagging of an unpermitted illegal construction structure."""
+    """Creates a simple violation/incident report record — no checklist, no permit detail.
+    Checklist is only attached if/when the owner applies for a retroactive building permit."""
     if request.user.role not in ['staff', 'admin']:
         return HttpResponseForbidden("Unauthorized")
     
@@ -1666,8 +1719,10 @@ def flag_illegal_construction_view(request):
         title = sanitize_input(request.POST.get('title', '')).strip()
         barangay_id = request.POST.get('barangay', '')
         location_address = sanitize_input(request.POST.get('location_address', '')).strip()
+        violation_type = sanitize_input(request.POST.get('violation_type', 'Unpermitted Construction')).strip()
+        description = sanitize_input(request.POST.get('description', '')).strip()
         date_discovered_str = request.POST.get('date_discovered', '')
-        status_val = request.POST.get('illegal_compliance_status', 'unresolved')
+        remarks = sanitize_input(request.POST.get('remarks', '')).strip()
         
         if not title:
             title = "Unpermitted Structure Discovered"
@@ -1686,6 +1741,18 @@ def flag_illegal_construction_view(request):
                 date_discovered = timezone.now().date()
         else:
             date_discovered = timezone.now().date()
+        
+        # Build a clear, structured description
+        desc_parts = []
+        if violation_type:
+            desc_parts.append(f"Violation: {violation_type}")
+        if location_address:
+            desc_parts.append(f"Location: {location_address}")
+        if description:
+            desc_parts.append(f"Details: {description}")
+        if remarks:
+            desc_parts.append(f"Remarks: {remarks}")
+        full_description = '\n'.join(desc_parts) if desc_parts else title
             
         record = EngineeringRecord.objects.create(
             record_type='Permit',
@@ -1693,32 +1760,18 @@ def flag_illegal_construction_view(request):
             barangay=barangay,
             title=title,
             year=date_discovered.year,
-            description=location_address,
+            description=full_description,
             status='active',
             date_started=date_discovered,
             is_illegal_construction=True,
-            illegal_compliance_status=status_val if status_val in ['unresolved', 'pending_permit', 'resolved'] else 'unresolved',
+            illegal_compliance_status='unresolved',
             created_by=request.user
         )
         
-        PermitDetail.objects.create(
-            engineering_record=record,
-            permit_type='Building',
-            building_type='Commercial',
-            permit_number='',
-            applicant_name='[Unpermitted Construction Discovered]',
-            remarks=f"Flagged as unpermitted structure on {date_discovered.strftime('%d %b %Y')}. Location: {location_address}"
-        )
-        
-        # Attach Building Permit / Regularization Checklist Template
-        template = RequirementTemplate.objects.filter(record_type='Permit', subtype='Building', is_active=True).first()
-        if template:
-            RecordRequirement.objects.bulk_create([
-                RecordRequirement(record=record, requirement_item=item)
-                for item in template.active_items
-            ])
+        # No PermitDetail — this is just a violation report, not a permit application.
+        # No checklist — checklist is only attached when/if the owner files for regularization.
 
-        # Handle Discovery Photo upload
+        # Handle photo/document upload
         if 'photo' in request.FILES and request.FILES['photo']:
             photo_file = request.FILES['photo']
             try:
@@ -1733,16 +1786,15 @@ def flag_illegal_construction_view(request):
                     uploaded_by=request.user
                 )
             except ValidationError as err:
-                messages.warning(request, f"Flagged illegal construction, but photo attachment failed: {err.message if hasattr(err, 'message') else str(err)}")
+                messages.warning(request, f"Report created, but file upload failed: {err.message if hasattr(err, 'message') else str(err)}")
                 
-        status_lbl = record.get_illegal_compliance_status_display()
         log_audit(
             request.user,
-            f"Flagged Illegal Construction at Barangay {barangay.barangay_name}: '{title}' (Status: {status_lbl})",
+            f"Reported violation at Brgy. {barangay.barangay_name}: '{title}' — {violation_type}",
             target_record_id=record.record_id,
             request=request
         )
-        messages.success(request, f"Successfully reported/flagged unpermitted structure in Barangay {barangay.barangay_name}.")
+        messages.success(request, f"Violation report created for Brgy. {barangay.barangay_name}.")
         return redirect('record_detail', record_id=record.record_id)
 
     return redirect('records_browse')
@@ -1817,28 +1869,36 @@ def record_edit_view(request, record_id):
 
         # Update detail and regenerate requirements if subtype changed or doesn't exist
         if record.record_type == 'Permit':
-            detail, _ = PermitDetail.objects.get_or_create(engineering_record=record)
-            old_subtype = detail.permit_type
-            new_subtype = request.POST.get('permit_type', '')
+            # Check if this is a pure violation report (no permit_detail)
+            try:
+                detail = record.permit_detail
+            except PermitDetail.DoesNotExist:
+                detail = None
             
-            detail.permit_type = new_subtype
-            detail.building_type = request.POST.get('building_type', detail.building_type)
-            detail.permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
-            detail.applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
-            detail.resolution_required = request.POST.get('resolution_required') == 'on'
-            detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
-            detail.save()
-            
-            if not record.requirements.exists() or old_subtype != new_subtype:
-                record.requirements.all().delete()
-                template = RequirementTemplate.objects.filter(
-                    record_type='Permit', subtype=new_subtype, is_active=True
-                ).first()
-                if template:
-                    RecordRequirement.objects.bulk_create([
-                        RecordRequirement(record=record, requirement_item=item)
-                        for item in template.active_items
-                    ])
+            if detail:
+                # Normal permit record — update detail fields
+                old_subtype = detail.permit_type
+                new_subtype = request.POST.get('permit_type', '') or old_subtype
+                
+                detail.permit_type = new_subtype
+                detail.building_type = request.POST.get('building_type', detail.building_type)
+                detail.permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
+                detail.applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
+                detail.resolution_required = request.POST.get('resolution_required') == 'on'
+                detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
+                detail.save()
+                
+                if not record.requirements.exists() or old_subtype != new_subtype:
+                    record.requirements.all().delete()
+                    template = RequirementTemplate.objects.filter(
+                        record_type='Permit', subtype=new_subtype, is_active=True
+                    ).first()
+                    if template:
+                        RecordRequirement.objects.bulk_create([
+                            RecordRequirement(record=record, requirement_item=item)
+                            for item in template.active_items
+                        ])
+            # else: pure violation report — only basic fields (title, description, barangay) were updated above
                     
         elif record.record_type == 'Project':
             detail, _ = ProjectDetail.objects.get_or_create(engineering_record=record)
@@ -1901,6 +1961,7 @@ def record_edit_view(request, record_id):
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+        'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'active_tab': 'records',
     }
@@ -2227,53 +2288,7 @@ def document_delete_view(request, record_id, document_id):
     return redirect('record_detail', record_id=record.record_id)
 
 
-@login_required
-def download_record_zip_view(request, record_id):
-    """
-    Downloads all uploaded document files for a specific engineering record packaged in a clean ZIP file.
-    Organizes files neatly named after their requirement item names (e.g. '01_Building_Permit.pdf').
-    """
-    import zipfile
-    import io
-    from django.utils.text import slugify
-
-    record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    
-    # Permission check: staff can only download ZIPs for records they created
-    if request.user.role == 'staff' and record.created_by != request.user:
-        return HttpResponseForbidden("You do not have permission to download documents for this record.")
-    
-    # Collect all fulfilled requirements with an attached document file
-    reqs = record.requirements.filter(is_fulfilled=True, document__isnull=False)
-    
-    if not reqs.exists():
-        messages.warning(request, f"No uploaded documents available to download for {record.title}.")
-        return redirect('record_detail', record_id=record_id)
-    
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for idx, req in enumerate(reqs, start=1):
-            doc = req.document
-            if doc and doc.file:
-                try:
-                    file_path = doc.file.path
-                    if os.path.exists(file_path):
-                        ext = os.path.splitext(doc.file.name)[1] or '.pdf'
-                        clean_item_name = slugify(req.requirement_item.name).replace('-', '_')
-                        zip_filename = f"{idx:02d}_{clean_item_name}{ext}"
-                        zip_file.write(file_path, arcname=zip_filename)
-                except Exception as e:
-                    logger.error(f"Error adding file {doc.file} to ZIP: {e}")
-
-    buffer.seek(0)
-    record_slug = slugify(record.title).replace('-', '_')[:30] or f"Record_{record.record_id}"
-    filename = f"eTala_Record_{record.record_id}_{record_slug}_Documents.zip"
-    
-    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    
-    log_audit(request.user, f"Downloaded ZIP document archive for Record #{record.record_id} ({record.title})", target_record_id=record.record_id, request=request)
-    return response
+# (download_record_zip_view defined below under ZIP DOWNLOAD section)
 
 
 # ─── ARCHIVE / RESTORE ──────────────────────────────────────────────────────
@@ -2343,7 +2358,9 @@ def search_view(request):
 
     records = EngineeringRecord.objects.exclude(status='archived').select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
-    ).prefetch_related('documents')
+    ).prefetch_related(
+        'documents', 'requirements__requirement_item', 'requirements__document'
+    )
 
     if query:
         search_filter = (
@@ -2420,8 +2437,8 @@ def search_view(request):
 @login_required
 def reports_view(request):
     """Generates detailed statistics and groupings for engineering records."""
-    if request.user.role not in ['admin', 'engineer']:
-        raise PermissionDenied("Only Administrators and Municipal Engineers can view summary reports.")
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("Only authorized staff and Administrators can view summary reports.")
 
     # 1. Get filter parameters
     selected_record_type = request.GET.get('record_type', '').strip()
@@ -2430,7 +2447,11 @@ def reports_view(request):
     selected_status = request.GET.get('status', '').strip()
 
     # 2. Start with all records
-    records = EngineeringRecord.objects.all().select_related('barangay', 'permit_detail', 'project_detail')
+    records = EngineeringRecord.objects.all().select_related(
+        'barangay', 'permit_detail', 'project_detail'
+    ).prefetch_related(
+        'requirements__requirement_item', 'requirements__document'
+    )
 
     # Apply filters to base queryset
     if selected_record_type:
@@ -2796,9 +2817,11 @@ def reports_view(request):
     for p in expiring_permits_qs:
         permit_det = getattr(p, 'permit_detail', None)
         exp_date = None
-        doc_with_expiry = p.documents.filter(expiry_date__isnull=False).order_by('expiry_date').first()
-        if doc_with_expiry:
-            exp_date = doc_with_expiry.expiry_date
+        # Use prefetched documents to avoid executing a separate DB query for every single permit
+        docs = [d for d in p.documents.all() if d.expiry_date is not None]
+        if docs:
+            docs.sort(key=lambda d: d.expiry_date)
+            exp_date = docs[0].expiry_date
         elif permit_det and permit_det.date_issued:
             import datetime
             exp_date = permit_det.date_issued + datetime.timedelta(days=365)
@@ -3534,7 +3557,6 @@ def users_view(request):
     active_users = users_base.filter(is_active=True).count()
     inactive_users = total_users - active_users
     admin_users = users_base.filter(role='admin').count()
-    engineer_users = users_base.filter(role='engineer').count()
     staff_users = users_base.filter(role='staff').count()
 
     query = request.GET.get('q', '').strip()
@@ -3550,23 +3572,17 @@ def users_view(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    engineers = CustomUser.objects.filter(role='staff')
-    applicants = CustomUser.objects.filter(role='admin')
-
     context = {
         'per_page': per_page,
         'users': page_obj,
         'page_obj': page_obj,
         'q': query,
-        'engineers': engineers,
-        'applicants': applicants,
         'active_tab': 'users',
         'stats': {
             'total': total_users,
             'active': active_users,
             'inactive': inactive_users,
             'admin': admin_users,
-            'engineer': engineer_users,
             'staff': staff_users,
         }
     }
@@ -3637,6 +3653,10 @@ def alerts_list_json_view(request):
 def download_record_zip_view(request, record_id):
     """Downloads all documents for a record as a structured ZIP file."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    
+    if request.user.role == 'staff' and record.created_by != request.user:
+        return HttpResponseForbidden("You do not have permission to download documents for this record.")
+
     buffer = io.BytesIO()
     
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -3879,4 +3899,23 @@ def permanent_delete_record_view(request, record_id):
         messages.success(request, f"Record '{record_title}' has been permanently deleted from the system.")
 
     return redirect('archive')
+
+
+@login_required
+def about_system_view(request):
+    """Dedicated About & System Specifications Page for eTala Engineering Portal."""
+    total_records = EngineeringRecord.objects.exclude(status='archived').count()
+    total_barangays = Barangay.objects.count()
+    total_users = CustomUser.objects.filter(is_active=True).count()
+
+    context = {
+        'total_records': total_records,
+        'total_barangays': total_barangays,
+        'total_users': total_users,
+        'system_version': '2.4.0 (2026 Production Release)',
+        'lgu_name': 'Municipal Engineering Office of Carigara, Leyte',
+        'active_tab': 'about_system',
+    }
+    return render(request, 'permits/about.html', context)
+
 

@@ -5,9 +5,9 @@ from django.utils import timezone
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = (
+        ('admin', 'Administrator'),
         ('staff', 'Engineering Staff'),
         ('engineer', 'Municipal Engineer'),
-        ('admin', 'Administrator'),
     )
     full_name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(unique=True)
@@ -143,6 +143,8 @@ class EngineeringRecord(models.Model):
             models.Index(fields=['year']),
             models.Index(fields=['title']),
             models.Index(fields=['-created_at']),
+            models.Index(fields=['record_type', 'status']),
+            models.Index(fields=['barangay', 'year']),
         ]
 
     def __str__(self):
@@ -152,6 +154,14 @@ class EngineeringRecord(models.Model):
     def specific_type_label(self):
         """Returns a human-readable specific type, e.g., 'Fencing Permit' or 'Road & Bridge Project'."""
         if self.record_type == 'Permit':
+            # Violation reports have no permit_detail
+            if self.is_illegal_construction:
+                try:
+                    pd = self.permit_detail
+                    if pd and pd.permit_type:
+                        return f"{pd.get_permit_type_display()} Permit"
+                except PermitDetail.DoesNotExist:
+                    return "Violation Report"
             if hasattr(self, 'permit_detail') and self.permit_detail.permit_type:
                 return f"{self.permit_detail.get_permit_type_display()} Permit"
             return "Permit"
@@ -229,7 +239,10 @@ class EngineeringRecord(models.Model):
     @property
     def completion_stats(self):
         """Returns dict with total, fulfilled, pct, and missing item names for leaf requirement uploads."""
-        reqs = self.requirements.select_related('requirement_item', 'document')
+        if hasattr(self, '_prefetched_objects_cache') and 'requirements' in self._prefetched_objects_cache:
+            reqs = self._prefetched_objects_cache['requirements']
+        else:
+            reqs = list(self.requirements.select_related('requirement_item', 'document'))
         
         # Leaf requirement items (not parent container groups)
         leaf_reqs = [r for r in reqs if not r.requirement_item.is_parent_group]
@@ -267,8 +280,10 @@ class PermitDetail(models.Model):
     PERMIT_TYPE_CHOICES = (
         ('Building', 'Building'),
         ('Electrical', 'Electrical'),
+        ('Mechanical', 'Mechanical'),
         ('Occupancy', 'Occupancy'),
         ('Fencing', 'Fencing'),
+        ('Demolition', 'Demolition'),
     )
     BUILDING_TYPE_CHOICES = (
         ('Residential', 'Residential'),
@@ -317,6 +332,7 @@ class ProjectDetail(models.Model):
 
     FUNDING_SOURCE_CHOICES = (
         ('General Fund', 'General Fund'),
+        ('Barangay Fund', 'Barangay Fund'),
         ('20% Development Fund', '20% Development Fund'),
         ('LDRRM Fund', 'LDRRM Fund'),
         ('Trust Fund', 'Trust Fund'),
@@ -383,6 +399,11 @@ class Document(models.Model):
 
     class Meta:
         ordering = ['-uploaded_at']
+        indexes = [
+            models.Index(fields=['expiry_date']),
+            models.Index(fields=['uploaded_at']),
+            models.Index(fields=['document_type']),
+        ]
 
     def __str__(self):
         return f"{self.document_type} — {self.file_name}"
@@ -456,7 +477,13 @@ class RequirementItem(models.Model):
 
     @property
     def is_parent_group(self):
-        return self.is_group or self.sub_items.filter(is_active=True).exists()
+        if self.is_group:
+            return True
+        if self.parent_id is not None:
+            return False
+        if hasattr(self, '_prefetched_objects_cache') and 'sub_items' in self._prefetched_objects_cache:
+            return any(item.is_active for item in self._prefetched_objects_cache['sub_items'])
+        return False
 
 
 class RecordRequirement(models.Model):

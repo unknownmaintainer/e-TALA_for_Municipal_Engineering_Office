@@ -18,62 +18,43 @@ TEMPLATES = [
         'subtype': 'Building',
         'scope': '',
         'items': [
-            {'name': 'Barangay Clearance for Building Construction', 'desc': 'Barangay Clearance certifying site clearance.', 'sub_items': []},
-            {'name': 'Certified True Copy of OCT/TCT (Registry of Deeds)', 'desc': 'Certified copy of land title on file with Registry of Deeds.', 'sub_items': []},
-            {'name': 'Current Tax Declaration & Real Property Tax Receipt', 'desc': 'Certified true copy of current Tax Declaration & RPT Receipt.', 'sub_items': []},
-            {'name': 'Notarized Contract of Lease or Deed of Absolute Sale', 'desc': 'Notarized lease contract or Deed of Sale (if applicant is not registered lot owner).', 'sub_items': []},
-            {'name': 'Sketch Plan of Land with Technical Description', 'desc': 'Geodetic Engineer lot sketch plan with technical description.', 'sub_items': []},
             {
-                'name': 'Ancillary Permit Forms',
+                'name': 'Building Permit with Attached Ancillary Permits',
                 'desc': 'Unified Office of the Building Official (OBO) Ancillary Permit Forms.',
                 'sub_items': [
-                    ('Architectural Permit Form (Unified Form 1)', 'Architectural Permit form signed and sealed by registered Architect.'),
-                    ('Civil/Structural Permit Form (Unified Form 2)', 'Civil/Structural Permit form signed and sealed by Civil/Structural Engineer.'),
-                    ('Electrical Permit Form (Unified Form 3)', 'Electrical Permit form signed and sealed by Professional Electrical Engineer (PEE).'),
-                    ('Plumbing & Sanitary Permit Form (Unified Form 4)', 'Plumbing & Sanitary Permit form signed and sealed by Master Plumber/Sanitary Engineer.'),
-                    ('Mechanical Permit Form (Unified Form 5)', 'Mechanical Permit form signed and sealed by Professional Mechanical Engineer (PME).'),
-                    ('Electronics Permit Form (Unified Form 6)', 'Electronics Permit form signed and sealed by Professional Electronics Engineer (PECE).'),
+                    ('Architectural Permit Form (a.1)', 'Architectural Permit form signed and sealed by registered Architect.'),
+                    ('Civil / Structural Permit Form (a.2)', 'Civil/Structural Permit form signed and sealed by Civil/Structural Engineer.'),
+                    ('Electrical Permit Form (a.3)', 'Electrical Permit form signed and sealed by Professional Electrical Engineer (PEE).'),
+                    ('Plumbing and Sanitary Permit Form (a.4)', 'Plumbing & Sanitary Permit form signed and sealed by Master Plumber / Sanitary Engineer.'),
+                    ('Fencing Permit Form (a.5)', 'Fencing Permit form signed and sealed by Civil Engineer / Architect.'),
+                    ('Mechanical Permit Form (a.6)', 'Mechanical Permit form signed and sealed by Professional Mechanical Engineer (PME).'),
+                    ('Electronics Permit Form (a.7)', 'Electronics Permit form signed and sealed by Professional Electronics Engineer (PECE).'),
                 ]
             },
+            {'name': 'Barangay Clearance', 'desc': 'Barangay Clearance from the respective barangay where the structure will be constructed.', 'sub_items': []},
+            {'name': 'Certified True Copy of OCT / TCT (Registry of Deeds)', 'desc': 'Certified true copy of land title on file with the Registry of Deeds.', 'sub_items': []},
+            {'name': 'Tax Declaration', 'desc': 'Certified true copy of current Tax Declaration.', 'sub_items': []},
+            {'name': 'Current Real Property Tax Receipt', 'desc': 'Official Receipt of current Real Property Tax (RPT) payment.', 'sub_items': []},
+            {'name': 'Notarized Copy of Contract of Lease or Deed of Absolute Sale', 'desc': 'Required if the applicant is not the registered owner of the lot.', 'sub_items': []},
+            {'name': 'Sketch Plan of the Land with Technical Description', 'desc': 'Geodetic Engineer lot sketch plan showing technical descriptions, boundaries, and landmarks.', 'sub_items': []},
+            {'name': 'Zoning Clearance', 'desc': 'Zoning Clearance issued by MPDO / Zoning Administrator.', 'sub_items': []},
+            {'name': 'Locational Clearance', 'desc': 'Locational Clearance from the Municipal Planning & Development Office.', 'sub_items': []},
             {
-                'name': 'Building Plans (5 Sets Signed & Sealed)',
+                'name': 'Building Plans (Signed & Sealed)',
                 'desc': 'Complete architectural, structural, and engineering drawing sets.',
                 'sub_items': [
-                    ('Site Development & Location Plan', 'Site Development Plan, Vicinity Map, Zoning Lot Details.'),
-                    ('Architectural Plans', 'Architectural floor plans, elevations, sections, schedules of doors & windows.'),
-                    ('Structural Plans', 'Foundation plan, roof framing, structural slab & column details, schedules.'),
-                    ('Electrical Plans', 'Lighting & power layouts, single line diagram, riser diagram, load schedule.'),
-                    ('Plumbing & Sanitary Plans', 'Water distribution system, waste drainage system, septic tank detail.'),
-                    ('Mechanical Plans', 'HVAC, ducting, ventilation, equipment layouts (if applicable).'),
-                    ('Electronics Plans', 'Telecom, LAN, CCTV, cable TV, FDAS layout drawings (if applicable).'),
+                    ('Site Development Plan', 'Site Development Plan, Vicinity Map, and Zoning Lot Details.'),
+                    ('Architectural Plan', 'Floor plans, elevations, sections, schedules of doors & windows.'),
+                    ('Structural Plan', 'Foundation plan, framing plans, slab/beam/column schedules and structural details.'),
+                    ('Electrical Plan', 'Lighting & power layouts, single line diagram, riser diagram, load schedule.'),
+                    ('Plumbing and Sanitary Plan', 'Water distribution, sewer drainage, septic tank / STP detail.'),
+                    ('Electronics Plan', 'Telecom, LAN, CCTV, cable TV, and aux layouts.'),
+                    ('Mechanical Plan', 'HVAC, ducting, ventilation, equipment layouts (if applicable).'),
+                    ('Fire Protection Plan', 'Fire sprinkler system, standpipe, emergency exits, FDAS drawings.'),
                 ]
             },
-            {
-                'name': 'Structural & Geotechnical Documents',
-                'desc': 'Structural engineering analysis, calculations, and soil test reports.',
-                'sub_items': [
-                    ('Structural Analysis & Design Computation', 'Signed & sealed by Structural Engineer (required for structures 2 storeys & above).'),
-                    ('Soil Test / Geotechnical Investigation Report', 'Signed & sealed Geotechnical Engineer report (required for 3 storeys & above).'),
-                    ('Seismic & Wind Load Computations', 'Structural seismic, dead load, and lateral wind load computations.'),
-                ]
-            },
-            {
-                'name': 'Project Cost Estimates & Technical Specifications',
-                'desc': 'Detailed bill of materials and architectural/engineering specifications.',
-                'sub_items': [
-                    ('Itemized Bill of Materials (BOM) & Cost Estimate', 'Detailed itemized cost computation signed & sealed by Engineer/Architect.'),
-                    ('Written Technical Specifications', 'Technical material specifications signed & sealed by Engineer/Architect.'),
-                ]
-            },
-            {
-                'name': 'Environmental & Special Clearances',
-                'desc': 'Official clearances from government agencies and municipal offices.',
-                'sub_items': [
-                    ('Fire Safety Evaluation Clearance (FSEC)', 'FSEC clearance certificate issued by Bureau of Fire Protection (BFP).'),
-                    ('Locational & Zoning Clearance', 'Zoning clearance certificate issued by Municipal Planning & Dev. Office (MPDO).'),
-                    ('Environmental Compliance Certificate (ECC) / CNC', 'DENR-EMB clearance certificate (for commercial/industrial/multi-dwelling).'),
-                ]
-            },
+            {'name': 'Project Estimated Cost', 'desc': 'Itemized Bill of Materials (BOM) and Cost Estimates signed and sealed by Engineer/Architect.', 'sub_items': []},
+            {'name': 'Specifications', 'desc': 'Written architectural and engineering technical specifications signed and sealed.', 'sub_items': []},
         ],
     },
 
@@ -84,15 +65,13 @@ TEMPLATES = [
         'scope': '',
         'items': [
             {
-                'name': 'Certificate of Occupancy Attachments',
-                'desc': 'Occupancy certificate inspection and completion attachments folder.',
+                'name': 'Certificate of Occupancy with Attached Documents',
+                'desc': 'Occupancy certificate application and mandatory completion clearances.',
                 'sub_items': [
-                    ('Application Form for Certificate of Occupancy', 'Duly accomplished Occupancy Permit Application Form.'),
-                    ('Certificate of Completion (Signed & Sealed)', 'Completion certificate signed & sealed by Architect/Engineer in-charge.'),
-                    ('Complete As-Built Engineering Plans', 'Signed & sealed As-Built architectural, structural, electrical, and plumbing drawings.'),
-                    ('FSIC for Occupancy (BFP Clearance)', 'Fire Safety Inspection Certificate issued by Bureau of Fire Protection.'),
-                    ('Construction Logbook', 'Signed & sealed logbook of daily site inspections.'),
-                    ('Building Inspection Photographs', 'Photos of completed building exterior (front, sides, rear) and interior.'),
+                    ('Application Form for Certificate of Occupancy (a.1)', 'Duly accomplished Occupancy Permit Application Form.'),
+                    ('Certificate of Completion (a.2)', 'Signed & sealed Certificate of Completion by Architect/Civil Engineer in-charge.'),
+                    ('As-Built Plan (a.3)', 'Complete set of signed & sealed As-Built architectural, structural, electrical, and plumbing drawings.'),
+                    ('FSIC - Fire Safety Inspection Certificate (a.4)', 'Fire Safety Inspection Certificate issued by Bureau of Fire Protection (BFP).'),
                 ]
             }
         ],
@@ -104,21 +83,22 @@ TEMPLATES = [
         'subtype': 'Fencing',
         'scope': '',
         'items': [
-            {'name': 'Barangay Clearance', 'desc': 'Barangay Clearance certifying site clearance.', 'sub_items': []},
-            {'name': 'Certified True Copy of OCT/TCT', 'desc': 'Certified copy of land title.', 'sub_items': []},
-            {'name': 'Current Tax Declaration & RPT Receipt', 'desc': 'Current Tax Declaration & RPT Receipt.', 'sub_items': []},
-            {'name': 'Notarized Contract of Lease or Deed of Sale', 'desc': 'Lease or Deed of Sale (if applicant is not lot owner).', 'sub_items': []},
-            {'name': 'Sketch Plan of Land with Technical Description', 'desc': 'Lot sketch plan with technical description.', 'sub_items': []},
-            {'name': 'Zoning Clearance', 'desc': 'Zoning Clearance from MPDO.', 'sub_items': []},
             {
-                'name': 'Fencing Requirements & Drawings',
-                'desc': 'Fencing plans and cost estimate folder.',
+                'name': 'Fencing Permit with Attached Documents',
+                'desc': 'Unified Fencing Permit Form signed and sealed.',
                 'sub_items': [
-                    ('Fencing Permit Application Form', 'Unified Fencing Permit Form.'),
-                    ('Fencing Plan & Boundary Layout', 'Signed & sealed fencing plan drawing showing lot boundary.'),
-                    ('Fencing Cost Estimate & Bill of Materials', 'Itemized cost estimate for fencing construction.'),
+                    ('Fencing Permit Application Form', 'Unified Fencing Permit Form signed and sealed.'),
+                    ('Fencing Plan', 'Signed & sealed fencing layout and elevation drawings with boundary lines.'),
+                    ('Project Cost Estimate and Specifications', 'Itemized cost estimate and technical specifications for fencing.'),
                 ]
             },
+            {'name': 'Barangay Clearance', 'desc': 'Barangay Clearance certifying site clearance for fencing.', 'sub_items': []},
+            {'name': 'Certified True Copy of OCT / TCT (Registry of Deeds)', 'desc': 'Certified copy of land title on file with Registry of Deeds.', 'sub_items': []},
+            {'name': 'Tax Declaration', 'desc': 'Current Tax Declaration copy.', 'sub_items': []},
+            {'name': 'Current Real Property Tax Receipt', 'desc': 'Current Real Property Tax official receipt.', 'sub_items': []},
+            {'name': 'Notarized Copy of Contract of Lease or Deed of Absolute Sale', 'desc': 'Required if the applicant is not the registered owner of the lot.', 'sub_items': []},
+            {'name': 'Sketch Plan of the Land with Technical Description', 'desc': 'Sketch plan with technical description certified by Geodetic Engineer.', 'sub_items': []},
+            {'name': 'Zoning Clearance', 'desc': 'Zoning Clearance issued by MPDO.', 'sub_items': []},
         ],
     },
 
@@ -129,71 +109,109 @@ TEMPLATES = [
         'scope': '',
         'items': [
             {
-                'name': 'Electrical Documents & Ancillary Attachments',
-                'desc': 'Electrical permit application and engineering computation folder.',
+                'name': 'Electrical Permit with Attached Documents',
+                'desc': 'Electrical permit application and engineering drawings.',
                 'sub_items': [
-                    ('Electrical Permit Application Form', 'Unified Electrical Permit Application Form.'),
-                    ('Electrical Single Line Diagram', 'Electrical Single Line Diagram certified by PEE.'),
-                    ('Electrical Layout & Power Plan', 'Lighting and power outlet layout drawings.'),
-                    ('Electrical Load Schedule & Computations', 'Detailed load analysis, voltage drop, and short circuit calculations.'),
-                    ('3R Size House / Structure Photo', '3R size photo of house or structure showing service entrance.'),
-                    ('Fire Safety Evaluation Clearance (FSEC)', 'FSEC clearance issued by Bureau of Fire Protection (BFP).'),
+                    ('Electrical Permit Application Form', 'Unified Electrical Permit Form signed & sealed by PEE.'),
+                    ('Electrical Single Line Diagram & Load Schedule', 'Single line diagram, load computation, and riser diagram certified by PEE.'),
+                    ('Electrical Layout & Power Plan', 'Lighting, power, and emergency power layouts.'),
                 ]
             },
-            {'name': 'Barangay Clearance', 'desc': 'Barangay Clearance.', 'sub_items': []},
-            {'name': 'Certified True Copy of OCT/TCT', 'desc': 'Certified copy of land title.', 'sub_items': []},
-            {'name': 'Current Tax Declaration & RPT Receipt', 'desc': 'Current Tax Declaration & RPT Receipt.', 'sub_items': []},
-            {'name': 'Notarized Contract of Lease or Deed of Sale', 'desc': 'Lease or Deed of Sale (if applicant is not lot owner).', 'sub_items': []},
+            {'name': 'Barangay Clearance', 'desc': 'Barangay Clearance certifying electrical installation clearance.', 'sub_items': []},
+            {'name': 'Certified True Copy of OCT / TCT (Registry of Deeds)', 'desc': 'Certified copy of land title on file with Registry of Deeds.', 'sub_items': []},
+            {'name': 'Tax Declaration', 'desc': 'Current Tax Declaration.', 'sub_items': []},
+            {'name': 'Current Real Property Tax Receipt', 'desc': 'Current Real Property Tax official receipt.', 'sub_items': []},
+            {'name': 'Notarized Copy of Contract of Lease or Deed of Absolute Sale', 'desc': 'Required if the applicant is not the registered owner of the lot.', 'sub_items': []},
+            {'name': '3R Size House Picture', 'desc': '3R size clear photograph of the house/structure showing the proposed service entrance location.', 'sub_items': []},
+            {'name': 'Fire Safety Evaluation Clearance (FSEC)', 'desc': 'FSEC certificate issued by Bureau of Fire Protection (BFP).', 'sub_items': []},
         ],
     },
 
-    # ── 5. Municipal Projects ────────────────────────────────────────────────
+    # ── 5. Municipal Projects (5 Core Required Documents) ────────────────────
     {
         'record_type': 'Project',
         'subtype': 'Road & Bridge',
         'scope': 'Municipal',
         'items': [
             {
-                'name': 'Engineering Plans & Project Drawings',
-                'desc': 'Complete DPWH/Municipal engineering drawing set.',
+                'name': 'Building Plans',
+                'desc': 'Complete architectural, civil, structural, and infrastructure engineering plans.',
                 'sub_items': [
                     ('Plan and Profile Drawings', 'Alignment plan and longitudinal profile drawings.'),
-                    ('Cross Section Plans', 'Detailed roadway/bridge cross sections.'),
+                    ('Cross Section Plans', 'Detailed roadway/structure cross sections.'),
                     ('Drainage & Culvert Details', 'Drainage structure and cross-drain detail drawings.'),
                 ]
             },
             {
-                'name': 'Program of Works (POW) & Budget Estimates',
-                'desc': 'Official LGU Program of Work and financial estimates.',
+                'name': 'Program of Works (POW)',
+                'desc': 'Official LGU Program of Work and financial cost estimates.',
                 'sub_items': [
                     ('Approved Program of Work (POW)', 'Official POW form detailing itemized scope and unit costs.'),
-                    ('Detailed Quantity Take-off & Cost Estimate', 'Itemized cost estimate spreadsheet.'),
+                    ('Detailed Quantity Take-off & Cost Estimate', 'Itemized cost estimate breakdown.'),
                     ('Approved Budget for the Contract (ABC)', 'Signed ABC document.'),
                 ]
             },
-            {'name': 'Statement of Work Accomplished (SWA)', 'desc': 'Periodic Statement of Work Accomplished.', 'sub_items': []},
-            {'name': 'Engineering Inspection Reports', 'desc': 'Periodic site inspection & QA/QC test reports.', 'sub_items': []},
-            {'name': 'Certificate of Project Completion & Final Acceptance', 'desc': 'Certificate of Project Completion & Acceptance.', 'sub_items': []},
+            {'name': 'Statement of Work Accomplished (SWA)', 'desc': 'Periodic Statement of Work Accomplished / billing accomplishment reports.', 'sub_items': []},
+            {'name': 'Inspection Report', 'desc': 'Engineering QA/QC inspection reports, site monitoring, and material test results.', 'sub_items': []},
+            {'name': 'Certificate of Completion', 'desc': 'Certificate of Project Completion and Final Acceptance signed by Municipal Engineer.', 'sub_items': []},
+        ],
+    },
+
+    # ── 6. Barangay Projects (3 Core Required Documents) ─────────────────────
+    {
+        'record_type': 'Project',
+        'subtype': 'Road & Bridge',
+        'scope': 'Barangay',
+        'items': [
+            {
+                'name': 'Building Plans',
+                'desc': 'Project plans and layout drawings.',
+                'sub_items': [
+                    ('Engineering Plans / Layout Drawings', 'Project drawings and layout details.'),
+                    ('Cross Section / Detail Drawings', 'Structural and site detail drawings.'),
+                ]
+            },
+            {
+                'name': 'Program of Works (POW)',
+                'desc': 'Official Barangay / Municipal Program of Work.',
+                'sub_items': [
+                    ('Approved Program of Work (POW)', 'Official POW detailing project scope and budget.'),
+                    ('Bill of Materials & Cost Estimate', 'Itemized material take-off and unit cost estimate.'),
+                ]
+            },
+            {'name': 'Inspection Report', 'desc': 'Site inspection report and monitoring report by Municipal Engineering Office.', 'sub_items': []},
         ],
     },
 ]
 
-# Duplicate municipal project checklist structure for all Municipal & Barangay project types
-MUNICIPAL_PROJECT_TYPES = ['Vertical Structure', 'Flood Control', 'Potable Water', 'Building', 'Water System', 'Drainage', 'Multi-purpose Hall', 'Others']
-BARANGAY_PROJECT_TYPES = ['Road & Bridge', 'Vertical Structure', 'Flood Control', 'Potable Water', 'Building', 'Water System', 'Drainage', 'Multi-purpose Hall', 'Others']
+# Generate templates for all project types matching ProjectDetail.PROJECT_TYPE_CHOICES
+# These are the actual values stored in the DB:
+#   'Road & Bridge', 'Vertical Structure', 'Flood Control', 'Potable Water',
+#   'Building', 'Water System', 'Drainage', 'Multi-purpose Hall', 'Others'
+PROJECT_TYPES_ALL = [
+    'Vertical Structure',
+    'Flood Control',
+    'Potable Water',
+    'Building',
+    'Water System',
+    'Drainage',
+    'Multi-purpose Hall',
+    'Others',
+]
 
-muni_template = TEMPLATES[4]
-for ptype in MUNICIPAL_PROJECT_TYPES:
-    t_copy = dict(muni_template)
-    t_copy['subtype'] = ptype
-    t_copy['scope'] = 'Municipal'
-    TEMPLATES.append(t_copy)
+muni_base = TEMPLATES[4]  # Municipal 'Road & Bridge' (5 core documents)
+brgy_base = TEMPLATES[5]  # Barangay 'Road & Bridge' (3 core documents)
 
-for ptype in BARANGAY_PROJECT_TYPES:
-    t_copy = dict(muni_template)
-    t_copy['subtype'] = ptype
-    t_copy['scope'] = 'Barangay'
-    TEMPLATES.append(t_copy)
+for ptype in PROJECT_TYPES_ALL:
+    t_muni = dict(muni_base)
+    t_muni['subtype'] = ptype
+    t_muni['scope'] = 'Municipal'
+    TEMPLATES.append(t_muni)
+
+    t_brgy = dict(brgy_base)
+    t_brgy['subtype'] = ptype
+    t_brgy['scope'] = 'Barangay'
+    TEMPLATES.append(t_brgy)
 
 
 class Command(BaseCommand):

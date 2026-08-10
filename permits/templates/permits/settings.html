@@ -3,675 +3,727 @@
 
 {% block title %}Settings | eTala{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ── Streamlined Executive Settings ────────────────────────────────── */
+    .filter-tab-pill {
+        border-radius: 20px !important;
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        padding: 5px 14px !important;
+        transition: all 0.15s ease;
+    }
+
+    .tag-barangay-proj {
+        background: rgba(147, 51, 234, 0.08);
+        color: #9333ea;
+        border: 1px solid rgba(147, 51, 234, 0.2);
+    }
+    .dark-mode .tag-barangay-proj {
+        background: rgba(168, 85, 247, 0.15);
+        color: #c084fc;
+        border-color: rgba(168, 85, 247, 0.3);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
 {% if messages %}
-<div class="mb-3">
+<div class="mb-4">
     {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size:0.85rem;">
-        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-3 border-0 py-2.5 px-3.5 shadow-2xs" role="alert" style="font-size: 0.86rem;">
+        <i class="fa-solid fa-circle-info me-1.5"></i>{{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     {% endfor %}
 </div>
 {% endif %}
 
-<!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
-<div class="page-title-row">
+<!-- ══ PAGE HEADER ══════════════════════════════════════════════════════ -->
+<div class="page-title-row mb-4">
     <div>
-        <h1>
-            <i data-lucide="settings" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
-            System Settings
+        <h1 class="d-flex align-items-center mb-1">
+            <i class="fa-solid fa-gear text-teal me-2.5" style="font-size: 22px;"></i>
+            <span>Settings</span>
         </h1>
-        <p class="page-subtitle">Configure municipal office parameters, database archives, checklist templates, and password settings</p>
+        <p class="page-subtitle mb-0">Manage record requirement templates and database backups.</p>
     </div>
 </div>
 
-<!-- ══ TABS SYSTEM ══════════════════════════════════════════════════════ -->
-<div class="row g-4">
-    <!-- Left column: Navigation Tabs -->
-    <div class="col-lg-3">
-        <div class="content-card p-3">
-            <div class="nav flex-column nav-pills" id="settingsTabs" role="tablist" aria-orientation="vertical">
-                <!-- Group 1: Configuration -->
-                <div class="text-uppercase text-muted fw-bold px-2 pt-1 pb-2" style="font-size: 10px; letter-spacing: 0.8px;">Office Configuration</div>
-                <button class="nav-link active text-start fw-semibold py-2.5 px-3 mb-2 d-flex align-items-center gap-2" id="tab-office-btn" data-bs-toggle="pill" data-bs-target="#tab-office" type="button" role="tab" style="font-size: var(--text-sm); border-radius: var(--border-radius-sm);">
-                    <i data-lucide="building" style="width:16px; height:16px;"></i> Office Info
-                </button>
-                <button class="nav-link text-start fw-semibold py-2.5 px-3 mb-3 d-flex align-items-center gap-2" id="tab-templates-btn" data-bs-toggle="pill" data-bs-target="#tab-templates" type="button" role="tab" style="font-size: var(--text-sm); border-radius: var(--border-radius-sm);">
-                    <i data-lucide="list-checks" style="width:16px; height:16px;"></i> Checklist Templates
-                </button>
+<!-- ══ SECTION 1: RECORD REQUIREMENTS ══════════════════════════════════ -->
+<div class="content-card shadow-2xs mb-4" style="border-radius: 16px; border: 1px solid var(--border-default); overflow: hidden;">
+    <!-- Card Header -->
+    <div class="px-4 py-3.5 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2 bg-white">
+        <div class="d-flex align-items-center gap-2.5">
+            <div class="rounded-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background: rgba(49, 85, 217, 0.08); color: #3155D9;">
+                <i class="fa-solid fa-list-check" style="font-size: 16px;"></i>
+            </div>
+            <div>
+                <h5 class="fw-bold text-dark mb-0" style="font-size: 1.02rem;">Record Requirements</h5>
+                <p class="text-muted small mb-0" style="font-size: 0.76rem;">Configure document checklist templates for Permits, Municipal Projects, and Barangay Projects.</p>
+            </div>
+        </div>
+        <button type="button" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 px-3.5" data-bs-toggle="modal" data-bs-target="#createTemplateModal" style="border-radius: 8px;">
+            <i data-lucide="plus" style="width:15px; height:15px;"></i>
+            <span>Create Template</span>
+        </button>
+    </div>
 
-                <!-- Divider line -->
-                <div style="height: 1px; background: #cbd5e1; margin: 4px 8px 12px 8px;"></div>
+    <!-- Organized Scope & Category Filter Tabs + Search -->
+    <div class="px-4 py-3 bg-light border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: #f8fafc !important;">
+        <div class="d-flex align-items-center gap-1.5 flex-wrap" id="templateFilterPills">
+            <button type="button" class="btn btn-sm btn-primary filter-tab-pill px-3" onclick="filterCategory('ALL', this)">
+                All Templates ({{ templates|length }})
+            </button>
+            <button type="button" class="btn btn-sm btn-light text-secondary filter-tab-pill px-3" onclick="filterCategory('Permit', this)">
+                Permit Checklists
+            </button>
+            <button type="button" class="btn btn-sm btn-light text-secondary filter-tab-pill px-3" onclick="filterCategory('Municipal', this)">
+                Municipal Projects
+            </button>
+            <button type="button" class="btn btn-sm btn-light text-secondary filter-tab-pill px-3" onclick="filterCategory('Barangay', this)">
+                Barangay Projects
+            </button>
+        </div>
 
-                <!-- Group 2: System & Maintenance -->
-                <div class="text-uppercase text-muted fw-bold px-2 pb-2" style="font-size: 10px; letter-spacing: 0.8px;">Maintenance &amp; Security</div>
-                <button class="nav-link text-start fw-semibold py-2.5 px-3 mb-2 d-flex align-items-center gap-2" id="tab-database-btn" data-bs-toggle="pill" data-bs-target="#tab-database" type="button" role="tab" style="font-size: var(--text-sm); border-radius: var(--border-radius-sm);">
-                    <i data-lucide="database" style="width:16px; height:16px;"></i> Database Backup
-                </button>
+        <div class="position-relative" style="max-width: 280px; width: 100%;">
+            <i class="fa-solid fa-magnifying-glass position-absolute text-muted" style="left: 12px; top: 50%; transform: translateY(-50%); font-size: 12px;"></i>
+            <input type="text" id="templateSearchInput" class="form-control form-control-sm ps-4" placeholder="Search templates..." onkeyup="filterTemplatesTable()" style="border-radius: 8px; font-size: 0.8rem; border-color: var(--border-default); background: #ffffff;">
+        </div>
+    </div>
 
+    <!-- Templates Registry Table -->
+    <div class="table-responsive">
+        <table class="data-table table-card-responsive m-0" id="templatesTable">
+            <thead>
+                <tr>
+                    <th class="px-4">Template Title</th>
+                    <th>Category / Scope</th>
+                    <th>Subtype Name</th>
+                    <th>Requirement Count</th>
+                    <th class="text-end px-4">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if templates %}
+                {% for t in templates %}
+                <!-- JSON Data for Dynamic Modal -->
+                <script type="application/json" id="template-data-{{ t.template_id }}">
+                    {
+                        "id": "{{ t.template_id }}",
+                        "record_type": "{{ t.record_type }}",
+                        "subtype": "{{ t.subtype|escapejs }}",
+                        "scope": "{{ t.scope|escapejs }}",
+                        "is_active": {{ t.is_active|yesno:"true,false" }},
+                        "items": [
+                            {% for item in t.items.all %}
+                            {
+                                "id": "{{ item.item_id }}",
+                                "parent_id": "{{ item.parent_id|default:'' }}",
+                                "is_group": {{ item.is_parent_group|yesno:"true,false" }},
+                                "name": "{{ item.name|escapejs }}",
+                                "description": "{{ item.description|escapejs }}",
+                                "is_required": {{ item.is_required|yesno:"true,false" }},
+                                "is_active": {{ item.is_active|yesno:"true,false" }}
+                            }{% if not forloop.last %},{% endif %}
+                            {% endfor %}
+                        ]
+                    }
+                </script>
+                <tr style="cursor: pointer;" data-type="{{ t.record_type }}" data-scope="{{ t.scope|default:'' }}" onclick="openManageModal('{{ t.template_id }}')">
+                    <td class="px-4 fw-semibold text-dark search-target" data-label="Template Title">
+                        {{ t.record_type }} — {{ t.subtype }} {% if t.scope %}({{ t.scope }}){% endif %}
+                    </td>
+                    <td data-label="Category / Scope">
+                        {% if t.record_type == 'Permit' %}
+                        <span class="tag tag-permit">Permit</span>
+                        {% elif t.scope == 'Barangay' %}
+                        <span class="tag tag-barangay-proj">Barangay Project</span>
+                        {% else %}
+                        <span class="tag tag-municipal">Municipal Project</span>
+                        {% endif %}
+                    </td>
+                    <td class="cell-muted" data-label="Subtype Name">{{ t.subtype }}</td>
+                    <td data-label="Requirement Count"><span class="fw-bold text-dark">{{ t.active_items.count }} items</span></td>
+                    <td class="text-end px-4" data-label="Action">
+                        <div class="d-flex align-items-center justify-content-end gap-2.5">
+                            {% if t.is_active %}
+                            <span class="status-indicator status-indicator-active">Active</span>
+                            {% else %}
+                            <span class="status-indicator">Inactive</span>
+                            {% endif %}
+                            <button type="button" class="action-btn action-btn-secondary action-btn-xs px-3 py-1" onclick="event.stopPropagation(); openManageModal('{{ t.template_id }}')" style="font-size: 0.76rem; border-radius: 6px;">
+                                Manage →
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted small">No checklist templates configured. Click "Create Template" above to get started.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ SECTION 2: BACKUP & RESTORE ═════════════════════════════════════ -->
+<div class="content-card shadow-2xs mb-5" style="border-radius: 16px; border: 1px solid var(--border-default); overflow: hidden;">
+    <!-- Card Header -->
+    <div class="px-4 py-3.5 border-bottom d-flex align-items-center justify-content-between bg-white">
+        <div class="d-flex align-items-center gap-2.5">
+            <div class="rounded-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background: rgba(16, 185, 129, 0.08); color: #10b981;">
+                <i class="fa-solid fa-database" style="font-size: 16px;"></i>
+            </div>
+            <div>
+                <h5 class="fw-bold text-dark mb-0" style="font-size: 1.02rem;">Backup &amp; Restore</h5>
+                <p class="text-muted small mb-0" style="font-size: 0.76rem;">Safeguard system database files and metadata logs.</p>
             </div>
         </div>
     </div>
 
-    <!-- Right column: Tab Contents -->
-    <div class="col-lg-9">
-        <div class="tab-content" id="settingsTabsContent">
+    <div class="p-4 bg-light" style="background: #f8fafc !important;">
+        <div class="row g-4">
+            <!-- Export Option -->
+            <div class="col-md-6">
+                <div class="p-4 rounded-3 bg-white border h-100 d-flex flex-column justify-content-between shadow-2xs" style="border-color: #e2e8f0 !important; border-radius: 12px !important;">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-2 text-primary">
+                            <i class="fa-solid fa-cloud-arrow-down" style="font-size: 18px;"></i>
+                            <h6 class="fw-bold text-dark mb-0" style="font-size: 0.98rem;">Export System Backup</h6>
+                        </div>
+                        <p class="text-secondary small mb-3" style="font-size: 0.82rem; line-height: 1.45;">Download a JSON database backup file of all system records and metadata.</p>
+                        
+                        <!-- Last Backup Indicator Badge -->
+                        <div class="p-2 rounded-2 bg-light border mb-4 d-flex align-items-center gap-2" style="font-size: 0.76rem; border-color: #e2e8f0 !important;">
+                            <i class="fa-solid fa-clock-rotate-left text-teal"></i>
+                            <span class="text-muted">Last Backup: <strong id="lastBackupBadgeText" class="text-dark">Not exported yet</strong></span>
+                        </div>
+                    </div>
+                    <form method="POST" action="{% url 'settings' %}" onsubmit="recordBackupTimestamp()">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="db_backup">
+                        <button type="submit" class="action-btn action-btn-primary action-btn-md w-100 d-inline-flex align-items-center justify-content-center gap-2 py-2" style="border-radius: 8px; font-weight: 600;">
+                            <i data-lucide="download" style="width:15px; height:15px;"></i>
+                            <span>Download Backup</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Restore Option -->
+            <div class="col-md-6">
+                <div class="p-4 rounded-3 bg-white border h-100 d-flex flex-column justify-content-between shadow-2xs" style="border-color: #e2e8f0 !important; border-radius: 12px !important;">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-2 text-danger">
+                            <i class="fa-solid fa-rotate-left" style="font-size: 18px;"></i>
+                            <h6 class="fw-bold text-dark mb-0" style="font-size: 0.98rem;">Restore Database</h6>
+                        </div>
+                        <p class="text-secondary small mb-4" style="font-size: 0.82rem; line-height: 1.45;">Upload an eTala backup file to restore system database tables.</p>
+                    </div>
+                    <form method="POST" action="{% url 'settings' %}" enctype="multipart/form-data" id="dbRestoreForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="db_restore">
+                        <div class="mb-3">
+                            <input type="file" name="backup_file" class="form-control form-control-sm" required style="border-radius: 7px; border: 1px solid var(--border-default); font-size: 0.78rem;">
+                        </div>
+                        <button type="button" class="action-btn action-btn-danger action-btn-md w-100 d-inline-flex align-items-center justify-content-center gap-2 py-2" onclick="confirmDbRestore()" style="border-radius: 8px; font-weight: 600;">
+                            <i class="fa-solid fa-file-import" style="font-size: 13px;"></i>
+                            <span>Restore Backup Data</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ CREATE TEMPLATE MODAL ══════════════════════════════════════════ -->
+<div class="modal fade" id="createTemplateModal" tabindex="-1" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-0" style="background: #fff;">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background: #eff6ff; border-radius: 10px;">
+                        <i class="fa-solid fa-plus text-primary" style="font-size: 14px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="createTemplateModalLabel" style="font-size: 1.02rem; color: #0f172a;">Create Checklist Template</h5>
+                        <p class="mb-0" style="font-size: 0.75rem; color: #94a3b8;">Add a new record requirement template</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
+            </div>
+
+            <form method="POST" action="{% url 'settings' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_template">
+                <div class="modal-body px-4 pt-3 pb-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold mb-1">Record Category <span class="text-danger">*</span></label>
+                            <select name="record_type" class="form-select form-select-sm" required style="border-radius: 7px; font-size: 0.82rem;">
+                                <option value="Permit">Permit</option>
+                                <option value="Project">Project</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold mb-1">Subtype / Name <span class="text-danger">*</span></label>
+                            <input type="text" name="subtype" class="form-control form-control-sm" placeholder="E.g. Building, Electrical, Potable Water" required style="border-radius: 7px; font-size: 0.82rem;">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-semibold mb-1">Scope</label>
+                            <select name="scope" class="form-select form-select-sm" style="border-radius: 7px; font-size: 0.82rem;">
+                                <option value="">N/A (Permits / Global)</option>
+                                <option value="Municipal">Municipal (Projects)</option>
+                                <option value="Barangay">Barangay (Projects)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top px-4 py-3" style="background: #f8fafc; border-color: #f1f5f9 !important;">
+                    <button type="button" class="btn px-3 py-2 fw-medium" data-bs-dismiss="modal" style="border-radius: 7px; font-size: 0.82rem; color: #64748b; background: #e2e8f0; border: none;">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn text-white px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2" style="border-radius: 7px; font-size: 0.82rem; background: #3155D9; border: none;">
+                        <i class="fa-solid fa-plus" style="font-size: 12px;"></i> Create Template
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MANAGE TEMPLATE MODAL ═════════════════════════════════════════════ -->
+<div class="modal fade" id="manageTemplateModal" tabindex="-1" aria-labelledby="manageTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 800px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
             
-            <!-- 1. OFFICE INFO -->
-            <div class="tab-pane fade show active" id="tab-office" role="tabpanel" aria-labelledby="tab-office-btn">
-                <div class="content-card">
-                    <div class="content-card-body" style="padding: 24px;">
-                        <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px; margin-bottom: 16px;">
-                            Office Information
-                        </h6>
-                        <p class="text-muted small mb-4">Configure name, municipality, and province details used in reports and official correspondence.</p>
-                        
-                        <form method="POST" action="{% url 'settings' %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="update_office_info">
-                            <div class="row g-3">
-                                <div class="col-md-12">
-                                    <label class="form-label text-muted small fw-semibold">Engineering Office Title</label>
-                                    <input type="text" name="office_name" class="form-control" value="{{ office_settings.office_name }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label text-muted small fw-semibold">Municipality</label>
-                                    <input type="text" name="municipality" class="form-control" value="{{ office_settings.municipality }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label text-muted small fw-semibold">Province</label>
-                                    <input type="text" name="province" class="form-control" value="{{ office_settings.province }}" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
-                                </div>
-                                <div class="col-md-12 mt-4">
-                                    <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4">Save Office Settings</button>
-                                </div>
-                            </div>
-                        </form>
+            <!-- Header -->
+            <div class="modal-header border-0 px-4 pt-4 pb-0" style="background: #fff;">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background: #eff6ff; border-radius: 10px;">
+                        <i class="fa-solid fa-list-check" style="font-size: 14px; color: #3155D9;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="manageTemplateModalLabel" style="font-size: 1.02rem; color: #0f172a;">
+                            <span id="modal-title-text">Manage Template</span>
+                        </h5>
                     </div>
                 </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
             </div>
 
-            <!-- 2. DATABASE BACKUP / RESTORE -->
-            <div class="tab-pane fade" id="tab-database" role="tabpanel" aria-labelledby="tab-database-btn">
-                <div class="content-card mb-4">
-                    <div class="content-card-body" style="padding: 24px;">
-                        <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px; margin-bottom: 16px;">
-                            Backup Database
-                        </h6>
-                        <p class="text-muted small mb-4">Create a full data backup of all indexed system records and logs.</p>
-                        
-                        <div class="text-center py-3">
-                            <div class="d-inline-flex align-items-center justify-content-center rounded-circle p-2 bg-light mb-3" style="width: 56px; height: 56px; color: var(--gray-400);">
-                                <i data-lucide="database" style="width: 28px; height: 28px;"></i>
-                            </div>
-                            <h6 class="fw-bold text-dark mb-2" style="font-size: 0.95rem;">Generate Database Archive</h6>
-                            <p class="text-muted small mx-auto mb-4" style="max-width:480px;">Download an indexed SQL/JSON package containing all encoded metadata, records directory references, audit histories, and user profiles.</p>
-                            
-                            <form method="POST" action="{% url 'settings' %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="db_backup">
-                                <button type="submit" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 px-4 mx-auto">
-                                    <i data-lucide="download" style="width:14px; height:14px;"></i> Download Backup
-                                </button>
-                            </form>
+            <div class="modal-body px-4 pt-3 pb-4" style="background: #ffffff;">
+                <!-- 1. Edit Template Form -->
+                <form method="POST" action="{% url 'settings' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="edit_template">
+                    <input type="hidden" name="template_id" id="modal-template-id" value="">
+                    
+                    <div class="row g-3 p-3 rounded-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                        <div class="col-md-5">
+                            <label class="form-label text-muted small fw-semibold mb-1">Subtype / Name</label>
+                            <input type="text" name="subtype" id="modal-subtype" class="form-control form-control-sm" required style="border-radius: 7px; border: 1px solid #e2e8f0; font-size: 0.82rem;">
                         </div>
-                    </div>
-                </div>
-
-                <div class="content-card">
-                    <div class="content-card-body" style="padding: 24px;">
-                        <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); padding-bottom: 10px; margin-bottom: 16px;">
-                            Restore Database
-                        </h6>
-                        <p class="text-muted small mb-4">Restore system configurations and metadata tables from a previous backup file.</p>
-                        
-                        <form method="POST" action="{% url 'settings' %}" enctype="multipart/form-data" id="dbRestoreForm">
-                            {% csrf_token %}
-                            <input type="hidden" name="action" value="db_restore">
-                            
-                            <div class="mb-4">
-                                <label class="form-label text-muted small fw-semibold">Choose Backup JSON / SQL File</label>
-                                <input type="file" name="backup_file" class="form-control" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; background: #ffffff;">
-                            </div>
-                            <button type="button" class="action-btn action-btn-danger action-btn-sm px-4" onclick="confirmDbRestore()">
-                                Restore Backup Configuration
-                            </button>
-                        </form>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. CHECKLIST TEMPLATES LIST -->
-            <div class="tab-pane fade" id="tab-templates" role="tabpanel" aria-labelledby="tab-templates-btn">
-                <div class="content-card">
-                    <div class="content-card-body p-0">
-                        <div class="p-4 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                            <div>
-                                <h6 class="fw-bold mb-1 text-dark" style="font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
-                                    Checklist Templates Registry
-                                </h6>
-                                <p class="text-muted small mb-0">Review document checklist items required for each record category and scope.</p>
-                            </div>
-                            <button type="button" class="action-btn action-btn-primary action-btn-sm d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
-                                <i data-lucide="plus" style="width:14px; height:14px;"></i> Create Template
+                        <div class="col-md-4">
+                            <label class="form-label text-muted small fw-semibold mb-1">Scope</label>
+                            <select name="scope" id="modal-scope" class="form-select form-select-sm" style="border-radius: 7px; border: 1px solid #e2e8f0; font-size: 0.82rem;">
+                                <option value="">N/A (Global / Permit)</option>
+                                <option value="Municipal">Municipal</option>
+                                <option value="Barangay">Barangay</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-muted small fw-semibold mb-1">Status</label>
+                            <select name="is_active" id="modal-is-active" class="form-select form-select-sm" style="border-radius: 7px; border: 1px solid #e2e8f0; font-size: 0.82rem;">
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="col-12 text-end mt-2">
+                            <button type="submit" class="btn btn-sm text-white px-3 fw-semibold" style="background: #3155D9; border-radius: 6px; font-size: 0.78rem;">
+                                Save Template Info
                             </button>
                         </div>
-                        <div class="table-responsive">
-                            <table class="data-table table-card-responsive">
-                                <thead>
-                                    <tr>
-                                        <th class="px-4">Template Title</th>
-                                        <th>Category</th>
-                                        <th>Subtype / Scope</th>
-                                        <th>Requirement Count</th>
-                                        <th class="text-end px-4">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% if templates %}
-                                    {% for t in templates %}
-                                    <!-- JSON Data for Dynamic Modal -->
-                                    <script type="application/json" id="template-data-{{ t.template_id }}">
-                                        {
-                                            "id": "{{ t.template_id }}",
-                                            "record_type": "{{ t.record_type }}",
-                                            "subtype": "{{ t.subtype|escapejs }}",
-                                            "scope": "{{ t.scope|escapejs }}",
-                                            "is_active": {{ t.is_active|yesno:"true,false" }},
-                                            "items": [
-                                                {% for item in t.items.all %}
-                                                {
-                                                    "id": "{{ item.item_id }}",
-                                                    "parent_id": "{{ item.parent_id|default:'' }}",
-                                                    "is_group": {{ item.is_parent_group|yesno:"true,false" }},
-                                                    "name": "{{ item.name|escapejs }}",
-                                                    "description": "{{ item.description|escapejs }}",
-                                                    "is_required": {{ item.is_required|yesno:"true,false" }},
-                                                    "is_active": {{ item.is_active|yesno:"true,false" }}
-                                                }{% if not forloop.last %},{% endif %}
-                                                {% endfor %}
-                                            ]
-                                        }
-                                    </script>
-                                    <tr style="cursor: pointer;" onclick="openManageModal('{{ t.template_id }}')">
-                                        <td class="px-4 fw-semibold text-dark" data-label="Template Title">{{ t.record_type }} — {{ t.subtype }} {% if t.scope %}({{ t.scope }}){% endif %}</td>
-                                        <td data-label="Category">
-                                            {% if t.record_type == 'Permit' %}
-                                            <span class="tag tag-permit">Permit</span>
-                                            {% else %}
-                                            <span class="tag tag-municipal">Project</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="cell-muted" data-label="Subtype / Scope">{{ t.subtype|default:t.scope }}</td>
-                                        <td data-label="Requirement Count"><span class="fw-bold text-dark">{{ t.active_items.count }} items</span></td>
-                                        <td class="text-end px-4" data-label="Status">
-                                            <div class="d-flex align-items-center justify-content-end gap-3">
-                                                {% if t.is_active %}
-                                                <span class="status-indicator status-indicator-active">Active</span>
-                                                {% else %}
-                                                <span class="status-indicator">Inactive</span>
-                                                {% endif %}
-                                                <button type="button" class="btn btn-sm btn-link text-primary p-0 m-0" onclick="event.stopPropagation(); openManageModal('{{ t.template_id }}')" style="font-size: var(--text-xs); text-decoration: none; font-weight: 600;">
-                                                    Manage
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="5" class="text-center py-5 text-muted small">No checklist templates configured.</td>
-                                    </tr>
-                                    {% endif %}
-                                </tbody>
-                            </table>
-                        </div>
                     </div>
+                </form>
+
+                <!-- 2. Quick 1-Line Item Creator Bar -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-bold text-dark m-0" style="font-size: 0.88rem;">Document Requirements</h6>
+                        <button type="button" class="btn btn-sm btn-link text-primary p-0 text-decoration-none fw-semibold" onclick="toggleAdvancedItemForm()" style="font-size: 0.75rem;">
+                            <i class="fa-solid fa-sliders me-1"></i> <span id="advancedBtnText">+ Advanced Options</span>
+                        </button>
+                    </div>
+
+                    <!-- Quick 1-Line Creator Input -->
+                    <form method="POST" action="{% url 'settings' %}" id="quickAddItemForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add_requirement_item">
+                        <input type="hidden" name="template_id" id="quickAddTemplateId" value="">
+                        <input type="hidden" name="is_group" value="false">
+                        
+                        <div class="p-2.5 rounded-3 d-flex align-items-center gap-2" style="background: #f1f5f9; border: 1px solid #cbd5e1;">
+                            <input type="text" name="name" class="form-control form-control-sm bg-white" placeholder="⚡ Quick add requirement item (e.g. Barangay Clearance)..." required style="border-radius: 6px; font-size: 0.82rem; border-color: #cbd5e1;">
+                            
+                            <div class="form-check mb-0 ms-1 flex-shrink-0" style="user-select: none;">
+                                <input class="form-check-input" type="checkbox" name="is_required" value="true" id="quickIsRequired" checked style="cursor: pointer;">
+                                <label class="form-check-label small text-dark fw-semibold" for="quickIsRequired" style="font-size: 0.76rem; cursor: pointer;">Required</label>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-sm text-white px-3 flex-shrink-0 fw-semibold d-inline-flex align-items-center gap-1.5" style="background: #3155D9; border-radius: 6px; font-size: 0.78rem;">
+                                <i class="fa-solid fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
-                <!-- ══ CREATE TEMPLATE MODAL ══════════════════════════════════════════ -->
-                <div class="modal fade" id="createTemplateModal" tabindex="-1" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                        <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-                            <div class="modal-header border-bottom px-4 py-3" style="background: #f8fafc; border-top-left-radius: 12px; border-top-right-radius: 12px;">
-                                <h6 class="modal-title fw-bold text-dark m-0" id="createTemplateModalLabel">Create Checklist Template</h6>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <!-- Advanced Add/Edit Item Form (Hidden by default) -->
+                <div id="itemFormContainer" class="p-3 rounded-3 mb-4" style="display: none; background: #eff6ff; border: 1px solid #bfdbfe;">
+                    <h6 class="fw-bold text-primary mb-3" id="itemFormTitle" style="font-size: 0.85rem;">Advanced Requirement Options</h6>
+                    <form method="POST" action="{% url 'settings' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" id="itemFormAction" value="add_requirement_item">
+                        <input type="hidden" name="template_id" id="itemFormTemplateId" value="">
+                        <input type="hidden" name="item_id" id="itemFormItemId" value="">
+
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label text-muted small fw-semibold mb-1">Document Title / Label *</label>
+                                <input type="text" name="name" id="itemFormName" class="form-control form-control-sm" required placeholder="E.g. Certified True Copy of Title" style="border-radius: 6px; font-size: 0.82rem;">
                             </div>
-                            <form method="POST" action="{% url 'settings' %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="create_template">
-                                <div class="modal-body p-4">
-                                    <div class="mb-3">
-                                        <label class="form-label text-muted small fw-semibold">Record Category</label>
-                                        <select name="record_type" class="form-select" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; background-color: #ffffff;">
-                                            <option value="Permit">Permit</option>
-                                            <option value="Project">Project</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label text-muted small fw-semibold">Subtype / Name</label>
-                                        <input type="text" name="subtype" class="form-control" placeholder="E.g. Building, Electrical, Potable Water" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
-                                    </div>
-                                    <div class="mb-0">
-                                        <label class="form-label text-muted small fw-semibold">Scope</label>
-                                        <select name="scope" class="form-select" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px; background-color: #ffffff;">
-                                            <option value="">N/A (Permits / Global)</option>
-                                            <option value="Municipal">Municipal (Projects)</option>
-                                            <option value="Barangay">Barangay (Projects)</option>
-                                        </select>
-                                        <div class="form-text small text-muted mt-1" style="font-size: 0.72rem;">Set to N/A for permit types. Set to Municipal or Barangay for project types.</div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer border-top px-4 py-3" style="background: #f8fafc; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
-                                    <button type="button" class="btn btn-sm btn-light px-3" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4">Create Template</button>
-                                </div>
-                            </form>
+                            <div class="col-md-5">
+                                <label class="form-label text-muted small fw-semibold mb-1">Item Structure</label>
+                                <select name="is_group" id="itemFormIsGroup" class="form-select form-select-sm" onchange="toggleParentSelect(this.value)" style="border-radius: 6px; font-size: 0.82rem;">
+                                    <option value="false">Standalone Requirement</option>
+                                    <option value="true">Folder / Group Header</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6" id="parentSelectWrapper">
+                                <label class="form-label text-muted small fw-semibold mb-1">Parent Group (Optional)</label>
+                                <select name="parent_id" id="itemFormParentId" class="form-select form-select-sm" style="border-radius: 6px; font-size: 0.82rem;">
+                                    <option value="">None (Top-Level)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small fw-semibold mb-1">Mandatory Status</label>
+                                <select name="is_required" id="itemFormIsRequired" class="form-select form-select-sm" style="border-radius: 6px; font-size: 0.82rem;">
+                                    <option value="true">Required (*)</option>
+                                    <option value="false">Optional</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small fw-semibold mb-1">Description / Notes</label>
+                                <input type="text" name="description" id="itemFormDescription" class="form-control form-control-sm" placeholder="Optional guidelines for applicant" style="border-radius: 6px; font-size: 0.82rem;">
+                            </div>
+                            <div class="col-12 text-end gap-2 d-flex justify-content-end">
+                                <button type="button" class="btn btn-sm btn-light" onclick="closeItemForm()" style="border-radius: 6px; font-size: 0.78rem;">Cancel</button>
+                                <button type="submit" class="btn btn-sm text-white px-3 fw-semibold" style="background: #3155D9; border-radius: 6px; font-size: 0.78rem;">Save Item</button>
+                            </div>
                         </div>
-                    </div>
+                    </form>
                 </div>
 
-                <!-- ══ SINGLE DYNAMIC MANAGE TEMPLATE MODAL ══════════════════════════════════ -->
-                <div class="modal fade" id="manageTemplateModal" tabindex="-1" aria-labelledby="manageTemplateModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                        <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-                            <div class="modal-header border-bottom px-4 py-3" style="background: #f8fafc; border-top-left-radius: 12px; border-top-right-radius: 12px;">
-                                <div class="d-flex align-items-center gap-2">
-                                    <h6 class="modal-title fw-bold text-dark m-0" id="manageTemplateModalLabel">
-                                        <span id="modal-title-text">Manage Checklist Template</span>
-                                    </h6>
-                                </div>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body p-4">
-                                <!-- 1. Edit Template Form -->
-                                <form method="POST" action="{% url 'settings' %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="edit_template">
-                                    <input type="hidden" name="template_id" id="modal-template-id" value="">
-                                    <div class="row g-2 align-items-end mb-4 pb-4 border-bottom">
-                                        <div class="col-md-5">
-                                            <label class="form-label text-muted small fw-semibold">Subtype / Name</label>
-                                            <input type="text" name="subtype" id="modal-subtype" class="form-control form-control-sm" value="" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label text-muted small fw-semibold">Scope</label>
-                                            <select name="scope" id="modal-scope" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
-                                                <option value="">N/A (Permit)</option>
-                                                <option value="Municipal">Municipal</option>
-                                                <option value="Barangay">Barangay</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <label class="form-label text-muted small fw-semibold">Status</label>
-                                            <select name="is_active" id="modal-is-active" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
-                                                <option value="true">Active</option>
-                                                <option value="false">Inactive</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="submit" class="action-btn action-btn-primary action-btn-sm w-100" style="height: 31px; border-radius: 6px;">Update</button>
-                                        </div>
-                                    </div>
-                                </form>
-
-                                <!-- 2. Requirements Checklist List -->
-                                <div class="mb-4">
-                                    <h6 class="fw-bold text-dark mb-3" style="font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
-                                        <span>Requirements List</span>
-                                        <span class="badge text-dark" id="modal-badge-count" style="font-size: 0.65rem; border-radius: 50px; background: #dbeafe; color:#1e3a8a;">0 Total</span>
-                                    </h6>
-                                    
-                                    <div class="d-flex flex-column gap-2" id="modal-requirements-list" style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
-                                        <!-- Dynamic checklist items injected by JavaScript -->
-                                    </div>
-                                </div>
-
-                                <!-- 3. Add New Requirement Form -->
-                                <div class="border-top pt-4">
-                                    <h6 class="fw-bold text-dark mb-3" style="font-size: 0.85rem;">Add New Requirement Item / Group</h6>
-                                    <form method="POST" action="{% url 'settings' %}">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="action" value="add_requirement_item">
-                                        <input type="hidden" name="template_id" id="modal-add-template-id" value="">
-                                        <div class="row g-2">
-                                            <div class="col-md-6">
-                                                <label class="form-label text-muted small fw-semibold">Item Category / Type</label>
-                                                <select name="is_group" id="modal-add-is-group" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;" onchange="toggleAddParentSelect()">
-                                                    <option value="false">Child / Single Requirement Document</option>
-                                                    <option value="true">📁 Document Group (Parent Container)</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-6" id="modal-add-parent-container">
-                                                <label class="form-label text-muted small fw-semibold">Parent Group (Optional)</label>
-                                                <select name="parent_id" id="modal-add-parent-id" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
-                                                    <option value="">None (Top-Level Requirement)</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-8">
-                                                <label class="form-label text-muted small fw-semibold">Requirement Title</label>
-                                                <input type="text" name="name" class="form-control form-control-sm" placeholder="E.g. Building Plans, Tax Declaration, Architectural Plan" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label text-muted small fw-semibold">Mandatory / Optional</label>
-                                                <select name="is_required" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
-                                                    <option value="true">Required</option>
-                                                    <option value="false">Optional</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-12">
-                                                <label class="form-label text-muted small fw-semibold">Description (optional)</label>
-                                                <input type="text" name="description" class="form-control form-control-sm" placeholder="Helpful details, instructions, or format requirements for users" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
-                                            </div>
-                                            <div class="col-md-12 d-flex justify-content-end mt-2">
-                                                <button type="submit" class="action-btn action-btn-primary action-btn-sm px-4" style="font-size:0.8rem; border-radius: 6px;">Add Requirement</button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Items List Container -->
+                <div id="modalItemsList" class="d-flex flex-column gap-2" style="max-height: 380px; overflow-y: auto; padding-right: 4px;">
+                    <!-- Populated dynamically via JS -->
                 </div>
             </div>
 
-        </div> <!-- /tab-content -->
-    </div> <!-- /col-lg-9 -->
-</div> <!-- /row -->
+            <!-- Footer -->
+            <div class="modal-footer border-top px-4 py-3" style="background: #f8fafc; border-color: #f1f5f9 !important;">
+                <button type="button" class="btn px-4 py-2 fw-medium" data-bs-dismiss="modal" style="border-radius: 7px; font-size: 0.82rem; color: #64748b; background: #e2e8f0; border: none;">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<style>
-    /* Settings Sidebar Active Tabs Overrides */
-    #settingsTabs .nav-link {
-        color: var(--gray-600);
-        border-left: 4px solid transparent;
-        transition: all 0.2s ease;
-    }
-    #settingsTabs .nav-link:hover {
-        background-color: var(--gray-50);
-        color: var(--navy);
-    }
-    #settingsTabs .nav-link.active {
-        background-color: var(--navy) !important;
-        color: #ffffff !important;
-        border-left: 4px solid var(--ph-gold) !important;
-        box-shadow: var(--shadow-sm);
-    }
-</style>
+<!-- ══ DELETE ITEM CONFIRMATION FORM (HIDDEN) ════════════════════════ -->
+<form method="POST" action="{% url 'settings' %}" id="deleteItemForm" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete_requirement_item">
+    <input type="hidden" name="template_id" id="deleteItemTemplateId" value="">
+    <input type="hidden" name="item_id" id="deleteItemId" value="">
+</form>
 
 <script>
-    function toggleAddParentSelect() {
-        const isGroup = document.getElementById('modal-add-is-group').value === 'true';
-        const parentContainer = document.getElementById('modal-add-parent-container');
-        if (isGroup) {
-            parentContainer.style.display = 'none';
-            document.getElementById('modal-add-parent-id').value = '';
-        } else {
-            parentContainer.style.display = 'block';
+    // Relocate modals to body on page load for root stacking context
+    document.addEventListener('DOMContentLoaded', function () {
+        ['createTemplateModal', 'manageTemplateModal'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el && el.parentElement !== document.body) {
+                document.body.appendChild(el);
+            }
+        });
+
+        // Load last backup timestamp from localStorage
+        const savedTime = localStorage.getItem('etala_last_backup_time');
+        if (savedTime) {
+            const badgeEl = document.getElementById('lastBackupBadgeText');
+            if (badgeEl) badgeEl.textContent = savedTime;
+        }
+    });
+
+    function recordBackupTimestamp() {
+        const now = new Date();
+        const formatted = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        localStorage.setItem('etala_last_backup_time', formatted);
+    }
+
+    let currentCategoryFilter = 'ALL';
+
+    function filterCategory(catKey, btnEl) {
+        currentCategoryFilter = catKey;
+        
+        const pills = document.querySelectorAll('#templateFilterPills button');
+        pills.forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-light', 'text-secondary');
+        });
+        if (btnEl) {
+            btnEl.classList.remove('btn-light', 'text-secondary');
+            btnEl.classList.add('btn-primary');
+        }
+
+        filterTemplatesTable();
+    }
+
+    function filterTemplatesTable() {
+        const query = document.getElementById('templateSearchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('#templatesTable tbody tr');
+        
+        rows.forEach(row => {
+            const target = row.querySelector('.search-target');
+            const type = row.getAttribute('data-type');
+            const scope = row.getAttribute('data-scope');
+            
+            let matchesCategory = false;
+            if (currentCategoryFilter === 'ALL') {
+                matchesCategory = true;
+            } else if (currentCategoryFilter === 'Permit') {
+                matchesCategory = (type === 'Permit');
+            } else if (currentCategoryFilter === 'Municipal') {
+                matchesCategory = (type === 'Project' && scope === 'Municipal');
+            } else if (currentCategoryFilter === 'Barangay') {
+                matchesCategory = (type === 'Project' && scope === 'Barangay');
+            }
+
+            let matchesSearch = true;
+            if (target) {
+                const text = target.textContent.toLowerCase();
+                matchesSearch = text.includes(query);
+            }
+
+            row.style.display = (matchesCategory && matchesSearch) ? '' : 'none';
+        });
+    }
+
+    function confirmDbRestore() {
+        const form = document.getElementById('dbRestoreForm');
+        const fileInput = form.querySelector('input[type="file"]');
+        if (!fileInput.value) {
+            alert('Please select a valid backup file first.');
+            return;
+        }
+        if (confirm('Are you sure you want to restore system backup data?')) {
+            form.submit();
         }
     }
 
-    function openManageModal(templateId) {
-        const dataEl = document.getElementById('template-data-' + templateId);
-        if (!dataEl) return;
-        const data = JSON.parse(dataEl.textContent);
+    let currentTemplateData = null;
 
-        // Populate template fields
-        document.getElementById('modal-template-id').value = data.id;
-        document.getElementById('modal-add-template-id').value = data.id;
-        document.getElementById('modal-subtype').value = data.subtype;
-        document.getElementById('modal-scope').value = data.scope || '';
-        document.getElementById('modal-is-active').value = data.is_active ? 'true' : 'false';
-        document.getElementById('modal-title-text').textContent = 'Manage Checklist: ' + data.record_type + ' — ' + data.subtype;
+    function openManageModal(templateId) {
+        const scriptEl = document.getElementById('template-data-' + templateId);
+        if (!scriptEl) return;
+
+        currentTemplateData = JSON.parse(scriptEl.textContent);
         
-        // Populate Parent Group select options
-        const parentSelect = document.getElementById('modal-add-parent-id');
-        parentSelect.innerHTML = '<option value="">None (Top-Level Requirement)</option>';
-        
-        const parentGroups = data.items.filter(item => item.is_group || (!item.parent_id && data.items.some(child => child.parent_id === item.id)));
-        parentGroups.forEach(group => {
+        document.getElementById('modal-title-text').textContent = currentTemplateData.record_type + ' — ' + currentTemplateData.subtype;
+        document.getElementById('modal-template-id').value = currentTemplateData.id;
+        document.getElementById('quickAddTemplateId').value = currentTemplateData.id;
+        document.getElementById('modal-subtype').value = currentTemplateData.subtype;
+        document.getElementById('modal-scope').value = currentTemplateData.scope || '';
+        document.getElementById('modal-is-active').value = currentTemplateData.is_active ? 'true' : 'false';
+
+        closeItemForm();
+        renderModalItems();
+
+        const modalEl = document.getElementById('manageTemplateModal');
+        if (modalEl && modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+    }
+
+    function renderModalItems() {
+        const container = document.getElementById('modalItemsList');
+        container.innerHTML = '';
+
+        if (!currentTemplateData || !currentTemplateData.items || currentTemplateData.items.length === 0) {
+            container.innerHTML = '<div class="text-center py-4 text-muted small bg-light rounded-3 border">No requirements configured for this template yet.</div>';
+            return;
+        }
+
+        const items = currentTemplateData.items;
+        const parents = items.filter(i => !i.parent_id);
+
+        parents.forEach(p => {
+            const children = items.filter(c => c.parent_id === p.id);
+            
+            const pBox = document.createElement('div');
+            pBox.className = 'p-3 rounded-3 border mb-1 bg-white shadow-2xs';
+            
+            let html = `
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <i class="${p.is_group ? 'fa-solid fa-folder text-warning' : 'fa-solid fa-file-text text-primary'}" style="font-size: 15px;"></i>
+                        <span class="fw-bold text-dark text-truncate" style="font-size: 0.88rem;">${escapeHtml(p.name)}</span>
+                        ${p.is_required ? '<span class="text-danger fw-bold" title="Required">*</span>' : ''}
+                        ${p.is_group ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-0.5" style="font-size: 0.68rem;">Group Header</span>' : ''}
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <button type="button" class="btn btn-sm btn-light py-1 px-2.5" style="font-size: 0.74rem;" onclick="editItem('${p.id}')">Edit</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2.5" style="font-size: 0.74rem;" onclick="deleteItem('${p.id}')">Delete</button>
+                    </div>
+                </div>
+            `;
+
+            if (p.description) {
+                html += `<div class="text-muted small mt-1 ms-4" style="font-size: 0.78rem;">${escapeHtml(p.description)}</div>`;
+            }
+
+            if (children.length > 0) {
+                html += `<div class="mt-2 ms-4 d-flex flex-column gap-1.5 pt-2 border-top">`;
+                children.forEach(c => {
+                    html += `
+                        <div class="d-flex align-items-center justify-content-between py-1.5 px-2.5 rounded-2 bg-light border gap-2">
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                <i class="fa-regular fa-file-lines text-secondary" style="font-size: 13px;"></i>
+                                <span class="fw-semibold text-dark text-truncate" style="font-size: 0.82rem;">${escapeHtml(c.name)}</span>
+                                ${c.is_required ? '<span class="text-danger fw-bold" title="Required">*</span>' : ''}
+                            </div>
+                            <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                                <button type="button" class="btn btn-sm btn-link text-muted p-0 me-1" style="font-size: 0.72rem; text-decoration: none;" onclick="editItem('${c.id}')">Edit</button>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" style="font-size: 0.72rem; text-decoration: none;" onclick="deleteItem('${c.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            pBox.innerHTML = html;
+            container.appendChild(pBox);
+        });
+    }
+
+    function toggleAdvancedItemForm() {
+        const form = document.getElementById('itemFormContainer');
+        const text = document.getElementById('advancedBtnText');
+        if (form.style.display === 'none' || !form.style.display) {
+            openAddItemForm();
+            text.textContent = 'Hide Advanced Options';
+        } else {
+            closeItemForm();
+            text.textContent = '+ Advanced Options';
+        }
+    }
+
+    function openAddItemForm() {
+        if (!currentTemplateData) return;
+        document.getElementById('itemFormTitle').textContent = 'Add Requirement Item (Advanced)';
+        document.getElementById('itemFormAction').value = 'add_requirement_item';
+        document.getElementById('itemFormTemplateId').value = currentTemplateData.id;
+        document.getElementById('itemFormItemId').value = '';
+        document.getElementById('itemFormName').value = '';
+        document.getElementById('itemFormDescription').value = '';
+        document.getElementById('itemFormIsRequired').value = 'true';
+        document.getElementById('itemFormIsGroup').value = 'false';
+
+        populateParentSelect('');
+        document.getElementById('itemFormContainer').style.display = 'block';
+    }
+
+    function editItem(itemId) {
+        if (!currentTemplateData) return;
+        const item = currentTemplateData.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        document.getElementById('itemFormTitle').textContent = 'Edit Requirement Item';
+        document.getElementById('itemFormAction').value = 'edit_requirement_item';
+        document.getElementById('itemFormTemplateId').value = currentTemplateData.id;
+        document.getElementById('itemFormItemId').value = item.id;
+        document.getElementById('itemFormName').value = item.name;
+        document.getElementById('itemFormDescription').value = item.description || '';
+        document.getElementById('itemFormIsRequired').value = item.is_required ? 'true' : 'false';
+        document.getElementById('itemFormIsGroup').value = item.is_group ? 'true' : 'false';
+
+        populateParentSelect(item.parent_id || '', item.id);
+        document.getElementById('itemFormContainer').style.display = 'block';
+        document.getElementById('advancedBtnText').textContent = 'Hide Advanced Options';
+    }
+
+    function populateParentSelect(selectedParentId, currentItemId = '') {
+        const parentSelect = document.getElementById('itemFormParentId');
+        parentSelect.innerHTML = '<option value="">None (Top-Level)</option>';
+        if (!currentTemplateData) return;
+
+        const groups = currentTemplateData.items.filter(i => i.is_group && i.id !== currentItemId);
+        groups.forEach(g => {
             const opt = document.createElement('option');
-            opt.value = group.id;
-            opt.textContent = '📁 Group: ' + group.name;
+            opt.value = g.id;
+            opt.textContent = g.name;
+            if (g.id === selectedParentId) opt.selected = true;
             parentSelect.appendChild(opt);
         });
 
-        // Clear & populate items list
-        const listContainer = document.getElementById('modal-requirements-list');
-        listContainer.innerHTML = '';
-        
-        document.getElementById('modal-badge-count').textContent = data.items.length + ' Total';
-        
-        if (data.items.length === 0) {
-            listContainer.innerHTML = '<div class="text-center py-4 text-muted small bg-light rounded-3">No requirements configured for this template.</div>';
-        } else {
-            // Group items by parent_id
-            const parents = data.items.filter(i => !i.parent_id);
-            
-            parents.forEach(item => {
-                const children = data.items.filter(c => c.parent_id === item.id);
-                const isGroup = item.is_group || children.length > 0;
-                
-                const itemDiv = document.createElement('div');
-                itemDiv.className = isGroup ? 'p-3 border rounded-3 bg-light mb-2.5' : 'p-3 border rounded-3 bg-white mb-2';
-                itemDiv.style.borderRadius = '8px';
-                if (isGroup) {
-                    itemDiv.style.borderLeft = '4px solid #2563eb';
-                }
-                
-                const requiredBadge = item.is_required 
-                    ? '<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #fee2e2; color: #b91c1c;">Required</span>'
-                    : '<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #475569;">Optional</span>';
-
-                const groupBadge = isGroup 
-                    ? `<span class="badge" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #0284c7;">📁 Document Group (${children.length} child reqs)</span>`
-                    : '';
-                
-                const descriptionHtml = item.description 
-                    ? `<div class="text-muted small mt-0.5" style="font-size: 0.72rem;">${escapeHtml(item.description)}</div>`
-                    : '';
-
-                let childrenHtml = '';
-                if (children.length > 0) {
-                    childrenHtml = '<div class="mt-2.5 pt-2 border-top d-flex flex-column gap-1.5 ps-2" style="border-left: 2px solid #cbd5e1; margin-left: 4px;">';
-                    children.forEach(child => {
-                        const childReqBadge = child.is_required 
-                            ? '<span class="badge" style="font-size: 0.58rem; padding: 1px 5px; background: #fee2e2; color: #b91c1c;">Required</span>'
-                            : '<span class="badge" style="font-size: 0.58rem; padding: 1px 5px; background: #f1f5f9; color: #475569;">Optional</span>';
-
-                        childrenHtml += `
-                            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-white border">
-                                <div class="min-w-0">
-                                    <div class="fw-semibold text-dark" style="font-size: 0.78rem;">📄 ${escapeHtml(child.name)}</div>
-                                    <div class="d-flex gap-1 mt-0.5">${childReqBadge}</div>
-                                </div>
-                                <div class="d-flex align-items-center gap-1">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary p-0" style="width: 24px; height: 24px; border-radius: 4px;" onclick="toggleEditItemCollapse('${child.id}')" title="Edit">
-                                        <i data-lucide="edit-3" style="width:11px; height:11px;"></i>
-                                    </button>
-                                    <form method="POST" action="{% url 'settings' %}" id="deleteReqItemForm-${child.id}">
-                                        <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
-                                        <input type="hidden" name="action" value="delete_requirement_item">
-                                        <input type="hidden" name="item_id" value="${child.id}">
-                                        <input type="hidden" name="template_id" value="${data.id}">
-                                        <button type="button" class="btn btn-sm btn-outline-danger p-0" style="width: 24px; height: 24px; border-radius: 4px;" title="Delete" onclick="confirmDeleteReqItem('deleteReqItemForm-${child.id}', '${child.name.replace(/'/g, "\\'")}')">
-                                            <i data-lucide="trash" style="width:11px; height:11px;"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    childrenHtml += '</div>';
-                }
-
-                itemDiv.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-between gap-3">
-                        <div class="min-w-0">
-                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">
-                                ${isGroup ? '📁' : '📄'} ${escapeHtml(item.name)}
-                            </div>
-                            ${descriptionHtml}
-                            <div class="mt-1 d-flex gap-1.5 flex-wrap">
-                                ${groupBadge}
-                                ${requiredBadge}
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-1.5">
-                            <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center p-0" style="width: 28px; height: 28px; border-radius: 6px;" onclick="toggleEditItemCollapse('${item.id}')" title="Edit">
-                                <i data-lucide="edit-3" style="width:13px; height:13px;"></i>
-                            </button>
-                            <form method="POST" action="{% url 'settings' %}" id="deleteReqItemForm-${item.id}">
-                                <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
-                                <input type="hidden" name="action" value="delete_requirement_item">
-                                <input type="hidden" name="item_id" value="${item.id}">
-                                <input type="hidden" name="template_id" value="${data.id}">
-                                <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center p-0" style="width: 28px; height: 28px; border-radius: 6px;" title="Delete" onclick="confirmDeleteReqItem('deleteReqItemForm-${item.id}', '${item.name.replace(/'/g, "\\'")}')">
-                                    <i data-lucide="trash" style="width:13px; height:13px;"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Edit Requirement Item form -->
-                    <div class="mt-3 border-top pt-3" id="edit-item-form-${item.id}" style="display: none;">
-                        <form method="POST" action="{% url 'settings' %}">
-                            <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
-                            <input type="hidden" name="action" value="edit_requirement_item">
-                            <input type="hidden" name="item_id" value="${item.id}">
-                            <input type="hidden" name="template_id" value="${data.id}">
-                            <div class="row g-2">
-                                <div class="col-md-6">
-                                    <label class="form-label text-muted small fw-semibold">Requirement Title</label>
-                                    <input type="text" name="name" class="form-control form-control-sm" value="${escapeHtml(item.name)}" required style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label text-muted small fw-semibold">Type</label>
-                                    <select name="is_group" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
-                                        <option value="false" ${!item.is_group ? 'selected' : ''}>Document</option>
-                                        <option value="true" ${item.is_group ? 'selected' : ''}>📁 Document Group</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label text-muted small fw-semibold">Mandatory</label>
-                                    <select name="is_required" class="form-select form-select-sm" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px; background-color: #ffffff;">
-                                        <option value="true" ${item.is_required ? 'selected' : ''}>Required</option>
-                                        <option value="false" ${!item.is_required ? 'selected' : ''}>Optional</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-12">
-                                    <label class="form-label text-muted small fw-semibold">Description (optional)</label>
-                                    <input type="text" name="description" class="form-control form-control-sm" value="${escapeHtml(item.description || '')}" style="border-radius: 6px; border: 1px solid var(--border-default); padding: 5px 10px;" placeholder="Help text for document uploaders">
-                                </div>
-                                <div class="col-md-12 d-flex justify-content-end gap-1.5 mt-2">
-                                    <button type="button" class="btn btn-sm btn-light px-3" style="font-size:0.75rem; border-radius: 6px;" onclick="toggleEditItemCollapse('${item.id}')">Cancel</button>
-                                    <button type="submit" class="action-btn action-btn-primary action-btn-sm px-3" style="font-size:0.75rem; border-radius: 6px;">Save Changes</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    ${childrenHtml}
-                `;
-                listContainer.appendChild(itemDiv);
-            });
-        }
-
-        // Re-initialize lucide icons inside the modal
-        lucide.createIcons();
-        
-        // Open the modal using bootstrap API
-        const modalEl = document.getElementById('manageTemplateModal');
-        const modalObj = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modalObj.show();
+        toggleParentSelect(document.getElementById('itemFormIsGroup').value);
     }
 
-    function toggleEditItemCollapse(itemId) {
-        const el = document.getElementById('edit-item-form-' + itemId);
-        if (el.style.display === 'none') {
-            el.style.display = 'block';
+    function toggleParentSelect(isGroupVal) {
+        const wrapper = document.getElementById('parentSelectWrapper');
+        if (isGroupVal === 'true') {
+            wrapper.style.display = 'none';
         } else {
-            el.style.display = 'none';
+            wrapper.style.display = 'block';
+        }
+    }
+
+    function closeItemForm() {
+        document.getElementById('itemFormContainer').style.display = 'none';
+        const text = document.getElementById('advancedBtnText');
+        if (text) text.textContent = '+ Advanced Options';
+    }
+
+    function deleteItem(itemId) {
+        if (!currentTemplateData) return;
+        const item = currentTemplateData.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        if (confirm(`Are you sure you want to delete requirement item '${item.name}'?`)) {
+            document.getElementById('deleteItemTemplateId').value = currentTemplateData.id;
+            document.getElementById('deleteItemId').value = item.id;
+            document.getElementById('deleteItemForm').submit();
         }
     }
 
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        // Move modals to body to prevent stacking context and backdrop/blur blocking interaction
-        const manageModal = document.getElementById('manageTemplateModal');
-        const createModal = document.getElementById('createTemplateModal');
-        if (manageModal) document.body.appendChild(manageModal);
-        if (createModal) document.body.appendChild(createModal);
-
-        // Auto-select tab parameter from URL ?tab=...
-        const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab');
-        if (tabParam) {
-            const tabBtn = document.getElementById(`tab-${tabParam}-btn`);
-            if (tabBtn) {
-                const tabObj = new bootstrap.Tab(tabBtn);
-                tabObj.show();
-            }
-        }
-
-        // Auto-open template modal if template_id is specified in URL
-        const templateIdParam = urlParams.get('template_id');
-        if (templateIdParam) {
-            openManageModal(templateIdParam);
-        }
-    });
-
-    function confirmDbRestore() {
-        const fileInput = document.querySelector('#dbRestoreForm input[name="backup_file"]');
-        if (!fileInput || !fileInput.value) {
-            if (window.showToast) {
-                showToast('warning', 'File Required', 'Please choose a backup JSON or SQL file first.');
-            } else {
-                alert('Please choose a backup file first.');
-            }
-            return;
-        }
-        if (window.showConfirmModal) {
-            showConfirmModal({
-                title: 'Restore Database Parameters',
-                message: 'Are you sure you want to restore database parameters? Current unsaved configurations will be replaced.',
-                confirmText: 'Restore Configuration',
-                confirmClass: 'action-btn-danger',
-                icon: 'database',
-                onConfirm: function() {
-                    document.getElementById('dbRestoreForm').submit();
-                }
-            });
-        } else {
-            if (confirm('Restore database parameters? Current unsaved configs will be replaced.')) {
-                document.getElementById('dbRestoreForm').submit();
-            }
-        }
-    }
-
-    function confirmDeleteReqItem(formId, itemName) {
-        if (window.showConfirmModal) {
-            showConfirmModal({
-                title: 'Delete Requirement Item',
-                message: `Are you sure you want to delete requirement item '${itemName}'?`,
-                confirmText: 'Delete Item',
-                confirmClass: 'action-btn-danger',
-                icon: 'trash-2',
-                onConfirm: function() {
-                    document.getElementById(formId).submit();
-                }
-            });
-        } else {
-            if (confirm("Are you sure you want to delete this requirement item?")) {
-                document.getElementById(formId).submit();
-            }
-        }
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 </script>
-{% endblock %}
 
+{% endblock %}

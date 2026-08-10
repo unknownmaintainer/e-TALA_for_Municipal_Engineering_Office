@@ -59,7 +59,7 @@
             </div>
             
             <!-- Right: Search & Export -->
-            <form method="GET" action="{% url 'activity_logs' %}" class="d-flex gap-2 flex-nowrap align-items-center">
+            <form method="GET" action="{% url 'activity_logs' %}" class="d-flex gap-2 flex-wrap align-items-center">
                 <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 280px; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
                     <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
                     <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
@@ -90,10 +90,10 @@
                         <thead>
                             <tr>
                                 <th style="width: 180px; white-space: nowrap;">Date &amp; Time</th>
-                                {% if request.user.role == 'admin' %}
-                                <th>Staff Member</th>
-                                {% endif %}
                                 <th>Action Performed</th>
+                                {% if request.user.role == 'admin' %}
+                                <th style="width: 220px; white-space: nowrap;">Staff Member</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -101,6 +101,9 @@
                             <tr>
                                 <td class="cell-muted font-monospace" data-label="Date & Time" style="font-size: 0.78rem;" title="Timestamp of performed action">
                                     {{ log.performed_at|date:"Y-m-d H:i:s" }}
+                                </td>
+                                <td data-label="Action Performed" style="font-size: 0.84rem; color: var(--gray-700); white-space: normal; word-break: break-word;" title="{{ log.action }}">
+                                    {{ log.action }}
                                 </td>
                                 {% if request.user.role == 'admin' %}
                                 <td data-label="Staff Member" title="Staff member who executed this action">
@@ -110,9 +113,6 @@
                                     {% endif %}
                                 </td>
                                 {% endif %}
-                                <td data-label="Action Performed" style="font-size: 0.84rem; color: var(--gray-700); {% if request.user.role != 'admin' %}max-width: 450px; white-space: normal; word-break: break-word;{% else %}white-space: normal; word-wrap: break-word;{% endif %}" title="{{ log.action }}">
-                                    {{ log.action }}
-                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
