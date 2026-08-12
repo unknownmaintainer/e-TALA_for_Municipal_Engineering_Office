@@ -1,5 +1,5 @@
 {% extends 'permits/base.html' %}
-{% load static %}
+{% load static permit_filters %}
 {% load humanize %}
 
 {% block title %}Edit Record — {{ record.title }} — eTala{% endblock %}
@@ -311,7 +311,7 @@
                     </div>
 
                     <!-- Applicant / Owner -->
-                    {% if permit_detail and permit_detail.applicant_name %}
+                    {% if permit_detail and permit_detail.applicant_name|is_valid_applicant %}
                     <div class="py-1 border-bottom d-flex flex-column gap-0.5">
                         <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                             <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
@@ -459,6 +459,28 @@
             wrapper.style.display = (val === 'Others') ? 'block' : 'none';
         }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const applicantInput = document.querySelector('input[name="applicant_name"]');
+        const permitNumInput = document.querySelector('input[name="permit_number"]');
+        const titleInput = document.querySelector('input[name="title"]');
+
+        if (applicantInput && titleInput) {
+            function updatePermitTitle() {
+                const pNum = permitNumInput ? permitNumInput.value.trim() : '';
+                const appName = applicantInput.value.trim();
+                if (pNum && appName) {
+                    titleInput.value = pNum + ' — ' + appName;
+                } else if (appName) {
+                    titleInput.value = appName;
+                } else if (pNum) {
+                    titleInput.value = pNum;
+                }
+            }
+            applicantInput.addEventListener('input', updatePermitTitle);
+            if (permitNumInput) permitNumInput.addEventListener('input', updatePermitTitle);
+        }
+    });
 </script>
 
 {% endblock %}

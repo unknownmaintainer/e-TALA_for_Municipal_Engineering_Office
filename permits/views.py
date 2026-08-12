@@ -788,45 +788,46 @@ def records_browse_view(request):
     permit_type = request.GET.get('permit_type', '').strip()
     illegal_filter = request.GET.get('illegal', '').strip()
 
-    # Apply filters via service
-    base_records = filter_engineering_records(
+    # 1. Compute unfiltered base for stable count statistics across tabs
+    unfiltered_base = filter_engineering_records(
         base_records,
         query=query,
-        record_type=record_type,
         barangay_id=barangay_id,
         status=status,
         year=year,
         permit_type=permit_type,
         project_type=project_type,
-        illegal_filter=illegal_filter
+        illegal_filter=None
     )
 
     # Scope resolution
     selected_scope = resolve_scope(request)
-    my_scope_count = base_records.filter(created_by=request.user).count() if request.user.is_authenticated else 0
-    all_scope_count = base_records.count()
+    my_scope_count = unfiltered_base.filter(created_by=request.user).count() if request.user.is_authenticated else 0
+    all_scope_count = unfiltered_base.count()
 
     if selected_scope == 'my':
-        base_records = base_records.filter(created_by=request.user)
+        unfiltered_base = unfiltered_base.filter(created_by=request.user)
 
-    # Compute tab counts BEFORE applying current active tab filter
-    all_count = base_records.count()
-    municipal_count = base_records.filter(record_type='Project', project_scope='Municipal').count()
-    barangay_count = base_records.filter(record_type='Project', project_scope='Barangay').count()
-    permits_count = base_records.filter(record_type='Permit').count()
-    illegal_count = base_records.filter(is_illegal_construction=True).count()
-    illegal_unresolved_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='unresolved').count()
-    illegal_pending_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='pending_permit').count()
-    illegal_resolved_count = base_records.filter(is_illegal_construction=True, illegal_compliance_status='resolved').count()
+    # 2. Compute TRUE STABLE COUNTS for all top tabs & sub-filter pills
+    all_count = unfiltered_base.count()
+    municipal_count = unfiltered_base.filter(record_type='Project', project_scope='Municipal').count()
+    barangay_count = unfiltered_base.filter(record_type='Project', project_scope='Barangay').count()
+    permits_count = unfiltered_base.filter(record_type='Permit').count()
 
-    # Now apply active tab filter to final records queryset
-    records = base_records
-    if record_type == 'Permit':
-        records = records.filter(record_type='Permit')
-    elif record_type == 'Project':
-        records = records.filter(record_type='Project')
-        if project_scope:
-            records = records.filter(project_scope=project_scope)
+    illegal_base = unfiltered_base.filter(is_illegal_construction=True)
+    illegal_count = illegal_base.count()
+    illegal_unresolved_count = illegal_base.filter(illegal_compliance_status='unresolved').count()
+    illegal_pending_count = illegal_base.filter(illegal_compliance_status='pending_permit').count()
+    illegal_resolved_count = illegal_base.filter(illegal_compliance_status='resolved').count()
+
+    # 3. Now apply active tab & sub-filter to get the final records list
+    records = filter_engineering_records(
+        unfiltered_base,
+        record_type=record_type,
+        illegal_filter=illegal_filter
+    )
+    if project_scope and record_type == 'Project':
+        records = records.filter(project_scope=project_scope)
 
     total_count = records.count()
     per_page = get_per_page(request, 10)
@@ -1856,6 +1857,15 @@ def record_edit_view(request, record_id):
                 detail.resolution_required = request.POST.get('resolution_required') == 'on'
                 detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
                 detail.save()
+                
+                # Auto-sync record.title with updated permit_number / applicant_name
+                if detail.permit_number and detail.applicant_name:
+                    record.title = f"{detail.permit_number} — {detail.applicant_name}"
+                elif detail.applicant_name:
+                    record.title = detail.applicant_name
+                elif detail.permit_number:
+                    record.title = detail.permit_number
+                record.save()
                 
                 if not record.requirements.exists() or old_subtype != new_subtype:
                     record.requirements.all().delete()

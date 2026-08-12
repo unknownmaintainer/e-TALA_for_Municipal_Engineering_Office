@@ -16,8 +16,8 @@
     <script src="{% static 'js/fa_adapter.js' %}"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=63">
-    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=63">
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=100">
+    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=100">
     <script>
         // Immediate check to prevent FOUC (flash of unstyled content)
         if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -27,6 +27,203 @@
         }
     </script>
     <style>
+        /* ══ SCOPE SEGMENTED CONTROL ("My Records" vs "All Records") ═══════════ */
+        .scope-segmented-control {
+            display: inline-flex !important;
+            align-items: center !important;
+            background: #f1f5f9 !important;
+            padding: 3px !important;
+            border-radius: 20px !important;
+            border: 1px solid #e2e8f0 !important;
+            gap: 2px !important;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+        }
+
+        a.scope-pill-btn,
+        .scope-pill-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            padding: 5px 14px !important;
+            height: 30px !important;
+            font-size: 0.8rem !important;
+            font-weight: 600 !important;
+            color: #64748b !important;
+            border-radius: 16px !important;
+            border: none !important;
+            text-decoration: none !important;
+            transition: all 0.15s ease !important;
+            line-height: 1 !important;
+            white-space: nowrap !important;
+            background: transparent !important;
+        }
+
+        a.scope-pill-btn i,
+        .scope-pill-btn i {
+            color: #64748b !important;
+            font-size: 13px !important;
+            transition: color 0.15s ease !important;
+        }
+
+        a.scope-pill-btn:hover,
+        .scope-pill-btn:hover {
+            color: #0f172a !important;
+            text-decoration: none !important;
+        }
+
+        a.scope-pill-btn:hover i,
+        .scope-pill-btn:hover i {
+            color: #0f172a !important;
+        }
+
+        /* Active State: Pure White Card Pill + Crisp Teal Text & Icon */
+        a.scope-pill-btn.active,
+        .scope-pill-btn.active {
+            background: #ffffff !important;
+            color: #0f766e !important;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+            font-weight: 700 !important;
+            text-decoration: none !important;
+        }
+
+        a.scope-pill-btn.active i,
+        .scope-pill-btn.active i {
+            color: #0f766e !important;
+        }
+
+        .scope-pill-btn .scope-count-badge {
+            font-size: 0.72rem !important;
+            padding: 2px 7px !important;
+            border-radius: 12px !important;
+            background: #e2e8f0 !important;
+            color: #475569 !important;
+            font-weight: 700 !important;
+            line-height: 1 !important;
+        }
+
+        a.scope-pill-btn.active .scope-count-badge,
+        .scope-pill-btn.active .scope-count-badge {
+            background: #ccfbf1 !important;
+            color: #0f766e !important;
+        }
+
+        /* Dark Mode Overrides */
+        .dark-mode .scope-segmented-control,
+        [data-bs-theme="dark"] .scope-segmented-control {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+        }
+
+        .dark-mode a.scope-pill-btn,
+        .dark-mode .scope-pill-btn,
+        [data-bs-theme="dark"] a.scope-pill-btn,
+        [data-bs-theme="dark"] .scope-pill-btn {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode a.scope-pill-btn i,
+        .dark-mode .scope-pill-btn i,
+        [data-bs-theme="dark"] a.scope-pill-btn i,
+        [data-bs-theme="dark"] .scope-pill-btn i {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode a.scope-pill-btn.active,
+        .dark-mode .scope-pill-btn.active,
+        [data-bs-theme="dark"] a.scope-pill-btn.active,
+        [data-bs-theme="dark"] .scope-pill-btn.active {
+            background: #1e293b !important;
+            color: #2dd4bf !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        .dark-mode a.scope-pill-btn.active i,
+        .dark-mode .scope-pill-btn.active i,
+        [data-bs-theme="dark"] a.scope-pill-btn.active i,
+        [data-bs-theme="dark"] .scope-pill-btn.active i {
+            color: #2dd4bf !important;
+        }
+
+        /* Strict Horizontal Overflow & Page Shift Protection */
+        html, body {
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+
+        .etala-main,
+        #mainContent,
+        .etala-app-container {
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Prevent long unbroken text strings (like long applicant or contractor names) from expanding table width */
+        .cell-title,
+        .data-table .cell-title {
+            max-width: 380px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        .cell-subtitle,
+        .data-table .cell-subtitle {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 2px !important;
+            margin-top: 3px !important;
+            max-width: 450px !important;
+        }
+
+        .cell-subtitle .subtitle-row {
+            display: flex !important;
+            align-items: center !important;
+            gap: 5px !important;
+            font-size: 0.74rem !important;
+            color: #64748b !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100% !important;
+        }
+
+        .dark-mode .cell-subtitle .subtitle-row,
+        [data-bs-theme="dark"] .cell-subtitle .subtitle-row {
+            color: #94a3b8 !important;
+        }
+
+        /* Ensure 3-Dot Action Dropdown Menu anchors directly below the 3-dot button */
+        .data-table td .dropdown,
+        td.action-menu-cell,
+        td.action-column,
+        .action-dropdown,
+        .table-card-responsive .dropdown,
+        .cell-action .dropdown,
+        .data-table .dropdown {
+            position: relative !important;
+        }
+
+        .data-table .dropdown-menu,
+        .table-card-responsive .dropdown-menu,
+        .action-dropdown .dropdown-menu {
+            position: absolute !important;
+            top: 100% !important;
+            bottom: auto !important;
+            right: 0 !important;
+            left: auto !important;
+            margin-top: 4px !important;
+            margin-bottom: 0 !important;
+            z-index: 99999 !important;
+        }
+
+        .data-table td.text-end,
+        .data-table td.action-menu-cell,
+        .data-table tbody td {
+            overflow: visible !important;
+        }
+
         .cell-barangay,
         .barangay-table-link,
         .barangay-table-link span,
@@ -2808,15 +3005,15 @@
                         <span class="nav-label">Tools &amp; System</span>
                     </div>
 
-                    <!-- Archived Records -->
+                    <!-- Trash -->
                     {% if request.user.role == 'admin' %}
                     <a href="{% url 'archive' %}"
                         class="nav-item {% if active_tab == 'archive' or '/archive/' in request.path %}active{% endif %}"
-                        title="Archived Records">
+                        title="Trash">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-box-archive"
+                            <i class="fa-solid fa-trash-can"
                                 style="font-size: 15px; width: 20px; text-align: center;"></i>
-                            <span class="nav-label">Archived Records</span>
+                            <span class="nav-label">Trash</span>
                         </div>
                     </a>
                     {% endif %}

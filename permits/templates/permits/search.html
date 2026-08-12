@@ -1,5 +1,5 @@
 {% extends 'permits/base.html' %}
-{% load static %}
+{% load static permit_filters %}
 
 {% block title %}Search Results | eTala{% endblock %}
 
@@ -152,9 +152,9 @@
                 <tr onclick="window.location='{% url 'record_detail' record.record_id %}'" style="cursor: pointer;">
                     <!-- Record Title & Details -->
                     <td data-label="Record Title">
-                        <div class="cell-title d-flex align-items-center gap-1.5">
+                        <div class="cell-title d-flex align-items-center gap-1.5" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: {{ record.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
                             {% if record.is_illegal_construction %}
-                            <i class="fa-solid fa-triangle-exclamation me-1 text-danger" style="font-size: 11px;"></i>
+                            <i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px; color: {{ record.illegal_status_info.color|default:'#dc2626' }};"></i>
                             {% endif %}
                             <span>
                                 {% if record.record_type == 'Permit' %}
@@ -164,14 +164,13 @@
                                 {% endif %}
                             </span>
                         </div>
-                        <div class="cell-subtitle mt-1" style="font-size: 0.76rem;">
-                            {% if record.record_type == 'Permit' and record.permit_detail %}
-                                Applicant: <strong>{{ record.permit_detail.applicant_name|default:"N/A" }}</strong>
+                        <div class="cell-subtitle">
+                            {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
                             {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
-                                Contractor: <strong>{{ record.project_detail.contractor }}</strong>
+                                <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
                             {% endif %}
-                            <span class="bullet-divider mx-1.5">•</span>
-                            Encoded by: {{ record.created_by.full_name|default:record.created_by.username }}
+                            <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ record.created_by.full_name|default:record.created_by.username }}</div>
                         </div>
                     </td>
 
@@ -210,7 +209,7 @@
                     </td>
 
                     <!-- Actions -->
-                    <td class="text-end action-menu-cell" data-label="Action" onclick="event.stopPropagation()">
+                    <td class="text-end action-menu-cell" onclick="event.stopPropagation()">
                         <div class="dropdown">
                             <button class="row-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-popper-config='{"strategy":"fixed"}' title="Actions">
                                 <i class="fa-solid fa-ellipsis" style="font-size: 14px;"></i>
@@ -232,7 +231,7 @@
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="confirmArchiveFromSearch('{% url 'archive_record' record.record_id %}', '{{ record.title|escapejs }}')">
-                                        <i class="fa-solid fa-box-archive text-danger" style="font-size: 13px;"></i> Archive
+                                        <i class="fa-solid fa-trash-can text-danger" style="font-size: 13px;"></i> Move to Trash
                                     </a>
                                 </li>
                                 {% endif %}
@@ -300,17 +299,17 @@
 function confirmArchiveFromSearch(archiveUrl, recordTitle) {
     if (window.showConfirmModal) {
         showConfirmModal({
-            title: 'Archive Record',
-            message: "Are you sure you want to archive '" + recordTitle + "'? It will be moved to the archive section.",
-            confirmText: 'Archive Record',
+            title: 'Move to Trash',
+            message: "Are you sure you want to move '" + recordTitle + "' to Trash? It can be restored later.",
+            confirmText: 'Move to Trash',
             confirmClass: 'action-btn-danger',
-            icon: 'archive',
+            icon: 'trash-2',
             onConfirm: function() {
                 window.location.href = archiveUrl;
             }
         });
     } else {
-        if (confirm("Archive '" + recordTitle + "'?")) {
+        if (confirm("Move '" + recordTitle + "' to Trash?")) {
             window.location.href = archiveUrl;
         }
     }

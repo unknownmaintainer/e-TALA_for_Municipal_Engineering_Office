@@ -94,6 +94,23 @@ def parse_notes(text):
     return parsed
 
 
+@register.filter(name='is_valid_applicant')
+def is_valid_applicant(name):
+    """Returns True if the string is a real applicant name and not a violation tag or invalid placeholder."""
+    if not name:
+        return False
+    name_str = str(name).strip()
+    if not name_str:
+        return False
+    if name_str.startswith('[') or 'Violation:' in name_str or 'Unpermitted' in name_str:
+        return False
+    invalid_placeholders = [',,', ',', ', ', 'N/A', 'n/a', 'None', 'none', '—', '-', 'undefined', 'null']
+    if name_str in invalid_placeholders:
+        return False
+    return True
+
+
+
 
 
 

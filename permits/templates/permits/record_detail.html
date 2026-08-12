@@ -86,9 +86,9 @@
         <button type="button"
             class="etala-btn etala-btn-secondary text-danger border-danger-subtle text-nowrap d-inline-flex align-items-center gap-2 shadow-2xs"
             style="font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; font-weight: 600;"
-            onclick="confirmArchiveDetail()" title="Archive this record">
-            <i class="fa-solid fa-box-archive"></i>
-            <span>Archive</span>
+            onclick="confirmArchiveDetail()" title="Move this record to Trash">
+            <i class="fa-solid fa-trash-can"></i>
+            <span>Move to Trash</span>
         </button>
         {% endif %}
     </div>
@@ -178,7 +178,86 @@
     <!-- ── LEFT COLUMN: Document Checklist & Files (col-lg-8) ─────────────── -->
     <div class="col-lg-8 d-flex flex-column gap-4 min-w-0">
 
-        <!-- Checklist Card -->
+        {% if record.is_illegal_construction and record.illegal_compliance_status == 'unresolved' %}
+        <!-- ⚠️ UNRESOLVED VIOLATION INCIDENT EVIDENCE & DOCUMENTS CARD -->
+        <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
+            <div class="card-header bg-white border-bottom p-3 px-3.5 d-flex align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-2.5 min-w-0">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 34px; height: 34px; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 15px;"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h5 class="fw-bold mb-0 title-text-adaptive text-truncate" style="font-size: 1.0rem; letter-spacing: -0.01em;">Violation Incident Documents & Evidence</h5>
+                        <p class="mb-0 subtitle-text-adaptive text-truncate" style="font-size: 0.76rem;">Field inspection photos, Notice of Violation (NOV), Work Stop Orders, and compliance logs</p>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                    {% if can_edit and record.status != 'archived' %}
+                    <button type="button"
+                        class="btn btn-sm btn-danger fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs"
+                        style="border-radius: 8px; font-size: 0.8rem;"
+                        onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Upload Photos / NOV</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="content-card-body p-3.5 d-flex flex-column gap-2.5">
+                {% if attachments %}
+                <div class="d-flex flex-column gap-2">
+                    {% for doc in attachments %}
+                    <div class="p-2.5 px-3 border rounded-3 d-flex align-items-center justify-content-between gap-3 bg-white shadow-2xs">
+                        <div class="d-flex align-items-center gap-2.5 min-w-0">
+                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                                style="width: 32px; height: 32px; background: #eff6ff; color: #2563eb; font-size: 14px;">
+                                <i class="fa-solid fa-file-lines"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="fw-bold text-dark text-truncate" style="font-size: 0.86rem;">{{ doc.file_name }}</div>
+                                <div class="text-muted" style="font-size: 0.74rem;">Uploaded on {{ doc.uploaded_at|date:"M d, Y • h:i A" }}</div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                            <a href="{{ doc_url_map|dict_get:doc.document_id }}" target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none" style="font-size: 0.76rem;">
+                                <i class="fa-solid fa-arrow-up-right-from-square me-1" style="font-size: 11px;"></i>View
+                            </a>
+                            {% if can_edit and record.status != 'archived' %}
+                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
+                                onclick="openDeleteDocModal('{% url 'delete_document' record.record_id doc.document_id %}', '{{ doc.file_name|escapejs }}')"
+                                title="Delete uploaded file">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4 px-3 my-2 rounded-3 border" style="background: #fff5f5; border-color: #fecaca !important;">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-2"
+                        style="background: #fee2e2; color: #dc2626; width: 50px; height: 50px;">
+                        <i class="fa-solid fa-file-shield" style="font-size: 22px;"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.92rem;">No Violation Evidence Documents Uploaded Yet</h6>
+                    <p class="text-muted small mx-auto mb-3" style="max-width: 480px; font-size: 0.8rem; line-height: 1.5;">
+                        Standard applicant permit checklists do not apply for unresolved violations. Attach field inspection photos, Notice of Violation (NOV), or Work Stop Orders directly.
+                    </p>
+                    {% if can_edit and record.status != 'archived' %}
+                    <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1.5" onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')" style="font-size: 0.78rem; font-weight: 600; border-radius: 8px; padding: 6px 14px;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Upload Field Photos / NOV</span>
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <!-- STANDARD APPLICANT CHECKLIST CARD (For Permits, Projects, & Regularized Records) -->
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
             
             <!-- Card Header -->
@@ -469,6 +548,26 @@
                     {% endfor %}
                 </div>
                 {% else %}
+                {% if record.is_illegal_construction %}
+                <!-- Special Clear Empty State for Illegal Construction / Violation Reports -->
+                <div class="text-center py-4 px-3 my-2 rounded-3 border" style="background: #f8fafc; border-color: #e2e8f0 !important;">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-2"
+                        style="background: #fee2e2; color: #dc2626; width: 52px; height: 52px;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 22px;"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.92rem;">Violation Report — No Applicant Checklist</h6>
+                    <p class="text-muted small mx-auto mb-3" style="max-width: 480px; font-size: 0.8rem; line-height: 1.5;">
+                        This record is an active illegal construction / violation report. Standard applicant permit checklists do not apply until the property owner files for regularization.
+                    </p>
+                    <div class="d-flex align-items-center justify-content-center gap-2 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5" onclick="openBatchUploadModal()" style="font-size: 0.78rem; font-weight: 600; border-radius: 8px; padding: 6px 14px;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Upload Field Photos / NOV</span>
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Standard Empty Checklist State -->
                 <div class="text-center py-5">
                     <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-2"
                         style="background: #f1f5f9; color: #94a3b8; width: 56px; height: 56px;">
@@ -478,8 +577,10 @@
                     <p class="text-muted small mb-0">Use the batch upload button to attach documents directly.</p>
                 </div>
                 {% endif %}
+                {% endif %}
             </div>
         </div>
+        {% endif %}
 
     </div>
 
@@ -542,7 +643,7 @@
                 </div>
 
                 <!-- Applicant / Owner -->
-                {% if permit_detail and permit_detail.applicant_name %}
+                {% if permit_detail and permit_detail.applicant_name|is_valid_applicant %}
                 <div class="py-1 border-bottom d-flex flex-column gap-0.5">
                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                         <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
@@ -1642,17 +1743,17 @@
     function confirmArchiveDetail() {
         if (window.showConfirmModal) {
             showConfirmModal({
-                title: 'Archive Record',
-                message: "Are you sure you want to archive '{{ record.title|escapejs }}'? It will be moved to the archive section.",
-                confirmText: 'Archive Record',
+                title: 'Move to Trash',
+                message: "Are you sure you want to move '{{ record.title|escapejs }}' to Trash? It can be restored later.",
+                confirmText: 'Move to Trash',
                 confirmClass: 'action-btn-danger',
-                icon: 'archive',
+                icon: 'trash-2',
                 onConfirm: function () {
                     window.location.href = "{% url 'archive_record' record.record_id %}";
                 }
             });
         } else {
-            if (confirm("Archive this record?")) {
+            if (confirm("Move this record to Trash?")) {
                 window.location.href = "{% url 'archive_record' record.record_id %}";
             }
         }
