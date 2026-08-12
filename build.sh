@@ -8,3 +8,5 @@ python manage.py collectstatic --no-input
 python manage.py migrate
 python manage.py seed_requirement_templates
 python manage.py seed_users
+python seed_permits.py
+python seed_coordinates.py

@@ -10,5 +10,11 @@ python manage.py seed_users || true
 echo "==> Seeding requirement templates..."
 python manage.py seed_requirement_templates || true
 
+echo "==> Seeding barangays, categories, records, and documents..."
+python seed_permits.py || true
+
+echo "==> Seeding map geocoded coordinates..."
+python seed_coordinates.py || true
+
 echo "==> Starting Gunicorn WSGI Server on port 8000..."
 exec gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 120 etala_project.wsgi:application
