@@ -115,21 +115,17 @@ class PermitsTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 401)
 
-    def test_api_records_staff_masking(self):
+    def test_api_records_staff_access(self):
         from django.urls import reverse
         from rest_framework_simplejwt.tokens import RefreshToken
-        from permits.models import Record, Category
+        from permits.models import EngineeringRecord, Barangay
         
-        # Create category
-        cat = Category.objects.create(category_name="Building Permit")
-        # Create record
-        rec = Record.objects.create(
-            project_name="Test Project",
-            record_title="Test Title",
-            category=cat,
-            location_type="municipal",
+        brgy = Barangay.objects.create(barangay_name="API Test Barangay")
+        rec = EngineeringRecord.objects.create(
+            title="Test Engineering Record",
+            record_type="Permit",
+            barangay=brgy,
             year=2026,
-            budget_amount=100000.00,
             created_by=self.staff
         )
         
@@ -140,24 +136,19 @@ class PermitsTestCase(TestCase):
         url = reverse('api_record-detail', kwargs={'pk': rec.record_id})
         response = self.client.get(url, HTTP_AUTHORIZATION=auth_header)
         self.assertEqual(response.status_code, 200)
-        # Should be masked
-        self.assertEqual(response.data['budget_amount'], '₱*,***,***.**')
+        self.assertEqual(response.data['title'], 'Test Engineering Record')
 
-    def test_api_records_admin_unmasking(self):
+    def test_api_records_admin_access(self):
         from django.urls import reverse
         from rest_framework_simplejwt.tokens import RefreshToken
-        from permits.models import Record, Category
+        from permits.models import EngineeringRecord, Barangay
         
-        # Create category
-        cat = Category.objects.create(category_name="Building Permit")
-        # Create record
-        rec = Record.objects.create(
-            project_name="Test Project",
-            record_title="Test Title",
-            category=cat,
-            location_type="municipal",
+        brgy = Barangay.objects.create(barangay_name="Admin API Barangay")
+        rec = EngineeringRecord.objects.create(
+            title="Admin Test Record",
+            record_type="Project",
+            barangay=brgy,
             year=2026,
-            budget_amount=100000.00,
             created_by=self.staff
         )
         
@@ -168,8 +159,7 @@ class PermitsTestCase(TestCase):
         url = reverse('api_record-detail', kwargs={'pk': rec.record_id})
         response = self.client.get(url, HTTP_AUTHORIZATION=auth_header)
         self.assertEqual(response.status_code, 200)
-        # Should be unmasked
-        self.assertEqual(float(response.data['budget_amount']), 100000.00)
+        self.assertEqual(response.data['title'], 'Admin Test Record')
 
 
 @override_settings(
@@ -401,12 +391,38 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertIsNotNone(audit_entry)
         self.assertIn("Reported violation", audit_entry.action)
 
-    def test_dynamic_cloudinary_storage_routing(self):
-        from permits.storage import DynamicCloudinaryStorage
-        storage = DynamicCloudinaryStorage()
-        self.assertEqual(storage._get_storage('document.docx')._get_resource_type('document.docx'), 'raw')
-        self.assertEqual(storage._get_storage('report.pdf')._get_resource_type('report.pdf'), 'raw')
-        self.assertEqual(storage._get_storage('photo.png')._get_resource_type('photo.png'), 'image')
+    def test_supabase_storage_routing(self):
+        from permits.storage import SupabaseStorage
+        storage = SupabaseStorage()
+        self.assertIsNotNone(storage.fallback_storage)
+        self.assertEqual(storage._clean_path('media/documents/test.pdf'), 'documents/test.pdf')
+
+    def test_permissions_helper(self):
+        from permits.permissions import has_role
+        self.assertTrue(has_role(self.admin, 'admin'))
+        self.assertTrue(has_role(self.admin, ['admin', 'staff']))
+        self.assertFalse(has_role(self.staff, 'admin'))
+        self.assertFalse(has_role(None, 'admin'))
+
+    def test_services_filter_engineering_records(self):
+        from permits.services import filter_engineering_records
+        from permits.models import EngineeringRecord
+        qs = EngineeringRecord.objects.all()
+        filtered = filter_engineering_records(qs, query="Test Permit")
+        self.assertTrue(filtered.exists())
+        self.assertTrue(any(r.title == 'Test Permit Record' for r in filtered))
+
+    def test_forms_user_creation(self):
+        from permits.forms import UserCreationForm
+        form_data = {
+            'email': 'newtestuser@gmail.com',
+            'full_name': 'New Test User',
+            'role': 'staff',
+            'password': 'SecurePassword123!'
+        }
+        form = UserCreationForm(data=form_data)
+        self.assertTrue(form.is_valid())
+
 
 
 

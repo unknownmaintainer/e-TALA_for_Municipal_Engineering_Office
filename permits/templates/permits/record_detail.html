@@ -3,102 +3,105 @@
 {% load permit_filters %}
 {% load humanize %}
 
-{% block title %}Record Detail — eTala{% endblock %}
+{% block title %}{{ record.title }} — Record Detail | eTala{% endblock %}
 
 {% block breadcrumb %}
-<a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none"
-    style="color: var(--gray-500);">Records</a>
-<span class="breadcrumb-item">{{ record.title|truncatechars:30 }}</span>
+<a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Records</a>
+<span class="breadcrumb-item active text-truncate" style="max-width: 320px;">{{ record.title }}</span>
 {% endblock %}
 
 {% block content %}
 
-<!-- ══ PAGE HEADER — Modern layout replacing bulky side panel ══════════ -->
-<div class="page-title-row">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-2">
+<!-- ══ 1. PAGE HEADER ═══════════════════════════════════════════════════════ -->
+<div class="etala-page-header mb-4">
+    <div class="min-w-0 flex-grow-1">
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
             {% if record.is_illegal_construction %}
-            <span class="badge"
-                style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 6px;">
-                Violation Incident Report
+            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
+                style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 0.76rem; font-weight: 700;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Violation Incident Report</span>
             </span>
             {% elif record.record_type == 'Project' %}
-            <span class="tag tag-workspace">{{ record.get_project_scope_display }} Project</span>
+            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
+                style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.76rem; font-weight: 600;">
+                <i class="fa-solid fa-diagram-project"></i>
+                <span>{{ record.get_project_scope_display }} Project</span>
+            </span>
             {% else %}
-            <span class="tag tag-workspace">Permit Record</span>
+            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
+                style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-size: 0.76rem; font-weight: 600;">
+                <i class="fa-solid fa-file-shield"></i>
+                <span>Permit Record</span>
+            </span>
             {% endif %}
+
+            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
+                style="background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.75rem; font-weight: 600;">
+                <span class="d-inline-block rounded-circle" style="width: 6px; height: 6px; background-color: {% if record.status == 'approved' or record.status == 'completed' %}#16a34a{% elif record.status == 'archived' %}#94a3b8{% else %}#2563eb{% endif %};"></span>
+                {{ record.get_status_display }}
+            </span>
         </div>
-        <h1>
+
+        <h1 class="etala-page-title mb-1.5 text-truncate" style="font-size: 1.55rem; font-weight: 800; letter-spacing: -0.02em; color: var(--gray-900);">
             {% if record.is_illegal_construction %}
             {{ record.title }}
             {% elif record.record_type == 'Permit' %}
-            {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
+            {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} <span class="text-muted fw-normal fs-5">(#{{ record.permit_detail.permit_number }})</span>{% endif %}
             {% else %}
             {{ record.title }}
             {% endif %}
         </h1>
-        <p class="page-subtitle">
-            Category: <strong>{% if record.record_type == 'Project' %}{{ record.get_project_scope_display }} Project{% else %}Permit Record{% endif %}</strong> · Type: <strong>{{ record.specific_type_label }}</strong> ·
-            Created by {{ record.created_by.full_name|default:record.created_by.username }}
+
+        <p class="etala-page-subtitle mb-0 text-muted text-truncate" style="font-size: 0.84rem;">
+            <i class="fa-solid fa-user-pen me-1 text-secondary"></i> Encoded by <strong>{{ record.created_by.full_name|default:record.created_by.username }}</strong>
+            &bull; <i class="fa-regular fa-calendar me-1 text-secondary"></i> {{ record.created_at|date:"M d, Y" }}
+            {% if record.barangay %}
+            &bull; <i class="fa-solid fa-location-dot me-1 text-danger"></i> <strong>{{ record.barangay.barangay_name }}</strong>
+            {% endif %}
         </p>
     </div>
 
-    <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
-        <a href="{% url 'download_record_zip' record.record_id %}"
-            class="action-btn action-btn-secondary text-nowrap d-inline-flex align-items-center gap-1.5 fw-semibold text-decoration-none"
-            title="Download all uploaded applicant documents as ZIP archive" style="height: 36px;">
-            <i class="fa-solid fa-file-zipper" style="font-size: 13px; color: var(--primary-brand);"></i>
-            <span>Download ZIP</span>
-        </a>
-
+    <!-- Header Actions -->
+    <div class="etala-header-actions">
         {% if can_edit and record.status != 'archived' %}
         <a href="{% url 'edit_record' record.record_id %}"
-            class="action-btn action-btn-primary text-nowrap d-inline-flex align-items-center gap-1.5 text-decoration-none fw-semibold"
-            style="height: 36px;">
-            <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+            class="etala-btn etala-btn-primary text-nowrap text-decoration-none d-inline-flex align-items-center gap-2 shadow-2xs"
+            style="font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; font-weight: 600;"
+            title="Edit Record Details">
+            <i class="fa-solid fa-pen-to-square"></i>
             <span>Edit Record</span>
         </a>
         {% endif %}
 
-        {% if can_archive and record.status != 'archived' %}
-        <a href="javascript:void(0)"
-            class="action-btn action-btn-secondary text-danger border-danger-subtle text-nowrap d-inline-flex align-items-center gap-1.5 text-decoration-none fw-semibold"
-            onclick="confirmArchiveDetail()" title="Archive Record" style="height: 36px;">
-            <i data-lucide="archive" style="width: 14px; height: 14px; color: #dc2626;"></i>
-            <span>Archive</span>
+        <a href="{% url 'download_record_zip' record.record_id %}"
+            class="etala-btn etala-btn-secondary text-nowrap text-decoration-none d-inline-flex align-items-center gap-2 shadow-2xs"
+            style="font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; font-weight: 600;"
+            title="Download all uploaded documents as a ZIP archive">
+            <i class="fa-solid fa-file-zipper text-primary"></i>
+            <span>Download ZIP</span>
         </a>
-        <script>
-            function confirmArchiveDetail() {
-                if (window.showConfirmModal) {
-                    showConfirmModal({
-                        title: 'Archive Record',
-                        message: "Are you sure you want to archive '{{ record.title|escapejs }}'? It will be moved to the archive section.",
-                        confirmText: 'Archive Record',
-                        confirmClass: 'action-btn-danger',
-                        icon: 'archive',
-                        onConfirm: function () {
-                            window.location.href = "{% url 'archive_record' record.record_id %}";
-                        }
-                    });
-                } else {
-                    if (confirm("Archive this record?")) {
-                        window.location.href = "{% url 'archive_record' record.record_id %}";
-                    }
-                }
-            }
-        </script>
+
+        {% if can_archive and record.status != 'archived' %}
+        <button type="button"
+            class="etala-btn etala-btn-secondary text-danger border-danger-subtle text-nowrap d-inline-flex align-items-center gap-2 shadow-2xs"
+            style="font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; font-weight: 600;"
+            onclick="confirmArchiveDetail()" title="Archive this record">
+            <i class="fa-solid fa-box-archive"></i>
+            <span>Archive</span>
+        </button>
         {% endif %}
     </div>
 </div>
 
-<!-- ══ ILLEGAL CONSTRUCTION BANNER ═══════════════════════════════════════ -->
+<!-- ══ 2. ILLEGAL CONSTRUCTION BANNER (Conditional) ═════════════════════════ -->
 {% if record.is_illegal_construction %}
-<div class="alert p-3 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-3 illegal-banner-card"
-    style="{{ record.illegal_status_info.bg_style }}">
+<div class="alert p-3.5 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-3 shadow-2xs"
+    style="{{ record.illegal_status_info.bg_style }}; border-radius: 12px;">
     <div class="d-flex align-items-center gap-3">
         {% if record.discovery_photo %}
         <div class="position-relative rounded-3 overflow-hidden border shadow-sm flex-shrink-0"
-            style="width: 44px; height: 44px; background: rgba(0,0,0,0.04);">
+            style="width: 48px; height: 48px; background: rgba(0,0,0,0.04);">
             <a href="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" target="_blank"
                 class="d-block w-100 h-100" title="View Site Photo Evidence">
                 <img src="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}"
@@ -106,284 +109,227 @@
             </a>
         </div>
         {% else %}
-        <div class="rounded-3 p-2 d-flex align-items-center justify-content-center flex-shrink-0"
-            style="background: rgba(220, 38, 38, 0.12); width: 44px; height: 44px;">
-            <i data-lucide="shield-alert" style="width: 22px; height: 22px; color: #dc2626;"></i>
+        <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+            style="background: rgba(220, 38, 38, 0.12); width: 44px; height: 44px; color: #dc2626;">
+            <i class="fa-solid fa-shield-halved" style="font-size: 20px;"></i>
         </div>
         {% endif %}
         <div>
-            <h6 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ record.illegal_status_info.label }}</h6>
-            <small style="opacity: 0.88; font-size: 0.78rem;">Flagged by Municipal Engineering Office as unpermitted
-                construction{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.</small>
+            <div class="d-flex align-items-center gap-2">
+                <h6 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ record.illegal_status_info.label }}</h6>
+            </div>
+            <small style="opacity: 0.88; font-size: 0.8rem;">
+                Flagged as unpermitted construction{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.
+            </small>
         </div>
     </div>
+
     {% if can_edit %}
     <div class="dropdown">
         <button
-            class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-2 illegal-status-dropdown-btn"
-            type="button" data-bs-toggle="dropdown"
-            style="background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.8rem; padding: 0.4rem 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-2 bg-white text-dark border shadow-2xs"
+            type="button" data-bs-toggle="dropdown" aria-expanded="false"
+            style="border-radius: 8px; font-size: 0.82rem; padding: 0.45rem 0.9rem;">
+            <i class="fa-solid fa-sliders text-secondary"></i>
             <span>Update Compliance Status</span>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow-sm border p-1 illegal-status-dropdown-menu"
-            style="border-radius: 8px; font-size: 0.8rem; min-width: 180px;">
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm border p-1" style="border-radius: 10px; font-size: 0.82rem; min-width: 190px;">
             <form method="POST" action="{% url 'update_illegal_status' record.record_id %}">
                 {% csrf_token %}
-                <li><button type="submit" name="illegal_compliance_status" value="unresolved"
-                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'unresolved' %}selected-status{% endif %}">🔴
-                        Unresolved</button></li>
-                <li><button type="submit" name="illegal_compliance_status" value="pending_permit"
-                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'pending_permit' %}selected-status{% endif %}">🟡
-                        Permit Filed</button></li>
-                <li><button type="submit" name="illegal_compliance_status" value="resolved"
-                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'resolved' %}selected-status{% endif %}">🟢
-                        Regularized</button></li>
                 <li>
-                    <hr class="dropdown-divider my-1">
+                    <button type="submit" name="illegal_compliance_status" value="unresolved"
+                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'unresolved' %}fw-bold bg-light{% endif %}">
+                        <i class="fa-solid fa-circle text-danger" style="font-size: 10px;"></i>
+                        <span>Unresolved</span>
+                    </button>
                 </li>
-                <li><button type="submit" name="illegal_compliance_status" value="remove"
-                        class="dropdown-item py-1.5 px-2.5 rounded text-danger fw-medium">Remove Flag</button></li>
+                <li>
+                    <button type="submit" name="illegal_compliance_status" value="pending_permit"
+                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'pending_permit' %}fw-bold bg-light{% endif %}">
+                        <i class="fa-solid fa-circle text-warning" style="font-size: 10px;"></i>
+                        <span>Permit Filed</span>
+                    </button>
+                </li>
+                <li>
+                    <button type="submit" name="illegal_compliance_status" value="resolved"
+                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'resolved' %}fw-bold bg-light{% endif %}">
+                        <i class="fa-solid fa-circle text-success" style="font-size: 10px;"></i>
+                        <span>Regularized</span>
+                    </button>
+                </li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li>
+                    <button type="submit" name="illegal_compliance_status" value="remove"
+                        class="dropdown-item py-1.5 px-2.5 rounded text-danger fw-semibold d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
+                        <span>Remove Flag</span>
+                    </button>
+                </li>
             </form>
         </ul>
     </div>
     {% endif %}
 </div>
-
-<style>
-    .group-container-card {
-        transition: all 0.2s ease-in-out;
-    }
-
-    .group-container-card:hover {
-        border-color: #cbd5e1 !important;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
-    }
-
-    .group-header-card {
-        transition: background-color 0.18s ease;
-    }
-
-    .group-header-card:hover {
-        background-color: #f8fafc !important;
-    }
-
-    .group-header-card[aria-expanded="true"] {
-        background-color: #f1f5f9 !important;
-    }
-
-    .group-header-card[aria-expanded="true"] .group-chevron {
-        transform: rotate(90deg) !important;
-    }
-
-    /* Dark Mode Overrides for Group Containers */
-    .dark-mode .group-container-card,
-    [data-bs-theme="dark"] .group-container-card {
-        background-color: #1e293b !important;
-        border-color: #334155 !important;
-    }
-
-    .dark-mode .group-header-card,
-    [data-bs-theme="dark"] .group-header-card {
-        background-color: #1e293b !important;
-    }
-
-    .dark-mode .group-header-card:hover,
-    [data-bs-theme="dark"] .group-header-card:hover,
-    .dark-mode .group-header-card[aria-expanded="true"],
-    [data-bs-theme="dark"] .group-header-card[aria-expanded="true"] {
-        background-color: #334155 !important;
-    }
-
-    .dark-mode .group-header-card h6,
-    [data-bs-theme="dark"] .group-header-card h6 {
-        color: #f8fafc !important;
-    }
-
-    .dark-mode .doc-checklist-item,
-    [data-bs-theme="dark"] .doc-checklist-item {
-        background-color: #0f172a !important;
-        border-color: #334155 !important;
-    }
-
-    .illegal-status-dropdown-menu .dropdown-item {
-        color: var(--gray-800, #1e293b) !important;
-        background-color: transparent !important;
-    }
-
-    .illegal-status-dropdown-menu .dropdown-item:hover {
-        background-color: var(--gray-100, #f1f5f9) !important;
-        color: var(--gray-900, #0f172a) !important;
-    }
-
-    .illegal-status-dropdown-menu .dropdown-item.selected-status {
-        background-color: var(--gray-200, #e2e8f0) !important;
-        color: var(--gray-900, #0f172a) !important;
-        font-weight: 600 !important;
-    }
-
-    .dark-mode .illegal-status-dropdown-menu,
-    [data-bs-theme="dark"] .illegal-status-dropdown-menu {
-        background-color: #1e293b !important;
-        border-color: #334155 !important;
-    }
-
-    .dark-mode .illegal-status-dropdown-menu .dropdown-item,
-    [data-bs-theme="dark"] .illegal-status-dropdown-menu .dropdown-item {
-        color: #f8fafc !important;
-    }
-
-    .dark-mode .illegal-status-dropdown-menu .dropdown-item:hover,
-    .dark-mode .illegal-status-dropdown-menu .dropdown-item.selected-status,
-    [data-bs-theme="dark"] .illegal-status-dropdown-menu .dropdown-item:hover,
-    [data-bs-theme="dark"] .illegal-status-dropdown-menu .dropdown-item.selected-status {
-        background-color: #334155 !important;
-        color: #ffffff !important;
-    }
-
-    .dark-mode .illegal-status-dropdown-btn,
-    [data-bs-theme="dark"] .illegal-status-dropdown-btn {
-        background-color: #1e293b !important;
-        color: #f8fafc !important;
-        border-color: #475569 !important;
-    }
-</style>
 {% endif %}
 
-<!-- ══ MAIN LAYOUT SECTION ════════════════════════════════════════════════ -->
+<!-- ══ 3. MAIN CONTENT GRID (8:4 Layout) ════════════════════════════════════ -->
 <div class="row g-4 mb-5 align-items-start">
-    <!-- LEFT COLUMN: Checklist & Documents (Takes col-lg-8) -->
-    <div class="col-lg-8 d-flex flex-column">
-        <!-- Checklist Card Wrapper -->
-        <div class="content-card flex-grow-1 d-flex flex-column">
-            <div
-                class="card-header bg-white border-bottom p-3.5 px-4 d-flex align-items-center justify-content-between gap-3">
-                <div class="d-flex align-items-center gap-2.5">
+
+    <!-- ── LEFT COLUMN: Document Checklist & Files (col-lg-8) ─────────────── -->
+    <div class="col-lg-8 d-flex flex-column gap-4 min-w-0">
+
+        <!-- Checklist Card -->
+        <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
+            
+            <!-- Card Header -->
+            <div class="card-header bg-white border-bottom p-3 px-3.5 d-flex align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-2.5 min-w-0">
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 34px; height: 34px; background: #f1f5f9; color: #0f172a; border: 1px solid #e2e8f0;">
-                        <i class="fa-solid fa-clipboard-check" style="font-size: 16px; color: #2563eb;"></i>
+                        style="width: 34px; height: 34px; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe;">
+                        <i class="fa-solid fa-clipboard-check" style="font-size: 15px;"></i>
                     </div>
-                    <div>
-                        <h5 class="fw-bold mb-0 text-dark" style="font-size: 1rem; letter-spacing: -0.01em;">Document
-                            Checklist</h5>
-                        <p class="mb-0 text-muted" style="font-size: 0.76rem;">Required plans, permits, and clearances
-                            for this record</p>
+                    <div class="min-w-0">
+                        <h5 class="fw-bold mb-0 title-text-adaptive text-truncate" style="font-size: 1.0rem; letter-spacing: -0.01em;">Document Checklist</h5>
+                        <p class="mb-0 subtitle-text-adaptive text-truncate" style="font-size: 0.76rem;">Required plans, clearances, and attachments</p>
                     </div>
                 </div>
 
-                {% if can_edit and record.status != 'archived' %}
-                <button type="button"
-                    class="btn btn-sm btn-primary fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs"
-                    style="border-radius: 8px; font-size: 0.82rem;" data-bs-toggle="modal"
-                    data-bs-target="#batchUploadModal">
-                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 13px;"></i>
-                    <span>Batch Upload</span>
-                </button>
-                {% endif %}
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                    {% if completion and completion.total > 0 %}
+                    <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 rounded-2"
+                        style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; font-size: 0.76rem; font-weight: 600;">
+                        <i class="fa-solid {% if completion.is_complete %}fa-circle-check text-success{% else %}fa-list-check{% endif %}"></i>
+                        <span>{{ completion.fulfilled }}/{{ completion.total }} Complete</span>
+                    </span>
+                    {% endif %}
+
+                    {% if can_edit and record.status != 'archived' %}
+                    <button type="button"
+                        class="btn btn-sm btn-primary fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs"
+                        style="border-radius: 8px; font-size: 0.8rem;"
+                        onclick="openGroupBatchUploadModal('', 'All Checklist Documents')">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Batch Upload</span>
+                    </button>
+                    {% endif %}
+                </div>
             </div>
 
-            <div class="content-card-body d-flex flex-column flex-grow-1 p-4">
-
-
-
-                <!-- Document Checklist Items List -->
+            <!-- Card Body: Checklist Tree -->
+            <div class="content-card-body p-3.5 d-flex flex-column gap-2.5">
+                {% if parent_reqs %}
                 <div class="doc-checklist-tree d-flex flex-column gap-2.5">
                     {% for req in parent_reqs %}
                     {% with sub_list=sub_reqs_by_parent|dict_get:req.requirement_item.item_id %}
                     {% if sub_list or req.requirement_item.is_group %}
-                    <!-- 📁 PARENT FOLDER / GROUP HEADER ROW -->
+                    
+                    <!-- 📁 FOLDER / GROUP ACCORDION ROW -->
                     {% with g_stats=req.group_stats %}
-                    <div class="checklist-group-card border rounded-3 overflow-hidden">
-                        <div class="p-3 checklist-group-header d-flex align-items-center justify-content-between gap-3"
-                            data-bs-toggle="collapse" data-bs-target="#groupCollapse_{{ req.req_id }}"
-                            aria-expanded="false" aria-controls="groupCollapse_{{ req.req_id }}"
-                            style="cursor: pointer; user-select: none;">
+                    <div class="checklist-group-card border rounded-3 overflow-hidden shadow-2xs" style="transition: all 0.2s ease;">
+                        
+                        <!-- Group Header -->
+                        <div class="p-2.5 px-3 checklist-group-header d-flex align-items-center justify-content-between gap-3 bg-white" style="user-select: none;">
 
-                            <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+                            <!-- Folder Title Area (Clickable to toggle collapse) -->
+                            <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1 cursor-pointer"
+                                data-bs-toggle="collapse" data-bs-target="#groupCollapse_{{ req.req_id }}"
+                                aria-expanded="true" aria-controls="groupCollapse_{{ req.req_id }}">
                                 <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                                    style="width: 36px; height: 36px; background: {% if g_stats.is_complete %}#dcfce7; color: #15803d;{% elif g_stats.fulfilled > 0 %}#eff6ff; color: #2563eb;{% else %}#f8fafc; color: #64748b;{% endif %}; border: 1px solid {% if g_stats.is_complete %}#bbf7d0{% elif g_stats.fulfilled > 0 %}#dbeafe{% else %}#e2e8f0{% endif %};">
+                                    style="width: 32px; height: 32px; background: {% if g_stats.is_complete %}#dcfce7; color: #15803d; border: 1px solid #bbf7d0;{% elif g_stats.fulfilled > 0 %}#eff6ff; color: #2563eb; border: 1px solid #dbeafe;{% else %}#f8fafc; color: #64748b; border: 1px solid #e2e8f0;{% endif %}">
                                     {% if g_stats.is_complete %}
-                                    <i class="fa-solid fa-check" style="font-size: 15px;"></i>
+                                    <i class="fa-solid fa-folder-check" style="font-size: 14px;"></i>
                                     {% else %}
-                                    <i class="fa-regular fa-folder-open" style="font-size: 15px;"></i>
+                                    <i class="fa-solid fa-folder-open" style="font-size: 14px;"></i>
                                     {% endif %}
                                 </div>
                                 <div class="min-w-0 flex-grow-1">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <h6 class="fw-bold mb-0 text-truncate"
-                                            style="font-size: 0.9rem;">{{ req.requirement_item.name }}
-                                        </h6>
-                                    </div>
-                                    <div class="text-muted" style="font-size: 0.77rem; margin-top: 1px;">
-                                        Contains {{ g_stats.total }} required items
+                                    <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.88rem;">
+                                        {{ req.requirement_item.name }}
+                                    </h6>
+                                    <div class="text-muted" style="font-size: 0.75rem; margin-top: 1px;">
+                                        {{ g_stats.total }} required document{% if g_stats.total > 1 %}s{% endif %}
                                     </div>
                                 </div>
                             </div>
 
                             <div class="d-flex align-items-center gap-2 flex-shrink-0">
                                 {% if g_stats.is_complete %}
-                                <span class="badge"
-                                    style="background: #dcfce7; color: #15803d; font-weight: 600; font-size: 0.72rem; padding: 4px 9px; border-radius: 6px;">✓
-                                    Complete</span>
+                                <span class="badge d-inline-flex align-items-center gap-1"
+                                    style="background: #dcfce7; color: #15803d; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">
+                                    <i class="fa-solid fa-check"></i> Complete
+                                </span>
                                 {% elif g_stats.fulfilled > 0 %}
                                 <span class="badge"
-                                    style="background: #eff6ff; color: #2563eb; font-weight: 600; font-size: 0.72rem; padding: 4px 9px; border-radius: 6px;">{{ g_stats.fulfilled }}/{{ g_stats.total }} Uploaded</span>
+                                    style="background: #eff6ff; color: #2563eb; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">
+                                    {{ g_stats.fulfilled }}/{{ g_stats.total }} Uploaded
+                                </span>
                                 {% else %}
                                 <span class="badge"
-                                    style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.72rem; padding: 4px 9px; border-radius: 6px;">0/{{ g_stats.total }} Uploaded</span>
+                                    style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">
+                                    0/{{ g_stats.total }} Uploaded
+                                </span>
+                                {% endif %}
+
+                                {% if can_edit and record.status != 'archived' %}
+                                <button type="button"
+                                    class="btn btn-sm btn-light border p-1 px-2 text-primary d-inline-flex align-items-center gap-1 shadow-2xs me-1"
+                                    onclick="openGroupBatchUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}');"
+                                    title="Batch upload files for {{ req.requirement_item.name }}"
+                                    style="font-size: 0.76rem; border-radius: 6px; font-weight: 600;">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <span>Batch Upload</span>
+                                </button>
                                 {% endif %}
 
                                 {% if g_stats.fulfilled > 0 %}
                                 <a href="{% url 'download_category_zip' record.record_id req.req_id %}"
-                                    class="btn btn-sm btn-light border p-1 px-2 text-secondary d-inline-flex align-items-center gap-1"
-                                    onclick="event.stopPropagation();"
+                                    class="btn btn-sm btn-light border p-1 px-2 text-secondary d-inline-flex align-items-center gap-1 shadow-2xs"
                                     title="Download {{ req.requirement_item.name }} files as ZIP"
-                                    style="font-size: 0.75rem; border-radius: 6px;">
+                                    style="font-size: 0.76rem; border-radius: 6px;">
                                     <i class="fa-solid fa-file-zipper text-primary"></i>
                                 </a>
                                 {% endif %}
 
                                 <button type="button"
-                                    class="btn btn-sm btn-light border p-1 px-2 text-secondary group-chevron-btn"
-                                    style="border-radius: 6px; font-size: 0.75rem;">
-                                    <i class="fa-solid fa-chevron-down group-chevron" style="font-size: 11px;"></i>
+                                    class="btn btn-sm btn-light border p-1 px-2 text-secondary group-chevron-btn shadow-2xs"
+                                    data-bs-toggle="collapse" data-bs-target="#groupCollapse_{{ req.req_id }}"
+                                    aria-expanded="true" aria-controls="groupCollapse_{{ req.req_id }}"
+                                    style="border-radius: 6px; font-size: 0.76rem;">
+                                    <i class="fa-solid fa-chevron-down group-chevron" style="font-size: 11px; transition: transform 0.2s ease;"></i>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- COLLAPSIBLE CHILD REQUIREMENTS LIST -->
-                        <div class="collapse" id="groupCollapse_{{ req.req_id }}">
-                            <div class="checklist-group-body p-3.5 border-top d-flex flex-column gap-3"
-                                style="border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;">
+                        <!-- Child Items List -->
+                        <div class="collapse show" id="groupCollapse_{{ req.req_id }}">
+                            <div class="checklist-group-body p-3 border-top d-flex flex-column gap-2" style="background: #fcfdfe;">
                                 {% for sub_req in sub_list %}
-                                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs">
-                                    <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+                                <div class="checklist-sub-item p-2.5 px-3 border rounded-3 d-flex align-items-start justify-content-between gap-3 bg-white shadow-2xs">
+                                    <div class="d-flex align-items-start gap-2.5 min-w-0 flex-grow-1">
+                                        <!-- 📎 SUBFILE ATTACHMENT ICON -->
                                         <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 28px; height: 28px; border-radius: 7px; background: {% if sub_req.is_fulfilled %}#dcfce7; color: #15803d;{% elif sub_req.is_waived %}#f1f5f9; color: #94a3b8;{% else %}#e0f2fe; color: #0284c7;{% endif %}; font-size: 12px;">
+                                            style="width: 30px; height: 30px; border-radius: 8px; margin-top: 1px; background: {% if sub_req.is_fulfilled %}#dcfce7; color: #15803d;{% elif sub_req.is_waived %}#f1f5f9; color: #94a3b8;{% else %}#eff6ff; color: #2563eb;{% endif %}; font-size: 13px;">
                                             {% if sub_req.is_fulfilled %}
-                                            <i class="fa-solid fa-check"></i>
+                                            <i class="fa-solid fa-circle-check"></i>
                                             {% elif sub_req.is_waived %}
-                                            <i class="fa-solid fa-minus"></i>
+                                            <i class="fa-solid fa-circle-minus"></i>
                                             {% else %}
                                             <i class="fa-solid fa-paperclip"></i>
                                             {% endif %}
                                         </div>
                                         <div class="min-w-0 flex-grow-1">
-                                            <div class="d-flex align-items-center gap-1 min-w-0">
-                                                <span class="fw-semibold text-dark checklist-item-title"
-                                                    style="font-size: 0.85rem; color: #0f172a;">{{ sub_req.requirement_item.name }}</span>
-                                                {% if sub_req.requirement_item.is_required %}
-                                                <span class="text-danger fw-bold flex-shrink-0 ms-0.5"
-                                                    style="font-size: 1rem; line-height: 1;"
-                                                    title="Required document">*</span>
-                                                {% endif %}
-                                            </div>
-                                            <div class="text-truncate" style="font-size: 0.76rem; margin-top: 1px;">
+                                            <div class="fw-bold title-text-adaptive text-break" style="font-size: 0.86rem; line-height: 1.35;">{{ sub_req.requirement_item.name }}</div>
+                                            <div class="text-truncate" style="font-size: 0.76rem; margin-top: 2px;">
                                                 {% if sub_req.is_fulfilled and sub_req.document %}
                                                 <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}"
-                                                    target="_blank" class="text-decoration-none fw-medium"
-                                                    style="color: #166534;">
-                                                    <i class="fa-solid fa-file-pdf me-1 text-danger"></i>{{ sub_req.document.file_name }}
+                                                    target="_blank" class="text-decoration-none fw-medium text-success d-inline-flex align-items-center gap-1.5"
+                                                    title="Click to view file">
+                                                    <i class="fa-solid fa-file-pdf text-danger"></i>
+                                                    <span class="text-truncate">{{ sub_req.document.file_name }}</span>
                                                 </a>
+                                                {% if sub_req.document.expiry_date %}
+                                                <span class="text-muted ms-1">&bull; Exp: {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
+                                                {% endif %}
                                                 {% elif sub_req.is_waived %}
                                                 <span class="text-muted">Not Applicable (N/A)</span>
                                                 {% else %}
@@ -393,44 +339,45 @@
                                         </div>
                                     </div>
 
-                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0 flex-nowrap">
+                                    <!-- Actions per row -->
+                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
                                         {% if sub_req.is_fulfilled and sub_req.document %}
                                         <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}"
-                                            target="_blank" class="btn btn-sm btn-light border py-1 px-2.5 fw-medium"
-                                            style="font-size: 0.76rem; border-radius: 6px;">View</a>
+                                            target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none"
+                                            title="View Document">
+                                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 11px;"></i>
+                                            <span>View</span>
+                                        </a>
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="btn btn-sm btn-light border text-danger py-1 px-2"
-                                            style="font-size: 0.76rem; border-radius: 6px;"
+                                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
                                             onclick="openDeleteDocModal('{% url 'delete_document' record.record_id sub_req.document.document_id %}', '{{ sub_req.document.file_name|escapejs }}')"
                                             title="Delete uploaded file">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                         {% endif %}
+                                        
                                         {% elif sub_req.is_waived %}
-                                        <span class="badge"
-                                            style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
+                                        <span class="badge" style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button"
-                                            class="btn btn-sm btn-light border text-primary py-1 px-2 btn-toggle-waive"
+                                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
                                             data-req-id="{{ sub_req.req_id }}"
-                                            style="font-size: 0.76rem; border-radius: 6px;"
-                                            title="Undo N/A status">Require</button>
+                                            title="Undo N/A status">
+                                            <i class="fa-solid fa-rotate-left"></i> <span>Require</span>
+                                        </button>
                                         {% endif %}
+                                        
                                         {% else %}
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="btn btn-sm btn-primary fw-medium py-1 px-2.5"
-                                            style="font-size: 0.76rem; border-radius: 6px;"
+                                        <button type="button" class="etala-btn etala-btn-primary etala-btn-xs"
                                             onclick="openUploadModal('{{ sub_req.requirement_item.item_id }}', '{{ sub_req.requirement_item.name|escapejs }}')">
-                                            Upload
+                                            <i class="fa-solid fa-arrow-up-from-bracket" style="font-size: 11px;"></i>
+                                            <span>Upload</span>
                                         </button>
-                                        <button type="button"
-                                            class="btn btn-sm btn-light border text-muted py-1 px-2 btn-toggle-waive"
+                                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
                                             data-req-id="{{ sub_req.req_id }}"
-                                            style="font-size: 0.76rem; border-radius: 6px;"
                                             title="Mark as Not Applicable">N/A</button>
                                         {% else %}
-                                        <span class="badge"
-                                            style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
+                                        <span class="badge" style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
                                         {% endif %}
                                         {% endif %}
                                     </div>
@@ -442,34 +389,29 @@
                     {% endwith %}
 
                     {% else %}
-                    <!-- 📄 STANDALONE ITEM ROW -->
-                    <div class="checklist-standalone-item p-3 border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs">
-                        <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                style="width: 32px; height: 32px; background: {% if req.is_fulfilled %}#dcfce7; color: #166534;{% elif req.is_waived %}#f1f5f9; color: #94a3b8;{% else %}#fef3c7; color: #d97706;{% endif %}; font-size: 13px;">
+                    <!-- 📄 STANDALONE FILE REQUIREMENT ROW -->
+                    <div class="checklist-standalone-item p-2.5 px-3 border rounded-3 d-flex align-items-start justify-content-between gap-3 bg-white shadow-2xs">
+                        <div class="d-flex align-items-start gap-2.5 min-w-0 flex-grow-1">
+                            <!-- 📄 STANDALONE MAIN FILE ICON -->
+                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                                style="width: 32px; height: 32px; margin-top: 1px; background: {% if req.is_fulfilled %}#dcfce7; color: #166534;{% elif req.is_waived %}#f1f5f9; color: #94a3b8;{% else %}#eff6ff; color: #2563eb;{% endif %}; font-size: 14px;">
                                 {% if req.is_fulfilled %}
-                                <i class="fa-solid fa-check"></i>
+                                <i class="fa-solid fa-file-circle-check"></i>
                                 {% elif req.is_waived %}
-                                <i class="fa-solid fa-minus"></i>
+                                <i class="fa-solid fa-file-circle-minus"></i>
                                 {% else %}
-                                <i class="fa-regular fa-file-lines"></i>
+                                <i class="fa-solid fa-file-lines"></i>
                                 {% endif %}
                             </div>
                             <div class="min-w-0 flex-grow-1">
-                                <div class="d-flex align-items-center gap-1 min-w-0">
-                                    <div class="fw-bold mb-0 checklist-item-title"
-                                        style="font-size: 0.88rem;">{{ req.requirement_item.name }}
-                                    </div>
-                                    {% if req.requirement_item.is_required %}
-                                    <span class="text-danger fw-bold flex-shrink-0 ms-0.5"
-                                        style="font-size: 1rem; line-height: 1;" title="Required document">*</span>
-                                    {% endif %}
-                                </div>
-                                <div class="text-truncate" style="font-size: 0.76rem; margin-top: 1px;">
+                                <div class="fw-bold title-text-adaptive text-break" style="font-size: 0.88rem; line-height: 1.35;">{{ req.requirement_item.name }}</div>
+                                <div class="text-truncate" style="font-size: 0.76rem; margin-top: 2px;">
                                     {% if req.is_fulfilled and req.document %}
-                                    <a href="{{ doc_url_map|dict_get:req.document.document_id }}" target="_blank"
-                                        class="text-decoration-none fw-medium" style="color: #166534;">
-                                        <i class="fa-solid fa-file-pdf me-1 text-danger"></i>{{ req.document.file_name }}
+                                    <a href="{{ doc_url_map|dict_get:req.document.document_id }}"
+                                        target="_blank" class="text-decoration-none fw-medium text-success d-inline-flex align-items-center gap-1.5"
+                                        title="Click to view file">
+                                        <i class="fa-solid fa-file-pdf text-danger"></i>
+                                        <span class="text-truncate">{{ req.document.file_name }}</span>
                                     </a>
                                     {% elif req.is_waived %}
                                     <span class="text-muted">Not Applicable (N/A)</span>
@@ -480,42 +422,44 @@
                             </div>
                         </div>
 
-                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0 flex-nowrap">
+                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
                             {% if req.is_fulfilled and req.document %}
-                            <a href="{{ doc_url_map|dict_get:req.document.document_id }}" target="_blank"
-                                class="btn btn-sm btn-light border py-1 px-2.5 fw-medium"
-                                style="font-size: 0.76rem; border-radius: 6px;">View</a>
+                            <a href="{{ doc_url_map|dict_get:req.document.document_id }}"
+                                target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none"
+                                title="View Document">
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 11px;"></i>
+                                <span>View</span>
+                            </a>
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="btn btn-sm btn-light border text-danger py-1 px-2"
-                                style="font-size: 0.76rem; border-radius: 6px;"
+                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
                                 onclick="openDeleteDocModal('{% url 'delete_document' record.record_id req.document.document_id %}', '{{ req.document.file_name|escapejs }}')"
                                 title="Delete uploaded file">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                             {% endif %}
+                            
                             {% elif req.is_waived %}
-                            <span class="badge"
-                                style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
+                            <span class="badge" style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button"
-                                class="btn btn-sm btn-light border text-primary py-1 px-2 btn-toggle-waive"
-                                data-req-id="{{ req.req_id }}" style="font-size: 0.76rem; border-radius: 6px;"
-                                title="Undo N/A status">Require</button>
+                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
+                                data-req-id="{{ req.req_id }}"
+                                title="Undo N/A status">
+                                <i class="fa-solid fa-rotate-left"></i> <span>Require</span>
+                            </button>
                             {% endif %}
+                            
                             {% else %}
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="btn btn-sm btn-primary fw-medium py-1 px-2.5"
-                                style="font-size: 0.76rem; border-radius: 6px;"
+                            <button type="button" class="etala-btn etala-btn-primary etala-btn-xs"
                                 onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')">
-                                Upload
+                                <i class="fa-solid fa-arrow-up-from-bracket" style="font-size: 11px;"></i>
+                                <span>Upload</span>
                             </button>
-                            <button type="button"
-                                class="btn btn-sm btn-light border text-muted py-1 px-2 btn-toggle-waive"
-                                data-req-id="{{ req.req_id }}" style="font-size: 0.76rem; border-radius: 6px;"
+                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
+                                data-req-id="{{ req.req_id }}"
                                 title="Mark as Not Applicable">N/A</button>
                             {% else %}
-                            <span class="badge"
-                                style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
+                            <span class="badge" style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
                             {% endif %}
                             {% endif %}
                         </div>
@@ -524,318 +468,453 @@
                     {% endwith %}
                     {% endfor %}
                 </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-2"
+                        style="background: #f1f5f9; color: #94a3b8; width: 56px; height: 56px;">
+                        <i class="fa-solid fa-clipboard-list" style="font-size: 24px;"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1">No checklist requirements configured</h6>
+                    <p class="text-muted small mb-0">Use the batch upload button to attach documents directly.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
+
     </div>
 
-    <!-- RIGHT COLUMN: Record Information Sidebar (Takes col-lg-4) -->
-    <div class="col-lg-4 d-flex flex-column">
-        <div class="content-card record-summary-card d-flex flex-column p-4" style="border-radius: 16px;">
-            <div class="d-flex align-items-center justify-content-between flex-nowrap pb-3.5 mb-1 border-bottom gap-2" style="border-color: #f1f5f9 !important;">
-                <h6 class="record-summary-header m-0 d-flex align-items-center flex-nowrap gap-2 fw-bold text-nowrap"
-                    style="font-size: 0.82rem; letter-spacing: 0.05em; color: #475569; text-transform: uppercase;">
-                    <i class="fa-solid fa-circle-info flex-shrink-0" style="color: #64748b; font-size: 16px;"></i>
+    <!-- ── RIGHT COLUMN: Record Summary & Details (col-lg-4) ──────────────── -->
+    <div class="col-lg-4 d-flex flex-column gap-4 min-w-0">
+
+        <!-- Record Summary Card (Sticky on scroll, natural height) -->
+        <div class="content-card record-summary-card d-flex flex-column p-3 px-3.5 pb-3 position-sticky" style="top: 1.5rem; z-index: 10; border-radius: 16px; height: auto !important;">
+            <div class="d-flex align-items-center justify-content-between pb-2.5 mb-2 border-bottom gap-2">
+                <h6 class="m-0 d-flex align-items-center gap-2 fw-bold text-uppercase subtitle-text-adaptive"
+                    style="font-size: 0.82rem; letter-spacing: 0.05em;">
+                    <i class="fa-solid fa-circle-info text-primary flex-shrink-0"></i>
                     <span>Record Summary</span>
                 </h6>
-                <span class="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill"
-                    style="background: #eff6ff; color: #2563eb; font-weight: 600; font-size: 0.76rem; border: 1px solid #dbeafe;">
-                    <span style="width: 6px; height: 6px; border-radius: 50%; background-color: #2563eb; display: inline-block;"></span>
+                <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
+                    style="background: rgba(49, 85, 217, 0.1); color: #3155D9; font-weight: 600; font-size: 0.76rem; border: 1px solid rgba(49, 85, 217, 0.2);">
+                    <span class="d-inline-block rounded-circle" style="width: 6px; height: 6px; background-color: #3155D9;"></span>
                     {{ record.get_status_display }}
                 </span>
             </div>
 
-            <div class="d-flex flex-column" style="font-size: 0.84rem;">
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Record ID</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; font-size: 0.88rem; max-width: 50%; white-space: nowrap;" title="#{{ record.record_id }}">#{{ record.record_id }}</span>
+            <!-- Key-Value Pairs (Consistent: icon + label on 1st line, value below) -->
+            <div class="d-flex flex-column gap-1.5" style="font-size: 0.84rem;">
+                
+                <!-- Record ID -->
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-hashtag text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Record ID</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        #{{ record.record_id }}
+                    </div>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Record Type</span>
-                    <span class="badge text-end text-nowrap text-truncate ms-auto"
-                        style="background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 6px; max-width: 50%; white-space: nowrap;">{% if record.record_type == 'Project' %}{{ record.get_project_scope_display }} Project{% else %}Permit Record{% endif %}</span>
+                <!-- Record Type -->
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-layer-group text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Record Type</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {% if record.record_type == 'Project' %}
+                        {{ record.get_project_scope_display }} Project
+                        {% else %}
+                        Permit Record
+                        {% endif %}
+                    </div>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Specific Type</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;"
-                        title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
+                <!-- Specific Type -->
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-file-signature text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Specific Type</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ record.specific_type_label }}
+                    </div>
                 </div>
 
-                {% if permit_detail %}
-                {% if permit_detail.applicant_name %}
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Applicant / Owner</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;"
-                        title="{{ permit_detail.applicant_name }}">{{ permit_detail.applicant_name }}</span>
-                </div>
-                {% endif %}
-
-                {% if permit_detail.permit_number %}
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Permit No.</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;" title="{{ permit_detail.permit_number }}">{{ permit_detail.permit_number }}</span>
-                </div>
-                {% endif %}
-
-                {% if permit_detail.building_type %}
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Building Type</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;" title="{{ permit_detail.get_building_type_display|default:permit_detail.building_type }}">{{ permit_detail.get_building_type_display|default:permit_detail.building_type }}</span>
-                </div>
-                {% endif %}
-                {% endif %}
-
-                {% if project_detail %}
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Project Scope</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;" title="{{ record.get_project_scope_display }}">{{ record.get_project_scope_display }}</span>
-                </div>
-
-                {% if project_detail.project_cost %}
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Project Budget / Cost</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="font-size: 0.86rem; color: #16a34a; max-width: 50%; white-space: nowrap;"
-                        title="₱ {{ project_detail.project_cost|intcomma }}">₱ {{ project_detail.project_cost|intcomma }}</span>
+                <!-- Applicant / Owner -->
+                {% if permit_detail and permit_detail.applicant_name %}
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Applicant / Owner</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ permit_detail.applicant_name }}
+                    </div>
                 </div>
                 {% endif %}
 
-                {% if project_detail.funding_source %}
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Funding Source</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;" title="{{ project_detail.funding_source }}">{{ project_detail.funding_source }}</span>
+                <!-- Permit No. -->
+                {% if permit_detail and permit_detail.permit_number %}
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-id-card text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Permit No.</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ permit_detail.permit_number }}
+                    </div>
                 </div>
                 {% endif %}
 
-                {% if project_detail.contractor %}
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Contractor</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;"
-                        title="{{ project_detail.contractor }}">{{ project_detail.contractor }}</span>
+                <!-- Building Type -->
+                {% if permit_detail and permit_detail.building_type %}
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-building text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Building Type</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ permit_detail.get_building_type_display|default:permit_detail.building_type }}
+                    </div>
                 </div>
                 {% endif %}
+
+                <!-- Project Budget -->
+                {% if project_detail and project_detail.project_cost %}
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-sack-dollar text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Project Budget</span>
+                    </div>
+                    <div class="fw-bold text-success text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        ₱ {{ project_detail.project_cost|intcomma }}
+                    </div>
+                </div>
                 {% endif %}
 
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Barangay</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;" title="{{ record.barangay.barangay_name|default:'Unassigned' }}">{{ record.barangay.barangay_name|default:"Unassigned" }}</span>
+                <!-- Funding Source -->
+                {% if project_detail and project_detail.funding_source %}
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-building-columns text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Funding Source</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ project_detail.funding_source }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Contractor -->
+                {% if project_detail and project_detail.contractor %}
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-helmet-safety text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Contractor</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ project_detail.contractor }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Barangay -->
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-location-dot text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Barangay</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ record.barangay.barangay_name|default:"Unassigned" }}
+                    </div>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Encoded By</span>
-                    <span class="fw-bold text-end ms-auto text-truncate" style="color: #0f172a; max-width: 50%; white-space: nowrap;" title="{{ record.created_by.full_name|default:record.created_by.username }}">{{ record.created_by.full_name|default:record.created_by.username }}</span>
+                <!-- Encoded By -->
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-user-gear text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Encoded By</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ record.created_by.full_name|default:record.created_by.username }}
+                    </div>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Encoded Date</span>
-                    <span class="fw-semibold text-end ms-auto text-truncate" style="color: #475569; max-width: 50%; white-space: nowrap;" title="{{ record.created_at|date:'M d, Y' }}">{{ record.created_at|date:"M d, Y" }}</span>
+                <!-- Date Encoded -->
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-regular fa-calendar-plus text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Date Encoded</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ record.created_at|date:"M d, Y" }}
+                    </div>
                 </div>
 
-                <div class="d-flex align-items-center justify-content-between flex-nowrap py-2 border-bottom gap-2 min-w-0" style="border-color: #f8fafc !important;">
-                    <span class="fw-semibold text-nowrap flex-shrink-0" style="color: #64748b;">Last Updated</span>
-                    <span class="fw-semibold text-end ms-auto text-truncate" style="color: #475569; max-width: 50%; white-space: nowrap;" title="{{ record.updated_at|date:'M d, Y' }}">{{ record.updated_at|date:"M d, Y" }}</span>
+                <!-- Last Updated -->
+                <div class="py-1 d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-regular fa-clock text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Last Updated</span>
+                    </div>
+                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ record.updated_at|date:"M d, Y" }}
+                    </div>
                 </div>
             </div>
 
+            <!-- Notes & Description Section -->
             {% if record.description %}
-            <div class="mt-3.5 pt-3 border-top" style="border-color: #f1f5f9 !important;">
-                <h6 class="fw-bold mb-2.5 d-flex align-items-center gap-2"
-                    style="font-size: 0.8rem; letter-spacing: 0.03em; color: #475569; text-transform: uppercase;">
-                    <i class="fa-solid fa-align-left flex-shrink-0" style="color: #64748b; font-size: 14px;"></i>
-                    <span style="white-space: normal; word-break: break-word;">Description &amp; Location</span>
-                </h6>
-                <div class="p-3 rounded-3 border record-description-box">
-                    {{ record.description }}
+            {% with notes_list=record.description|parse_notes %}
+            <div class="pt-2 mt-2 border-top d-flex flex-column gap-1">
+                <div class="d-flex align-items-center gap-2 text-muted mb-1" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                    <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                    <span>Description &amp; Location Notes</span>
                 </div>
+                
+                {% for item in notes_list %}
+                <div class="py-1 {% if not forloop.last %}border-bottom{% endif %} d-flex flex-column gap-0.5 ms-4">
+                    {% if item.label %}
+                    <div class="text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        {{ item.label }}
+                    </div>
+                    {% endif %}
+                    <div class="fw-bold title-text-adaptive text-break" style="font-size: 0.88rem; line-height: 1.35;">
+                        {{ item.value }}
+                    </div>
+                </div>
+                {% endfor %}
             </div>
+            {% endwith %}
             {% endif %}
         </div>
+
     </div>
 </div>
 
-<!-- ══ UPLOAD DOCUMENT MODAL ═══════════════════════════════════════════ -->
+<!-- ══ 4. MODALS (Single Clean Instances) ════════════════════════════════════ -->
+
+<!-- MODAL A: SINGLE FILE UPLOAD MODAL -->
 {% if can_edit and record.status != 'archived' %}
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3"
-                style="background: var(--bg-surface, #f8fafc); border-color: var(--border-default) !important;">
+            <div class="modal-header border-bottom px-4 py-3 bg-white">
                 <div>
-                    <h5 class="modal-title fw-bold mb-0" style="color: var(--gray-900); font-size: 1.05rem;"
-                        id="uploadModalLabel">Upload Document</h5>
-                    <div style="font-size: 0.76rem; color: var(--gray-500); margin-top: 2px;">
-                        Requirement: <strong id="uploadModalItemName" style="color: var(--primary-brand);"></strong>
+                    <h5 class="modal-title fw-bold mb-0 text-dark" style="font-size: 1.05rem;" id="uploadModalLabel">
+                        Upload Requirement Document
+                    </h5>
+                    <div style="font-size: 0.78rem; color: var(--gray-500); margin-top: 2px;">
+                        Slot: <strong id="uploadModalItemName" class="text-primary"></strong>
                     </div>
                 </div>
-                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"
-                    onclick="clearFile()"></button>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close" onclick="clearFile()"></button>
             </div>
+            
             <div class="modal-body p-4">
                 <form method="POST" action="{% url 'upload_document' record.record_id %}" enctype="multipart/form-data"
-                    id="checklistUploadForm" onsubmit="event.preventDefault();">
+                    id="checklistUploadForm" onsubmit="event.preventDefault(); startSingleUpload();">
                     {% csrf_token %}
                     <input type="hidden" name="requirement_item_id" id="uploadItemId">
 
-                    <!-- Drag & Drop Zone (Click or Drop File to Auto-Upload) -->
-                    <div class="p-4 text-center mb-0" id="dropZone"
+                    <!-- Drag & Drop Zone -->
+                    <div class="p-4 text-center mb-3" id="dropZone"
                         onclick="document.getElementById('modalFileInput').click()"
                         ondragover="event.preventDefault(); this.style.borderColor='var(--primary-brand)'; this.style.background='#f0f9ff';"
                         ondragleave="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';"
                         ondrop="handleDrop(event)"
-                        style="border: 2px dashed #cbd5e1; cursor: pointer; background: #f8fafc; border-radius: 12px; transition: all 0.2s ease-in-out;">
+                        style="border: 2px dashed #cbd5e1; cursor: pointer; background: #f8fafc; border-radius: 12px; transition: all 0.2s ease;">
+                        
                         <div class="mb-2 d-flex justify-content-center">
-                            <div class="d-flex align-items-center justify-content-center rounded-circle"
-                                style="width: 48px; height: 48px; background: rgba(30, 58, 138, 0.08); color: var(--primary-brand);">
-                                <i data-lucide="upload-cloud" style="width: 24px; height: 24px;"></i>
+                            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb;">
+                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px;"></i>
                             </div>
                         </div>
-                        <div class="fw-bold mb-1" style="font-size: 0.95rem; color: var(--gray-900);">
-                            Drag & drop your file here
+                        <div class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">
+                            Drag &amp; drop your file here
                         </div>
                         <div class="mb-2 text-muted" style="font-size: 0.76rem;">or</div>
-                        <span class="action-btn action-btn-secondary action-btn-xs d-inline-block"
-                            style="pointer-events: none; border-radius: 6px; padding: 5px 14px; font-weight: 600;">
-                            Browse Files
-                        </span>
-                        <div class="mt-2.5 text-muted" style="font-size: 0.72rem;">
-                            PDF, JPG, PNG, DOCX — max 10MB
+                        <button type="button" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.82rem;" onclick="document.getElementById('modalFileInput').click();">
+                            <i class="fa-solid fa-folder-open me-1.5"></i> Browse Files
+                        </button>
+                        <div class="mt-2.5 text-muted" style="font-size: 0.74rem;">
+                            PDF, JPG, PNG, WEBP &bull; Max 10MB
                         </div>
                         <input type="file" name="document_file" id="modalFileInput"
-                            accept=".pdf,.jpg,.jpeg,.png,.docx,.doc" class="d-none" onchange="showSelectedFile(this)">
+                            accept=".pdf,.jpg,.jpeg,.png,.webp" class="d-none" onchange="showSelectedFile(this)">
                     </div>
 
-                    <!-- Selected File Uploading Progress Card (Animated Feedback) -->
-                    <div id="selectedFileInfo" class="d-none p-4 rounded-3 text-center border shadow-sm"
+                    <!-- Progressive Selected File & Validity Section -->
+                    <div id="singleFileSelectedContainer" class="d-none mb-3">
+                        <div class="p-3 bg-white border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs mb-2">
+                            <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
+                                <i class="fa-solid fa-file-pdf text-danger flex-shrink-0" id="singleFileIcon" style="font-size: 18px;"></i>
+                                <span class="fw-bold text-dark text-truncate" id="singleSelectedFileName" style="font-size: 0.85rem;"></span>
+                            </div>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-circle p-1 d-inline-flex align-items-center justify-content-center" style="width: 22px; height: 22px;">
+                                <i class="fa-solid fa-check" style="font-size: 11px;"></i>
+                            </span>
+                        </div>
+
+                        <!-- Validity Field (Shown ONLY when document type requires validity) -->
+                        <div id="singleValidityBox" class="d-none p-3 rounded-3 border bg-light">
+                            <label class="form-label fw-semibold text-dark mb-1.5 d-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
+                                <i class="fa-regular fa-calendar-check text-primary"></i>
+                                <span>Valid Until</span>
+                            </label>
+                            <input type="date" name="expiry_date" id="modalExpiryDateInput"
+                                class="form-control form-control-sm bg-white" style="border-radius: 8px; font-size: 0.82rem;">
+                        </div>
+                        <div id="singleNoValidityBox" class="d-none p-2 px-3 rounded-2 text-muted" style="background: #f8fafc; font-size: 0.76rem; border: 1px dashed #cbd5e1;">
+                            <i class="fa-solid fa-circle-info me-1 text-secondary"></i>
+                            No expiration date required for this document.
+                        </div>
+                    </div>
+
+                    <!-- Progress / Uploading State -->
+                    <div id="selectedFileInfo" class="d-none p-4 rounded-3 text-center border shadow-sm mb-3"
                         style="background: #f0fdf4; border-color: #bbf7d0 !important;">
                         <div class="d-flex justify-content-center mb-2">
                             <div class="spinner-border text-success" id="uploadSpinner" role="status"
-                                style="width: 36px; height: 36px; border-width: 3px;">
+                                style="width: 32px; height: 32px; border-width: 3px;">
                                 <span class="visually-hidden">Uploading...</span>
                             </div>
                         </div>
-                        <div class="fw-bold text-dark mb-1 text-truncate" id="selectedFileName"
-                            style="font-size: 0.9rem;"></div>
-                        <div id="selectedFileSize" class="text-muted mb-2.5" style="font-size: 0.76rem;">Preparing to
-                            upload...</div>
-                        <div class="progress"
-                            style="height: 6px; border-radius: 3px; background: #dcfce7; overflow: hidden;">
+                        <div class="fw-bold text-dark mb-1 text-truncate" id="selectedFileName" style="font-size: 0.9rem;"></div>
+                        <div id="selectedFileSize" class="text-muted mb-2.5" style="font-size: 0.78rem;">Preparing to upload...</div>
+                        <div class="progress" style="height: 6px; border-radius: 3px; background: #dcfce7; overflow: hidden;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
-                                id="uploadProgressBar" role="progressbar"
-                                style="width: 0%; transition: width 0.15s ease;"></div>
+                                id="uploadProgressBar" role="progressbar" style="width: 0%; transition: width 0.15s ease;"></div>
                         </div>
                     </div>
+
                 </form>
             </div>
-            <div class="modal-footer border-top px-4 py-2.5"
-                style="background: var(--bg-surface, #f8fafc); border-color: var(--border-default) !important;">
-                <button type="button" class="action-btn action-btn-secondary action-btn-sm ms-auto"
-                    data-bs-dismiss="modal" onclick="clearFile()">Cancel</button>
+            
+            <div class="modal-footer border-top px-4 py-3 bg-light d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-secondary px-3" style="border-radius: 8px; font-size: 0.82rem;" data-bs-dismiss="modal" onclick="clearFile()">Cancel</button>
+                <button type="button" id="singleUploadSubmitBtn" class="btn btn-sm btn-secondary px-4 fw-semibold shadow-2xs d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem;" disabled onclick="startSingleUpload()">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Upload Document</span>
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ══ DELETE DOCUMENT CONFIRMATION MODAL ═══════════════════════════════ -->
+<!-- MODAL B: BATCH UPLOAD MODAL -->
+<div class="modal fade" id="batchUploadModal" tabindex="-1" aria-labelledby="batchUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            
+            <!-- Header -->
+            <div class="modal-header border-bottom p-3 px-4 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 38px; height: 38px; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe;">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 17px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.05rem;" id="batchUploadModalLabel">
+                            Batch Upload
+                        </h5>
+                        <div class="text-muted" id="batchUploadSubTitle" style="font-size: 0.78rem; margin-top: 1px;">
+                            Upload multiple documents at once.
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close" onclick="clearBatchFiles()"></button>
+            </div>
+
+            <form action="{% url 'batch_upload_documents' record.record_id %}" method="POST"
+                enctype="multipart/form-data" id="batchUploadForm">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+
+                    <!-- Upload Area / Dropzone -->
+                    <div class="border border-2 border-dashed rounded-3 p-4 text-center bg-light position-relative"
+                        id="batchDropZone" style="border-color: #cbd5e1 !important; transition: all 0.2s ease;">
+                        
+                        <div class="mb-2 d-flex justify-content-center">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb;">
+                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px;"></i>
+                            </div>
+                        </div>
+
+                        <div class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">
+                            Drag &amp; drop files here
+                        </div>
+                        <div class="text-muted small mb-2" style="font-size: 0.78rem;">or</div>
+                        
+                        <label for="batchFileInput" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.82rem;">
+                            <i class="fa-solid fa-folder-open me-1.5"></i> Choose Files
+                        </label>
+                        
+                        <div class="mt-2.5 text-muted" style="font-size: 0.75rem;">
+                            PDF, JPG, PNG, WEBP &bull; Max 10 MB each
+                        </div>
+
+                        <input type="file" name="files" id="batchFileInput"
+                            class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
+                            accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;">
+                    </div>
+
+                    <!-- Selected Files List Container (Files to Upload (N)) -->
+                    <div id="fileListContainer" class="mt-3.5" style="display: none;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold title-text-adaptive" style="font-size: 0.85rem;" id="selectedFilesCount">
+                                Files to Upload (0)
+                            </span>
+                            <button type="button" class="btn btn-sm text-danger p-0 border-0 text-decoration-underline"
+                                style="font-size: 0.76rem;" onclick="clearBatchFiles()">Clear selection</button>
+                        </div>
+                        <div class="list-group rounded-3 border overflow-auto" id="selectedFilesList"
+                            style="max-height: 180px; font-size: 0.82rem;">
+                            <!-- Dynamically populated via JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer border-top p-3 px-4 bg-light d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-secondary px-3" style="border-radius: 8px; font-size: 0.82rem;" data-bs-dismiss="modal" onclick="clearBatchFiles()">Cancel</button>
+                    <button type="submit" id="batchUploadSubmitBtn" class="btn btn-sm btn-primary px-4 fw-semibold shadow-2xs d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Upload Files</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL C: DELETE DOCUMENT CONFIRMATION MODAL -->
 <div class="modal fade" id="deleteDocModal" tabindex="-1" aria-labelledby="deleteDocModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
             <div class="modal-body p-4 text-center">
                 <div class="d-flex align-items-center justify-content-center mx-auto mb-3 rounded-circle"
                     style="width: 52px; height: 52px; background: #fef2f2; color: #dc2626;">
-                    <i data-lucide="trash-2" style="width: 26px; height: 26px;"></i>
+                    <i class="fa-solid fa-trash-can" style="font-size: 22px;"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1.5" style="font-size: 1.05rem;" id="deleteDocModalLabel">Delete
-                    Document?</h5>
+                <h5 class="fw-bold text-dark mb-1.5" style="font-size: 1.05rem;" id="deleteDocModalLabel">Delete Document?</h5>
                 <p class="text-muted mb-4" style="font-size: 0.8rem; line-height: 1.5;">
-                    Are you sure you want to delete <strong id="deleteDocTargetName" class="text-dark"></strong>? This
-                    action cannot be undone.
+                    Are you sure you want to delete <strong id="deleteDocTargetName" class="text-dark"></strong>? This action cannot be undone.
                 </p>
                 <form id="deleteDocConfirmForm" method="POST" action="">
                     {% csrf_token %}
                     <div class="d-flex gap-2 justify-content-center">
-                        <button type="button" class="action-btn action-btn-secondary action-btn-sm flex-fill"
-                            data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit"
-                            class="action-btn action-btn-danger action-btn-sm flex-fill fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5"
-                            style="background: #dc2626; border-color: #dc2626; color: #ffffff;">
-                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                        <button type="button" class="btn btn-sm btn-light border flex-fill py-1.5" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-danger flex-fill py-1.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5">
+                            <i class="fa-solid fa-trash-can"></i>
                             <span>Delete</span>
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ══ BATCH UPLOAD TEMPLATE SELECT ═════════════════════════════════════ -->
-<select id="batchSlotTemplate" class="d-none">
-    <option value="" disabled selected>— Select Checklist Slot —</option>
-    {% for req in requirements %}
-    {% if not req.is_fulfilled %}
-    <option value="{{ req.requirement_item.item_id }}">{{ req.requirement_item.name }}</option>
-    {% endif %}
-    {% endfor %}
-    <option value="">Other (General Document)</option>
-</select>
-
-<!-- ══ BATCH UPLOAD MODAL ═══════════════════════════════════════════════ -->
-<div class="modal fade" id="batchUploadModal" tabindex="-1" aria-labelledby="batchUploadModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow" style="border-radius: var(--card-radius);">
-            <div class="modal-header border-0 pb-0 px-4 pt-4">
-                <div>
-                    <h5 class="modal-title fw-bold mb-1" style="color: var(--gray-900);" id="batchUploadModalLabel">
-                        Batch Upload Documents</h5>
-                    <p class="mb-0" style="font-size: var(--text-xs); color: var(--gray-500);">
-                        Select multiple documents to map and upload simultaneously to checklist slots.
-                    </p>
-                </div>
-                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"
-                    onclick="resetBatchUpload()"></button>
-            </div>
-            <div class="modal-body px-4 pb-4 pt-3">
-
-                <!-- Drag and drop zone -->
-                <div class="p-4 text-center mb-3" id="batchDropZone"
-                    onclick="document.getElementById('batchFilesInput').click()"
-                    ondragover="event.preventDefault(); this.style.borderColor='var(--primary-brand)'; this.style.background='#f0fdf4';"
-                    ondragleave="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';"
-                    ondrop="handleBatchDrop(event)"
-                    style="border: 2px dashed #cbd5e1; cursor: pointer; background: #f8fafc; border-radius: 10px; transition: border-color 0.2s, background 0.2s;">
-                    <i data-lucide="files" class="mb-2"
-                        style="width: 42px; height: 42px; color: var(--primary-brand);"></i>
-                    <div class="fw-semibold mb-1" style="font-size: var(--text-base); color: var(--gray-900);">
-                        Drag & drop multiple files here
-                    </div>
-                    <div class="mb-2" style="font-size: var(--text-xs); color: var(--gray-400);">or</div>
-                    <span class="action-btn action-btn-secondary action-btn-xs" style="pointer-events: none;">
-                        <i data-lucide="file-plus"></i> Select Files
-                    </span>
-                    <input type="file" id="batchFilesInput" multiple accept=".pdf,.jpg,.jpeg,.png,.docx,.doc"
-                        class="d-none" onchange="handleBatchFileSelect(this)">
-                </div>
-
-                <!-- Selected Files List -->
-                <div id="batchFilesListContainer" class="d-none">
-                    <h6 class="fw-bold mb-3 text-dark"
-                        style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.5px;">Files to
-                        Upload (<span id="batchCountSpan">0</span>)</h6>
-                    <div class="d-flex flex-column gap-3 mb-4" id="batchFilesQueue"
-                        style="max-height: 320px; overflow-y: auto; padding-right: 4px;">
-                        <!-- Selected file rows injected here -->
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2 border-top pt-3">
-                        <button type="button" class="action-btn action-btn-secondary action-btn-sm"
-                            onclick="resetBatchUpload()">Clear All</button>
-                        <button type="button" class="action-btn action-btn-teal action-btn-sm" id="batchStartUploadBtn"
-                            onclick="startBatchUpload()">
-                            <i data-lucide="upload-cloud"></i> Start Batch Upload
-                        </button>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
@@ -846,27 +925,9 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const uploadModal = document.getElementById('uploadModal');
-        const batchUploadModal = document.getElementById('batchUploadModal');
-        const deleteDocModal = document.getElementById('deleteDocModal');
-        if (uploadModal) document.body.appendChild(uploadModal);
-        if (batchUploadModal) document.body.appendChild(batchUploadModal);
-        if (deleteDocModal) document.body.appendChild(deleteDocModal);
-    });
-
-    function openDeleteDocModal(deleteUrl, docName) {
-        const form = document.getElementById('deleteDocConfirmForm');
-        const nameEl = document.getElementById('deleteDocTargetName');
-        if (form) form.action = deleteUrl;
-        if (nameEl) nameEl.textContent = docName;
-        if (window.lucide) lucide.createIcons();
-        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteDocModal'));
-        modal.show();
-    }
-
     let currentXHR = null;
 
+    // Smart Auto-Expiring Document Detection
     const autoExpiringTypes = [
         { keywords: ['barangay clearance', 'brgy clearance'], label: 'Barangay Clearance (Valid for 1 Year)' },
         { keywords: ['real property tax', 'rpt receipt', 'rpt'], label: 'Real Property Tax Receipt (Annual / Current Tax Year)' },
@@ -903,7 +964,21 @@
         }
     }
 
+    let currentUploadingItemName = '';
+
+    function checkRequiresValidity(itemName) {
+        if (!itemName) return false;
+        const name = String(itemName).toLowerCase();
+        const expiryKeywords = [
+            'fsic', 'fire', 'clearance', 'tax', 'zoning', 'locational',
+            'occupancy', 'business permit', 'dole', 'sanitary', 'health',
+            'environmental', 'expiry', 'validity', 'renewal', 'insurance', 'bond'
+        ];
+        return expiryKeywords.some(kw => name.includes(kw));
+    }
+
     function openUploadModal(itemId, itemName) {
+        currentUploadingItemName = itemName || '';
         document.getElementById('uploadItemId').value = itemId;
         document.getElementById('uploadModalItemName').textContent = itemName;
         document.getElementById('checklistUploadForm').reset();
@@ -914,31 +989,35 @@
         }
 
         document.getElementById('selectedFileInfo').classList.add('d-none');
+        document.getElementById('singleFileSelectedContainer').classList.add('d-none');
         document.getElementById('dropZone').style.display = '';
 
-        // Reset optional expiry container & trigger smart auto-expiring recommendation
-        document.getElementById('expiryDateContainer').classList.remove('d-none');
-        document.getElementById('modalExpiryDateInput').value = '';
-        checkAutoExpiring(itemName);
+        const validityBox = document.getElementById('singleValidityBox');
+        const noValidityBox = document.getElementById('singleNoValidityBox');
+        const expInput = document.getElementById('modalExpiryDateInput');
+        if (expInput) expInput.value = '';
+
+        const needsValidity = checkRequiresValidity(itemName);
+        if (validityBox && noValidityBox) {
+            if (needsValidity) {
+                validityBox.classList.remove('d-none');
+                noValidityBox.classList.add('d-none');
+            } else {
+                validityBox.classList.add('d-none');
+                noValidityBox.classList.remove('d-none');
+            }
+        }
+
+        const submitBtn = document.getElementById('singleUploadSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-secondary');
+        }
 
         const bar = document.getElementById('uploadProgressBar');
         if (bar) bar.style.width = '0%';
 
-        // Reset step indicator
-        const step1 = document.getElementById('stepSelectLabel');
-        const step2 = document.getElementById('stepUploadLabel');
-        if (step1) {
-            step1.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--primary-brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">1</span>Select file`;
-            step1.style.color = 'var(--primary-brand)';
-            step1.style.fontWeight = '600';
-        }
-        if (step2) {
-            step2.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);color:var(--gray-500);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">2</span>Upload`;
-            step2.style.color = '';
-            step2.style.fontWeight = '';
-        }
-
-        lucide.createIcons();
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('uploadModal'));
         modal.show();
     }
@@ -948,40 +1027,56 @@
         if (!file) return;
 
         if (file.size > 10 * 1024 * 1024) {
-            showToast('error', 'File Too Large', 'Maximum allowed file size is 10MB.');
+            if (window.showToast) {
+                showToast('error', 'File Too Large', 'Maximum allowed file size is 10MB.');
+            } else {
+                alert('Maximum allowed file size is 10MB.');
+            }
             input.value = '';
             return;
         }
 
         const allowed = /\.(pdf|jpg|jpeg|png|docx|doc)$/i;
         if (!allowed.test(file.name)) {
-            showToast('error', 'Invalid File Type', 'Only PDF, JPG, PNG, and DOCX files are allowed.');
+            if (window.showToast) {
+                showToast('error', 'Invalid File Type', 'Only PDF, JPG, PNG, and DOCX files are allowed.');
+            } else {
+                alert('Only PDF, JPG, PNG, and DOCX files are allowed.');
+            }
             input.value = '';
             return;
         }
 
-        document.getElementById('selectedFileName').textContent = file.name;
-        document.getElementById('selectedFileSize').textContent = `Preparing to upload ${formatBytes(file.size)}...`;
-        document.getElementById('selectedFileInfo').classList.remove('d-none');
+        const nameEl = document.getElementById('singleSelectedFileName');
+        if (nameEl) nameEl.textContent = file.name;
+
+        const iconEl = document.getElementById('singleFileIcon');
+        if (iconEl) iconEl.className = `fa-solid ${getFileIcon(file.name)} flex-shrink-0`;
+
+        const container = document.getElementById('singleFileSelectedContainer');
+        if (container) container.classList.remove('d-none');
+
+        const submitBtn = document.getElementById('singleUploadSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn-secondary');
+            submitBtn.classList.add('btn-primary');
+        }
+    }
+
+    function startSingleUpload() {
+        const fileInput = document.getElementById('modalFileInput');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+
+        document.getElementById('singleFileSelectedContainer').classList.add('d-none');
         document.getElementById('dropZone').style.display = 'none';
+        document.getElementById('selectedFileName').textContent = fileInput.files[0].name;
+        document.getElementById('selectedFileSize').textContent = `Preparing to upload ${formatBytes(fileInput.files[0].size)}...`;
+        document.getElementById('selectedFileInfo').classList.remove('d-none');
 
-        // Hide optional expiry container during progress
-        document.getElementById('expiryDateContainer').classList.add('d-none');
+        const submitBtn = document.getElementById('singleUploadSubmitBtn');
+        if (submitBtn) submitBtn.disabled = true;
 
-        // Move step indicators visually
-        const step1 = document.getElementById('stepSelectLabel');
-        const step2 = document.getElementById('stepUploadLabel');
-        if (step1) {
-            step1.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:#15803d;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">✓</span>Select file`;
-            step1.style.color = '#15803d';
-        }
-        if (step2) {
-            step2.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--primary-brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">2</span>Uploading...`;
-            step2.style.color = 'var(--primary-brand)';
-            step2.style.fontWeight = '600';
-        }
-
-        lucide.createIcons();
         uploadFileAJAX();
     }
 
@@ -995,11 +1090,9 @@
         currentXHR = xhr;
 
         const formData = new FormData(form);
-
         const bar = document.getElementById('uploadProgressBar');
         const statusLabel = document.getElementById('selectedFileSize');
 
-        // Track active upload progress
         xhr.upload.addEventListener('progress', function (e) {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
@@ -1010,7 +1103,6 @@
             }
         });
 
-        // Check complete state
         xhr.addEventListener('load', function () {
             let resData = null;
             try {
@@ -1018,32 +1110,28 @@
             } catch (e) { }
 
             if (xhr.status >= 200 && xhr.status < 300 && (!resData || resData.success !== false)) {
-                if (statusLabel) statusLabel.innerHTML = '<strong class="text-success">✓ Upload complete! Finalizing...</strong>';
-                const spinner = document.getElementById('uploadSpinner');
-                if (spinner) {
-                    spinner.className = 'd-flex align-items-center justify-content-center rounded-circle bg-success text-white mx-auto';
-                    spinner.style.width = '36px';
-                    spinner.style.height = '36px';
-                    spinner.innerHTML = '<i data-lucide="check" style="width: 20px; height: 20px;"></i>';
-                    if (window.lucide) lucide.createIcons();
-                }
+                if (statusLabel) statusLabel.innerHTML = '<strong class="text-success"><i class="fa-solid fa-check me-1"></i> Upload complete! Finalizing...</strong>';
                 setTimeout(() => {
                     window.location.reload();
                 }, 500);
             } else {
                 const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format or size (max 10MB).';
-                showToast('error', 'Upload Failed', errorMsg);
+                if (window.showToast) {
+                    showToast('error', 'Upload Failed', errorMsg);
+                } else {
+                    alert(errorMsg);
+                }
                 clearFile();
             }
         });
 
         xhr.addEventListener('error', function () {
-            showToast('error', 'Network Error', 'An error occurred during upload. Please check your network connection.');
+            if (window.showToast) {
+                showToast('error', 'Network Error', 'An error occurred during upload. Please check your network connection.');
+            } else {
+                alert('Network error during upload.');
+            }
             clearFile();
-        });
-
-        xhr.addEventListener('abort', function () {
-            // Safe reset
         });
 
         xhr.open('POST', form.action, true);
@@ -1056,43 +1144,47 @@
             currentXHR.abort();
             currentXHR = null;
         }
-        document.getElementById('modalFileInput').value = '';
-        document.getElementById('selectedFileInfo').classList.add('d-none');
-        document.getElementById('dropZone').style.display = '';
+        const fileInput = document.getElementById('modalFileInput');
+        if (fileInput) fileInput.value = '';
+        const info = document.getElementById('selectedFileInfo');
+        if (info) info.classList.add('d-none');
+        const selCont = document.getElementById('singleFileSelectedContainer');
+        if (selCont) selCont.classList.add('d-none');
+        const drop = document.getElementById('dropZone');
+        if (drop) drop.style.display = '';
 
-        // Reset optional expiry container
-        document.getElementById('expiryDateContainer').classList.remove('d-none');
-        document.getElementById('modalExpiryDateInput').value = '';
+        const expInput = document.getElementById('modalExpiryDateInput');
+        if (expInput) expInput.value = '';
+
+        const submitBtn = document.getElementById('singleUploadSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-secondary');
+        }
 
         const bar = document.getElementById('uploadProgressBar');
         if (bar) bar.style.width = '0%';
+    }
 
-        // Reset step indicators
-        const step1 = document.getElementById('stepSelectLabel');
-        const step2 = document.getElementById('stepUploadLabel');
-        if (step1) {
-            step1.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--primary-brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">1</span>Select file`;
-            step1.style.color = 'var(--primary-brand)';
-            step1.style.fontWeight = '600';
-        }
-        if (step2) {
-            step2.innerHTML = `<span style="width:18px;height:18px;border-radius:50%;background:var(--gray-200);color:var(--gray-500);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:4px;">2</span>Upload`;
-            step2.style.color = '';
-            step2.style.fontWeight = '';
-        }
-        lucide.createIcons();
+        const bar = document.getElementById('uploadProgressBar');
+        if (bar) bar.style.width = '0%';
     }
 
     function handleDrop(event) {
         event.preventDefault();
-        document.getElementById('dropZone').style.borderColor = '#cbd5e1';
-        document.getElementById('dropZone').style.background = '#f8fafc';
+        const drop = document.getElementById('dropZone');
+        if (drop) {
+            drop.style.borderColor = '#cbd5e1';
+            drop.style.background = '#f8fafc';
+        }
         const file = event.dataTransfer.files[0];
         if (file) {
             const dt = new DataTransfer();
             dt.items.add(file);
-            document.getElementById('modalFileInput').files = dt.files;
-            showSelectedFile(document.getElementById('modalFileInput'));
+            const input = document.getElementById('modalFileInput');
+            input.files = dt.files;
+            showSelectedFile(input);
         }
     }
 
@@ -1102,459 +1194,468 @@
         return (bytes / 1024 / 1024).toFixed(1) + ' MB';
     }
 
-    // ─── BATCH UPLOAD LOGIC ──────────────────────────────────────────────────────
-    let batchFilesQueue = [];
-    let batchUploadActive = false;
-
-    function openBatchUploadModal() {
-        resetBatchUpload();
-        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('batchUploadModal'));
+    function openDeleteDocModal(deleteUrl, docName) {
+        const form = document.getElementById('deleteDocConfirmForm');
+        const nameEl = document.getElementById('deleteDocTargetName');
+        if (form) form.action = deleteUrl;
+        if (nameEl) nameEl.textContent = docName;
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteDocModal'));
         modal.show();
     }
 
-    function handleBatchFileSelect(input) {
-        const files = Array.from(input.files);
-        addFilesToQueue(files);
-        input.value = ''; // clear input
+    let activeBatchGroupId = '';
+
+    // Available Document Checklist Slots for Record #{{ record.record_id }}
+    const availableSlots = [
+        {% for req in parent_reqs %}
+            {% with sub_list=sub_reqs_by_parent|dict_get:req.requirement_item.item_id %}
+            {% if sub_list %}
+                {% for sub_req in sub_list %}
+                {
+                    id: "{{ sub_req.requirement_item.item_id }}",
+                    name: "{{ sub_req.requirement_item.name|escapejs }}",
+                    groupId: "{{ req.requirement_item.item_id }}",
+                    groupName: "{{ req.requirement_item.name|escapejs }}",
+                    is_fulfilled: {{ sub_req.is_fulfilled|yesno:"true,false" }}
+                },
+                {% endfor %}
+            {% else %}
+                {
+                    id: "{{ req.requirement_item.item_id }}",
+                    name: "{{ req.requirement_item.name|escapejs }}",
+                    groupId: "{{ req.requirement_item.item_id }}",
+                    groupName: "{{ req.requirement_item.name|escapejs }}",
+                    is_fulfilled: {{ req.is_fulfilled|yesno:"true,false" }}
+                },
+            {% endif %}
+            {% endwith %}
+        {% endfor %}
+    ];
+
+    function openGroupBatchUploadModal(groupId, groupName) {
+        activeBatchGroupId = String(groupId || '').trim();
+        const titleEl = document.getElementById('batchUploadModalLabel');
+        const subTitle = document.getElementById('batchUploadSubTitle');
+        if (titleEl) {
+            titleEl.textContent = groupName && groupId ? `Batch Upload — ${groupName}` : 'Batch Upload';
+        }
+        if (subTitle) {
+            subTitle.textContent = groupName && groupId ? `Upload documents for ${groupName}` : 'Upload multiple documents at once.';
+        }
+        selectedBatchFilesStore = [];
+        const fileInput = document.getElementById('batchFileInput');
+        if (fileInput) fileInput.value = '';
+        renderBatchFileList();
+
+        const modalEl = document.getElementById('batchUploadModal');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
     }
 
-    function handleBatchDrop(event) {
-        event.preventDefault();
-        document.getElementById('batchDropZone').style.borderColor = '#cbd5e1';
-        document.getElementById('batchDropZone').style.background = '#f8fafc';
-        const files = Array.from(event.dataTransfer.files);
-        addFilesToQueue(files);
+    function getFileIcon(filename) {
+        if (!filename) return 'fa-file-lines text-primary';
+        const ext = filename.split('.').pop().toLowerCase();
+        if (ext === 'pdf') return 'fa-file-pdf text-danger';
+        if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return 'fa-file-image text-primary';
+        if (['doc', 'docx'].includes(ext)) return 'fa-file-word text-primary';
+        return 'fa-file-lines text-primary';
     }
 
-    function addFilesToQueue(files) {
-        files.forEach(file => {
-            // Validate file size and extension
-            if (file.size > 10 * 1024 * 1024) {
-                showToast('error', 'File Too Large', `File "${file.name}" exceeds maximum size of 10MB.`);
-                return;
-            }
-            const allowed = /\.(pdf|jpg|jpeg|png|docx|doc)$/i;
-            if (!allowed.test(file.name)) {
-                showToast('error', 'Unsupported File', `File "${file.name}" is not supported. Only PDF, JPG, PNG, and DOCX are allowed.`);
-                return;
-            }
+    function autoDetectSlot(filename) {
+        if (!filename) return '';
+        const cleanName = filename.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+        const targetSlots = activeBatchGroupId 
+            ? availableSlots.filter(s => String(s.groupId) === String(activeBatchGroupId))
+            : availableSlots;
 
-            // Auto-match slots by file name if possible, else default empty
-            let matchedSlotId = "";
-            const templateSelect = document.getElementById('batchSlotTemplate');
-            if (templateSelect) {
-                const lowerName = file.name.toLowerCase();
-                for (let option of templateSelect.options) {
-                    if (option.value && lowerName.includes(option.text.toLowerCase())) {
-                        matchedSlotId = option.value;
-                        break;
-                    }
-                }
-            }
+        // Slots already claimed by previously assigned files in this batch
+        const claimedSlotIds = selectedBatchFilesStore
+            .map(item => String(item.selectedSlotId))
+            .filter(id => id !== '');
 
-            batchFilesQueue.push({
-                file: file,
-                slotId: matchedSlotId,
-                expiryDate: "",
-                progress: 0,
-                status: "pending" // pending, uploading, complete, error
+        const KEYWORDS = [
+            { kw: ['architectural', 'arch'], slotKw: ['architectural', 'arch'] },
+            { kw: ['site dev', 'vicinity'], slotKw: ['site development', 'vicinity'] },
+            { kw: ['structural analysis', 'soil', 'geotechnical'], slotKw: ['structural analysis'] },
+            { kw: ['structural', 'struct', 'civil'], slotKw: ['structural'] },
+            { kw: ['single line', 'sld', 'riser'], slotKw: ['single line'] },
+            { kw: ['electrical', 'elect', 'pee'], slotKw: ['electrical'] },
+            { kw: ['plumbing', 'sanitary', 'plumb', 'sanit'], slotKw: ['plumbing', 'sanitary'] },
+            { kw: ['mechanical', 'mech', 'hvac'], slotKw: ['mechanical'] },
+            { kw: ['electronics', 'cctv', 'fdas'], slotKw: ['electronics'] },
+            { kw: ['fire', 'bfp', 'fsic', 'fsec'], slotKw: ['fire', 'fsic'] },
+            { kw: ['barangay', 'brgy'], slotKw: ['barangay'] },
+            { kw: ['zoning', 'locational', 'mpdo'], slotKw: ['zoning'] },
+            { kw: ['title', 'oct', 'tct'], slotKw: ['title'] },
+            { kw: ['tax', 'rpt'], slotKw: ['tax'] },
+            { kw: ['cost', 'bom', 'bill of materials', 'estimate'], slotKw: ['cost', 'bill of materials'] },
+            { kw: ['specifications', 'specs'], slotKw: ['specifications'] },
+            { kw: ['occupancy'], slotKw: ['occupancy'] },
+            { kw: ['completion'], slotKw: ['completion'] },
+            { kw: ['as built', 'asbuilt'], slotKw: ['as built', 'asbuilt'] },
+            { kw: ['application'], slotKw: ['application'] },
+            { kw: ['permit'], slotKw: ['permit'] }
+        ];
+
+        for (const rule of KEYWORDS) {
+            if (rule.kw.some(k => cleanName.includes(k))) {
+                const match = targetSlots.find(slot => {
+                    if (claimedSlotIds.includes(String(slot.id))) return false;
+                    const slotClean = slot.name.toLowerCase();
+                    return rule.slotKw.some(sk => slotClean.includes(sk));
+                });
+                if (match) return match.id;
+            }
+        }
+
+        const words = cleanName.split(' ').filter(w => w.length > 3);
+        if (words.length > 0) {
+            const match = targetSlots.find(slot => {
+                if (claimedSlotIds.includes(String(slot.id))) return false;
+                const slotClean = slot.name.toLowerCase();
+                return words.some(w => slotClean.includes(w));
             });
-        });
+            if (match) return match.id;
+        }
 
-        renderBatchQueue();
+        return '';
+    }
+
+    let selectedBatchFilesStore = [];
+
+    function renderBatchFileList() {
+        const list = document.getElementById('selectedFilesList');
+        const container = document.getElementById('fileListContainer');
+        const countText = document.getElementById('selectedFilesCount');
+        const fileInput = document.getElementById('batchFileInput');
+        const dropZone = document.getElementById('batchDropZone');
+
+        if (!list) return;
+        list.innerHTML = '';
+
+        const targetSlots = activeBatchGroupId 
+            ? availableSlots.filter(s => String(s.groupId) === String(activeBatchGroupId))
+            : availableSlots;
+
+        if (selectedBatchFilesStore.length > 0) {
+            if (container) container.style.display = 'block';
+            if (countText) countText.textContent = `Files to Upload (${selectedBatchFilesStore.length})`;
+            
+            if (dropZone) {
+                dropZone.className = "border border-2 border-dashed rounded-3 p-2.5 px-3 text-center bg-light position-relative d-flex align-items-center justify-content-between gap-2";
+                dropZone.innerHTML = `
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-primary" style="font-size: 18px;"></i>
+                        <span class="fw-semibold text-dark" style="font-size: 0.82rem;">Add or drag more files</span>
+                    </div>
+                    <label for="batchFileInput" class="btn btn-sm btn-light border px-2.5 py-1 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 6px; font-size: 0.78rem;">
+                        <i class="fa-solid fa-plus me-1 text-primary"></i> Add Files
+                    </label>
+                    <input type="file" name="files" id="batchFileInput"
+                        class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
+                        accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;">
+                `;
+            }
+
+            // Safely sync DataTransfer back to the NEW fileInput element (must re-query after innerHTML replacement)
+            try {
+                const dt = new DataTransfer();
+                selectedBatchFilesStore.forEach(itemObj => dt.items.add(itemObj.file));
+                const freshFileInput = document.getElementById('batchFileInput');
+                if (freshFileInput) freshFileInput.files = dt.files;
+            } catch (err) {
+                console.warn("DataTransfer sync warning:", err);
+            }
+
+            selectedBatchFilesStore.forEach((itemObj, index) => {
+                const f = itemObj.file;
+                const assignedSlot = targetSlots.find(s => String(s.id) === String(itemObj.selectedSlotId));
+                const isEditing = itemObj.isEditing || false;
+                const needsValidity = assignedSlot ? checkRequiresValidity(assignedSlot.name) : false;
+                
+                // Slots already claimed by OTHER files in this batch
+                const claimedByOthers = selectedBatchFilesStore
+                    .filter((other, i) => i !== index && other.selectedSlotId)
+                    .map(other => String(other.selectedSlotId));
+                
+                const wrapper = document.createElement('div');
+
+                let slotOptionsHTML = `<option value="">-- Select document type --</option>`;
+                targetSlots.forEach(slot => {
+                    const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
+                    if (claimedByOthers.includes(String(slot.id)) && !isSelected) {
+                        return; // Remove slot from dropdown if taken by another file
+                    }
+                    const occupiedLabel = slot.is_fulfilled ? ' (Replaces current file)' : '';
+                    const groupLabel = (!activeBatchGroupId && slot.parent) ? ` [${slot.parent}]` : '';
+                    slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${slot.name}${groupLabel}${occupiedLabel}</option>`;
+                });
+
+                if (assignedSlot && !isEditing) {
+                    wrapper.className = 'list-group-item p-2.5 px-3 bg-white border rounded-3 mb-2 d-flex align-items-center justify-content-between gap-3 shadow-2xs';
+                    wrapper.style.borderColor = '#e2e8f0';
+
+                    let validityHTML = '';
+                    if (needsValidity) {
+                        validityHTML = `
+                            <div class="d-flex align-items-center gap-2 mt-1.5 pt-1.5 border-top" style="border-color: #f1f5f9 !important;">
+                                <span class="text-muted fw-semibold text-nowrap flex-shrink-0" style="font-size: 0.74rem;">Valid Until:</span>
+                                <input type="date" name="expiry_dates" class="form-control form-control-sm bg-white py-0.5 px-2"
+                                    value="${itemObj.expiryDate || ''}"
+                                    style="font-size: 0.78rem; border-radius: 6px; width: 145px;"
+                                    onchange="updateBatchExpiryDate(${index}, this.value)">
+                            </div>
+                        `;
+                    } else {
+                        validityHTML = `<input type="hidden" name="expiry_dates" value="">`;
+                    }
+
+                    wrapper.innerHTML = `
+                        <div class="d-flex align-items-start gap-2.5 min-w-0 flex-grow-1">
+                            <i class="fa-solid ${getFileIcon(f.name)} mt-0.5 flex-shrink-0" style="font-size: 16px;"></i>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;" title="${f.name}">${f.name}</div>
+                                <div class="d-flex align-items-center gap-1.5 cursor-pointer text-success mt-0.5" 
+                                    onclick="toggleBatchSlotEdit(${index})" title="Click to change document type" style="font-size: 0.78rem; user-select: none;">
+                                    <span class="fw-semibold text-truncate">${assignedSlot.name}</span>
+                                    <i class="fa-solid fa-circle-check text-success flex-shrink-0" style="font-size: 13px;"></i>
+                                    <i class="fa-solid fa-pencil text-muted opacity-50 ms-1 flex-shrink-0" style="font-size: 10px;"></i>
+                                </div>
+                                ${validityHTML}
+                            </div>
+                            <input type="hidden" name="item_ids" value="${assignedSlot.id}">
+                        </div>
+                        <button type="button" class="btn btn-sm btn-light border p-1 px-1.5 text-danger shadow-2xs flex-shrink-0"
+                            style="border-radius: 6px; line-height: 1;" onclick="removeBatchFile(${index})" title="Remove file">
+                            <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
+                        </button>
+                    `;
+                } else {
+                    wrapper.className = 'list-group-item p-2.5 px-3 bg-white border rounded-3 mb-2 d-flex flex-column gap-1.5 shadow-2xs';
+                    wrapper.style.borderColor = '#cbd5e1';
+
+                    wrapper.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-between gap-2 min-w-0">
+                            <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                                <i class="fa-solid ${getFileIcon(f.name)} flex-shrink-0" style="font-size: 16px;"></i>
+                                <span class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;" title="${f.name}">${f.name}</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-light border p-1 px-1.5 text-danger shadow-2xs flex-shrink-0"
+                                style="border-radius: 6px; line-height: 1;" onclick="removeBatchFile(${index})" title="Remove file">
+                                <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted fw-semibold flex-shrink-0 mb-0" style="font-size: 0.76rem;">
+                                Assign for:
+                            </span>
+                            <select name="item_ids" class="form-select form-select-sm batch-slot-select flex-grow-1"
+                                style="font-size: 0.8rem; border-radius: 6px;" onchange="updateBatchSlotSelection(${index}, this.value)">
+                                ${slotOptionsHTML}
+                            </select>
+                        </div>
+                        <input type="hidden" name="expiry_dates" value="">
+                    `;
+                }
+                list.appendChild(wrapper);
+            });
+        } else {
+            if (container) container.style.display = 'none';
+            if (dropZone) {
+                dropZone.className = "border border-2 border-dashed rounded-3 p-4 text-center bg-light position-relative";
+                dropZone.innerHTML = `
+                    <div class="mb-2 d-flex justify-content-center">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                            style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb;">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px;"></i>
+                        </div>
+                    </div>
+
+                    <div class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">
+                        Drag &amp; drop files here
+                    </div>
+                    <div class="text-muted small mb-2" style="font-size: 0.78rem;">or</div>
+                    
+                    <label for="batchFileInput" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.82rem;">
+                        <i class="fa-solid fa-folder-open me-1.5"></i> Choose Files
+                    </label>
+                    
+                    <div class="mt-2.5 text-muted" style="font-size: 0.75rem;">
+                        PDF, JPG, PNG, WEBP &bull; Max 10 MB each
+                    </div>
+
+                    <input type="file" name="files" id="batchFileInput"
+                        class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
+                        accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;">
+                `;
+            }
+            if (fileInput) fileInput.value = '';
+        }
+
+        validateBatchUploadForm();
+    }
+
+    function toggleBatchSlotEdit(index) {
+        if (selectedBatchFilesStore[index]) {
+            selectedBatchFilesStore[index].isEditing = !selectedBatchFilesStore[index].isEditing;
+            renderBatchFileList();
+        }
+    }
+
+    function updateBatchSlotSelection(index, slotId) {
+        if (selectedBatchFilesStore[index]) {
+            selectedBatchFilesStore[index].selectedSlotId = slotId;
+            selectedBatchFilesStore[index].isEditing = false;
+        }
+        renderBatchFileList();
+    }
+
+    function updateBatchExpiryDate(index, value) {
+        if (selectedBatchFilesStore[index]) {
+            selectedBatchFilesStore[index].expiryDate = value;
+        }
     }
 
     function removeBatchFile(index) {
-        if (batchUploadActive) return;
-        batchFilesQueue.splice(index, 1);
-        renderBatchQueue();
+        selectedBatchFilesStore.splice(index, 1);
+        renderBatchFileList();
     }
-
-    function updateBatchSlot(index, val) {
-        batchFilesQueue[index].slotId = val;
-        renderBatchQueue();
-    }
-
-    function updateBatchExpiry(index, val) {
-        batchFilesQueue[index].expiryDate = val;
-    }
-
-    function renderBatchQueue() {
-        const container = document.getElementById('batchFilesListContainer');
-        const queueDiv = document.getElementById('batchFilesQueue');
-        const countSpan = document.getElementById('batchCountSpan');
-
-        if (batchFilesQueue.length === 0) {
-            container.classList.add('d-none');
-            document.getElementById('batchDropZone').style.display = '';
-            return;
-        }
-
-        document.getElementById('batchDropZone').style.display = 'none';
-        container.classList.remove('d-none');
-        countSpan.textContent = batchFilesQueue.length;
-
-        const templateSelect = document.getElementById('batchSlotTemplate');
-        const allOptions = Array.from(templateSelect.options);
-
-        // Get all selected slotIds in the queue
-        const selectedSlotIds = batchFilesQueue.map(item => item.slotId).filter(Boolean);
-
-        queueDiv.innerHTML = "";
-        batchFilesQueue.forEach((item, index) => {
-            // Generate filtered options HTML
-            let customOptionsHTML = "";
-            allOptions.forEach(opt => {
-                const isSelectedByOther = opt.value && selectedSlotIds.includes(opt.value) && item.slotId !== opt.value;
-                if (!isSelectedByOther) {
-                    const isSelected = item.slotId === opt.value;
-                    customOptionsHTML += `<option value="${opt.value}" ${isSelected ? 'selected' : ''} ${opt.disabled ? 'disabled' : ''}>${opt.text}</option>`;
-                }
-            });
-
-            const row = document.createElement('div');
-            row.className = "batch-file-row p-3 border rounded-3 d-flex flex-column gap-2 mb-2";
-            row.style.background = "#ffffff";
-            row.style.borderColor = "var(--border-default)";
-            row.innerHTML = `
-            <div class="d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2 min-w-0" style="max-width: 80%;">
-                    <i data-lucide="file" class="text-muted flex-shrink-0" style="width: 16px; height: 16px;"></i>
-                    <span class="fw-semibold text-dark text-truncate" style="font-size: var(--text-sm);">${item.file.name}</span>
-                    <span class="text-muted font-monospace" style="font-size: var(--text-2xs);">${formatBytes(item.file.size)}</span>
-                </div>
-                ${!batchUploadActive ? `
-                <button type="button" class="btn btn-link text-danger p-0 m-0 text-decoration-none remove-btn-batch" onclick="removeBatchFile(${index})" style="font-size: var(--text-xs);">
-                    Remove
-                </button>` : ''}
-            </div>
-            <div class="row g-2 align-items-center mt-1" id="batchInputsRow_${index}">
-                <div class="col-md-6">
-                    <select class="form-select form-select-sm batch-slot-select" style="font-size: var(--text-xs) !important; height: 32px !important; padding: 2px 24px 2px 8px !important; line-height: 1.25 !important;" onchange="updateBatchSlot(${index}, this.value)">
-                        ${customOptionsHTML}
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center px-2" style="border: 1px solid var(--border-default); border-radius: 6px; background: #ffffff; height: 32px; transition: border-color 0.2s, box-shadow 0.2s;" onfocusin="this.style.borderColor='var(--primary-brand)'; this.style.boxShadow='0 0 0 2px rgba(30, 58, 138, 0.1)';" onfocusout="this.style.borderColor='var(--border-default)'; this.style.boxShadow='none';">
-                        <span class="text-muted me-2" style="font-size: 10px;">Expiry:</span>
-                        <input type="date" class="border-0 p-0 w-100 batch-expiry-input" value="${item.expiryDate}" style="font-size: var(--text-xs); outline:none; height:100%; cursor: pointer;" onchange="updateBatchExpiry(${index}, this.value)">
-                    </div>
-                </div>
-            </div>
-            <div class="progress d-none mt-2" id="batchProgressWrapper_${index}" style="height: 5px; border-radius: 2.5px; background: #e2e8f0; overflow: hidden;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" id="batchProgressBar_${index}" role="progressbar" style="width: 0%; background-color: #0d9488;"></div>
-            </div>
-        `;
-            queueDiv.appendChild(row);
-        });
-
-        lucide.createIcons();
-    }
-
-    function resetBatchUpload() {
-        batchFilesQueue = [];
-        batchUploadActive = false;
-        document.getElementById('batchFilesQueue').innerHTML = "";
-        document.getElementById('batchFilesListContainer').classList.add('d-none');
-        document.getElementById('batchDropZone').style.display = '';
-        const btn = document.getElementById('batchStartUploadBtn');
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = `<i data-lucide="upload-cloud"></i> Start Batch Upload`;
-        }
-        lucide.createIcons();
-    }
-
-    function startBatchUpload() {
-        if (batchFilesQueue.length === 0 || batchUploadActive) return;
-
-        batchUploadActive = true;
-        document.getElementById('batchStartUploadBtn').disabled = true;
-        document.getElementById('batchStartUploadBtn').textContent = "Uploading...";
-
-        // Disable all selects and inputs in the queue list
-        document.querySelectorAll('.batch-slot-select').forEach(el => el.disabled = true);
-        document.querySelectorAll('.batch-expiry-input').forEach(el => el.disabled = true);
-        document.querySelectorAll('.remove-btn-batch').forEach(el => el.style.display = 'none');
-
-        // Start sequential uploads
-        uploadBatchSequential(0);
-    }
-
-    function uploadBatchSequential(index) {
-        if (index >= batchFilesQueue.length) {
-            // Complete! reload
-            document.getElementById('batchStartUploadBtn').textContent = "Finalizing...";
-            setTimeout(() => {
-                window.location.reload();
-            }, 800);
-            return;
-        }
-
-        const item = batchFilesQueue[index];
-        item.status = "uploading";
-
-        const wrapper = document.getElementById(`batchProgressWrapper_${index}`);
-        const bar = document.getElementById(`batchProgressBar_${index}`);
-        if (wrapper) wrapper.classList.remove('d-none');
-
-        const xhr = new XMLHttpRequest();
-        const formData = new FormData();
-
-        // CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        formData.append('csrfmiddlewaretoken', csrfToken);
-        formData.append('document_file', item.file);
-        if (item.slotId) {
-            formData.append('requirement_item_id', item.slotId);
-        }
-        if (item.expiryDate) {
-            formData.append('expiry_date', item.expiryDate);
-        }
-
-        xhr.upload.addEventListener('progress', function (e) {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                if (bar) bar.style.width = percent + '%';
-            }
-        });
-
-        xhr.addEventListener('load', function () {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                item.status = "complete";
-                if (bar) {
-                    bar.style.backgroundColor = "#10b981"; // success color
-                    bar.style.width = "100%";
-                }
-                // Upload next file
-                uploadBatchSequential(index + 1);
-            } else {
-                item.status = "error";
-                if (bar) {
-                    bar.style.backgroundColor = "#dc2626"; // error color
-                }
-                showToast('error', 'Upload Error', `Failed to upload ${item.file.name}. Continuing with remaining files...`);
-                uploadBatchSequential(index + 1);
-            }
-        });
-
-        xhr.addEventListener('error', function () {
-            item.status = "error";
-            if (bar) bar.style.backgroundColor = "#dc2626";
-            showToast('error', 'Network Error', `Network error uploading ${item.file.name}. Continuing...`);
-            uploadBatchSequential(index + 1);
-        });
-
-        xhr.open('POST', "{% url 'upload_document' record.record_id %}", true);
-        xhr.send(formData);
-    }
-
-    // Toggle Waive (N/A) status for requirements
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.btn-toggle-waive').forEach(button => {
-            button.addEventListener('click', function () {
-                const reqId = this.dataset.reqId;
-                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-                this.disabled = true;
-
-                fetch(`/requirements/${reqId}/toggle-waive/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json'
-                    }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            window.location.reload();
-                        } else {
-                            alert('Error: ' + (data.error || 'Unable to update requirement status'));
-                            this.disabled = false;
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Network error updating requirement status');
-                        this.disabled = false;
-                    });
-            });
-        });
-    });
-</script>
-
-<!-- ══ BATCH UPLOAD MODAL ══════════════════════════════════════════════════ -->
-<div class="modal fade" id="batchUploadModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header border-bottom p-3.5 px-4" style="background: #002855; color: #ffffff;">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="rounded-circle d-flex align-items-center justify-content-center"
-                        style="width: 34px; height: 34px; background: rgba(255,255,255,0.15);">
-                        <i class="fa-solid fa-cloud-arrow-up text-white" style="font-size: 16px;"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.05rem;">Batch Upload &amp;
-                            Smart Auto-Classification</h5>
-                        <div class="text-white-50" style="font-size: 0.74rem;">Upload multiple documents at once for
-                            automatic requirement matching</div>
-                    </div>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <form action="{% url 'batch_upload_documents' record.record_id %}" method="POST"
-                enctype="multipart/form-data" id="batchUploadForm">
-                {% csrf_token %}
-                <div class="modal-body p-4">
-
-                    <!-- Info Alert -->
-                    <div class="p-3 rounded-3 mb-3 d-flex align-items-start gap-2.5"
-                        style="background: #eff6ff; border: 1px solid #bfdbfe; font-size: 0.83rem; color: #1e40af;">
-                        <i class="fa-solid fa-wand-magic-sparkles text-primary flex-shrink-0 mt-0.5"
-                            style="font-size: 16px;"></i>
-                        <div>
-                            <strong>Smart Automatic Slot Matching:</strong>
-                            Files will automatically be mapped to specific child requirements matching keywords in their
-                            filename (e.g. <code>Architectural_Plan.pdf</code>, <code>Electrical_SingleLine.pdf</code>,
-                            <code>Tax_Declaration.pdf</code>). Unmatched files are saved in general record attachments.
-                        </div>
-                    </div>
-
-                    <!-- Drag & Drop Zone / File Input -->
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-dark small mb-1">Select Files to Upload</label>
-                        <div class="border border-2 border-dashed rounded-3 p-4 text-center bg-light position-relative"
-                            id="dropZone" style="border-color: #cbd5e1 !important; transition: all 0.2s ease;">
-                            <i class="fa-solid fa-file-circle-plus text-primary mb-2" style="font-size: 32px;"></i>
-                            <h6 class="fw-bold text-dark mb-1" style="font-size: 0.92rem;">Click to choose files or drop
-                                them here</h6>
-                            <p class="text-muted small mb-2" style="font-size: 0.78rem;">Supports PDF, JPG, PNG, WEBP
-                                files up to 10MB each</p>
-                            <input type="file" name="files" id="batchFileInput"
-                                class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                                accept=".pdf,.jpg,.jpeg,.png,.webp" required style="cursor: pointer;">
-                        </div>
-                    </div>
-
-                    <!-- Selected Files List Container -->
-                    <div id="fileListContainer" class="mb-3" style="display: none;">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="fw-semibold text-dark small" id="selectedFilesCount">Selected Files (0)</span>
-                            <button type="button" class="btn btn-sm text-danger p-0 border-0 text-decoration-underline"
-                                style="font-size: 0.75rem;" onclick="clearBatchFiles()">Clear selection</button>
-                        </div>
-                        <div class="list-group rounded-3 border overflow-auto" id="selectedFilesList"
-                            style="max-height: 180px; font-size: 0.8rem;">
-                            <!-- Dynamically populated JS list -->
-                        </div>
-                    </div>
-
-                    <!-- Collapsible Keyword Reference Guide -->
-                    <div class="accordion border-0 rounded-3 overflow-hidden" id="keywordGuideAccordion"
-                        style="background: #f8fafc; border: 1px solid #e2e8f0 !important;">
-                        <div class="accordion-item border-0 bg-transparent">
-                            <h2 class="accordion-header" id="headingKeywords">
-                                <button
-                                    class="accordion-button collapsed p-2.5 px-3 bg-transparent text-secondary shadow-none"
-                                    type="button" data-bs-toggle="collapse" data-bs-target="#collapseKeywords"
-                                    aria-expanded="false" style="font-size: 0.8rem; font-weight: 600;">
-                                    <i class="fa-solid fa-tags me-2 text-primary"></i> Recommended Filename Keyword
-                                    Reference Guide
-                                </button>
-                            </h2>
-                            <div id="collapseKeywords" class="accordion-collapse collapse"
-                                aria-labelledby="headingKeywords">
-                                <div class="accordion-body p-3 pt-0" style="font-size: 0.76rem; color: #475569;">
-                                    <div class="row g-2">
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">arch</code> →
-                                            Architectural Plans</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">struct</code> →
-                                            Structural Plans / Analysis</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">elect</code> →
-                                            Electrical Plans / Diagrams</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">plumb</code> →
-                                            Plumbing &amp; Sanitary</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">mech</code> →
-                                            Mechanical Plans</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">bfp / fsec</code>
-                                            → Fire Safety Clearance</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">tax / rpt</code>
-                                            → Tax Declaration</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">title / tct</code>
-                                            → Land Title (OCT/TCT)</div>
-                                        <div class="col-6 col-md-4"><code
-                                                class="text-dark bg-white px-1.5 py-0.5 border rounded">barangay</code>
-                                            → Barangay Clearance</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-                <div class="modal-footer border-top p-3 px-4" style="background: #f8fafc;">
-                    <button type="button" class="btn btn-light px-3 py-1.5" data-bs-dismiss="modal"
-                        style="font-size: 0.85rem;">Cancel</button>
-                    <button type="submit" class="btn text-white px-4 py-1.5 fw-semibold shadow-2xs"
-                        style="background: #002855; border-radius: 8px; font-size: 0.85rem;">
-                        <i class="fa-solid fa-cloud-arrow-up me-1.5"></i> Upload &amp; Auto-Classify
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const fileInput = document.getElementById('batchFileInput');
-        const container = document.getElementById('fileListContainer');
-        const list = document.getElementById('selectedFilesList');
-        const countText = document.getElementById('selectedFilesCount');
-
-        if (fileInput) {
-            fileInput.addEventListener('change', function () {
-                list.innerHTML = '';
-                if (this.files && this.files.length > 0) {
-                    container.style.display = 'block';
-                    countText.textContent = `Selected Files (${this.files.length})`;
-
-                    Array.from(this.files).forEach((f, idx) => {
-                        const item = document.createElement('div');
-                        item.className = 'list-group-item d-flex align-items-center justify-content-between p-2 px-3 bg-white border-bottom';
-
-                        const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
-                        item.innerHTML = `
-                        <div class="d-flex align-items-center gap-2 min-w-0 text-truncate">
-                            <i class="fa-solid fa-file-pdf text-danger" style="font-size: 15px;"></i>
-                            <span class="fw-medium text-dark text-truncate">${f.name}</span>
-                        </div>
-                        <span class="badge bg-light text-secondary border font-monospace ms-2" style="font-size: 0.7rem;">${sizeMB} MB</span>
-                    `;
-                        list.appendChild(item);
-                    });
-                } else {
-                    container.style.display = 'none';
-                }
-            });
-        }
-    });
 
     function clearBatchFiles() {
+        selectedBatchFilesStore = [];
         const fileInput = document.getElementById('batchFileInput');
-        const container = document.getElementById('fileListContainer');
         if (fileInput) fileInput.value = '';
-        if (container) container.style.display = 'none';
+        renderBatchFileList();
+    }
+
+    function validateBatchUploadForm() {
+        const submitBtn = document.getElementById('batchUploadSubmitBtn');
+        let allValid = selectedBatchFilesStore.length > 0 && selectedBatchFilesStore.every(item => item.selectedSlotId);
+
+        if (submitBtn) {
+            submitBtn.disabled = !allValid;
+            if (!allValid) {
+                submitBtn.classList.remove('btn-primary');
+                submitBtn.classList.add('btn-secondary');
+            } else {
+                submitBtn.classList.remove('btn-secondary');
+                submitBtn.classList.add('btn-primary');
+            }
+        }
+    }
+
+    function addFilesToBatchStore(fileList) {
+        if (!fileList || fileList.length === 0) return;
+        Array.from(fileList).forEach(f => {
+            const exists = selectedBatchFilesStore.some(item => item.file.name === f.name && item.file.size === f.size);
+            if (!exists) {
+                const detectedId = autoDetectSlot(f.name);
+                selectedBatchFilesStore.push({
+                    file: f,
+                    selectedSlotId: detectedId
+                });
+            }
+        });
+        renderBatchFileList();
+    }
+
+    // Global Event Delegation for Batch File Input & Dropzone
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'batchFileInput') {
+            if (e.target.files && e.target.files.length > 0) {
+                addFilesToBatchStore(e.target.files);
+            }
+        }
+    });
+
+    document.addEventListener('dragover', function (e) {
+        const dropZone = e.target.closest('#batchDropZone');
+        if (dropZone) {
+            e.preventDefault();
+            dropZone.style.borderColor = '#2563eb';
+            dropZone.style.background = '#eff6ff';
+        }
+    });
+
+    document.addEventListener('dragleave', function (e) {
+        const dropZone = e.target.closest('#batchDropZone');
+        if (dropZone) {
+            e.preventDefault();
+            dropZone.style.borderColor = '#cbd5e1';
+            dropZone.style.background = '#f8fafc';
+        }
+    });
+
+    document.addEventListener('drop', function (e) {
+        const dropZone = e.target.closest('#batchDropZone');
+        if (dropZone) {
+            e.preventDefault();
+            dropZone.style.borderColor = '#cbd5e1';
+            dropZone.style.background = '#f8fafc';
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                addFilesToBatchStore(e.dataTransfer.files);
+            }
+        }
+    });
+
+    document.getElementById('batchUploadForm')?.addEventListener('submit', function (e) {
+        const submitBtn = document.getElementById('batchUploadSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true"></span> Uploading...`;
+        }
+    });
+
+    // Toggle Waive (N/A) status for requirements
+    document.querySelectorAll('.btn-toggle-waive').forEach(button => {
+        button.addEventListener('click', function () {
+            const reqId = this.dataset.reqId;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            this.disabled = true;
+
+            fetch(`/requirements/${reqId}/toggle-waive/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unable to update requirement status'));
+                    this.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Network error updating requirement status');
+                this.disabled = false;
+            });
+        });
+    });
+
+    function confirmArchiveDetail() {
+        if (window.showConfirmModal) {
+            showConfirmModal({
+                title: 'Archive Record',
+                message: "Are you sure you want to archive '{{ record.title|escapejs }}'? It will be moved to the archive section.",
+                confirmText: 'Archive Record',
+                confirmClass: 'action-btn-danger',
+                icon: 'archive',
+                onConfirm: function () {
+                    window.location.href = "{% url 'archive_record' record.record_id %}";
+                }
+            });
+        } else {
+            if (confirm("Archive this record?")) {
+                window.location.href = "{% url 'archive_record' record.record_id %}";
+            }
+        }
     }
 </script>
 {% endblock %}

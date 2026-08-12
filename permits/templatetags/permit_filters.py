@@ -33,7 +33,7 @@ def param_replace(context, **kwargs):
 
 @register.filter(name='safe_url')
 def safe_url(file_field):
-    """Safely retrieves the .url property of a FieldFile without raising Cloudinary/Storage exceptions."""
+    """Safely retrieves the .url property of a FieldFile without raising Storage exceptions."""
     if not file_field:
         return ''
     try:
@@ -65,10 +65,34 @@ def compact_number(value):
     elif num >= 10_000:
         val = num / 1_000
         return f"{val:.1f}K".replace(".0K", "K")
-    elif num >= 1_000:
-        return f"{int(num):,}"
     else:
         return str(int(num))
+
+
+@register.filter(name='parse_notes')
+def parse_notes(text):
+    """
+    Parses description/notes text containing 'Label: Value' lines into a list of dicts:
+    [{'label': 'Violation', 'value': 'No Building Permit'}, ...]
+    If no ':' is found, returns a single item list [{'label': '', 'value': text}].
+    """
+    if not text:
+        return []
+    lines = [line.strip() for line in str(text).splitlines() if line.strip()]
+    parsed = []
+    
+    for line in lines:
+        if ':' in line:
+            parts = line.split(':', 1)
+            parsed.append({'label': parts[0].strip(), 'value': parts[1].strip()})
+        else:
+            if parsed:
+                parsed[-1]['value'] += '\n' + line
+            else:
+                parsed.append({'label': '', 'value': line})
+                
+    return parsed
+
 
 
 

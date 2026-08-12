@@ -85,8 +85,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'cloudinary_storage',
-    'cloudinary',
     'rest_framework',
     'rest_framework_simplejwt',
     'axes',
@@ -200,7 +198,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
-# Storage Configuration: Supabase Storage (Preferred) -> Cloudinary -> FileSystemStorage
+# Storage Configuration: Supabase Storage (Primary) -> FileSystemStorage (Local Fallback)
 supabase_url = os.getenv('SUPABASE_URL', '').strip()
 supabase_key = (os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY', '')).strip()
 supabase_bucket = os.getenv('SUPABASE_BUCKET_NAME', 'etala-documents').strip()
@@ -209,33 +207,11 @@ SUPABASE_URL = supabase_url
 SUPABASE_KEY = supabase_key
 SUPABASE_BUCKET_NAME = supabase_bucket
 
-# Cloudinary Storage Configuration (Legacy / Alternative)
-cloudinary_name = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
-cloudinary_key = os.getenv('CLOUDINARY_API_KEY', '').strip()
-cloudinary_secret = os.getenv('CLOUDINARY_API_SECRET', '').strip()
-cloudinary_url = os.getenv('CLOUDINARY_URL', '').strip()
-
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': cloudinary_name or 'placeholder',
-    'API_KEY': cloudinary_key or 'placeholder',
-    'API_SECRET': cloudinary_secret or 'placeholder',
-}
-
 if supabase_url and supabase_key:
     DEFAULT_FILE_STORAGE = 'permits.storage.SupabaseStorage'
     STORAGES = {
         "default": {
             "BACKEND": "permits.storage.SupabaseStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-        },
-    }
-elif (cloudinary_url and cloudinary_key) or (cloudinary_name and cloudinary_key and cloudinary_secret):
-    DEFAULT_FILE_STORAGE = 'permits.storage.DynamicCloudinaryStorage'
-    STORAGES = {
-        "default": {
-            "BACKEND": "permits.storage.DynamicCloudinaryStorage",
         },
         "staticfiles": {
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -332,11 +308,21 @@ WHITENOISE_MANIFEST_STRICT = False
 # If RESEND_API_KEY is provided, uses Resend transactional delivery.
 # Otherwise, prints to console for offline development.
 
+# ── Email Configuration: Resend (Primary) -> Gmail SMTP -> Console ──
+resend_key = os.getenv('RESEND_API_KEY', '').strip()
 gmail_user = os.getenv('EMAIL_HOST_USER', '').strip()
 gmail_pass = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
-resend_key = os.getenv('RESEND_API_KEY', '').strip()
 
-if gmail_user and gmail_pass:
+if resend_key:
+    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST          = 'smtp.resend.com'
+    EMAIL_PORT          = 465
+    EMAIL_USE_SSL       = True
+    EMAIL_USE_TLS       = False
+    EMAIL_HOST_USER     = 'resend'
+    EMAIL_HOST_PASSWORD = resend_key
+    DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev').strip()
+elif gmail_user and gmail_pass:
     EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST          = 'smtp.gmail.com'
     EMAIL_PORT          = 587
@@ -345,15 +331,6 @@ if gmail_user and gmail_pass:
     EMAIL_HOST_USER     = gmail_user
     EMAIL_HOST_PASSWORD = gmail_pass
     DEFAULT_FROM_EMAIL  = gmail_user
-elif resend_key:
-    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST          = 'smtp.resend.com'
-    EMAIL_PORT          = 465
-    EMAIL_USE_SSL       = True
-    EMAIL_USE_TLS       = False
-    EMAIL_HOST_USER     = 'resend'
-    EMAIL_HOST_PASSWORD = resend_key
-    DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
 else:
     EMAIL_BACKEND       = 'django.core.mail.backends.console.EmailBackend'
     DEFAULT_FROM_EMAIL  = 'noreply@etala.local'

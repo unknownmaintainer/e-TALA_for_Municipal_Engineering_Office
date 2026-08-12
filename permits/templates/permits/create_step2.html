@@ -4,39 +4,46 @@
 {% block content %}
 <div class="py-4" style="max-width: 780px; margin: 0 auto;">
 
-    <!-- Step indicator -->
-    <div class="d-flex align-items-center gap-2 mb-4" style="font-size: 0.78rem; color: #94a3b8;">
-        <span class="badge rounded-pill px-3 py-2" style="background:#64748b; color:#fff; font-size:0.75rem; cursor:pointer;"
-              onclick="window.location='{% url 'create_step1' %}'">Step 1</span>
-        <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
-        <span class="badge rounded-pill px-3 py-2" style="background:#002855; color:#fff; font-size:0.75rem;">Step 2 of 3</span>
-        <span>Select Type</span>
-        <i data-lucide="chevron-right" style="width:14px;height:14px;opacity:.4;"></i>
-        <span style="opacity:.5;">Record Details</span>
+    <!-- Modern Step Wizard Progress Indicator -->
+    <div class="step-wizard-bar mb-4">
+        <a href="{% url 'create_step1' %}" class="step-wizard-item completed text-decoration-none">
+            <div class="step-wizard-circle"><i class="fa-solid fa-check" style="font-size: 13px;"></i></div>
+            <div class="step-wizard-title">Classification</div>
+        </a>
+        <div class="step-wizard-item active">
+            <div class="step-wizard-circle">2</div>
+            <div class="step-wizard-title">Category Type</div>
+        </div>
+        <div class="step-wizard-item">
+            <div class="step-wizard-circle">3</div>
+            <div class="step-wizard-title">Record Details</div>
+        </div>
     </div>
 
-    <h1 class="fw-bold mb-1" style="font-size:1.6rem;">
-        {% if category == 'permit' %}Permit Record
-        {% elif category == 'municipal' %}Municipal Project
-        {% else %}Barangay Project
-        {% endif %}
-    </h1>
-    <p class="text-muted mb-5">Select the specific type.</p>
+    <div class="text-center mb-4">
+        <h1 class="fw-bold mb-1 etala-page-title">
+            {% if category == 'permit' %}Select Permit Type
+            {% elif category == 'municipal' %}Select Municipal Project Type
+            {% else %}Select Barangay Project Type
+            {% endif %}
+        </h1>
+        <p class="etala-page-subtitle">Choose the specific record subtype to generate standard municipal requirements.</p>
+    </div>
 
     <form method="POST">
         {% csrf_token %}
         <div class="row g-3">
             {% for t in types %}
-            <div class="col-md-6">
+            <div class="{% if forloop.last and forloop.counter|divisibleby:2 == False %}col-12{% else %}col-md-6{% endif %}">
                 <label class="d-block h-100" style="cursor:pointer;">
                     <input type="radio" name="record_subtype" value="{{ t.value }}" class="d-none type-radio">
                     <div class="type-card h-100 p-4 border rounded-4 shadow-sm d-flex align-items-center gap-3"
                          style="transition: all .2s;">
                         <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-3"
-                             style="width:48px;height:48px;background:linear-gradient(135deg,#002855,#0d3b6f);">
-                            <i data-lucide="{{ t.icon }}" style="width:22px;height:22px;color:#fff;"></i>
+                             style="width:48px;height:48px;background:linear-gradient(135deg,#002855,#0d3b6f); flex-shrink: 0 !important; align-self: center !important;">
+                            <i class="{{ t.icon }}" style="font-size: 22px; color: #fff;"></i>
                         </div>
-                        <div>
+                        <div class="min-w-0 flex-grow-1">
                             <div class="fw-semibold type-card-title" style="font-size:0.95rem;">{{ t.label }}</div>
                             <div class="text-muted type-card-desc" style="font-size:0.78rem;">{{ t.desc }}</div>
                         </div>
@@ -46,28 +53,26 @@
             {% endfor %}
         </div>
 
-        {% if messages %}
-        <div class="mt-4">
-            {% for message in messages %}
-            <div class="alert alert-danger rounded-3 border-0">{{ message }}</div>
-            {% endfor %}
-        </div>
-        {% endif %}
+
 
         <div class="d-flex justify-content-between align-items-center mt-5">
             <a href="{% url 'create_step1' %}" class="btn btn-outline-secondary px-4" style="border-radius:10px;">
                 ← Back
             </a>
-            <button type="submit" id="nextBtn" class="btn px-5 py-2 fw-semibold" disabled
-                    style="background:#002855;color:#fff;border-radius:10px;font-size:0.9rem;">
-                Next — Fill in Details <i data-lucide="arrow-right" style="width:16px;height:16px;vertical-align:-2px;margin-left:4px;"></i>
-            </button>
+            <a href="{% url 'records_browse' %}" class="btn btn-light border px-4 text-muted" style="border-radius:10px;">
+                Cancel
+            </a>
         </div>
     </form>
 </div>
 
 <style>
 .type-card {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    gap: 16px !important;
     border-color: var(--border-default, #e2e8f0);
     background: var(--card-bg, #ffffff);
 }
@@ -139,7 +144,7 @@ document.querySelectorAll('.type-radio').forEach(function(radio) {
     radio.addEventListener('change', function() {
         document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
         this.closest('label').querySelector('.type-card').classList.add('selected');
-        document.getElementById('nextBtn').disabled = false;
+        this.form.submit();
     });
 });
 </script>

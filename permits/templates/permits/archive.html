@@ -6,28 +6,27 @@
 {% block content %}
 
 <!-- Page Header -->
-<div class="page-title-row">
+<div class="etala-page-header">
     <div>
-        <h1>
-            <i data-lucide="archive" class="text-teal me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
-            Archived Records
+        <h1 class="etala-page-title d-flex align-items-center gap-2">
+            <i class="fa-solid fa-box-archive text-primary" style="font-size: 20px;"></i>
+            <span>Archived Records &amp; Cold Storage</span>
         </h1>
-        <p class="page-subtitle">All soft-deleted and permanently stored records. Only Administrators can manage these files.</p>
+        <p class="etala-page-subtitle">Soft-deleted municipal files and cold storage archives. Protected by Administrative permissions.</p>
     </div>
 </div>
 
 <!-- Search Bar -->
-<div class="filter-bar section-gap">
-    <form method="GET" action="{% url 'archive' %}" class="d-flex gap-2 align-items-center flex-grow-1">
-        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
-            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-            <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1"
-                   placeholder="Search..."
-                   style="font-size: var(--text-sm); outline: none; box-shadow: none; height: 100%; background: transparent;">
+<div class="records-filter-toolbar d-flex align-items-center mb-3">
+    <form method="GET" action="{% url 'archive' %}" class="d-flex align-items-center flex-grow-1" style="max-width: 480px;">
+        <div class="filter-search-group d-flex align-items-center px-3 w-100" style="height: 38px; border: 1px solid var(--border-default, #cbd5e1); border-radius: 10px; background: var(--card-bg, #ffffff); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); transition: all 0.2s ease;">
+            <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
+            <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1 search-text-input"
+                   placeholder="Search archived files by name, year, barangay..."
+                   style="font-size: 0.84rem; outline: none !important; box-shadow: none !important; height: 100%; background: transparent; color: var(--text-primary, #1e293b);">
             {% if q %}
             <a href="{% url 'archive' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background: transparent;" title="Clear search">
-                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
             </a>
             {% endif %}
         </div>
@@ -152,27 +151,30 @@
                     </td>
                     <td class="cell-muted cell-barangay" data-label="Barangay" style="white-space: nowrap;">{{ record.barangay.barangay_name }}</td>
                     <td class="cell-muted" data-label="Archived Date">{{ record.updated_at|date:"M d, Y" }}</td>
-                    <td class="text-end" data-label="Action" onclick="event.stopPropagation()">
-                        <div class="dropdown d-inline-block">
-                            <button class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i data-lucide="more-horizontal"></i>
+                    <td class="text-end action-menu-cell" data-label="Action" onclick="event.stopPropagation()">
+                        <div class="dropdown">
+                            <button class="row-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-popper-config='{"strategy":"fixed"}' title="Actions">
+                                <i data-lucide="more-horizontal" style="width: 18px; height: 18px;"></i>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:140px; font-size: var(--text-xs); border-radius:8px;">
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 180px; font-size: var(--text-xs); border-radius: 10px; padding: 6px; z-index: 99999; background: #ffffff;">
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'record_detail' record.record_id %}">
-                                        <i data-lucide="eye" style="width:14px;height:14px;"></i> Inspect
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-2.5 rounded-2 fw-medium text-nowrap" href="{% url 'record_detail' record.record_id %}">
+                                        <i data-lucide="eye" style="width:14px;height:14px; flex-shrink:0;"></i>
+                                        <span>Inspect</span>
                                     </a>
                                 </li>
                                 {% if request.user.role == 'admin' %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-success" href="javascript:void(0)" onclick="confirmRestoreRecord('{% url 'restore_record' record.record_id %}', '{{ record.title|escapejs }}')">
-                                        <i data-lucide="rotate-ccw" style="width:14px;height:14px; color:#10b981;"></i> Restore
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-2.5 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" onclick="confirmRestoreRecord('{% url 'restore_record' record.record_id %}', '{{ record.title|escapejs }}')">
+                                        <i data-lucide="rotate-ccw" style="width:14px;height:14px; color:#10b981; flex-shrink:0;"></i>
+                                        <span>Restore</span>
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="openPermanentDeleteModal('{% url 'permanent_delete_record' record.record_id %}', '{{ record.title|escapejs }}')">
-                                        <i data-lucide="trash-2" style="width:14px;height:14px; color:#ef4444;"></i> Permanent Delete
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-2.5 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" onclick="openPermanentDeleteModal('{% url 'permanent_delete_record' record.record_id %}', '{{ record.title|escapejs }}')">
+                                        <i data-lucide="trash-2" style="width:14px;height:14px; color:#ef4444; flex-shrink:0;"></i>
+                                        <span>Permanent Delete</span>
                                     </a>
                                 </li>
                                 {% endif %}

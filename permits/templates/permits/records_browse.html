@@ -6,7 +6,12 @@
 {% block title %}Engineering Records | eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item">Records</span>
+{% if selected_illegal or selected_record_type == 'Illegal' %}
+<a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Records</a>
+<span class="breadcrumb-item active">Illegal Constructions</span>
+{% else %}
+<span class="breadcrumb-item active">Records</span>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -48,32 +53,31 @@
     }
 </style>
 
-{% if messages %}
-<div class="mb-3">
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3"
-        role="alert" style="font-size: var(--text-base);">
-        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
 <!-- ══ HEADING ════════════════════════════════════════════════════════ -->
-<div class="page-title-row">
+<div class="etala-page-header">
     <div>
-        <h1>Records</h1>
-        <p class="page-subtitle">Browse and manage all engineering records</p>
+        {% if selected_illegal or selected_record_type == 'Illegal' %}
+        <h1 class="etala-page-title d-flex align-items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-danger" style="font-size: 22px;"></i>
+            <span>Illegal Construction Incidents</span>
+        </h1>
+        <p class="etala-page-subtitle">Track, investigate, and manage unpermitted construction incident reports and regularization compliance.</p>
+        {% else %}
+        <h1 class="etala-page-title">Records Management</h1>
+        <p class="etala-page-subtitle">Browse, search, and manage all municipal permits, infrastructure projects, and compliance logs.</p>
+        {% endif %}
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <button type="button" class="btn-create-report text-decoration-none" data-bs-toggle="modal"
-            data-bs-target="#flagIllegalModal">
-            <i class="fa-solid fa-plus"></i> <span>Create Report</span>
-        </button>
-        <a href="{% url 'create_step1' %}" class="action-btn action-btn-primary">
-            <i class="fa-solid fa-circle-plus"></i> <span>New Record</span>
+    <div class="etala-header-actions">
+        <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary" title="Create New Record">
+            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
+            <span>New Record</span>
         </a>
+        <button type="button" class="etala-btn etala-btn-secondary text-decoration-none" data-bs-toggle="modal"
+            data-bs-target="#flagIllegalModal" title="Flag Illegal Construction">
+            <i class="fa-solid fa-triangle-exclamation text-danger" style="font-size: 13px;"></i>
+            <span>Report Violation</span>
+        </button>
     </div>
     {% endif %}
 </div>
@@ -103,7 +107,7 @@
     <a href="?illegal=1{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
         class="filter-tab {% if selected_illegal or selected_record_type == 'Illegal' %}active{% endif %}"
         style="color: #dc2626;">
-        <i data-lucide="shield-alert" style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px;"></i>
+        <i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 13px;"></i>
         Illegal Constructions <span class="tab-count"
             style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">{{ illegal_count }}</span>
     </a>
@@ -113,8 +117,9 @@
 <!-- Sub-filter tabs for Illegal Construction Compliance States (1 single line) -->
 <div class="d-flex align-items-center gap-2 mb-3 px-3 py-2 rounded-3 filter-status-container"
     style="overflow-x: auto; white-space: nowrap;">
-    <span class="text-muted fw-semibold flex-shrink-0" style="font-size: 0.74rem;"><i data-lucide="filter"
-            style="width: 13px; height: 13px; vertical-align: -2px;"></i> Filter Status:</span>
+    <span class="text-muted fw-semibold flex-shrink-0" style="font-size: 0.74rem;">
+        <i class="fa-solid fa-filter me-1 text-secondary"></i> Filter Status:
+    </span>
     <div class="d-flex align-items-center gap-1.5 flex-nowrap">
         <a href="?q={{ q }}&illegal=1"
             class="btn btn-xs rounded-pill py-1 px-2.5 fw-semibold text-decoration-none filter-pill {% if selected_illegal == '1' or selected_illegal == 'true' %}active-all{% endif %}"
@@ -146,63 +151,64 @@
     <input type="hidden" name="scope" value="{{ selected_scope }}">
     <input type="hidden" name="illegal" value="{{ selected_illegal }}">
 
-    <!-- Sleek persistent search row with Live Auto-Search, Scope Toggle & Filters -->
-    <div class="filter-bar mb-3">
-        <!-- Always visible Search input group -->
-        <div class="d-flex align-items-center filter-search-group px-3"
-            style="max-width: 420px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-            <button type="submit"
-                class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted me-2"
-                style="cursor: pointer;" title="Click to Search">
-                <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;"></i>
-            </button>
-            <input type="text" id="liveSearchInput" name="q" class="form-control border-0 p-0 flex-grow-1"
-                placeholder="Type year (2026), permit, barangay, owner..." value="{{ q|default:'' }}"
-                style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+    <!-- ══ ONE-LINE ACTION & FILTER BAR ══════════════════════════════════ -->
+    <div class="records-filter-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3">
+        <!-- Left Group: Search Bar + Filter Button (always side-by-side in one line) -->
+        <div class="d-flex align-items-center gap-2 flex-grow-1 search-filter-combo" style="max-width: 600px; min-width: 270px;">
+            <!-- Modern Search input group with improved design & width -->
+            <div class="filter-search-group d-flex align-items-center px-3 flex-grow-1"
+                style="height: 38px; border: 1px solid var(--border-default, #cbd5e1); border-radius: 10px; background: var(--card-bg, #ffffff); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); transition: all 0.2s ease;">
+                <button type="submit"
+                    class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted me-2 search-btn-icon"
+                    style="cursor: pointer;" title="Search records">
+                    <i class="fa-solid fa-magnifying-glass" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
+                </button>
+                <input type="text" id="liveSearchInput" name="q" class="form-control border-0 p-0 flex-grow-1 search-text-input"
+                    placeholder="Type year (2026), permit, barangay, owner..." value="{{ q|default:'' }}" autocomplete="off"
+                    style="font-size: 0.84rem; outline: none !important; box-shadow: none !important; height: 100%; background: transparent; color: var(--text-primary, #1e293b);">
 
-            <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none ms-2" role="status"
-                style="width: 13px; height: 13px;">
-                <span class="visually-hidden">Searching...</span>
+                <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none ms-2" role="status"
+                    style="width: 13px; height: 13px;">
+                    <span class="visually-hidden">Searching...</span>
+                </div>
+
+                {% if q %}
+                <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+                    class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2 clear-search-icon"
+                    style="background: transparent;" title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+                </a>
+                {% endif %}
             </div>
 
-            {% if q %}
-            <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
-                class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2"
-                style="background:transparent;" title="Clear search">
-                <i data-lucide="x" style="width:16px;height:16px;"></i>
-            </a>
-            {% endif %}
-        </div>
-
-        <!-- Filter Controls Wrapper -->
-        <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-2 w-100 w-md-auto ms-md-auto">
-            <!-- Filter Toggle button -->
-            <button class="action-btn action-btn-secondary action-btn-sm" type="button" data-bs-toggle="collapse"
-                data-bs-target="#advancedFiltersCollapse" aria-expanded="false" style="height: 38px;">
-                <i data-lucide="sliders-horizontal"></i>
-                Filters
+            <!-- Filter Toggle Button (Directly beside Search) -->
+            <button class="action-btn action-btn-secondary action-btn-sm filter-toggle-btn d-inline-flex align-items-center gap-1.5 flex-shrink-0"
+                type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters"
+                style="height: 38px; border-radius: 10px; padding: 0 14px; font-size: 0.82rem; font-weight: 600;">
+                <i class="fa-solid fa-sliders" style="font-size: 13px;"></i>
+                <span>Filters</span>
                 {% if active_filters_count > 0 %}
-                <span class="tag" style="background: var(--primary-brand); color: #fff; margin-left: 4px;">{{ active_filters_count }} Active</span>
+                <span class="tag tag-filter-active ms-1" style="background: var(--primary-brand, #002855); color: #fff; font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">{{ active_filters_count }} Active</span>
                 {% endif %}
             </button>
+        </div>
 
-            <!-- Role-Based Scope Toggle ("My Records" vs "All Records") -->
-            <div class="scope-segmented-control flex-shrink-0">
-                <a href="?{% param_replace scope='my' page=1 %}"
-                    class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}"
-                    title="Show records created by you">
-                    <i data-lucide="user" style="width: 14px; height: 14px;"></i>
-                    <span>My Records</span>
-                    <span class="scope-count-badge">{{ my_scope_count }}</span>
-                </a>
-                <a href="?{% param_replace scope='all' page=1 %}"
-                    class="scope-pill-btn {% if selected_scope == 'all' %}active{% endif %}"
-                    title="Show all municipal records">
-                    <i data-lucide="layers" style="width: 14px; height: 14px;"></i>
-                    <span>All Records</span>
-                    <span class="scope-count-badge">{{ all_scope_count }}</span>
-                </a>
-            </div>
+        <!-- Right Side: Scope Toggle ("My Records" vs "All Records") -->
+        <div class="scope-segmented-control flex-shrink-0 ms-auto">
+            <a href="?{% param_replace scope='my' page=1 %}"
+                class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}"
+                title="Show records created by you">
+                <i class="fa-solid fa-user" style="font-size: 13px;"></i>
+                <span>My Records</span>
+                <span class="scope-count-badge">{{ my_scope_count }}</span>
+            </a>
+            <a href="?{% param_replace scope='all' page=1 %}"
+                class="scope-pill-btn {% if selected_scope == 'all' %}active{% endif %}"
+                title="Show all municipal records">
+                <i class="fa-solid fa-layer-group" style="font-size: 13px;"></i>
+                <span>All Records</span>
+                <span class="scope-count-badge">{{ all_scope_count }}</span>
+            </a>
         </div>
     </div>
 
@@ -415,7 +421,7 @@
                                 {% if r.is_illegal_construction %}
                                 <span style="margin: 0 3px;">·</span>
                                 <span class="badge-illegal-inline">
-                                    <i data-lucide="shield-alert" style="width:10px; height:10px;"></i>{{ r.illegal_status_info.short_label }}
+                                    <i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 10px;"></i>{{ r.illegal_status_info.short_label }}
                                 </span>
                                 {% endif %}
                             </div>
@@ -455,33 +461,31 @@
                             <span class="status-indicator">{{ r.get_status_display }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-end pe-3" style="width: 55px; position: relative; overflow: visible;"
+                        <td class="text-end pe-3 action-menu-cell" style="width: 55px;"
                             onclick="event.stopPropagation();">
-                            <div class="dropdown" onclick="event.stopPropagation();" style="position: static;">
+                            <div class="dropdown" onclick="event.stopPropagation();">
                                 <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
-                                    aria-expanded="false" data-bs-auto-close="true" data-bs-offset="0,8"
+                                    aria-expanded="false" data-bs-auto-close="true"
+                                    data-bs-popper-config='{"strategy":"fixed"}'
                                     onclick="event.stopPropagation();" title="Actions">
-                                    <i data-lucide="more-vertical" style="width: 16px; height: 16px;"></i>
+                                    <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
-                                    style="min-width: 200px; font-size: var(--text-sm); border-radius: 12px; padding: 8px; z-index: 9999;"
+                                    style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;"
                                     onclick="event.stopPropagation();">
-                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium"
-                                            href="{% url 'record_detail' r.record_id %}"><i data-lucide="eye"
-                                                style="width:14px;height:14px;"></i> View Details</a></li>
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                            href="{% url 'record_detail' r.record_id %}"><i class="fa-solid fa-eye" style="font-size: 13px; flex-shrink: 0;"></i> <span>View Details</span></a></li>
                                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                     {% if r.status != 'archived' %}
-                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium"
-                                            href="{% url 'edit_record' r.record_id %}"><i data-lucide="pencil"
-                                                style="width:14px;height:14px;"></i> Edit Record</a></li>
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                            href="{% url 'edit_record' r.record_id %}"><i class="fa-solid fa-pen-to-square" style="font-size: 13px; flex-shrink: 0;"></i> <span>Edit Record</span></a></li>
                                     <li>
                                         <hr class="dropdown-divider my-1">
                                     </li>
-                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger action-dropdown-danger"
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap action-dropdown-danger"
                                             href="javascript:void(0)"
                                             onclick="confirmArchiveRecord('{% url 'archive_record' r.record_id %}', '{{ r.title|escapejs }}')"><i
-                                                data-lucide="archive" style="width:14px;height:14px;"></i> Archive
-                                            Record</a></li>
+                                                class="fa-solid fa-box-archive" style="font-size: 13px; flex-shrink: 0;"></i> <span>Archive Record</span></a></li>
                                     {% endif %}
                                     {% endif %}
                                 </ul>
@@ -495,8 +499,7 @@
                         <td colspan="7" class="p-4">
                             <div class="empty-state-card">
                                 <div class="empty-state-icon-wrapper">
-                                    <i data-lucide="folder-search"
-                                        style="width: 32px; height: 32px; stroke-width: 1.5;"></i>
+                                    <i class="fa-solid fa-folder-open" style="font-size: 32px; color: #94a3b8;"></i>
                                 </div>
                                 <h3 class="h6 fw-bold mb-1">No matching records found</h3>
                                 <p class="text-muted small mx-auto mb-4" style="max-width: 360px;">
@@ -506,8 +509,7 @@
                                 <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}"
                                     class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2"
                                     style="text-decoration:none;">
-                                    <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i> Clear all
-                                    filters
+                                    <i class="fa-solid fa-rotate-left" style="font-size: 13px;"></i> Clear all filters
                                 </a>
                             </div>
                         </td>
@@ -525,15 +527,13 @@
                 <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item">
                     <div
                         class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
-                        <i
-                            data-lucide="{% if r.record_type == 'Permit' %}file-check{% elif r.project_scope == 'Municipal' %}landmark{% else %}folder{% endif %}"></i>
+                        <i class="{% if r.record_type == 'Permit' %}fa-solid fa-file-shield{% elif r.project_scope == 'Municipal' %}fa-solid fa-landmark{% else %}fa-solid fa-location-dot{% endif %}"></i>
                     </div>
                     <div class="flex-grow-1 min-w-0">
                         <div class="mobile-record-title">{{ r.title }}</div>
                         <div class="mobile-record-meta">{{ r.barangay.barangay_name|default:"—" }} · {{ r.year|default:"—" }} · {{ r.get_status_display }}</div>
                     </div>
-                    <i data-lucide="chevron-right" class="flex-shrink-0"
-                        style="width:14px;height:14px;color:var(--gray-300);"></i>
+                    <i class="fa-solid fa-chevron-right flex-shrink-0" style="font-size: 12px; color: var(--gray-300);"></i>
                 </a>
                 {% endfor %}
             </div>
@@ -541,7 +541,7 @@
             <div class="p-3">
                 <div class="empty-state-card">
                     <div class="empty-state-icon-wrapper">
-                        <i data-lucide="folder-search" style="width: 32px; height: 32px; stroke-width: 1.5;"></i>
+                        <i class="fa-solid fa-folder-open" style="font-size: 32px; color: #94a3b8;"></i>
                     </div>
                     <h3 class="h6 fw-bold mb-1">No matching records found</h3>
                     <p class="text-muted small mx-auto mb-4" style="max-width: 360px;">
@@ -551,7 +551,7 @@
                     <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}"
                         class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2"
                         style="text-decoration:none;">
-                        <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i> Clear all filters
+                        <i class="fa-solid fa-rotate-left" style="font-size: 13px;"></i> Clear all filters
                     </a>
                 </div>
             </div>
@@ -891,21 +891,6 @@
                 });
             }
             bindChipDismissHandlers();
-
-            // Auto-close dropdowns when hovering over different rows
-            const tableRows = document.querySelectorAll('.data-table tbody tr');
-            tableRows.forEach(row => {
-                row.addEventListener('mouseenter', function () {
-                    // Close all open dropdowns when hovering a new row
-                    const openDropdowns = document.querySelectorAll('.dropdown-menu.show');
-                    openDropdowns.forEach(dropdown => {
-                        const bsDropdown = bootstrap.Dropdown.getInstance(dropdown.previousElementSibling);
-                        if (bsDropdown) {
-                            bsDropdown.hide();
-                        }
-                    });
-                });
-            });
         });
 
         function confirmArchiveRecord(archiveUrl, recordTitle) {

@@ -11,7 +11,7 @@
 
 {% block back_button %}
 <a href="{% url 'barangays' %}" class="header-back-btn d-inline-flex align-items-center gap-1 text-decoration-none" title="Back to Barangays">
-    <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i>
+    <i class="fa-solid fa-arrow-left" style="font-size: 13px;"></i>
     <span>Barangays</span>
 </a>
 {% endblock %}
@@ -19,23 +19,23 @@
 {% block content %}
 
 <!-- ══ PAGE HEADER — Modern clean layout without redundant back buttons ══════ -->
-<div class="page-title-row d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div class="etala-page-header">
     <div>
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
             <span class="tag tag-workspace">Barangay Workspace</span>
             <span class="tag tag-id">ID: #{{ barangay.barangay_id }}</span>
         </div>
-        <h1 style="word-break: break-word; overflow-wrap: break-word;">
+        <h1 class="etala-page-title" style="word-break: break-word; overflow-wrap: break-word;">
             Brgy. {{ barangay.barangay_name }}
         </h1>
-        <p class="page-subtitle mb-0">
+        <p class="etala-page-subtitle">
             Total Records: <strong style="color: var(--gray-900);">{{ total_records }}</strong> ({{ total_projects }} projects, {{ total_permits }} permits, {{ total_documents }} documents)
         </p>
     </div>
     {% if request.user.role == 'staff' or request.user.role == 'admin' %}
-    <div class="d-flex gap-2">
-        <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 36px;">
-            <i class="fa-solid fa-circle-plus"></i>
+    <div class="etala-header-actions">
+        <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}" class="etala-btn etala-btn-primary text-decoration-none d-inline-flex align-items-center gap-2">
+            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
             <span>New Record</span>
         </a>
     </div>
@@ -58,17 +58,16 @@
     </div>
 
     <!-- Clean unified search wrapper -->
-    <form method="GET" class="d-flex flex-grow-1 align-items-center mb-0" style="max-width:320px;">
+    <form method="GET" class="d-flex flex-grow-1 align-items-center mb-0 search-form-responsive" style="max-width: 380px;">
         <input type="hidden" name="tab" value="{{ current_tab }}">
-        <div class="d-flex align-items-center filter-search-group w-100 px-3" style="height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-            <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
-            <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-            <input type="text" name="q" value="{{ q }}" class="form-control border-0 p-0 flex-grow-1"
-                   placeholder="Search..."
-                   style="font-size: var(--text-sm); border: none !important; padding: 0 !important; outline: none !important; box-shadow: none !important; height: 100%; background: transparent;">
+        <div class="d-flex align-items-center filter-search-group w-100 px-3" style="height: 38px; border: 1px solid var(--border-default, #cbd5e1); border-radius: 10px; background: var(--card-bg, #ffffff); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); transition: all 0.2s ease;">
+            <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
+            <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1 search-text-input"
+                   placeholder="Search workspace records..."
+                   style="font-size: 0.84rem; border: none !important; padding: 0 !important; outline: none !important; box-shadow: none !important; height: 100%; background: transparent; color: var(--text-primary, #1e293b);">
             {% if q %}
             <a href="?tab={{ current_tab }}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background: transparent;" title="Clear search">
-                <i data-lucide="x" style="width: 15px; height: 15px;"></i>
+                <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
             </a>
             {% endif %}
         </div>
@@ -136,12 +135,12 @@
                                 <span class="status-indicator">{{ r.status|capfirst }}</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end" onclick="event.stopPropagation();" style="position: static;">
-                                <div class="dropup">
-                                    <button class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" title="Actions">
+                            <td class="text-end action-menu-cell" onclick="event.stopPropagation();">
+                                <div class="dropdown">
+                                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-popper-config='{"strategy":"fixed"}' title="Actions">
                                         <i class="fa-solid fa-ellipsis-vertical" style="font-size: 13px;"></i>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width: 140px; font-size: 0.78rem; border-radius: 8px;">
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 170px; font-size: 0.80rem; border-radius: 10px; padding: 6px; z-index: 99999; background: #ffffff;">
                                         <li>
                                             <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" href="{% url 'record_detail' r.record_id %}">
                                                 <i class="fa-solid fa-eye" style="font-size: 11px; color: #0284c7;"></i> View Details

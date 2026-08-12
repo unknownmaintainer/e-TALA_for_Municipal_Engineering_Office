@@ -56,22 +56,29 @@ class SupabaseStorage(Storage):
         clean_name = self._clean_path(name)
         
         # Save to local fallback storage first for guaranteed offline availability / caching
-        self.fallback_storage.save(clean_name, content)
+        saved_name = self.fallback_storage.save(clean_name, content)
         
         if not self._is_configured():
-            return clean_name
+            return saved_name
 
         url, key, bucket = self._get_supabase_config()
         endpoint = f"{url}/storage/v1/object/{bucket}/{clean_name}"
         
         try:
+            data = b''
             if hasattr(content, 'seek'):
                 try:
                     content.seek(0)
+                    data = content.read()
                 except Exception:
                     pass
-            
-            data = content.read() if hasattr(content, 'read') else content
+            elif hasattr(content, 'read'):
+                data = content.read()
+
+            if not data and self.fallback_storage.exists(saved_name):
+                with self.fallback_storage.open(saved_name, 'rb') as f:
+                    data = f.read()
+
             mime_type, _ = mimetypes.guess_type(clean_name)
             headers = self._headers()
             headers['Content-Type'] = mime_type or 'application/octet-stream'
@@ -85,7 +92,7 @@ class SupabaseStorage(Storage):
         except Exception as exc:
             logger.warning(f"Supabase upload failed ({exc}), local copy preserved at {clean_name}.")
 
-        return clean_name
+        return saved_name
 
     def open(self, name, mode='rb'):
         clean_name = self._clean_path(name)
@@ -177,120 +184,6 @@ class SupabaseStorage(Storage):
         if self.fallback_storage.exists(clean_name):
             return self.fallback_storage.size(clean_name)
         return 0
-
-    def get_valid_name(self, name):
-        return self.fallback_storage.get_valid_name(name)
-
-    def get_available_name(self, name, max_length=None):
-        return self.fallback_storage.get_available_name(name, max_length=max_length)
-
-
-@deconstructible
-class DynamicCloudinaryStorage(Storage):
-    """
-    Custom Cloudinary storage router with automatic fallback to local FileSystemStorage.
-    """
-    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.svg'}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fallback_storage = FileSystemStorage()
-        try:
-            from cloudinary_storage.storage import MediaCloudinaryStorage, RawMediaCloudinaryStorage
-            self._image_storage = MediaCloudinaryStorage()
-            self._raw_storage = RawMediaCloudinaryStorage()
-        except Exception:
-            self._image_storage = None
-            self._raw_storage = None
-
-    def _has_cloudinary(self):
-        c_name = (os.getenv('CLOUDINARY_CLOUD_NAME') or '').strip()
-        c_key = (os.getenv('CLOUDINARY_API_KEY') or '').strip()
-        c_secret = (os.getenv('CLOUDINARY_API_SECRET') or '').strip()
-        return bool(c_name and c_key and c_secret)
-
-    def _get_storage(self, name):
-        ext = os.path.splitext(name)[1].lower() if name else ''
-        if ext in self.IMAGE_EXTENSIONS:
-            return self._image_storage or self.fallback_storage
-        return self._raw_storage or self.fallback_storage
-
-    def save(self, name, content, max_length=None):
-        if not self._has_cloudinary():
-            return self.fallback_storage.save(name, content, max_length=max_length)
-        try:
-            return super().save(name, content, max_length=max_length)
-        except Exception as exc:
-            logger.warning(f"Cloudinary save failed ({exc}), falling back to local FileSystemStorage.")
-            if hasattr(content, 'seek'):
-                try:
-                    content.seek(0)
-                except Exception:
-                    pass
-            return self.fallback_storage.save(name, content, max_length=max_length)
-
-    def open(self, name, mode='rb'):
-        if not self._has_cloudinary() or self.fallback_storage.exists(name):
-            return self.fallback_storage.open(name, mode)
-        try:
-            return self._get_storage(name).open(name, mode)
-        except Exception:
-            return self.fallback_storage.open(name, mode)
-
-    def _open(self, name, mode='rb'):
-        return self.open(name, mode)
-
-    def _save(self, name, content):
-        if not self._has_cloudinary():
-            return self.fallback_storage._save(name, content)
-        try:
-            return self._get_storage(name)._save(name, content)
-        except Exception as exc:
-            logger.warning(f"Cloudinary _save failed ({exc}), falling back to local FileSystemStorage.")
-            if hasattr(content, 'seek'):
-                try:
-                    content.seek(0)
-                except Exception:
-                    pass
-            return self.fallback_storage._save(name, content)
-
-    def delete(self, name):
-        if self.fallback_storage.exists(name):
-            try:
-                self.fallback_storage.delete(name)
-            except Exception as exc:
-                logger.debug(f"Local deletion error for {name}: {exc}")
-        if self._has_cloudinary():
-            try:
-                self._get_storage(name).delete(name)
-            except Exception as exc:
-                logger.debug(f"Cloudinary deletion error for {name}: {exc}")
-
-    def exists(self, name):
-        if self.fallback_storage.exists(name):
-            return True
-        if self._has_cloudinary():
-            try:
-                return self._get_storage(name).exists(name)
-            except Exception:
-                pass
-        return False
-
-    def url(self, name):
-        if self.fallback_storage.exists(name) or not self._has_cloudinary():
-            return self.fallback_storage.url(name)
-        try:
-            return self._get_storage(name).url(name)
-        except Exception:
-            return self.fallback_storage.url(name)
-
-    def size(self, name):
-        if self.fallback_storage.exists(name) or not self._has_cloudinary():
-            return self.fallback_storage.size(name)
-        try:
-            return self._get_storage(name).size(name)
-        except Exception:
-            return self.fallback_storage.size(name)
 
     def get_valid_name(self, name):
         return self.fallback_storage.get_valid_name(name)

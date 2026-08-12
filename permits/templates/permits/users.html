@@ -117,33 +117,26 @@
 
 {% block content %}
 
-{% if messages %}
-<div class="mb-4">
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-3 border-0 py-2.5 px-3.5 shadow-sm" role="alert" style="font-size: 0.86rem;">
-        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
 <!-- ══ HEADER & ACTIONS ═══════════════════════════════════════════════════ -->
-<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+<div class="etala-page-header">
     <div>
-        <h1 class="mb-1 fw-bold" style="font-size: 1.55rem; color: #0f172a; letter-spacing: -0.4px;">
-            User Accounts &amp; Access Control
-        </h1>
-        <p class="text-muted mb-0" style="font-size: 0.88rem; font-weight: 500;">
-            Manage operator credentials, roles, and administrative permissions.
-        </p>
+        <h1 class="etala-page-title">User Accounts &amp; Access Control</h1>
+        <p class="etala-page-subtitle">Manage municipal engineering operator accounts, credentials, and role permissions.</p>
     </div>
     
-    <div class="d-flex align-items-center gap-2 flex-wrap">
+    <div class="etala-header-actions">
+        {% if request.user.role == 'admin' %}
+        <button class="etala-btn etala-btn-primary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#addUserModal" title="Register New Operator">
+            <i class="fa-solid fa-user-plus" style="font-size: 13px;"></i>
+            <span>Add User</span>
+        </button>
+        {% endif %}
+
         <!-- Search Input -->
-        <form method="GET" action="{% url 'users' %}" class="m-0">
-            <div class="d-flex align-items-center px-3 rounded-3 border shadow-2xs" style="background: #ffffff; width: 240px; height: 38px; border-color: #cbd5e1;">
+        <form method="GET" action="{% url 'users' %}" class="m-0 flex-grow-1 flex-sm-grow-0">
+            <div class="d-flex align-items-center px-3 rounded-3 border shadow-2xs" style="background: var(--card-bg, #ffffff); min-width: 220px; max-width: 320px; height: 38px; border-color: #cbd5e1;">
                 <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #94a3b8;"></i>
-                <input type="text" name="q" class="form-control border-0 p-0 shadow-none bg-transparent" placeholder="Search user..." value="{{ q|default:'' }}" style="font-size: 0.82rem;">
+                <input type="text" name="q" class="form-control border-0 p-0 shadow-none bg-transparent" placeholder="Search user by name, role..." value="{{ q|default:'' }}" style="font-size: 0.82rem; color: var(--text-primary, #1e293b);">
                 {% if q %}
                 <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-1 text-decoration-none" title="Clear">
                     <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
@@ -151,13 +144,6 @@
                 {% endif %}
             </div>
         </form>
-
-        {% if request.user.role == 'admin' %}
-        <button class="btn btn-dark d-inline-flex align-items-center gap-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#addUserModal" style="height: 38px; border-radius: 10px; font-size: 0.82rem; padding: 0 16px; background: #064e3b; border-color: #064e3b;">
-            <i class="fa-solid fa-user-plus" style="font-size: 13px;"></i>
-            <span>Add User</span>
-        </button>
-        {% endif %}
     </div>
 </div>
 
@@ -200,26 +186,20 @@
             <!-- Left: Avatar + Details -->
             <div class="d-flex align-items-center gap-3 min-w-0" style="flex: 1 1 280px;">
                 {% if u.profile_picture_url %}
-                <img src="{{ u.profile_picture_url }}" class="rounded-circle border flex-shrink-0" style="width: 42px; height: 42px; object-fit: cover;">
-                {% else %}
-                    {% if u.role == 'admin' %}
-                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 42px; height: 42px; font-size: 0.85rem; background: #e0f2fe; color: #0284c7; border: 1.5px solid #bae6fd;">
-                        {{ u.username|slice:":2"|upper }}
-                    </div>
-                    {% elif u.role == 'engineer' %}
-                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 42px; height: 42px; font-size: 0.85rem; background: #fef3c7; color: #d97706; border: 1.5px solid #fde68a;">
-                        {{ u.username|slice:":2"|upper }}
-                    </div>
-                    {% else %}
-                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style="width: 42px; height: 42px; font-size: 0.85rem; background: #f0fdf4; color: #15803d; border: 1.5px solid #bbf7d0;">
-                        {{ u.username|slice:":2"|upper }}
-                    </div>
-                    {% endif %}
+                <img src="{{ u.profile_picture_url }}" class="rounded-circle border flex-shrink-0" style="width: 42px; height: 42px; object-fit: cover;"
+                    onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
                 {% endif %}
+                <div class="rounded-circle align-items-center justify-content-center fw-bold flex-shrink-0"
+                    style="width: 42px; height: 42px; font-size: 0.85rem; display: {% if u.profile_picture_url %}none{% else %}flex{% endif %};
+                    {% if u.role == 'admin' %}background: #e0f2fe; color: #0284c7; border: 1.5px solid #bae6fd;
+                    {% elif u.role == 'engineer' %}background: #fef3c7; color: #d97706; border: 1.5px solid #fde68a;
+                    {% else %}background: #f0fdf4; color: #15803d; border: 1.5px solid #bbf7d0;{% endif %}">
+                    {{ u.username|slice:":2"|upper }}
+                </div>
 
                 <div class="min-w-0">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <span class="fw-bold text-dark text-truncate" style="font-size: 0.9rem;">
+                        <span class="fw-bold text-dark text-truncate d-inline-block" style="font-size: 0.9rem; max-width: 260px; vertical-align: middle;" title="{{ u.full_name|default:u.username }}">
                             {{ u.full_name|default:u.username }}
                         </span>
                         {% if u.role == 'admin' %}
@@ -275,11 +255,11 @@
                 {% endif %}
 
                 <!-- Action Dropdown -->
-                <div class="dropdown" onclick="event.stopPropagation();" style="position: relative;">
-                    <button type="button" class="btn btn-light btn-sm border d-flex align-items-center justify-content-center" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-offset="0,8" style="width: 32px; height: 32px; border-radius: 8px; background: #ffffff;">
+                <div class="dropdown" onclick="event.stopPropagation();">
+                    <button type="button" class="btn btn-light btn-sm border d-flex align-items-center justify-content-center" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-popper-config='{"strategy":"fixed"}' style="width: 32px; height: 32px; border-radius: 8px; background: #ffffff;">
                         <i class="fa-solid fa-ellipsis-vertical text-muted" style="font-size: 13px;"></i>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border p-1" style="border-radius: 12px; font-size: 0.82rem; min-width: 175px; z-index: 1050;" onclick="event.stopPropagation();">
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 p-1" style="border-radius: 12px; font-size: 0.82rem; min-width: 175px; z-index: 99999; background: #ffffff;" onclick="event.stopPropagation();">
                         <li>
                             <button type="button" class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2" 
                                     onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})">
@@ -500,9 +480,9 @@
                     </div>
 
                     <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
-                        <button type="submit" class="btn btn-dark btn-sm px-4 fw-semibold" style="background: #064e3b; border-color: #064e3b; border-radius: 8px;">
-                            <i class="fa-solid fa-plus me-1"></i> Create Account
+                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
+                            <i class="fa-solid fa-plus"></i> <span>Create Account</span>
                         </button>
                     </div>
                 </form>
@@ -547,9 +527,9 @@
                     </div>
 
                     <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
-                        <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold" style="border-radius: 8px;">
-                            <i class="fa-solid fa-save me-1"></i> Save Changes
+                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
+                            <i class="fa-solid fa-floppy-disk"></i> <span>Save Changes</span>
                         </button>
                     </div>
                 </form>
@@ -585,9 +565,9 @@
                     </div>
 
                     <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal" style="border-radius: 8px;">Cancel</button>
-                        <button type="submit" class="btn btn-teal btn-sm px-4 fw-semibold text-white" style="background: #0d9488; border-color: #0d9488; border-radius: 8px;">
-                            <i class="fa-solid fa-key me-1"></i> Reset Password
+                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
+                            <i class="fa-solid fa-key"></i> <span>Reset Password</span>
                         </button>
                     </div>
                 </form>

@@ -5,59 +5,66 @@
 
 {% block content %}
 <!-- Page Header and Actions -->
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+<div class="etala-page-header">
     <div>
-        <h2 class="fw-bold mb-1 text-dark">Projects</h2>
-        <p class="text-muted small mb-0">Track active engineering projects, documentation status, and completions.</p>
+        <h1 class="etala-page-title d-flex align-items-center gap-2">
+            <i class="fa-solid fa-diagram-project text-primary" style="font-size: 22px;"></i>
+            <span>Engineering Projects</span>
+        </h1>
+        <p class="etala-page-subtitle">Track active engineering projects, documentation status, and completions across Carigara.</p>
     </div>
     {% if user.role == 'admin' or user.role == 'staff' %}
-    <a href="{% url 'create_step1' %}" class="action-btn action-btn-primary d-inline-flex align-items-center gap-2 px-3 fw-semibold text-decoration-none" style="border-radius: 8px;">
-        <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
-        New Record Project
-    </a>
+    <div class="etala-header-actions">
+        <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary text-decoration-none">
+            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
+            <span>New Record Project</span>
+        </a>
+    </div>
     {% endif %}
 </div>
 
 <!-- Search and Filter Panel -->
-<div class="card border-0 shadow-sm p-4 mb-4">
-    <form method="GET" action="{% url 'projects' %}" class="row g-3">
-        <!-- Search bar -->
-        <div class="col-12 col-md-5">
-            <label for="searchQuery" class="form-label small fw-semibold text-muted mb-1">Search Keywords</label>
-            <div class="input-group" style="border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);">
-                <span class="input-group-text bg-white border-0 text-muted pe-1"><i data-lucide="search" style="width: 14px; height: 14px;"></i></span>
-                <input type="text" name="q" id="searchQuery" class="form-control border-0 bg-white py-1-5 small" placeholder="Search project name or details..." value="{{ q }}" style="font-size: 0.85rem; outline: none; box-shadow: none;">
+<div class="content-card mb-4" style="border-radius: 14px;">
+    <div class="content-card-body p-4">
+        <form method="GET" action="{% url 'projects' %}" class="row g-3">
+            <!-- Search bar -->
+            <div class="col-12 col-md-5">
+                <label for="searchQuery" class="form-label small fw-semibold text-muted mb-1">Search Keywords</label>
+                <div class="d-flex align-items-center filter-search-group px-3" style="height: 38px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--card-bg);">
+                    <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b;"></i>
+                    <input type="text" name="q" id="searchQuery" class="form-control border-0 p-0 flex-grow-1" placeholder="Search project name or details..." value="{{ q }}" style="font-size: 0.85rem; outline: none; box-shadow: none; height: 100%; background: transparent;">
+                </div>
             </div>
-        </div>
 
-        <!-- Category selector -->
-        <div class="col-6 col-md-3">
-            <label for="filterCategory" class="form-label small fw-semibold text-muted mb-1">Category</label>
-            <select name="category" id="filterCategory" class="form-select form-select-sm border-color py-1-5" style="border-radius: 8px; font-size: 0.85rem;" onchange="this.form.submit()">
-                <option value="">All Categories</option>
-                {% for c in categories %}
-                <option value="{{ c.category_id }}" {% if selected_category == c.category_id|stringformat:"i" %}selected{% endif %}>{{ c.category_name }}</option>
-                {% endfor %}
-            </select>
-        </div>
+            <!-- Category selector -->
+            <div class="col-6 col-md-3">
+                <label for="filterCategory" class="form-label small fw-semibold text-muted mb-1">Category</label>
+                <select name="category" id="filterCategory" class="form-select form-select-sm rounded-3 py-1-5" style="height: 38px; font-size: 0.85rem;" onchange="this.form.submit()">
+                    <option value="">All Categories</option>
+                    {% for c in categories %}
+                    <option value="{{ c.category_id }}" {% if selected_category == c.category_id|stringformat:"i" %}selected{% endif %}>{{ c.category_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-        <!-- Location Type selector -->
-        <div class="col-6 col-md-3">
-            <label for="filterLocation" class="form-label small fw-semibold text-muted mb-1">Location Type</label>
-            <select name="location_type" id="filterLocation" class="form-select form-select-sm border-color py-1-5" style="border-radius: 8px; font-size: 0.85rem;" onchange="this.form.submit()">
-                <option value="">All Locations</option>
-                <option value="barangay" {% if selected_location == 'barangay' %}selected{% endif %}>Barangay</option>
-                <option value="municipal" {% if selected_location == 'municipal' %}selected{% endif %}>Municipal</option>
-            </select>
-        </div>
+            <!-- Location Type selector -->
+            <div class="col-6 col-md-3">
+                <label for="filterLocation" class="form-label small fw-semibold text-muted mb-1">Location Type</label>
+                <select name="location_type" id="filterLocation" class="form-select form-select-sm rounded-3 py-1-5" style="height: 38px; font-size: 0.85rem;" onchange="this.form.submit()">
+                    <option value="">All Locations</option>
+                    <option value="barangay" {% if selected_location == 'barangay' %}selected{% endif %}>Barangay</option>
+                    <option value="municipal" {% if selected_location == 'municipal' %}selected{% endif %}>Municipal</option>
+                </select>
+            </div>
 
-        <!-- Clear/Apply buttons -->
-        <div class="col-12 col-md-1 d-flex align-items-end justify-content-end">
-            <a href="{% url 'projects' %}" class="btn btn-sm btn-light border py-1-5 w-100 fw-semibold" style="border-radius: 8px; font-size: 0.8rem; height: 35px; display: flex; align-items: center; justify-content: center; color: #475569;">
-                Reset
-            </a>
-        </div>
-    </form>
+            <!-- Clear/Apply buttons -->
+            <div class="col-12 col-md-1 d-flex align-items-end justify-content-end">
+                <a href="{% url 'projects' %}" class="etala-btn etala-btn-secondary text-nowrap w-100 text-decoration-none" style="height: 38px;" title="Reset filters">
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 
 <!-- Projects Cards Grid -->
@@ -81,7 +88,7 @@
         <!-- Metadata items list -->
         <div class="d-flex flex-column gap-2 mb-4">
             <div class="project-card-meta-item m-0">
-                <i data-lucide="map-pin" class="text-muted"></i>
+                <i class="fa-solid fa-location-dot text-muted me-1.5" style="font-size: 13px;"></i>
                 <span class="text-truncate">
                     {% if r.location_type == 'barangay' %}
                         Brgy. {{ r.barangay.barangay_name }}
@@ -92,22 +99,22 @@
             </div>
 
             <div class="project-card-meta-item m-0">
-                <i data-lucide="wallet" class="text-muted"></i>
+                <i class="fa-solid fa-wallet text-muted me-1.5" style="font-size: 13px;"></i>
                 <span>₱{{ r.budget_amount }}</span>
             </div>
 
             <div class="project-card-meta-item m-0">
-                <i data-lucide="user" class="text-muted"></i>
+                <i class="fa-solid fa-user text-muted me-1.5" style="font-size: 13px;"></i>
                 <span class="text-truncate">{{ r.created_by.full_name|default:r.created_by.username }}</span>
             </div>
 
             <div class="project-card-meta-item m-0">
-                <i data-lucide="archive" class="text-muted"></i>
+                <i class="fa-solid fa-box-archive text-muted me-1.5" style="font-size: 13px;"></i>
                 <span>Archive No: <span class="fw-semibold text-dark">{{ r.archive_number|default:"N/A" }}</span></span>
             </div>
             
             <div class="project-card-meta-item m-0">
-                <i data-lucide="check-circle" class="text-muted"></i>
+                <i class="fa-solid fa-circle-check text-muted me-1.5" style="font-size: 13px;"></i>
                 <span>Status: 
                     {% if r.status == 'active' %}
                     <span class="text-success fw-semibold">Active</span>
@@ -136,8 +143,8 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="card border-0 shadow-sm p-5 text-center text-muted mb-5">
-    <i data-lucide="folder-search" class="display-4 mb-3" style="width: 48px; height: 48px; display: inline-block; color: var(--navy); opacity: 0.8;"></i>
+<div class="content-card p-5 text-center text-muted mb-5" style="border-radius: 14px;">
+    <i class="fa-solid fa-folder-open mb-3 text-secondary" style="font-size: 42px;"></i>
     <h5 class="fw-semibold text-dark mb-1">No documents found</h5>
     <p class="small mb-0">Try searching another keyword or remove filters.</p>
 </div>

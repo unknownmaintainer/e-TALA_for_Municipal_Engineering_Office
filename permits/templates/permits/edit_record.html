@@ -14,42 +14,32 @@
 
 {% block content %}
 
-{% if messages %}
-<div class="mb-3">
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-3 border-0 py-2.5 px-3"
-        role="alert" style="font-size:0.85rem;">
-        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
+<!-- ══ PAGE HEADER ═════════════════════════════════════════════════════════ -->
 
 <!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
 <form method="POST" action="{% url 'edit_record' record.record_id %}">
     {% csrf_token %}
-    <div class="page-title-row d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div class="etala-page-header">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
-                <span class="tag tag-workspace">{% if record.record_type == 'Project' %}Project Record{% else %}Permit
-                    Record{% endif %}</span>
+                <span class="tag tag-workspace">{% if record.record_type == 'Project' %}Project Record{% else %}Permit Record{% endif %}</span>
             </div>
-            <h1 class="mb-0" style="font-size: 1.45rem;">Edit Record Information</h1>
+            <h1 class="etala-page-title">Edit Record Information</h1>
+            <p class="etala-page-subtitle">Update core metadata, dates, cost valuations, and status indicators.</p>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="etala-header-actions">
             <a href="{% url 'record_detail' record.record_id %}"
-                class="action-btn action-btn-secondary text-decoration-none d-inline-flex align-items-center gap-1.5 fw-semibold"
-                style="height: 36px;">
+                class="etala-btn etala-btn-secondary text-decoration-none" title="Back to Record Details">
                 <i class="fa-solid fa-arrow-left" style="font-size: 13px;"></i>
-                <span>Back to Record</span>
+                <span>Back to Details</span>
             </a>
         </div>
     </div>
 
     <!-- ══ EDIT FORM GRID ════════════════════════════════════════════════════ -->
-    <div class="row g-4 align-items-stretch">
+    <div class="row g-4 align-items-start min-w-0">
         <!-- LEFT COLUMN: Form Fields -->
-        <div class="col-lg-8 d-flex flex-column">
+        <div class="col-lg-8 d-flex flex-column min-w-0">
             <div class="content-card flex-grow-1 d-flex flex-column" style="border-radius: 14px;">
                 <div class="content-card-body d-flex flex-column justify-content-between flex-grow-1 p-4">
                     <div>
@@ -142,9 +132,7 @@
                             </div>
                             <div class="col-md-6 d-flex align-items-end pb-2">
                                 <div class="form-check">
-                                    <input type="checkbox" name="resolution_required" class="form-check-input"
-                                        id="chkResolutionRequired" {% if permit_detail and
-                                        permit_detail.resolution_required %}checked{% endif %}>
+                                    <input type="checkbox" name="resolution_required" class="form-check-input" id="chkResolutionRequired" {% if permit_detail and permit_detail.resolution_required %}checked{% endif %}>
                                     <label for="chkResolutionRequired"
                                         class="form-check-label small text-muted fw-semibold">Sangguniang Bayan
                                         Resolution Required</label>
@@ -185,13 +173,6 @@
                                     <option value="{{ val }}" {% if project_detail and project_detail.funding_source == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
-                                <div id="editFundingOtherWrapper" class="mt-2"
-                                    style="display: {% if project_detail and project_detail.funding_source == 'Others' %}block{% else %}none{% endif %};">
-                                    <input type="text" name="funding_source_other" class="form-control"
-                                        value="{{ project_detail.funding_source_other|default:'' }}"
-                                        placeholder="Specify other funding source..."
-                                        style="border-radius: 8px; font-size: 0.85rem; padding: 8px 12px;">
-                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label text-muted small fw-semibold mb-1">Project Budget / Cost
@@ -199,6 +180,14 @@
                                 <input type="number" name="project_cost" class="form-control"
                                     value="{{ project_detail.project_cost|default:'' }}" placeholder="0.00" step="0.01"
                                     min="0" style="border-radius: 8px; font-size: 0.85rem; padding: 8px 12px;">
+                            </div>
+                            <div class="col-12" id="editFundingOtherWrapper"
+                                style="display: {% if project_detail and project_detail.funding_source == 'Others' %}block{% else %}none{% endif %};">
+                                <label class="form-label text-muted small fw-semibold mb-1">Specify Other Funding Source</label>
+                                <input type="text" name="funding_source_other" class="form-control"
+                                    value="{{ project_detail.funding_source_other|default:'' }}"
+                                    placeholder="Specify other funding source..."
+                                    style="border-radius: 8px; font-size: 0.85rem; padding: 8px 12px;">
                             </div>
 
                             <div class="col-md-6">
@@ -265,117 +254,182 @@
         </div>
 
         <!-- RIGHT COLUMN: Record Summary Sidebar -->
-        <div class="col-lg-4 d-flex flex-column">
-            <div class="content-card record-summary-card d-flex flex-column flex-grow-1 p-4"
-                style="border-radius: 14px;">
-                <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom gap-2">
-                    <h6 class="record-summary-header m-0 d-flex align-items-center gap-1.5 fw-bold text-dark text-nowrap"
-                        style="font-size: 0.92rem; letter-spacing: 0.01em;">
-                        <i class="fa-solid fa-circle-info" style="color: var(--primary-brand); font-size: 15px;"></i>
-                        Record Summary
+        <div class="col-lg-4 d-flex flex-column min-w-0">
+            <div class="content-card record-summary-card d-flex flex-column p-3 px-3.5 pb-3 overflow-hidden"
+                style="border-radius: 16px; height: auto !important;">
+                <div class="d-flex align-items-center justify-content-between pb-2.5 mb-2 border-bottom gap-2">
+                    <h6 class="m-0 d-flex align-items-center gap-2 fw-bold text-uppercase subtitle-text-adaptive"
+                        style="font-size: 0.82rem; letter-spacing: 0.05em;">
+                        <i class="fa-solid fa-circle-info text-primary flex-shrink-0"></i>
+                        <span>Record Summary</span>
                     </h6>
-                    <span class="status-indicator status-indicator-{{ record.status }}"
-                        style="white-space: nowrap; flex-shrink: 0;">{{ record.get_status_display }}</span>
+                    <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
+                        style="background: rgba(49, 85, 217, 0.1); color: #3155D9; font-weight: 600; font-size: 0.76rem; border: 1px solid rgba(49, 85, 217, 0.2);">
+                        <span class="d-inline-block rounded-circle" style="width: 6px; height: 6px; background-color: #3155D9;"></span>
+                        {{ record.get_status_display }}
+                    </span>
                 </div>
 
-                <div class="d-flex flex-column gap-2" style="font-size: 0.83rem;">
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Record Category</span>
-                        <span class="badge text-end text-nowrap text-truncate ms-auto"
-                            style="background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; font-size: 0.74rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; max-width: 65%;">{% if record.record_type == 'Project' %}{{ record.get_project_scope_display }} Project{% else %}Permit Record{% endif %}</span>
+                <!-- Key-Value Pairs (Consistent: icon + label on 1st line, value below) -->
+                <div class="d-flex flex-column gap-1.5" style="font-size: 0.84rem;">
+                    
+                    <!-- Record ID -->
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-hashtag text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Record ID</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            #{{ record.record_id }}
+                        </div>
                     </div>
 
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Specific Type</span>
-                        <span class="fw-semibold text-dark text-end ms-auto text-truncate" style="max-width: 60%;"
-                            title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
+                    <!-- Record Type -->
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-layer-group text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Record Type</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {% if record.record_type == 'Project' %}
+                            {{ record.get_project_scope_display }} Project
+                            {% else %}
+                            Permit Record
+                            {% endif %}
+                        </div>
                     </div>
 
-                    {% if permit_detail %}
-                    {% if permit_detail.applicant_name %}
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Applicant / Owner</span>
-                        <span class="fw-bold text-dark text-end ms-auto text-truncate" style="max-width: 60%;"
-                            title="{{ permit_detail.applicant_name }}">{{ permit_detail.applicant_name }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if permit_detail.permit_number %}
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Permit No.</span>
-                        <span class="fw-semibold text-dark text-end ms-auto">{{ permit_detail.permit_number }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if permit_detail.building_type %}
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Building Type</span>
-                        <span class="fw-semibold text-dark text-end ms-auto">{{ permit_detail.get_building_type_display|default:permit_detail.building_type }}</span>
-                    </div>
-                    {% endif %}
-                    {% endif %}
-
-                    {% if project_detail %}
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Project Scope</span>
-                        <span class="fw-semibold text-dark text-end ms-auto">{{ record.get_project_scope_display }}</span>
+                    <!-- Specific Type -->
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-file-signature text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Specific Type</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ record.specific_type_label }}
+                        </div>
                     </div>
 
-                    {% if project_detail.project_cost %}
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Project Budget / Cost</span>
-                        <span class="fw-bold text-success text-end ms-auto text-nowrap" style="font-size: 0.85rem;"
-                            title="₱ {{ project_detail.project_cost|intcomma }}">₱ {{ project_detail.project_cost|intcomma }}</span>
+                    <!-- Applicant / Owner -->
+                    {% if permit_detail and permit_detail.applicant_name %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Applicant / Owner</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ permit_detail.applicant_name }}
+                        </div>
                     </div>
                     {% endif %}
 
-                    {% if project_detail.funding_source %}
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Funding Source</span>
-                        <span class="fw-semibold text-dark text-end ms-auto text-truncate" style="max-width: 60%;">{{ project_detail.funding_source }}</span>
+                    <!-- Permit No. -->
+                    {% if permit_detail and permit_detail.permit_number %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-id-card text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Permit No.</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ permit_detail.permit_number }}
+                        </div>
                     </div>
                     {% endif %}
 
-                    {% if project_detail.contractor %}
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Contractor</span>
-                        <span class="fw-semibold text-dark text-end ms-auto text-truncate" style="max-width: 60%;"
-                            title="{{ project_detail.contractor }}">{{ project_detail.contractor }}</span>
+                    <!-- Building Type -->
+                    {% if permit_detail and permit_detail.building_type %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-building text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Building Type</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ permit_detail.get_building_type_display|default:permit_detail.building_type }}
+                        </div>
                     </div>
                     {% endif %}
+
+                    <!-- Project Budget -->
+                    {% if project_detail and project_detail.project_cost %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-sack-dollar text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Project Budget</span>
+                        </div>
+                        <div class="fw-bold text-success text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            ₱ {{ project_detail.project_cost|intcomma }}
+                        </div>
+                    </div>
                     {% endif %}
 
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Barangay</span>
-                        <span class="fw-semibold text-dark text-end ms-auto">{{ record.barangay.barangay_name|default:"Unassigned" }}</span>
+                    <!-- Funding Source -->
+                    {% if project_detail and project_detail.funding_source %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-building-columns text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Funding Source</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ project_detail.funding_source }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Contractor -->
+                    {% if project_detail and project_detail.contractor %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-helmet-safety text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Contractor</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ project_detail.contractor }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Barangay -->
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-location-dot text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Barangay</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ record.barangay.barangay_name|default:"Unassigned" }}
+                        </div>
                     </div>
 
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Encoded By</span>
-                        <span class="fw-semibold text-dark text-end ms-auto">{{ record.created_by.full_name|default:record.created_by.username }}</span>
+                    <!-- Encoded By -->
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-user-gear text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Encoded By</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ record.created_by.full_name|default:record.created_by.username }}
+                        </div>
                     </div>
 
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Filing Year</span>
-                        <span class="fw-semibold text-dark text-end ms-auto">{{ record.year|default:record.created_at.year }}</span>
+                    <!-- Date Encoded -->
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-regular fa-calendar-plus text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Date Encoded</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ record.created_at|date:"M d, Y" }}
+                        </div>
                     </div>
 
-                    <div
-                        class="d-flex align-items-center justify-content-between py-1.5 border-bottom border-light gap-2 min-w-0">
-                        <span class="text-muted fw-medium text-nowrap">Last Updated</span>
-                        <span class="text-secondary text-end ms-auto" style="font-size: 0.78rem;">{{ record.updated_at|date:"M d, Y" }}</span>
+                    <!-- Last Updated -->
+                    <div class="py-1 d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-regular fa-clock text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Last Updated</span>
+                        </div>
+                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ record.updated_at|date:"M d, Y" }}
+                        </div>
                     </div>
                 </div>
 
@@ -387,12 +441,11 @@
                         <span>Description &amp; Location Details</span>
                     </div>
                     <div class="p-3 rounded-3 border text-dark"
-                        style="font-size: 0.81rem; line-height: 1.6; white-space: pre-line; background: #f8fafc !important; border-color: #e2e8f0 !important;">
+                        style="font-size: 0.81rem; line-height: 1.6; white-space: pre-line; word-break: break-word; overflow-wrap: anywhere; background: #f8fafc !important; border-color: #e2e8f0 !important;">
                         {{ record.description }}
                     </div>
                 </div>
                 {% endif %}
-
 
             </div>
         </div>

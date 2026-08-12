@@ -9,34 +9,32 @@
 
 {% block content %}
 
-{% if messages %}
-<div class="mb-3 d-print-none">
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size: var(--text-base);">
-        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
 <!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
-<div class="page-title-row d-print-none">
+<div class="etala-page-header d-print-none">
     <div>
-        <h1>
-            <i data-lucide="history" class="text-navy me-1" style="width: 22px; height: 22px; vertical-align: -3px;"></i>
-            {% if request.user.role == 'admin' %}
-            System Activity Logs
-            {% else %}
-            My Activity Logs
-            {% endif %}
+        <h1 class="etala-page-title d-flex align-items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-primary" style="font-size: 20px;"></i>
+            <span>
+                {% if request.user.role == 'admin' %}
+                System Security Audit Trail &amp; Logs
+                {% else %}
+                My Activity Logs
+                {% endif %}
+            </span>
         </h1>
-        <p class="page-subtitle">
+        <p class="etala-page-subtitle">
             {% if request.user.role == 'admin' %}
-            Audit trail of admin operations and user authentication attempts for security compliance
+            Immutable chronological audit log of all system authentication, record modifications, and administrative operations.
             {% else %}
-            Audit trail of your personal operations and actions performed on the platform
+            Personal activity trail of records encoded, modified, and actions performed within your account session.
             {% endif %}
         </p>
+    </div>
+    <div class="etala-header-actions">
+        <a href="{% url 'export_activity_logs' %}" class="etala-btn etala-btn-secondary text-decoration-none d-inline-flex align-items-center gap-1.5" title="Export activity logs to CSV spreadsheet">
+            <i class="fa-solid fa-file-csv text-success" style="font-size: 14px;"></i>
+            <span>Export Logs (CSV)</span>
+        </a>
     </div>
 </div>
 
@@ -49,34 +47,71 @@
             <!-- Left: Sub-Tab Buttons -->
             <div class="d-flex gap-2">
                 <button class="logs-tab-btn active" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button">
-                    <i data-lucide="list-checks" class="me-2" style="width: 18px; height: 18px; vertical-align: -3px;"></i>Audit Trail
+                    <i class="fa-solid fa-list-check me-2" style="font-size: 14px;"></i>Audit Trail
                 </button>
                 {% if request.user.role == 'admin' %}
                 <button class="logs-tab-btn" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button">
-                    <i data-lucide="shield-alert" class="me-2" style="width: 18px; height: 18px; vertical-align: -3px;"></i>Login History
+                    <i class="fa-solid fa-shield-halved me-2" style="font-size: 14px;"></i>Login History
                 </button>
                 {% endif %}
             </div>
             
-            <!-- Right: Search & Export -->
+            <!-- Right: Search, Filter Dropdown & Export -->
             <form method="GET" action="{% url 'activity_logs' %}" class="d-flex gap-2 flex-wrap align-items-center">
                 <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 280px; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-                    <i data-lucide="search" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0;" class="me-1"></i>
+                    <i class="fa-solid fa-magnifying-glass me-1" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
                     <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-                    <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search..." value="{{ query|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+                    <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search action or staff..." value="{{ query|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
                     {% if query %}
                     <a href="{% url 'activity_logs' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
-                        <i data-lucide="x" style="width:16px;height:16px;"></i>
+                        <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
                     </a>
                     {% endif %}
                 </div>
-                <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 38px;" title="Apply search query">Filter</button>
+
+                <!-- Interactive Filter Popover -->
+                <div class="dropdown">
+                    <button type="button" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center gap-1.5" style="height: 38px;" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" title="Filter Activity Logs">
+                        <i class="fa-solid fa-sliders" style="font-size: 13px;"></i>
+                        <span>Filter</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow-sm p-3" style="min-width: 250px; border-radius: 10px; border: 1px solid var(--border-default); z-index: 1060; margin-top: 6px;">
+                        <!-- Filter 1: Date Range -->
+                        <div class="mb-3">
+                            <label class="form-label text-muted fw-semibold mb-1" style="font-size: 0.76rem;">Date Range</label>
+                            <select name="date_range" class="form-select form-select-sm" style="font-size: 0.82rem; border-radius: 6px;">
+                                <option value="all" {% if date_filter == 'all' or not date_filter %}selected{% endif %}>All Dates</option>
+                                <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Today</option>
+                                <option value="7days" {% if date_filter == '7days' %}selected{% endif %}>Past 7 Days</option>
+                                <option value="30days" {% if date_filter == '30days' %}selected{% endif %}>Past 30 Days</option>
+                            </select>
+                        </div>
+
+                        <!-- Filter 2: Action Type -->
+                        <div class="mb-3">
+                            <label class="form-label text-muted fw-semibold mb-1" style="font-size: 0.76rem;">Action Type</label>
+                            <select name="action_type" class="form-select form-select-sm" style="font-size: 0.82rem; border-radius: 6px;">
+                                <option value="all" {% if action_type == 'all' or not action_type %}selected{% endif %}>All Actions</option>
+                                <option value="create" {% if action_type == 'create' %}selected{% endif %}>Record Created</option>
+                                <option value="update" {% if action_type == 'update' %}selected{% endif %}>Record Updated</option>
+                                <option value="upload" {% if action_type == 'upload' %}selected{% endif %}>Document Uploaded</option>
+                                <option value="delete" {% if action_type == 'delete' %}selected{% endif %}>Record Deleted</option>
+                            </select>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2.5 border-top">
+                            <a href="{% url 'activity_logs' %}" class="text-muted text-decoration-none" style="font-size: 0.78rem;">Reset</a>
+                            <button type="submit" class="action-btn action-btn-primary action-btn-sm px-3" style="height: 32px; font-size: 0.78rem;">Apply</button>
+                        </div>
+                    </div>
+                </div>
+
                 <a id="exportLogsBtn" href="#" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center gap-1.5" style="height: 38px; text-decoration: none;" title="Export logs as CSV">
-                    <i data-lucide="download" style="width: 14px; height: 14px;"></i> Export
+                    <i class="fa-solid fa-download" style="font-size: 13px;"></i> Export
                 </a>
-                {% if status_filter != 'all' and status_filter %}
-                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;" title="Clear status filter">
-                        <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                {% if status_filter != 'all' and status_filter or date_filter != 'all' or action_type != 'all' %}
+                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;" title="Reset all filters">
+                        <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
                     </a>
                 {% endif %}
             </form>
@@ -85,34 +120,59 @@
         <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
         <div id="log-tab-content-audit" class="tab-pane-custom">
             {% if log_page_obj %}
-                <div class="table-responsive mb-4">
-                    <table class="data-table table-card-responsive mb-0">
+                <div class="table-responsive table-responsive-cards mb-4">
+                    <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="width: 180px; white-space: nowrap;">Date &amp; Time</th>
-                                <th>Action Performed</th>
                                 {% if request.user.role == 'admin' %}
-                                <th style="width: 220px; white-space: nowrap;">Staff Member</th>
+                                <th style="width: 250px;">STAFF MEMBER</th>
                                 {% endif %}
+                                <th>ACTION PERFORMED</th>
+                                <th style="width: 160px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for log in log_page_obj %}
                             <tr>
-                                <td class="cell-muted font-monospace" data-label="Date & Time" style="font-size: 0.78rem;" title="Timestamp of performed action">
-                                    {{ log.performed_at|date:"Y-m-d H:i:s" }}
-                                </td>
-                                <td data-label="Action Performed" style="font-size: 0.84rem; color: var(--gray-700); white-space: normal; word-break: break-word;" title="{{ log.action }}">
-                                    {{ log.action }}
-                                </td>
                                 {% if request.user.role == 'admin' %}
-                                <td data-label="Staff Member" title="Staff member who executed this action">
-                                    <span class="fw-bold text-dark" style="font-size: 0.85rem;">{{ log.user.full_name|default:log.user.username }}</span>
-                                    {% if log.user.get_role_display and log.user.get_role_display|lower != log.user.full_name|lower and log.user.get_role_display|lower != log.user.username|lower %}
-                                    <span class="badge-role ms-1">{{ log.user.get_role_display }}</span>
-                                    {% endif %}
+                                <td data-label="Staff Member" style="vertical-align: middle;">
+                                    <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+                                        <div style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: #e2e8f0; color: #334155; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid #cbd5e1; flex-shrink: 0; overflow: hidden;">
+                                            {% if log.user.profile_picture_url %}
+                                            <img src="{{ log.user.profile_picture_url }}" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
+                                            {% else %}
+                                            {{ log.user.full_name|default:log.user.username|slice:":1"|upper }}
+                                            {% endif %}
+                                        </div>
+                                        <div style="min-width: 0; flex: 1;">
+                                            <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
+                                                {{ log.user.full_name|default:log.user.username }}
+                                            </div>
+                                            <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
+                                                {{ log.user.get_role_display|default:"Operator" }}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </td>
                                 {% endif %}
+
+                                <td data-label="Action Performed" style="vertical-align: middle;">
+                                    <div style="display: flex; align-items: flex-start; gap: 12px; min-width: 0;">
+                                        <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus text-primary{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square text-info{% elif 'Uploaded' in log.action %}fa-upload text-success{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash text-danger{% elif 'Blocked' in log.action %}fa-shield-halved text-warning{% else %}fa-clock-rotate-left text-secondary{% endif %}" style="font-size: 14px; opacity: 0.85; flex-shrink: 0; margin-top: 3px;"></i>
+                                        <div class="fw-medium text-dark" style="font-size: 0.84rem; word-break: break-word; line-height: 1.45; min-width: 0; flex: 1;">
+                                            {{ log.action }}
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="text-end" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
+                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
+                                        {{ log.performed_at|date:"h:i:s A" }}
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                        {{ log.performed_at|date:"M d, Y" }}
+                                    </div>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -173,10 +233,23 @@
                     </div>
                 </div>
             {% else %}
-                <div class="empty-state-unified py-5 bg-light rounded-3" style="border-radius: 8px !important;">
-                    <i data-lucide="folder-open"></i>
-                    <h6>No Audit Log Found</h6>
-                    <p>No audit trail records match the search filters.</p>
+                <div class="text-center py-5 px-3 my-3 border rounded-3 bg-white" style="border-color: var(--border-default) !important; border-radius: 12px !important;">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-light text-secondary rounded-circle mb-3" style="width: 54px; height: 54px;">
+                        <i class="fa-solid fa-magnifying-glass" style="font-size: 20px; opacity: 0.6;"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">No matching activity records</h6>
+                    <p class="text-muted mb-3" style="font-size: 0.82rem; max-width: 400px; margin: 0 auto;">
+                        {% if query %}
+                        No activity logs match your search for <strong>"{{ query }}"</strong>.
+                        {% else %}
+                        No activity records found for the selected filter criteria.
+                        {% endif %}
+                    </p>
+                    {% if query or date_filter != 'all' or action_type != 'all' %}
+                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5" style="text-decoration: none;">
+                        <i class="fa-solid fa-xmark" style="font-size: 12px;"></i> Clear Search &amp; Filters
+                    </a>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
@@ -186,31 +259,30 @@
         <div id="log-tab-content-login" class="tab-pane-custom" style="display:none;">
             
             <!-- Status Filter Buttons -->
-                <div class="scope-segmented-control p-1">
-                    <a href="?status=all&q={{ query }}" class="scope-pill-btn {% if status_filter == 'all' or not status_filter %}active{% endif %}" onclick="saveLogTabState('login')">All Attempts</a>
-                    <a href="?status=success&q={{ query }}" class="scope-pill-btn {% if status_filter == 'success' %}active{% endif %}" onclick="saveLogTabState('login')">Successful</a>
-                    <a href="?status=failed&q={{ query }}" class="scope-pill-btn {% if status_filter == 'failed' %}active{% endif %}" onclick="saveLogTabState('login')">Failed</a>
-                </div>
-
+            <div class="scope-segmented-control p-1 mb-3.5 d-inline-flex">
+                <a href="?status=all&q={{ query }}" class="scope-pill-btn {% if status_filter == 'all' or not status_filter %}active{% endif %}" onclick="saveLogTabState('login')">All Attempts</a>
+                <a href="?status=success&q={{ query }}" class="scope-pill-btn {% if status_filter == 'success' %}active{% endif %}" onclick="saveLogTabState('login')">Successful</a>
+                <a href="?status=failed&q={{ query }}" class="scope-pill-btn {% if status_filter == 'failed' %}active{% endif %}" onclick="saveLogTabState('login')">Failed</a>
+            </div>
 
             {% if login_page_obj %}
-                <div class="table-responsive mb-4">
-                    <table class="data-table table-card-responsive mb-0">
+                <div class="table-responsive table-responsive-cards mb-4">
+                    <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="width: 180px; white-space: nowrap;">Date &amp; Time</th>
-                                <th>Email Attempted</th>
-                                <th>Status</th>
+                                <th>EMAIL ATTEMPTED</th>
+                                <th style="width: 160px;">STATUS</th>
+                                <th style="width: 160px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                {% if request.user.role == 'admin' %}
+                                <th style="width: 100px; text-align: right;">ACTION</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for attempt in login_page_obj %}
                             <tr>
-                                <td class="cell-muted font-monospace" data-label="Date & Time" style="font-size: 0.78rem;">
-                                    {{ attempt.timestamp|date:"Y-m-d H:i:s" }}
-                                </td>
-                                <td class="fw-bold text-dark" data-label="Email Attempted" style="font-size: 0.85rem;">
-                                    {{ attempt.email_attempted }}
+                                <td data-label="Email Attempted">
+                                    <div class="fw-bold text-dark" style="font-size: 0.85rem;">{{ attempt.email_attempted }}</div>
                                 </td>
                                 <td data-label="Status">
                                     {% if attempt.success %}
@@ -223,13 +295,20 @@
                                         </span>
                                     {% endif %}
                                 </td>
-                                {% if request.user.role == 'admin' %}
-                                <td class="text-end" data-label="Action" onclick="event.stopPropagation();">
+                                <td class="text-end" data-label="Date & Time" style="white-space: nowrap;">
+                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
+                                        {{ attempt.timestamp|date:"h:i:s A" }}
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                        {{ attempt.timestamp|date:"M d, Y" }}
+                                    </div>
+                                </td>
+                                <td class="text-end action-menu-cell" data-label="Action" onclick="event.stopPropagation();">
                                     <div class="dropdown">
-                                        <button class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Actions for {{ attempt.email_attempted }}">
+                                        <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-popper-config='{"strategy":"fixed"}' title="Actions for {{ attempt.email_attempted }}">
                                             <i data-lucide="more-horizontal" style="width: 16px; height: 16px;"></i>
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width: 175px; font-size: 0.82rem; border-radius: 10px; padding: 6px;">
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 175px; font-size: 0.82rem; border-radius: 10px; padding: 6px; z-index: 99999; background: #ffffff;">
                                             <!-- Option 1: View Details 👀 -->
                                             <li>
                                                 <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2" onclick="showLogDetailsModal('{{ attempt.email_attempted|escapejs }}', '{{ attempt.timestamp|date:"M d, Y - h:i A" }}', '{{ attempt.ip_address|default:"127.0.0.1" }}', '{% if attempt.success %}Success{% else %}Failed{% endif %}', '{% if attempt.success %}N/A (Authenticated Successfully){% else %}Incorrect Password / Invalid Credentials{% endif %}')">
@@ -320,10 +399,23 @@
                     </div>
                 </div>
             {% else %}
-                <div class="empty-state-unified py-5 bg-light rounded-3" style="border-radius: 8px !important;">
-                    <i data-lucide="shield"></i>
-                    <h6>No Login Records Found</h6>
-                    <p>No authentication history matches the search filters.</p>
+                <div class="text-center py-5 px-3 my-3 border rounded-3 bg-white" style="border-color: var(--border-default) !important; border-radius: 12px !important;">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-light text-secondary rounded-circle mb-3" style="width: 54px; height: 54px;">
+                        <i class="fa-solid fa-shield-halved" style="font-size: 20px; opacity: 0.6;"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">No matching login records</h6>
+                    <p class="text-muted mb-3" style="font-size: 0.82rem; max-width: 400px; margin: 0 auto;">
+                        {% if query %}
+                        No login history matches your search for <strong>"{{ query }}"</strong>.
+                        {% else %}
+                        No authentication attempts match the selected filter criteria.
+                        {% endif %}
+                    </p>
+                    {% if query or status_filter != 'all' or date_filter != 'all' %}
+                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5" style="text-decoration: none;">
+                        <i class="fa-solid fa-xmark" style="font-size: 12px;"></i> Clear Search &amp; Filters
+                    </a>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
@@ -361,6 +453,70 @@
     .tab-pane-custom {
         transition: opacity 0.15s ease-in-out;
     }
+
+    /* Clean Table Spacing & Smooth Row Transitions */
+    .table-responsive-cards .data-table th {
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+        font-size: 0.74rem !important;
+        letter-spacing: 0.04em !important;
+        color: var(--gray-600, #475569) !important;
+        background-color: var(--gray-50, #f8fafc) !important;
+        border-bottom: 1px solid var(--border-default, #e2e8f0) !important;
+    }
+
+    .table-responsive-cards .data-table td {
+        padding-top: 14px !important;
+        padding-bottom: 14px !important;
+        vertical-align: middle !important;
+        border-bottom: 1px solid var(--gray-100, #f1f5f9) !important;
+    }
+
+    .table-responsive-cards .data-table tbody tr {
+        transition: background-color 0.18s ease !important;
+    }
+
+    .table-responsive-cards .data-table tbody tr:hover {
+        background-color: rgba(248, 250, 252, 0.8) !important;
+    }
+
+    .dark-mode .table-responsive-cards .data-table tbody tr:hover {
+        background-color: rgba(30, 41, 59, 0.5) !important;
+    }
+
+    /* Mobile Responsive Card Transformation (<768px) */
+    @media (max-width: 767.98px) {
+        .table-responsive-cards table.data-table,
+        .table-responsive-cards table.data-table tbody,
+        .table-responsive-cards table.data-table tr,
+        .table-responsive-cards table.data-table td {
+            display: block !important;
+            width: 100% !important;
+        }
+
+        .table-responsive-cards table.data-table thead {
+            display: none !important;
+        }
+
+        .table-responsive-cards table.data-table tr {
+            background: var(--card-bg, #ffffff);
+            border: 1px solid var(--border-default, #e2e8f0) !important;
+            border-radius: 12px !important;
+            padding: 14px 16px !important;
+            margin-bottom: 12px !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+        }
+
+        .table-responsive-cards table.data-table td {
+            border: none !important;
+            padding: 4px 0 !important;
+            text-align: left !important;
+        }
+
+        .table-responsive-cards table.data-table td.text-end {
+            text-align: left !important;
+        }
+    }
 </style>
 
 <script>
@@ -372,9 +528,11 @@
         const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('q') || '';
+        const dateRange = urlParams.get('date_range') || '';
+        const actionType = urlParams.get('action_type') || '';
         const exportBtn = document.getElementById('exportLogsBtn');
         if (exportBtn) {
-            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + activeSubTab + "&q=" + encodeURIComponent(query);
+            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + activeSubTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType);
         }
     }
 

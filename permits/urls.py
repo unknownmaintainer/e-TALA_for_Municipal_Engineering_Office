@@ -67,6 +67,7 @@ urlpatterns = [
 
     # Profile & Settings
     path('profile/', views.profile_view, name='profile'),
+    path('users/<int:user_id>/avatar/', views.serve_user_avatar_view, name='serve_user_avatar'),
     path('about/', views.about_system_view, name='about_system'),
     path('users/', views.users_view, name='users'),
     path('settings/', views.settings_view, name='settings'),

@@ -25,7 +25,7 @@ The system is built with a clean, accessible, and government-standard design phi
 ### Core Functionality
 - **Role-Based Access Control (RBAC)**: Pre-defined roles for `Administrator`, `Municipal Engineer`, and `Engineering Staff` with distinct permissions.
 - **Dynamic Checklist Management**: Requirement checklists are dynamically generated based on the record type (Permit, Municipal Project, Barangay Project) and subtype (e.g., Building Permit, Road & Bridge Project).
-- **Document Management**: Secure document uploads with validation, Cloudinary for cloud storage, and version history. Includes batch uploading capabilities.
+- **Document Management**: Secure document uploads with validation, Supabase Storage for cloud storage, and version history. Includes batch uploading capabilities.
 - **Record Lifecycle Tracking**: Status tracking for records, from creation and submission to review, revision, and completion.
 - **Audit & Activity Logs**: Comprehensive logging of user actions for transparency and accountability. Logs can be exported to CSV.
 - **Search & Filtering**: Advanced search and filtering capabilities across all records, projects, and permits.
@@ -40,7 +40,7 @@ The system is built with a clean, accessible, and government-standard design phi
 ### Technical Features
 - **REST API**: Provides RESTful endpoints for `Records`, `Barangays`, and `Categories` with JWT-based authentication for extensibility.
 - **Secure Authentication**: Features include login attempt tracking and password history to enhance security.
-- **Cloud Integration**: Leverages Cloudinary for scalable and reliable media file storage.
+- **Cloud Integration**: Leverages Supabase Storage for scalable and reliable media file storage.
 - **Static Asset Handling**: Uses WhiteNoise to efficiently serve static files in production.
 
 ## System Architecture
@@ -50,7 +50,7 @@ The application is built on a modern Python and Django stack.
 - **Backend**: Django 6, Django REST Framework
 - **Frontend**: Django Templates, Chart.js, and custom CSS (moving towards Tailwind CSS).
 - **Database**: SQLite for local development, with seamless support for PostgreSQL in production via `dj-database-url`.
-- **Media Storage**: Cloudinary is used for all user-uploaded files (documents, profile pictures).
+- **Media Storage**: Supabase Storage is used for all user-uploaded files (documents, profile pictures) with local FileSystemStorage fallback.
 - **Static Files**: Served by WhiteNoise in production environments.
 - **Deployment**: Configured for Render via `render.yaml`, but adaptable to other platforms.
 
@@ -108,10 +108,10 @@ Follow these instructions to get the project running on your local machine for d
     DATABASE_URL='sqlite:///db.sqlite3'
     ALLOWED_HOSTS='127.0.0.1,localhost'
     
-    # Optional for local dev if you want to use Cloudinary
-    CLOUDINARY_CLOUD_NAME=''
-    CLOUDINARY_API_KEY=''
-    CLOUDINARY_API_SECRET=''
+    # Optional for cloud storage
+    SUPABASE_URL=''
+    SUPABASE_SERVICE_ROLE_KEY=''
+    SUPABASE_BUCKET_NAME='etala-documents'
     ```
 
 5.  **Run database migrations:**
@@ -160,8 +160,8 @@ Render deployment is configured in `render.yaml`. Production requires these envi
 - `DATABASE_URL`
 - `ALLOWED_HOSTS`
 - `CSRF_TRUSTED_ORIGINS`
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_BUCKET_NAME`
 
 Keep `.env`, `db.sqlite3`, `media/`, `staticfiles/`, and `logs/` out of source control.

@@ -183,52 +183,43 @@
 
 {% block content %}
 
-{% if messages %}
-<div class="mb-3">
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-1 border-0 py-2 px-3" role="alert" style="font-size:0.85rem;">
-        {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
+<!-- ══ PAGE HEADER ═════════════════════════════════════════════════════════ -->
 
 <!-- Page Header -->
-<div class="page-title-row d-flex justify-content-between align-items-center flex-wrap gap-2">
+<div class="etala-page-header">
     <div>
-        <h1 class="d-flex align-items-center gap-2">
-            <i data-lucide="map-pin" class="text-teal" style="width: 22px; height: 22px;"></i>
+        <h1 class="etala-page-title d-flex align-items-center gap-2">
+            <i class="fa-solid fa-location-dot text-primary" style="font-size: 22px;"></i>
             <span>Barangay Workspaces</span>
         </h1>
-        <p class="page-subtitle mb-0">Browse and manage engineering records across Carigara barangays.</p>
+        <p class="etala-page-subtitle">Geographic records archiving and GIS infrastructure mapping across all 49 Carigara barangays.</p>
     </div>
     
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <!-- Toggle Map Button -->
-        <button type="button" id="toggleMapBtn" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" style="height: 36px;">
-            <i data-lucide="map" style="width: 15px; height: 15px;"></i>
-            <span>Show Map</span>
-        </button>
-        <!-- Add Barangay Button -->
+    <div class="etala-header-actions">
         {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-        <button type="button" class="action-btn action-btn-primary action-btn-sm d-inline-flex align-items-center gap-1.5 fw-semibold" data-bs-toggle="modal" data-bs-target="#addBarangayModal" style="height: 36px;">
-            <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+        <button type="button" class="etala-btn etala-btn-primary" data-bs-toggle="modal" data-bs-target="#addBarangayModal" title="Register New Barangay">
+            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
             <span>Add Barangay</span>
         </button>
         {% endif %}
+        <!-- Toggle Map Button -->
+        <button type="button" id="toggleMapBtn" class="etala-btn etala-btn-secondary" title="Toggle GIS Map View">
+            <i class="fa-solid fa-map-location-dot" style="font-size: 14px;"></i>
+            <span>Show Map</span>
+        </button>
     </div>
 </div>
 
 <!-- Premium Pill-Shaped Search Bar & Barangay Counter -->
 <div class="filter-bar section-gap d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div class="d-flex align-items-center filter-search-group px-3 search-premium-group" style="max-width: 320px; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-        <i data-lucide="search" id="searchIcon" style="width: 15px; height: 15px; color: #64748b; flex-shrink: 0; transition: color 0.2s;" class="me-1"></i>
+        <i class="fa-solid fa-magnifying-glass me-1 text-secondary" id="searchIcon" style="font-size: 14px; flex-shrink: 0;"></i>
         <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
         <input type="text" id="barangaySearchInput" class="form-control border-0 p-0 flex-grow-1"
                placeholder="Search..."
                style="font-size: var(--text-sm); outline: none; box-shadow: none; height: 100%; background: transparent;">
         <button type="button" id="clearSearchBtn" class="btn border-0 p-0 d-none text-muted" style="background: transparent;" title="Clear search">
-            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+            <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
         </button>
     </div>
     <div class="d-flex align-items-center gap-2">
@@ -281,31 +272,28 @@
         {% if barangays %}
         <div class="row g-3" id="barangayGrid">
             {% for b in barangays %}
-            <!-- Starts with col-lg-4 (3 columns on desktop) since map is hidden by default -->
             <div class="col-lg-4 col-md-6 col-sm-6 barangay-card-wrapper" 
                  data-name="{{ b.barangay_name }}" 
                  data-id="{{ b.barangay_id }}" 
                  data-lat="{{ b.latitude|default:'' }}"
                  data-lng="{{ b.longitude|default:'' }}"
-                 data-projects="{{ b.project_count }}" 
-                 data-permits="{{ b.permit_count }}" 
                  data-total="{{ b.total_records }}"
                  data-index="{{ forloop.counter0 }}">
-                    <div class="brgy-card" id="brgy-card-{{ b.barangay_id }}" onclick="window.location='{% url 'barangay_workspace' b.barangay_id %}'" style="cursor: pointer;">
+                    <div class="brgy-card p-3" id="brgy-card-{{ b.barangay_id }}" onclick="window.location='{% url 'barangay_workspace' b.barangay_id %}'" style="cursor: pointer; transition: all 0.2s ease; border-radius: 12px;">
                         <div class="brgy-card-header d-flex justify-content-between align-items-center mb-2">
-                            <!-- Left: Barangay Folder Icon -->
-                            <div class="brgy-card-icon-circle" style="width: 32px; height: 32px; background: #e0f2fe; color: #0284c7; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fa-solid fa-folder-open" style="font-size: 14px;"></i>
+                            <!-- Left: Folder Icon -->
+                            <div class="brgy-card-icon-circle" style="width: 32px; height: 32px; background: #e0f2fe; color: #0284c7; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i class="fa-solid fa-folder-closed" style="font-size: 14px;"></i>
                             </div>
                             
-                            <!-- Right: Dropdown Actions -->
+                            <!-- Right: Dropdown Actions (3-Dot Menu) -->
                             <div class="d-flex align-items-center gap-1" onclick="event.stopPropagation();">
                                 {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-                                <div class="dropup d-inline-block">
-                                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" style="padding: 4px 8px; line-height: 1; border: none; background: transparent; color: #94a3b8; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.color='#0f172a'; this.style.background='#f1f5f9';" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';">
+                                <div class="dropdown d-inline-block">
+                                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-popper-config='{"strategy":"fixed"}' style="padding: 4px 8px; line-height: 1; border: none; background: transparent; color: #94a3b8; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.color='#0f172a'; this.style.background='#f1f5f9';" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';">
                                         <i class="fa-solid fa-ellipsis-vertical" style="font-size: 13px;"></i>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end border shadow-sm py-1" style="min-width: 130px; font-size: 0.8rem; border-radius: 8px;">
+                                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg py-1" style="min-width: 140px; font-size: 0.8rem; border-radius: 8px; z-index: 99999; background: #ffffff;">
                                         <li>
                                             <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-dark" 
                                                     onclick="event.stopPropagation(); openEditBarangayModal('{{ b.barangay_id }}', '{{ b.barangay_name|escapejs }}', '{{ b.latitude|default:'' }}', '{{ b.longitude|default:'' }}')">
@@ -328,32 +316,15 @@
 
                         <!-- Card Body -->
                         <div class="d-flex flex-column flex-grow-1" style="color: inherit;">
-                            <div class="brgy-card-title mt-1" style="font-size: 0.96rem; font-weight: 700; color: var(--gray-900, #0f172a); margin-bottom: 12px; word-break: break-word; overflow-wrap: break-word; line-height: 1.3; letter-spacing: -0.01em;">
+                            <div class="brgy-card-title mt-1" style="font-size: 0.95rem; font-weight: 700; color: var(--gray-900, #0f172a); margin-bottom: 10px; word-break: break-word; overflow-wrap: break-word; line-height: 1.3; letter-spacing: -0.01em;">
                                 {{ b.barangay_name }}
                             </div>
                             
-                            <div class="brgy-card-stats d-flex flex-wrap gap-2 align-items-center justify-content-between mt-auto" style="min-height: 28px;">
-                                <div class="d-flex flex-wrap gap-1.5 align-items-center">
-                                    {% if b.total_records > 0 %}
-                                        {% if b.project_count > 0 %}
-                                        <span class="tag tag-project" style="font-size: 0.73rem; padding: 3.5px 9.5px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4.5px;">
-                                            <i class="fa-solid fa-folder" style="font-size: 10px;"></i>
-                                            {{ b.project_count }} Project{{ b.project_count|pluralize }}
-                                        </span>
-                                        {% endif %}
-                                        {% if b.permit_count > 0 %}
-                                        <span class="tag tag-permit" style="font-size: 0.73rem; padding: 3.5px 9.5px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 4.5px;">
-                                            <i class="fa-solid fa-file-lines" style="font-size: 10px;"></i>
-                                            {{ b.permit_count }} Permit{{ b.permit_count|pluralize }}
-                                        </span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="tag tag-none" style="font-size: 0.73rem; font-weight: 500; padding: 3.5px 9.5px; border-radius: 6px; background: rgba(148, 163, 184, 0.08); color: #64748b; border: 1px solid rgba(148, 163, 184, 0.2); display: inline-flex; align-items: center; gap: 4.5px;">
-                                            <i class="fa-solid fa-circle-info" style="font-size: 10px;"></i>
-                                            No active records
-                                        </span>
-                                    {% endif %}
-                                </div>
+                            <div class="brgy-card-stats d-flex align-items-center justify-content-between mt-auto" style="min-height: 26px;">
+                                <span class="tag tag-records" style="font-size: 0.75rem; font-weight: 600; padding: 3px 9.5px; border-radius: 6px; background: rgba(2, 132, 199, 0.08); color: #0284c7; border: 1px solid rgba(2, 132, 199, 0.2); display: inline-flex; align-items: center; gap: 5px;">
+                                    <i class="fa-solid fa-file-lines" style="font-size: 10px;"></i>
+                                    {{ b.total_records }} record{{ b.total_records|pluralize }}
+                                </span>
                                 <div class="d-flex align-items-center text-muted ms-auto">
                                     <i class="fa-solid fa-arrow-right brgy-card-arrow" style="font-size: 12px; color: #94a3b8; transition: transform 0.2s, color 0.2s;"></i>
                                 </div>
@@ -396,17 +367,21 @@
                         <input type="text" name="barangay_name" class="form-control" placeholder="Enter barangay name (e.g. Bagong Lipunan)" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
                     </div>
 
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-muted small"><i class="fa-solid fa-location-crosshairs me-1 text-primary"></i>Latitude (Optional)</label>
-                            <input type="number" step="any" name="latitude" class="form-control" placeholder="e.g. 11.2952" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small d-flex align-items-center justify-content-between">
+                            <span><i class="fa-solid fa-location-dot me-1 text-primary"></i>Barangay Location</span>
+                            <span class="text-primary fw-normal" style="font-size: 0.75rem;"><i class="fa-solid fa-hand-pointer me-1"></i>Select Location on Map</span>
+                        </label>
+                        <div class="row g-2 mb-1">
+                            <div class="col-6">
+                                <input type="number" step="any" name="latitude" id="add_latitude" class="form-control form-control-sm" placeholder="Latitude (auto)" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: 0.78rem;">
+                            </div>
+                            <div class="col-6">
+                                <input type="number" step="any" name="longitude" id="add_longitude" class="form-control form-control-sm" placeholder="Longitude (auto)" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: 0.78rem;">
+                            </div>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-muted small"><i class="fa-solid fa-location-dot me-1 text-primary"></i>Longitude (Optional)</label>
-                            <input type="number" step="any" name="longitude" class="form-control" placeholder="e.g. 124.6853" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
-                        </div>
+                        <p class="text-muted mb-0" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-info me-1"></i>Leaving coordinates blank will use auto-geocoded Carigara map position.</p>
                     </div>
-                    <p class="text-muted mb-0" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-info me-1"></i>Leaving coordinates blank will use auto-geocoded Carigara map position.</p>
                     
                     <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
                         <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
@@ -439,14 +414,18 @@
                         <input type="text" name="barangay_name" id="edit_barangay_name" class="form-control" placeholder="Enter barangay name" required style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
                     </div>
 
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-muted small"><i class="fa-solid fa-location-crosshairs me-1 text-primary"></i>Latitude</label>
-                            <input type="number" step="any" name="latitude" id="edit_latitude" class="form-control" placeholder="e.g. 11.2952" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold text-muted small"><i class="fa-solid fa-location-dot me-1 text-primary"></i>Longitude</label>
-                            <input type="number" step="any" name="longitude" id="edit_longitude" class="form-control" placeholder="e.g. 124.6853" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: var(--text-sm); padding: 8px 12px;">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted small d-flex align-items-center justify-content-between">
+                            <span><i class="fa-solid fa-location-dot me-1 text-primary"></i>Barangay Location</span>
+                            <span class="text-primary fw-normal" style="font-size: 0.75rem;"><i class="fa-solid fa-map-pin me-1"></i>Map Coordinates</span>
+                        </label>
+                        <div class="row g-2 mb-1">
+                            <div class="col-6">
+                                <input type="number" step="any" name="latitude" id="edit_latitude" class="form-control form-control-sm" placeholder="Latitude" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: 0.78rem;">
+                            </div>
+                            <div class="col-6">
+                                <input type="number" step="any" name="longitude" id="edit_longitude" class="form-control form-control-sm" placeholder="Longitude" style="border-radius: var(--border-radius-sm); border: 1px solid var(--border-default); font-size: 0.78rem;">
+                            </div>
                         </div>
                     </div>
                     

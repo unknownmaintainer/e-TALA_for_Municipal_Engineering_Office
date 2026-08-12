@@ -22,9 +22,23 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return f"{self.full_name or self.username} ({self.get_role_display()})"
 
+    @property
+    def display_name(self):
+        if self.first_name and self.first_name.strip():
+            return self.first_name.strip()
+        if self.full_name and self.full_name.strip():
+            parts = self.full_name.strip().split()
+            return parts[0]
+        return self.username
+
     def save(self, *args, **kwargs):
         if self.is_superuser:
             self.role = 'admin'
+        if self.full_name and '@' in self.full_name:
+            import re
+            cleaned = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '', self.full_name).strip()
+            if cleaned:
+                self.full_name = cleaned
         super().save(*args, **kwargs)
 
     @property
@@ -32,7 +46,12 @@ class CustomUser(AbstractUser):
         if not self.profile_picture:
             return ''
         try:
-            return self.profile_picture.url
+            if not self.profile_picture.storage.exists(self.profile_picture.name):
+                return ''
+            from django.urls import reverse
+            import hashlib
+            v_token = hashlib.md5(str(self.profile_picture.name).encode('utf-8')).hexdigest()[:8]
+            return f"{reverse('serve_user_avatar', kwargs={'user_id': self.pk})}?v={v_token}"
         except Exception:
             return ''
 
@@ -141,6 +160,8 @@ class EngineeringRecord(models.Model):
             models.Index(fields=['barangay']),
             models.Index(fields=['status']),
             models.Index(fields=['year']),
+            models.Index(fields=['is_illegal_construction']),
+            models.Index(fields=['illegal_compliance_status']),
             models.Index(fields=['title']),
             models.Index(fields=['-created_at']),
             models.Index(fields=['record_type', 'status']),

@@ -14,7 +14,8 @@ from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed, FileResponse, Http404
+from django.conf import settings
+from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed, FileResponse, Http404, StreamingHttpResponse
 from django.core.exceptions import PermissionDenied, ValidationError, ImproperlyConfigured
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Sum, F
@@ -30,8 +31,15 @@ from .models import (
     RequirementTemplate, RequirementItem, RecordRequirement,
     BlockedIP,
 )
-from .validators import validate_document_file, sanitize_input
+from .validators import validate_document_file, sanitize_input, validate_password_strength
 from .utils import get_client_ip
+from .permissions import role_required, admin_required, staff_or_admin_required, has_role
+from .services import (
+    get_office_settings, save_office_settings,
+    build_record_zip_buffer, build_category_zip_buffer,
+    build_activity_logs_csv_rows, filter_engineering_records
+)
+from .forms import UserCreationForm, UserEditForm, FlagIllegalConstructionForm, OfficeSettingsForm
 
 logger = logging.getLogger('permits')
 
@@ -83,16 +91,6 @@ def check_lockout(email, ip_address):
     return False, None
 
 
-def validate_password_strength(password):
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long."
-    if not any(c.isupper() for c in password):
-        return False, "Password must contain at least one uppercase letter."
-    if not any(c.islower() for c in password):
-        return False, "Password must contain at least one lowercase letter."
-    if not any(c.isdigit() for c in password):
-        return False, "Password must contain at least one number."
-    return True, None
 
 
 def get_per_page(request, default=10):
@@ -788,49 +786,20 @@ def records_browse_view(request):
     
     project_type = request.GET.get('project_type', '').strip()
     permit_type = request.GET.get('permit_type', '').strip()
-
-    if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(barangay__barangay_name__icontains=query) |
-            Q(permit_detail__permit_number__icontains=query) |
-            Q(permit_detail__applicant_name__icontains=query) |
-            Q(permit_detail__permit_type__icontains=query) |
-            Q(permit_detail__building_type__icontains=query) |
-            Q(project_detail__project_type__icontains=query) |
-            Q(project_detail__contractor__icontains=query) |
-            Q(project_detail__funding_source__icontains=query) |
-            Q(record_type__icontains=query) |
-            Q(project_scope__icontains=query) |
-            Q(illegal_compliance_status__icontains=query) |
-            Q(status__icontains=query) |
-            Q(created_by__full_name__icontains=query) |
-            Q(created_by__username__icontains=query)
-        )
-        if query.isdigit():
-            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))
-        base_records = base_records.filter(search_filter).distinct()
-    
-    if barangay_id:
-        base_records = base_records.filter(barangay_id=barangay_id)
-    if status:
-        base_records = base_records.filter(status=status)
-    if year:
-        try:
-            base_records = base_records.filter(year=int(year))
-        except (ValueError, TypeError):
-            base_records = base_records.filter(year=year)
-    if permit_type:
-        base_records = base_records.filter(permit_detail__permit_type=permit_type)
-    if project_type:
-        base_records = base_records.filter(project_detail__project_type=project_type)
-
     illegal_filter = request.GET.get('illegal', '').strip()
-    if illegal_filter in ['1', 'true'] or record_type == 'Illegal':
-        base_records = base_records.filter(is_illegal_construction=True)
-    elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
-        base_records = base_records.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
+
+    # Apply filters via service
+    base_records = filter_engineering_records(
+        base_records,
+        query=query,
+        record_type=record_type,
+        barangay_id=barangay_id,
+        status=status,
+        year=year,
+        permit_type=permit_type,
+        project_type=project_type,
+        illegal_filter=illegal_filter
+    )
 
     # Scope resolution
     selected_scope = resolve_scope(request)
@@ -899,7 +868,7 @@ def records_browse_view(request):
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'project_type_choices': [choice[0] for choice in ProjectDetail.PROJECT_TYPE_CHOICES],
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
-        'active_tab': 'records',
+        'active_tab': 'illegal' if (illegal_filter or record_type == 'Illegal') else 'records',
     }
     return render(request, 'permits/records_browse.html', context)
 
@@ -943,20 +912,20 @@ def record_create_step2_view(request):
     
     if category == 'permit':
         types = [
-            {'value': 'Building', 'label': 'Building Permit', 'icon': 'building-2', 'desc': 'Standard building permit structure approvals.'},
-            {'value': 'Electrical', 'label': 'Electrical Permit', 'icon': 'zap', 'desc': 'Electrical wiring and electrical installation approvals.'},
-            {'value': 'Occupancy', 'label': 'Occupancy Permit', 'icon': 'check-square', 'desc': 'Certificate of occupancy approvals.'},
-            {'value': 'Fencing', 'label': 'Fencing Permit', 'icon': 'fence', 'desc': 'Fencing installation clearances.'},
+            {'value': 'Building', 'label': 'Building Permit', 'icon': 'fa-solid fa-building', 'desc': 'Standard building permit structure approvals.'},
+            {'value': 'Electrical', 'label': 'Electrical Permit', 'icon': 'fa-solid fa-bolt', 'desc': 'Electrical wiring and electrical installation approvals.'},
+            {'value': 'Occupancy', 'label': 'Occupancy Permit', 'icon': 'fa-solid fa-house-chimney-user', 'desc': 'Certificate of occupancy approvals.'},
+            {'value': 'Fencing', 'label': 'Fencing Permit', 'icon': 'fa-solid fa-border-all', 'desc': 'Fencing installation clearances.'},
         ]
     else:
         types = [
-            {'value': 'Road & Bridge', 'label': 'Road & Bridge', 'icon': 'milestone', 'desc': 'Road concreting, bridges, and pathways.'},
-            {'value': 'Building', 'label': 'Building', 'icon': 'building', 'desc': 'Government buildings, gyms, or centers.'},
-            {'value': 'Water System', 'label': 'Water System', 'icon': 'droplets', 'desc': 'Water lines, wells, and irrigation projects.'},
-            {'value': 'Flood Control', 'label': 'Flood Control', 'icon': 'shield-alert', 'desc': 'Seawalls, dikes, and revetments.'},
-            {'value': 'Drainage', 'label': 'Drainage', 'icon': 'git-commit', 'desc': 'Drainage lines and culverts.'},
-            {'value': 'Multi-purpose Hall', 'label': 'Multi-purpose Hall', 'icon': 'home', 'desc': 'Community halls and gymnasiums.'},
-            {'value': 'Others', 'label': 'Others', 'icon': 'folder', 'desc': 'Other public infrastructure works.'},
+            {'value': 'Road & Bridge', 'label': 'Road & Bridge', 'icon': 'fa-solid fa-road', 'desc': 'Road concreting, bridges, and pathways.'},
+            {'value': 'Building', 'label': 'Building', 'icon': 'fa-solid fa-building-columns', 'desc': 'Government buildings, gyms, or centers.'},
+            {'value': 'Water System', 'label': 'Water System', 'icon': 'fa-solid fa-droplet', 'desc': 'Water lines, wells, and irrigation projects.'},
+            {'value': 'Flood Control', 'label': 'Flood Control', 'icon': 'fa-solid fa-shield-halved', 'desc': 'Seawalls, dikes, and revetments.'},
+            {'value': 'Drainage', 'label': 'Drainage', 'icon': 'fa-solid fa-arrows-split-up-and-left', 'desc': 'Drainage lines and culverts.'},
+            {'value': 'Multi-purpose Hall', 'label': 'Multi-purpose Hall', 'icon': 'fa-solid fa-house-flag', 'desc': 'Community halls and gymnasiums.'},
+            {'value': 'Others', 'label': 'Others', 'icon': 'fa-solid fa-folder', 'desc': 'Other public infrastructure works.'},
         ]
     
     if request.method == 'POST':
@@ -1786,7 +1755,7 @@ def flag_illegal_construction_view(request):
                     uploaded_by=request.user
                 )
             except ValidationError as err:
-                messages.warning(request, f"Report created, but file upload failed: {err.message if hasattr(err, 'message') else str(err)}")
+                messages.warning(request, f"Report created, but file upload failed: {str(err)}")
                 
         log_audit(
             request.user,
@@ -1973,7 +1942,7 @@ def record_edit_view(request, record_id):
 def _get_document_stream(doc):
     """
     Robustly resolves a Document file object across local storage, subdirectories,
-    Cloudinary, and in-memory fallbacks. Prevents [Errno 2] No such file errors.
+    Supabase Storage, and in-memory fallbacks. Prevents [Errno 2] No such file errors.
     """
     import mimetypes
     import io
@@ -2028,7 +1997,7 @@ def _get_document_stream(doc):
         except Exception:
             pass
 
-    # Check Cloudinary / remote URL
+    # Check Supabase / remote URL
     try:
         url = doc.file.url
         if url and str(url).startswith(('http://', 'https://')):
@@ -2175,7 +2144,7 @@ def document_upload_view(request, record_id):
         if requirement_item_id:
             try:
                 req_item = RequirementItem.objects.get(item_id=requirement_item_id)
-                document_type = req_item.name  # use the requirement name as document type
+                document_type = req_item.name[:50]  # truncate to 50 chars max for Document model CharField
                 # Prevent orphan file/record leaks by checking for existing documents in this slot
                 existing_req = RecordRequirement.objects.filter(record=record, requirement_item=req_item).first()
                 if existing_req and existing_req.document:
@@ -2202,7 +2171,7 @@ def document_upload_view(request, record_id):
                 expiry_date=parsed_expiry_date,
             )
         except Exception as exc:
-            logger.warning(f"Cloudinary storage save failed for document upload: {exc}. Trying local FileSystemStorage fallback.")
+            logger.warning(f"Supabase storage save failed for document upload: {exc}. Trying local FileSystemStorage fallback.")
             try:
                 from django.core.files.storage import FileSystemStorage
                 fs = FileSystemStorage()
@@ -2362,46 +2331,19 @@ def search_view(request):
         'documents', 'requirements__requirement_item', 'requirements__document'
     )
 
-    if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(barangay__barangay_name__icontains=query) |
-            Q(permit_detail__permit_number__icontains=query) |
-            Q(permit_detail__applicant_name__icontains=query) |
-            Q(permit_detail__permit_type__icontains=query) |
-            Q(permit_detail__building_type__icontains=query) |
-            Q(project_detail__project_type__icontains=query) |
-            Q(project_detail__contractor__icontains=query) |
-            Q(project_detail__funding_source__icontains=query) |
-            Q(record_type__icontains=query) |
-            Q(project_scope__icontains=query) |
-            Q(illegal_compliance_status__icontains=query) |
-            Q(status__icontains=query) |
-            Q(created_by__full_name__icontains=query) |
-            Q(created_by__username__icontains=query)
-        )
-        if query.isdigit():
-            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))
-        records = records.filter(search_filter).distinct()
+    # Filter by query search
+    records = filter_engineering_records(records, query=query)
 
-    if record_type:
-        records = records.filter(record_type=record_type)
-    if barangay_id:
-        records = records.filter(barangay_id=barangay_id)
-    if year:
-        try:
-            records = records.filter(year=int(year))
-        except (ValueError, TypeError):
-            records = records.filter(year=year)
-    if status:
-        records = records.filter(status=status)
+    # Calculate tab counts BEFORE applying record_type filter to preserve query total tab counts
+    base_counts_records = records
+    all_count = base_counts_records.count()
+    municipal_count = base_counts_records.filter(record_type='Project', project_scope='Municipal').count()
+    barangay_count = base_counts_records.filter(record_type='Project', project_scope='Barangay').count()
+    permits_count = base_counts_records.filter(record_type='Permit').count()
+    illegal_count = base_counts_records.filter(is_illegal_construction=True).count()
 
-    all_count = records.count()
-    municipal_count = records.filter(record_type='Project', project_scope='Municipal').count()
-    barangay_count = records.filter(record_type='Project', project_scope='Barangay').count()
-    permits_count = records.filter(record_type='Permit').count()
-    illegal_count = records.filter(is_illegal_construction=True).count()
+    # Apply remaining dropdown filters
+    records = filter_engineering_records(records, record_type=record_type, barangay_id=barangay_id, year=year, status=status)
 
     per_page = get_per_page(request, 10)
     paginator = Paginator(records, per_page)
@@ -2980,8 +2922,29 @@ def activity_logs_view(request):
     query = request.GET.get('q', '').strip()
     if query:
         audit_logs = audit_logs.filter(
-            Q(action__icontains=query) | Q(user__username__icontains=query) | Q(user__email__icontains=query)
+            Q(action__icontains=query) | Q(user__username__icontains=query) | Q(user__full_name__icontains=query) | Q(user__email__icontains=query)
         )
+
+    # Date Range Filter
+    date_filter = request.GET.get('date_range', 'all').strip()
+    now = timezone.now()
+    if date_filter == 'today':
+        audit_logs = audit_logs.filter(performed_at__date=now.date())
+    elif date_filter == '7days':
+        audit_logs = audit_logs.filter(performed_at__gte=now - timedelta(days=7))
+    elif date_filter == '30days':
+        audit_logs = audit_logs.filter(performed_at__gte=now - timedelta(days=30))
+
+    # Action Type Filter
+    action_type = request.GET.get('action_type', 'all').strip()
+    if action_type == 'create':
+        audit_logs = audit_logs.filter(Q(action__icontains='created') | Q(action__icontains='added'))
+    elif action_type == 'update':
+        audit_logs = audit_logs.filter(Q(action__icontains='updated') | Q(action__icontains='modified'))
+    elif action_type == 'upload':
+        audit_logs = audit_logs.filter(action__icontains='uploaded')
+    elif action_type == 'delete':
+        audit_logs = audit_logs.filter(Q(action__icontains='deleted') | Q(action__icontains='removed'))
 
     per_page = get_per_page(request, 15)
     audit_paginator = Paginator(audit_logs, per_page)
@@ -2996,6 +2959,13 @@ def activity_logs_view(request):
             login_attempts = login_attempts.filter(
                 Q(email_attempted__icontains=query) | Q(ip_address__icontains=query)
             )
+
+        if date_filter == 'today':
+            login_attempts = login_attempts.filter(timestamp__date=now.date())
+        elif date_filter == '7days':
+            login_attempts = login_attempts.filter(timestamp__gte=now - timedelta(days=7))
+        elif date_filter == '30days':
+            login_attempts = login_attempts.filter(timestamp__gte=now - timedelta(days=30))
 
         status_filter = request.GET.get('status', 'all').strip()
         if status_filter == 'success':
@@ -3017,14 +2987,13 @@ def activity_logs_view(request):
         'login_page_obj': login_page_obj,
         'query': query,
         'status_filter': status_filter,
+        'date_filter': date_filter,
+        'action_type': action_type,
         'blocked_ips': blocked_ips,
         'active_tab': 'activity_logs',
     }
     return render(request, 'permits/activity_logs.html', context)
 
-
-import csv
-from django.http import StreamingHttpResponse
 
 class Echo:
     def write(self, value):
@@ -3037,64 +3006,43 @@ def export_activity_logs_view(request):
         
     tab = request.GET.get('tab', 'audit').strip()
     query = request.GET.get('q', '').strip()
+    date_filter = request.GET.get('date_range', 'all').strip()
+    action_type = request.GET.get('action_type', 'all').strip()
+
+    filename, row_gen = build_activity_logs_csv_rows(tab, query, date_filter, action_type, request.user)
     
-    if tab == 'login':
-        if request.user.role != 'admin':
-            raise PermissionDenied("Only Administrators can export login history.")
-        attempts = LoginAttempt.objects.all().order_by('-timestamp')
-        if query:
-            attempts = attempts.filter(
-                Q(email_attempted__icontains=query) | Q(ip_address__icontains=query)
-            )
-            
-        def login_rows():
-            yield ['Timestamp', 'Email Attempted', 'IP Address', 'Result', 'Failure Reason']
-            for att in attempts.iterator():
-                yield [
-                    att.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                    att.email_attempted,
-                    att.ip_address,
-                    'SUCCESS' if att.success else 'FAILED',
-                    att.failure_reason or ''
-                ]
-        
-        pseudo_buffer = Echo()
-        writer = csv.writer(pseudo_buffer)
-        response = StreamingHttpResponse(
-            (writer.writerow(row) for row in login_rows()),
-            content_type="text/csv"
-        )
-        response['Content-Disposition'] = 'attachment; filename="login_history_export.csv"'
+    pseudo_buffer = Echo()
+    writer = csv.writer(pseudo_buffer)
+    response = StreamingHttpResponse(
+        (writer.writerow(row) for row in row_gen()),
+        content_type="text/csv"
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    log_audit(request.user, f"Exported {tab.capitalize()} Activity Logs to CSV", request=request)
+    return response
+
+
+@login_required
+def serve_user_avatar_view(request, user_id):
+    """Securely streams a user's profile avatar picture with browser caching."""
+    target_user = get_object_or_404(CustomUser, pk=user_id)
+    if not target_user.profile_picture:
+        raise Http404("User has no profile picture.")
+
+    try:
+        if not target_user.profile_picture.storage.exists(target_user.profile_picture.name):
+            logger.warning(f"Profile picture file missing on disk for user {user_id}: {target_user.profile_picture.name}")
+            raise Http404("Avatar file missing on disk.")
+        file_obj = target_user.profile_picture.open('rb')
+        filename = os.path.basename(target_user.profile_picture.name)
+        content_type, _ = mimetypes.guess_type(filename)
+        response = FileResponse(file_obj, content_type=content_type or 'image/jpeg')
+        response['Cache-Control'] = 'no-cache, must-revalidate'
         return response
-        
-    else:
-        logs = AuditLog.objects.select_related('user').order_by('-performed_at')
-        if request.user.role != 'admin':
-            logs = logs.filter(user=request.user)
-        if query:
-            logs = logs.filter(
-                Q(action__icontains=query) | Q(user__username__icontains=query) | Q(user__email__icontains=query)
-            )
-            
-        def audit_rows():
-            yield ['Timestamp', 'User', 'Role', 'Action Executed', 'IP Address']
-            for log in logs.iterator():
-                yield [
-                    log.performed_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    log.user.full_name or log.user.username,
-                    log.user.get_role_display(),
-                    log.action,
-                    log.ip_address or ''
-                ]
-                
-        pseudo_buffer = Echo()
-        writer = csv.writer(pseudo_buffer)
-        response = StreamingHttpResponse(
-            (writer.writerow(row) for row in audit_rows()),
-            content_type="text/csv"
-        )
-        response['Content-Disposition'] = 'attachment; filename="activity_logs_export.csv"'
-        return response
+    except Exception as e:
+        if not isinstance(e, Http404):
+            logger.warning(f"Error serving profile picture for user {user_id}: {e}")
+        raise Http404("Avatar file unavailable.")
 
 
 # ─── PROFILE ─────────────────────────────────────────────────────────────────
@@ -3210,36 +3158,7 @@ def profile_view(request):
 # ─── ADMIN SETTINGS ──────────────────────────────────────────────────────────
 
 import os
-import json
-from django.conf import settings
 
-def get_office_settings():
-    default_settings = {
-        "office_name": "Municipal Engineering Office",
-        "municipality": "Carigara",
-        "province": "Leyte"
-    }
-    settings_file = os.path.join(settings.BASE_DIR, 'office_settings.json')
-    if os.path.exists(settings_file):
-        try:
-            with open(settings_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return default_settings
-
-def save_office_settings(office_name, municipality, province):
-    data = {
-        "office_name": office_name,
-        "municipality": municipality,
-        "province": province
-    }
-    settings_file = os.path.join(settings.BASE_DIR, 'office_settings.json')
-    try:
-        with open(settings_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-    except Exception:
-        pass
 
 @login_required
 def settings_view(request):
@@ -3653,50 +3572,7 @@ def alerts_list_json_view(request):
 def download_record_zip_view(request, record_id):
     """Downloads all documents for a record as a structured ZIP file."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    
-    if request.user.role == 'staff' and record.created_by != request.user:
-        return HttpResponseForbidden("You do not have permission to download documents for this record.")
-
-    buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        requirements = record.requirements.select_related('requirement_item', 'document')
-        for req in requirements:
-            if req.document:
-                try:
-                    file_obj, _, _ = _get_document_stream(req.document)
-                    if file_obj:
-                        file_data = file_obj.read()
-                        if hasattr(file_obj, 'close'):
-                            file_obj.close()
-                        
-                        item = req.requirement_item
-                        doc_fname = req.document.file_name or 'document'
-                        if item and item.parent:
-                            folder_path = f"{item.parent.name}/{item.name}_{doc_fname}"
-                        elif item:
-                            folder_path = f"{item.name}/{doc_fname}"
-                        else:
-                            folder_path = f"Documents/{doc_fname}"
-                        
-                        zip_file.writestr(folder_path, file_data)
-                except Exception as exc:
-                    logger.error(f"Error zipping document {req.document.document_id}: {exc}")
-
-        other_docs = record.documents.filter(requirement_item__isnull=True)
-        for doc in other_docs:
-            try:
-                file_obj, _, _ = _get_document_stream(doc)
-                if file_obj:
-                    file_data = file_obj.read()
-                    if hasattr(file_obj, 'close'):
-                        file_obj.close()
-                    doc_fname = doc.file_name or 'document'
-                    zip_file.writestr(f"Other_Documents/{doc_fname}", file_data)
-            except Exception as exc:
-                logger.error(f"Error zipping document {doc.document_id}: {exc}")
-
-    buffer.seek(0)
+    buffer = build_record_zip_buffer(record, _get_document_stream)
     clean_title = "".join(c for c in record.title if c.isalnum() or c in (' ', '_', '-')).strip()
     filename = f"{clean_title}_Archive.zip"
     response = HttpResponse(buffer.getvalue(), content_type='application/zip')
@@ -3710,28 +3586,8 @@ def download_category_zip_view(request, record_id, req_id):
     """Downloads all sub-documents under a specific requirement folder as a ZIP file."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     parent_req = get_object_or_404(RecordRequirement, req_id=req_id, record=record)
-    parent_item = parent_req.requirement_item
-    
-    sub_items = parent_item.sub_items.all()
-    sub_reqs = RecordRequirement.objects.filter(record=record, requirement_item__in=sub_items).select_related('requirement_item', 'document')
-    
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for req in sub_reqs:
-            if req.document:
-                try:
-                    file_obj, _, _ = _get_document_stream(req.document)
-                    if file_obj:
-                        file_data = file_obj.read()
-                        if hasattr(file_obj, 'close'):
-                            file_obj.close()
-                        doc_fname = req.document.file_name or 'document'
-                        zip_file.writestr(f"{parent_item.name}/{req.requirement_item.name}_{doc_fname}", file_data)
-                except Exception as exc:
-                    logger.error(f"Error zipping sub-document {req.document.document_id}: {exc}")
-
-    buffer.seek(0)
-    clean_parent = "".join(c for c in parent_item.name if c.isalnum() or c in (' ', '_', '-')).strip()
+    buffer = build_category_zip_buffer(record, parent_req, _get_document_stream)
+    clean_parent = "".join(c for c in parent_req.requirement_item.name if c.isalnum() or c in (' ', '_', '-')).strip()
     filename = f"{record.title}_{clean_parent}.zip"
     response = HttpResponse(buffer.getvalue(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -3740,13 +3596,16 @@ def download_category_zip_view(request, record_id, req_id):
 
 @login_required
 def batch_upload_documents_view(request, record_id):
-    """Batch uploads multiple files and auto-classifies them into requirement slots based on filename keywords."""
+    """Batch uploads multiple files into assigned requirement slots."""
     if request.user.role not in ['staff', 'admin']:
         return HttpResponseForbidden("Unauthorized")
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     
     if request.method == 'POST':
         files = request.FILES.getlist('files')
+        item_ids = request.POST.getlist('item_ids')
+        expiry_dates = request.POST.getlist('expiry_dates')
+        
         if not files:
             messages.error(request, "No files were selected for batch upload.")
             return redirect('record_detail', record_id=record.record_id)
@@ -3754,81 +3613,52 @@ def batch_upload_documents_view(request, record_id):
         uploaded_count = 0
         matched_count = 0
         
-        # Select only leaf requirements (non-group containers)
-        leaf_reqs = record.requirements.select_related('requirement_item').filter(requirement_item__is_group=False)
-        req_map = {req.requirement_item.name.lower(): req for req in leaf_reqs}
+        # Build map of requirement items for fast lookup
+        reqs_by_item_id = {
+            str(req.requirement_item.item_id): req 
+            for req in record.requirements.select_related('requirement_item')
+        }
 
-        KEYWORD_ALIASES = [
-            # Architectural
-            ('architectural', ['architectural', 'arch']),
-            ('site development', ['site dev', 'site development', 'vicinity']),
-            # Structural & Geotechnical
-            ('structural analysis', ['structural analysis', 'struct analysis', 'soil', 'geotechnical', 'seismic']),
-            ('structural', ['structural', 'struct', 'civil']),
-            # Electrical
-            ('electrical single line', ['single line', 'sld', 'riser']),
-            ('electrical', ['electrical', 'elect', 'power layout', 'pee']),
-            # Plumbing & Sanitary
-            ('plumbing', ['plumbing', 'sanitary', 'plumb', 'sanit', 'septic', 'drainage']),
-            # Mechanical & Electronics
-            ('mechanical', ['mechanical', 'mech', 'hvac']),
-            ('electronics', ['electronics', 'electron', 'cctv', 'fdas', 'telecom']),
-            # Fire & Clearances
-            ('fire', ['fire', 'bfp', 'fsic', 'fsec', 'sprinkler']),
-            ('barangay', ['barangay', 'brgy']),
-            ('zoning', ['zoning', 'locational', 'mpdo']),
-            ('title', ['title', 'oct', 'tct', 'deeds']),
-            ('tax', ['tax', 'rpt', 'real property']),
-            ('sketch', ['sketch', 'technical description']),
-            # Cost & Specs
-            ('cost', ['cost', 'bom', 'bill of materials', 'estimate']),
-            ('specifications', ['specifications', 'specs']),
-            # Occupancy & As-Built
-            ('occupancy', ['occupancy']),
-            ('completion', ['completion']),
-            ('as-built', ['as-built', 'asbuilt']),
-            ('logbook', ['logbook']),
-            # Projects
-            ('program of work', ['pow', 'program of work']),
-            ('statement of work', ['swa', 'statement of work', 'accomplished']),
-        ]
-
-        for f in files:
+        for idx, f in enumerate(files):
             try:
                 validate_document_file(f)
             except ValidationError as ve:
                 messages.error(request, f"File '{f.name}' rejected: {ve.message}")
                 continue
 
-            matched_req = None
-            fname_clean = f.name.lower().replace('_', ' ').replace('-', ' ')
+            target_item_id = str(item_ids[idx]).strip() if idx < len(item_ids) else ''
+            matched_req = reqs_by_item_id.get(target_item_id)
 
-            # 1. Try keyword alias matching
-            for target_kw, aliases in KEYWORD_ALIASES:
-                if any(alias in fname_clean for alias in aliases):
-                    for req_item_name, req in req_map.items():
-                        if target_kw in req_item_name or any(alias in req_item_name for alias in aliases):
-                            matched_req = req
-                            break
-                if matched_req:
-                    break
+            raw_expiry = expiry_dates[idx].strip() if idx < len(expiry_dates) else ''
+            parsed_expiry_date = None
+            if raw_expiry:
+                try:
+                    import datetime
+                    parsed_expiry_date = datetime.datetime.strptime(raw_expiry, '%Y-%m-%d').date()
+                except ValueError:
+                    parsed_expiry_date = None
 
-            # 2. Fallback to direct name token matching
-            if not matched_req:
-                for item_name, req in req_map.items():
-                    clean_item = item_name.replace('_', ' ').replace('-', ' ')
-                    words = [w for w in clean_item.split() if len(w) > 3]
-                    if clean_item in fname_clean or (words and any(word in fname_clean for word in words)):
-                        matched_req = req
-                        break
+            # Check if existing document should be safely replaced in this slot
+            new_version = 1
+            if matched_req and matched_req.document:
+                old_doc = matched_req.document
+                new_version = (old_doc.version or 1) + 1
+                try:
+                    old_doc.file.delete(save=False)
+                    old_doc.delete()
+                except Exception as e:
+                    logger.error(f"Error replacing old batch document: {e}")
 
             doc = Document.objects.create(
                 engineering_record=record,
-                document_type=matched_req.requirement_item.name if matched_req else "Batch Upload",
+                requirement_item=matched_req.requirement_item if matched_req else None,
+                document_type=matched_req.requirement_item.name[:50] if matched_req else "Batch Upload",
                 file=f,
                 file_name=f.name,
                 file_size=f.size,
+                version=new_version,
                 uploaded_by=request.user,
+                expiry_date=parsed_expiry_date,
             )
 
             if matched_req:
@@ -3843,14 +3673,14 @@ def batch_upload_documents_view(request, record_id):
 
         log_audit(
             request.user,
-            f"Batch uploaded {uploaded_count} documents ({matched_count} auto-classified) for record '{record.title}'",
+            f"Batch uploaded {uploaded_count} documents for record '{record.title}'",
             target_record_id=record.record_id,
             request=request
         )
         if matched_count > 0:
-            messages.success(request, f"Successfully uploaded {uploaded_count} file(s)! {matched_count} document(s) were automatically classified into requirement slots.")
+            messages.success(request, f"Successfully uploaded {uploaded_count} file(s) into their assigned checklist slots!")
         else:
-            messages.success(request, f"Successfully uploaded {uploaded_count} file(s) into general attachments.")
+            messages.success(request, f"Successfully uploaded {uploaded_count} file(s).")
 
         return redirect('record_detail', record_id=record.record_id)
 

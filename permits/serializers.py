@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Barangay, Category, Record, Document, CustomUser
+from .models import Barangay, Category, Record, Document, CustomUser, EngineeringRecord, PermitDetail, ProjectDetail
 
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,34 +24,41 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['document_id', 'document_type', 'file', 'file_name', 'file_size', 'uploaded_by', 'uploaded_by_name', 'uploaded_at']
+        fields = ['document_id', 'document_type', 'file', 'file_name', 'file_size', 'uploaded_by', 'uploaded_by_name', 'uploaded_at', 'expiry_date']
 
 
-class RecordSerializer(serializers.ModelSerializer):
+class PermitDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PermitDetail
+        fields = ['permit_type', 'building_type', 'permit_number', 'date_issued', 'applicant_name', 'remarks']
+
+
+class ProjectDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectDetail
+        fields = ['project_type', 'funding_source', 'contractor', 'project_cost', 'project_status']
+
+
+class EngineeringRecordSerializer(serializers.ModelSerializer):
     barangay_name = serializers.ReadOnlyField(source='barangay.barangay_name')
-    category_name = serializers.ReadOnlyField(source='category.category_name')
     created_by_name = serializers.ReadOnlyField(source='created_by.full_name')
+    specific_type = serializers.ReadOnlyField(source='specific_type_label')
+    permit_detail = PermitDetailSerializer(read_only=True)
+    project_detail = ProjectDetailSerializer(read_only=True)
     documents = DocumentSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Record
+        model = EngineeringRecord
         fields = [
-            'record_id', 'record_title', 'project_name', 'category', 'category_name',
-            'location_type', 'barangay', 'barangay_name', 'year', 'budget_amount',
-            'archive_number', 'description', 'status', 'created_by', 'created_by_name',
-            'created_at', 'updated_at', 'documents'
+            'record_id', 'record_type', 'project_scope', 'title', 'year', 'description',
+            'status', 'is_illegal_construction', 'illegal_compliance_status',
+            'barangay', 'barangay_name', 'created_by', 'created_by_name',
+            'specific_type', 'permit_detail', 'project_detail',
+            'date_started', 'date_completed', 'created_at', 'updated_at', 'documents'
         ]
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        request = self.context.get('request')
-        
-        # Role-based field masking: Only Engineering Office Head (admin) can see raw budget amount.
-        # Engineering Staff and external API users see masked string.
-        if request and request.user:
-            if request.user.role != 'admin':
-                rep['budget_amount'] = '₱*,***,***.**'
-        else:
-            rep['budget_amount'] = '₱*,***,***.**'
-            
-        return rep
+
+# Backward compatibility serializer for legacy Record model
+class RecordSerializer(EngineeringRecordSerializer):
+    pass
+

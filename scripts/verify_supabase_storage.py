@@ -14,7 +14,7 @@ django.setup()
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 
-print('Storage instance:', type(default_storage))
+print('Active Storage Engine:', type(default_storage))
 storage = default_storage
 
 png_bytes = (
@@ -24,10 +24,12 @@ png_bytes = (
     b'\x00\x00\x00\x00IEND\xaeB`\x82'
 )
 name = storage.save('verify_supabase_test.png', ContentFile(png_bytes))
-print('Saved name:', name)
+print('Saved object name:', name)
 try:
-    print('URL:', storage.url(name))
+    print('Storage URL:', storage.url(name))
 except Exception as e:
-    print('URL error:', e)
-storage.delete(name)
-print('Deleted test file successfully')
+    print('Storage URL error:', e)
+
+if storage.exists(name):
+    storage.delete(name)
+    print('Cleaned up test file successfully.')
