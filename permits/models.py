@@ -69,10 +69,11 @@ class PasswordHistory(models.Model):
 
 class Barangay(models.Model):
     barangay_id = models.AutoField(primary_key=True)
+    psgc_code = models.CharField(max_length=20, unique=True, null=True, blank=True, help_text='Official PSA PSGC 10-digit Code (e.g. 0803715001)')
     barangay_name = models.CharField(max_length=100, unique=True)
     district = models.CharField(max_length=50, blank=True, default='')
-    latitude = models.FloatField(null=True, blank=True, help_text='Geocoded center latitude for Carigara barangay map pin')
-    longitude = models.FloatField(null=True, blank=True, help_text='Geocoded center longitude for Carigara barangay map pin')
+    latitude = models.FloatField(null=True, blank=True, help_text='Geocoded reference latitude')
+    longitude = models.FloatField(null=True, blank=True, help_text='Geocoded reference longitude')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

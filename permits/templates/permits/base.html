@@ -4713,8 +4713,81 @@
         }
     </script>
 
+    <!-- ══ UNIVERSAL ZIP DOWNLOAD PROGRESS INDICATOR TOAST ═══════════════════ -->
+    <script>
+        function showZipDownloadToast(title, msg) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toastId = 'zip-toast-' + Date.now();
+            const toastHtml = `
+            <div id="${toastId}" class="toast border-0 shadow-lg mb-2.5 fade show position-relative overflow-hidden custom-app-toast" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto; border-radius: 12px; min-width: 320px; max-width: 450px; background: #ffffff;">
+                <div class="d-flex align-items-center p-3">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle me-3 flex-shrink-0" style="width: 34px; height: 34px; background: #e0f2fe; color: #0284c7;">
+                        <div class="spinner-border spinner-border-sm" style="width: 15px; height: 15px;" role="status"></div>
+                    </div>
+                    <div class="flex-grow-1 min-w-0 me-2" style="font-size: 0.83rem; line-height: 1.4;">
+                        <div class="fw-bold text-dark toast-msg-title" id="${toastId}-title">${title || 'Preparing ZIP Archive'}</div>
+                        <div class="text-muted toast-msg-body" id="${toastId}-msg" style="font-size: 0.78rem;">${msg || 'Compressing documents... Please wait.'}</div>
+                    </div>
+                    <button type="button" class="btn-close ms-auto flex-shrink-0" data-bs-dismiss="toast" aria-label="Close" style="font-size: 0.72rem; opacity: 0.6;"></button>
+                </div>
+                <div class="toast-progress-bar" id="${toastId}-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; background: #0284c7; width: 30%; transition: width 0.3s ease;"></div>
+            </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            const toastEl = document.getElementById(toastId);
+            const titleEl = document.getElementById(`${toastId}-title`);
+            const msgEl = document.getElementById(`${toastId}-msg`);
+            const barEl = document.getElementById(`${toastId}-bar`);
+            const iconWrapper = toastEl ? toastEl.querySelector('.rounded-circle') : null;
+
+            let progress = 30;
+            const interval = setInterval(function() {
+                if (progress < 85) {
+                    progress += 15;
+                    if (barEl) barEl.style.width = progress + '%';
+                } else {
+                    clearInterval(interval);
+                }
+            }, 350);
+
+            setTimeout(function() {
+                clearInterval(interval);
+                if (barEl) {
+                    barEl.style.width = '100%';
+                    barEl.style.background = '#16a34a';
+                }
+                if (iconWrapper) {
+                    iconWrapper.style.background = '#dcfce7';
+                    iconWrapper.style.color = '#16a34a';
+                    iconWrapper.innerHTML = '<i class="fa-solid fa-circle-check" style="font-size: 16px;"></i>';
+                }
+                if (titleEl) titleEl.innerText = '✅ Download Started!';
+                if (msgEl) msgEl.innerText = 'ZIP archive sent to your browser downloads.';
+
+                setTimeout(function() {
+                    if (toastEl) {
+                        toastEl.classList.remove('show');
+                        setTimeout(() => toastEl.remove(), 300);
+                    }
+                }, 3500);
+            }, 2000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('a[href*="download-zip"], a[href*="download_zip"], .zip-download-btn');
+                if (btn) {
+                    showZipDownloadToast('Preparing ZIP Archive', 'Compressing documents into a structured ZIP file...');
+                }
+            });
+        });
+    </script>
+
 
     {% block extra_js %}{% endblock %}
 </body>
 
-</html>
+</html>

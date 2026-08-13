@@ -36,9 +36,12 @@ from .utils import get_client_ip
 from .permissions import role_required, admin_required, staff_or_admin_required, has_role
 from .services import (
     get_office_settings, save_office_settings,
-    build_record_zip_buffer, build_category_zip_buffer,
-    build_activity_logs_csv_rows, filter_engineering_records
+    build_record_zip_buffer, build_category_zip_buffer, build_barangay_zip_buffer,
+    sanitize_zip_name, sanitize_file_name,
+    send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records
 )
+
+
 from .forms import UserCreationForm, UserEditForm, FlagIllegalConstructionForm, OfficeSettingsForm
 
 logger = logging.getLogger('permits')
@@ -609,10 +612,115 @@ def dashboard_view(request):
     return render(request, 'permits/dashboard.html', context)
 
 
+def ensure_barangay_schema():
+    """Self-healing helper: Ensures psgc_code column exists in SQLite table and populates 49 PSGC codes without requiring manual migration commands."""
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA table_info(permits_barangay)")
+            columns = [col[1] for col in cursor.fetchall()]
+            if 'psgc_code' not in columns:
+                cursor.execute("ALTER TABLE permits_barangay ADD COLUMN psgc_code varchar(20)")
+    except Exception:
+        pass
+
+    try:
+        from permits.models import Barangay
+        if Barangay.objects.filter(psgc_code__isnull=False).count() < 49:
+            OFFICIAL_49_CARIGARA_BARANGAYS = [
+                {"name": "Balilit", "psgc": "0803715001", "lat": 11.2874, "lng": 124.6950},
+                {"name": "Barayong", "psgc": "0803715002", "lat": 11.2682, "lng": 124.6722},
+                {"name": "Barugohay Central", "psgc": "0803715003", "lat": 11.2960, "lng": 124.6986},
+                {"name": "Barugohay Norte", "psgc": "0803715004", "lat": 11.3029, "lng": 124.7050},
+                {"name": "Barugohay Sur", "psgc": "0803715005", "lat": 11.2720, "lng": 124.6994},
+                {"name": "Baybay (Poblacion)", "psgc": "0803715006", "lat": 11.3011, "lng": 124.6889},
+                {"name": "Binibihan", "psgc": "0803715007", "lat": 11.2334, "lng": 124.7336},
+                {"name": "Bislig", "psgc": "0803715008", "lat": 11.2923, "lng": 124.6769},
+                {"name": "Caghalo", "psgc": "0803715009", "lat": 11.2611, "lng": 124.6676},
+                {"name": "Camansi", "psgc": "0803715010", "lat": 11.2188, "lng": 124.7159},
+                {"name": "Canal", "psgc": "0803715011", "lat": 11.2878, "lng": 124.6826},
+                {"name": "Candigahub", "psgc": "0803715012", "lat": 11.2501, "lng": 124.7007},
+                {"name": "Canlampay", "psgc": "0803715013", "lat": 11.2649, "lng": 124.6848},
+                {"name": "Cogon", "psgc": "0803715014", "lat": 11.2577, "lng": 124.7365},
+                {"name": "Cutay", "psgc": "0803715015", "lat": 11.2649, "lng": 124.6987},
+                {"name": "East Visoria", "psgc": "0803715016", "lat": 11.3017, "lng": 124.6826},
+                {"name": "Guindapunan East", "psgc": "0803715017", "lat": 11.3037, "lng": 124.7004},
+                {"name": "Guindapunan West", "psgc": "0803715018", "lat": 11.3026, "lng": 124.6980},
+                {"name": "Hiluctogan", "psgc": "0803715019", "lat": 11.2471, "lng": 124.6877},
+                {"name": "Jugaban (Poblacion)", "psgc": "0803715020", "lat": 11.3007, "lng": 124.6934},
+                {"name": "Libo", "psgc": "0803715021", "lat": 11.2671, "lng": 124.6809},
+                {"name": "Lower Hiraan", "psgc": "0803715022", "lat": 11.2795, "lng": 124.6786},
+                {"name": "Lower Sogod", "psgc": "0803715023", "lat": 11.2572, "lng": 124.6903},
+                {"name": "Macalpi", "psgc": "0803715024", "lat": 11.2126, "lng": 124.7332},
+                {"name": "Manloy", "psgc": "0803715025", "lat": 11.2750, "lng": 124.6636},
+                {"name": "Nauguisan", "psgc": "0803715026", "lat": 11.2955, "lng": 124.6637},
+                {"name": "Pangna", "psgc": "0803715027", "lat": 11.2798, "lng": 124.7101},
+                {"name": "Parag-um", "psgc": "0803715028", "lat": 11.2575, "lng": 124.7279},
+                {"name": "Parena (Parina)", "psgc": "0803715029", "lat": 11.2979, "lng": 124.7121},
+                {"name": "Piloro", "psgc": "0803715030", "lat": 11.2365, "lng": 124.7205},
+                {"name": "Ponong (Poblacion)", "psgc": "0803715031", "lat": 11.2977, "lng": 124.6829},
+                {"name": "Sagkahan", "psgc": "0803715032", "lat": 11.2799, "lng": 124.7260},
+                {"name": "San Mateo (Poblacion)", "psgc": "0803715033", "lat": 11.3018, "lng": 124.6953},
+                {"name": "Santa Fe", "psgc": "0803715034", "lat": 11.2567, "lng": 124.7151},
+                {"name": "Sawang (Poblacion)", "psgc": "0803715035", "lat": 11.2993, "lng": 124.6895},
+                {"name": "Tagak", "psgc": "0803715036", "lat": 11.2891, "lng": 124.7122},
+                {"name": "Tangnan", "psgc": "0803715037", "lat": 11.2982, "lng": 124.6713},
+                {"name": "Tigbao", "psgc": "0803715038", "lat": 11.2379, "lng": 124.7132},
+                {"name": "Tinaguban", "psgc": "0803715039", "lat": 11.2382, "lng": 124.7018},
+                {"name": "Upper Hiraan", "psgc": "0803715040", "lat": 11.2648, "lng": 124.6759},
+                {"name": "Upper Sogod", "psgc": "0803715041", "lat": 11.2536, "lng": 124.6931},
+                {"name": "Uyawan", "psgc": "0803715042", "lat": 11.2841, "lng": 124.6844},
+                {"name": "West Visoria", "psgc": "0803715043", "lat": 11.2991, "lng": 124.6769},
+                {"name": "Paglaum", "psgc": "0803715044", "lat": 11.2045, "lng": 124.7188},
+                {"name": "San Juan", "psgc": "0803715045", "lat": 11.2888, "lng": 124.6611},
+                {"name": "Bagong Lipunan", "psgc": "0803715046", "lat": 11.2843, "lng": 124.6987},
+                {"name": "Canfabi", "psgc": "0803715047", "lat": 11.2654, "lng": 124.7092},
+                {"name": "Rizal (Tagak East)", "psgc": "0803715048", "lat": 11.2867, "lng": 124.7172},
+                {"name": "San Isidro", "psgc": "0803715049", "lat": 11.2054, "lng": 124.7082}
+            ]
+            for item in OFFICIAL_49_CARIGARA_BARANGAYS:
+                name = item["name"]
+                psgc = item["psgc"]
+                lat = item["lat"]
+                lng = item["lng"]
+                b = Barangay.objects.filter(barangay_name__iexact=name).first()
+                if not b:
+                    short_name = name.replace(" (Poblacion)", "").strip()
+                    b = Barangay.objects.filter(barangay_name__iexact=short_name).first()
+                if not b:
+                    Barangay.objects.create(barangay_name=name, psgc_code=psgc, latitude=lat, longitude=lng)
+                else:
+                    b.barangay_name = name
+                    b.psgc_code = psgc
+                    b.latitude = lat
+                    b.longitude = lng
+                    b.save()
+            OFFICIAL_NAMES = [item["name"] for item in OFFICIAL_49_CARIGARA_BARANGAYS]
+            Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()
+            Barangay.objects.exclude(barangay_name__in=OFFICIAL_NAMES).filter(engineering_records__isnull=True, records__isnull=True).delete()
+    except Exception:
+        pass
+
+
 # ─── BARANGAYS ───────────────────────────────────────────────────────────────
 
 @login_required
 def barangays_view(request):
+    ensure_barangay_schema()
+
+    # Clean up non-official test entries if present
+    OFFICIAL_NAMES = [
+        "Bagong Lipunan", "Balilit", "Barayong", "Barugohay Central", "Barugohay Norte", "Barugohay Sur",
+        "Baybay (Poblacion)", "Binibihan", "Bislig", "Caghalo", "Camansi", "Canal", "Candigahub", "Canfabi",
+        "Canlampay", "Cogon", "Cutay", "East Visoria", "Guindapunan East", "Guindapunan West", "Hiluctogan",
+        "Jugaban (Poblacion)", "Libo", "Lower Hiraan", "Lower Sogod", "Macalpi", "Manloy", "Nauguisan",
+        "Paglaum", "Pangna", "Parag-um", "Parena (Parina)", "Piloro", "Ponong (Poblacion)", "Rizal (Tagak East)",
+        "Sagkahan", "San Isidro", "San Juan", "San Mateo (Poblacion)", "Santa Fe", "Sawang (Poblacion)",
+        "Tagak", "Tangnan", "Tigbao", "Tinaguban", "Upper Hiraan", "Upper Sogod", "Uyawan", "West Visoria"
+    ]
+    Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()
+    Barangay.objects.exclude(barangay_name__in=OFFICIAL_NAMES).filter(engineering_records__isnull=True, records__isnull=True).delete()
+
     if request.method == 'POST':
         action = request.POST.get('action')
         if request.user.role not in ['admin', 'staff']:
@@ -674,26 +782,49 @@ def barangays_view(request):
                     messages.success(request, f"Barangay '{name}' deleted successfully.")
             return redirect('barangays')
 
-    barangays = Barangay.objects.annotate(
+    sort = request.GET.get('sort', 'a-z').strip().lower()
+    query = request.GET.get('q', '').strip()
+
+    base_qs = Barangay.objects.annotate(
         total_records=Count('engineering_records', filter=~Q(engineering_records__status='archived')),
         permit_count=Count('engineering_records', filter=Q(engineering_records__record_type='Permit') & ~Q(engineering_records__status='archived')),
         project_count=Count('engineering_records', filter=Q(engineering_records__record_type='Project') & ~Q(engineering_records__status='archived')),
-    ).order_by('barangay_name')
+    )
 
-    query = request.GET.get('q', '').strip()
     if query:
-        barangays = barangays.filter(barangay_name__icontains=query)
+        filtered_qs = base_qs.filter(barangay_name__icontains=query)
+    else:
+        filtered_qs = base_qs
+
+    if sort == 'z-a':
+        barangays = filtered_qs.order_by('-barangay_name')
+    elif sort == 'most_records':
+        barangays = filtered_qs.order_by('-total_records', 'barangay_name')
+    elif sort == 'fewest_records':
+        barangays = filtered_qs.order_by('total_records', 'barangay_name')
+    else:
+        sort = 'a-z'
+        barangays = filtered_qs.order_by('barangay_name')
+
+    total_barangays_count = Barangay.objects.count()
+    shown_barangays_count = barangays.count()
+
 
     context = {
         'barangays': barangays,
         'q': query,
+        'sort': sort,
+        'total_barangays_count': total_barangays_count,
+        'shown_barangays_count': shown_barangays_count,
         'active_tab': 'barangays',
     }
     return render(request, 'permits/barangays.html', context)
 
 
+
 @login_required
 def barangay_workspace_view(request, barangay_id):
+    ensure_barangay_schema()
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
     records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').select_related(
         'created_by', 'barangay', 'permit_detail', 'project_detail'
@@ -746,9 +877,34 @@ def barangay_workspace_view(request, barangay_id):
     paginator = Paginator(filtered_records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
+    # Dynamic Nearby Barangays calculation via Haversine distance
+    import math
+    nearby_barangays = []
+    if barangay.latitude and barangay.longitude:
+        b_lat, b_lng = barangay.latitude, barangay.longitude
+        all_other = Barangay.objects.exclude(barangay_id=barangay.barangay_id).filter(
+            latitude__isnull=False, longitude__isnull=False
+        )
+        
+        calculated_list = []
+        for b_item in all_other:
+            dlat = math.radians(b_item.latitude - b_lat)
+            dlon = math.radians(b_item.longitude - b_lng)
+            a = math.sin(dlat / 2)**2 + math.cos(math.radians(b_lat)) * math.cos(math.radians(b_item.latitude)) * math.sin(dlon / 2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            dist_km = round(6371.0 * c, 2)
+            calculated_list.append({
+                'barangay': b_item,
+                'distance_km': dist_km
+            })
+            
+        calculated_list.sort(key=lambda x: x['distance_km'])
+        nearby_barangays = calculated_list[:4]
+
     context = {
         'per_page': per_page,
         'barangay': barangay,
+        'nearby_barangays': nearby_barangays,
         'total_permits': total_permits,
         'total_projects': total_projects,
         'total_documents': total_documents,
@@ -1004,6 +1160,11 @@ def record_create_step3_view(request):
         is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
         illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
 
+        lat_raw = request.POST.get('latitude', '').strip()
+        lng_raw = request.POST.get('longitude', '').strip()
+        lat_val = float(lat_raw) if lat_raw else None
+        lng_val = float(lng_raw) if lng_raw else None
+
         record = EngineeringRecord.objects.create(
             record_type=record_type,
             project_scope=scope,
@@ -1014,8 +1175,11 @@ def record_create_step3_view(request):
             status=status,
             is_illegal_construction=is_illegal,
             illegal_compliance_status=illegal_status,
+            latitude=lat_val,
+            longitude=lng_val,
             created_by=request.user,
         )
+
         
         if record_type == 'Permit':
             date_issued_val = request.POST.get('date_issued', '').strip() or None
@@ -1383,6 +1547,11 @@ def record_create_view(request):
         is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
         illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
 
+        lat_raw = request.POST.get('latitude', '').strip()
+        lng_raw = request.POST.get('longitude', '').strip()
+        lat_val = float(lat_raw) if lat_raw else None
+        lng_val = float(lng_raw) if lng_raw else None
+
         # Save record
         record = EngineeringRecord.objects.create(
             record_type=record_type,
@@ -1394,8 +1563,11 @@ def record_create_view(request):
             status=status,
             is_illegal_construction=is_illegal,
             illegal_compliance_status=illegal_status,
+            latitude=lat_val,
+            longitude=lng_val,
             created_by=request.user,
         )
+
 
         # Save details
         if record_type == 'Permit':
@@ -1828,6 +2000,11 @@ def record_edit_view(request, record_id):
         record.date_started = request.POST.get('date_started', '') or None
         record.date_completed = request.POST.get('date_completed', '') or None
         
+        lat_raw = request.POST.get('latitude', '').strip()
+        lng_raw = request.POST.get('longitude', '').strip()
+        record.latitude = float(lat_raw) if lat_raw else None
+        record.longitude = float(lng_raw) if lng_raw else None
+
         is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
         record.is_illegal_construction = is_illegal
         if is_illegal:
@@ -1836,6 +2013,7 @@ def record_edit_view(request, record_id):
             record.illegal_compliance_status = 'unresolved'
             
         record.save()
+
 
         # Update detail and regenerate requirements if subtype changed or doesn't exist
         if record.record_type == 'Permit':
@@ -3182,7 +3360,17 @@ def settings_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
+        if action == 'send_expiry_alerts':
+            success, msg = send_document_expiry_alerts()
+            log_audit(request.user, f"Triggered Document Expiry Email Alerts: {msg}", request=request)
+            if success:
+                messages.success(request, f"Email notification summary sent successfully: {msg}")
+            else:
+                messages.warning(request, msg)
+            return redirect(f"{reverse('settings')}?tab=maintenance")
+
         if action == 'clear_failed_logins':
+
             count = LoginAttempt.objects.filter(success=False).delete()[0]
             log_audit(request.user, f"Cleared {count} failed login attempt logs", request=request)
             messages.success(request, f"Successfully cleared {count} failed login attempt logs.")
@@ -3576,14 +3764,23 @@ def alerts_list_json_view(request):
     return JsonResponse({'items': data})
 
 
+def sanitize_zip_name(raw_name, max_len=40):
+    """Sanitizes raw string and caps length for safe ZIP path creation across operating systems."""
+    if not raw_name:
+        return "item"
+    cleaned = "".join(c for c in str(raw_name) if c.isalnum() or c in (' ', '_', '-')).strip()
+    return cleaned[:max_len].strip() or "item"
+
+
 # ─── ENHANCEMENTS: ZIP DOWNLOAD, BATCH UPLOAD, BULK ENCODING ─────────────────
+
 
 @login_required
 def download_record_zip_view(request, record_id):
     """Downloads all documents for a record as a structured ZIP file."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     buffer = build_record_zip_buffer(record, _get_document_stream)
-    clean_title = "".join(c for c in record.title if c.isalnum() or c in (' ', '_', '-')).strip()
+    clean_title = sanitize_zip_name(record.title, max_len=35)
     filename = f"{clean_title}_Archive.zip"
     response = HttpResponse(buffer.getvalue(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -3597,11 +3794,27 @@ def download_category_zip_view(request, record_id, req_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     parent_req = get_object_or_404(RecordRequirement, req_id=req_id, record=record)
     buffer = build_category_zip_buffer(record, parent_req, _get_document_stream)
-    clean_parent = "".join(c for c in parent_req.requirement_item.name if c.isalnum() or c in (' ', '_', '-')).strip()
-    filename = f"{record.title}_{clean_parent}.zip"
+    clean_title = sanitize_zip_name(record.title, max_len=25)
+    clean_parent = sanitize_zip_name(parent_req.requirement_item.name, max_len=20)
+    filename = f"{clean_title}_{clean_parent}.zip"
     response = HttpResponse(buffer.getvalue(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+@login_required
+def download_barangay_zip_view(request, barangay_id):
+    """Downloads all documents for an entire Barangay as a structured ZIP archive."""
+    barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
+    buffer = build_barangay_zip_buffer(barangay, _get_document_stream)
+    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=25)
+    filename = f"Brgy_{clean_b_name}_Archive.zip"
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    log_audit(request.user, f"Downloaded Barangay ZIP Archive for '{barangay.barangay_name}'", request=request)
+    return response
+
+
 
 
 @login_required

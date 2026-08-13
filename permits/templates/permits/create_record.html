@@ -127,8 +127,8 @@
                             <!-- Title (project only) -->
                             <div class="mb-3.5" id="titleRow" style="display:none;">
                                 <label class="form-label fw-semibold text-muted small" id="titleLabel">Project Title <span class="text-danger">*</span></label>
-                                <input type="text" name="title" id="titleInput" class="form-control" placeholder="e.g. Concreting of Barangay Road" style="border-radius:8px; padding: 0.6rem 0.85rem; font-size: 0.88rem;" autocomplete="off">
-                                <div class="form-text text-muted" style="font-size:0.72rem;">Descriptive project title for easy identification</div>
+                                <input type="text" name="title" id="titleInput" class="form-control" placeholder="e.g. Concreting of Barangay Road" maxlength="80" style="border-radius:8px; padding: 0.6rem 0.85rem; font-size: 0.88rem;" autocomplete="off">
+                                <div class="form-text text-muted" style="font-size:0.72rem;">Descriptive project title (max 80 chars)</div>
                             </div>
 
                             <!-- Permit-only: Applicant + Permit Number -->
@@ -136,15 +136,16 @@
                                 <div class="row g-3 mb-3.5">
                                     <div class="col-md-7">
                                         <label class="form-label fw-semibold text-muted small">Applicant Name <span class="text-danger">*</span></label>
-                                        <input type="text" name="applicant_name" id="applicantInput" class="form-control" placeholder="Full name of applicant" style="border-radius:8px; padding: 0.6rem 0.85rem; font-size: 0.88rem;" autocomplete="off">
+                                        <input type="text" name="applicant_name" id="applicantInput" class="form-control" placeholder="Full name of applicant" maxlength="60" style="border-radius:8px; padding: 0.6rem 0.85rem; font-size: 0.88rem;" autocomplete="off">
                                         <input type="hidden" name="permit_title" id="permitTitleHidden">
                                     </div>
                                     <div class="col-md-5">
                                         <label class="form-label fw-semibold text-muted small">Permit No. <span class="text-danger">*</span></label>
-                                        <input type="text" name="permit_number" id="permitNumInput" class="form-control" placeholder="e.g. BP-2026-001" style="border-radius:8px; padding: 0.6rem 0.85rem; font-size: 0.88rem;" autocomplete="off" required>
+                                        <input type="text" name="permit_number" id="permitNumInput" class="form-control" placeholder="e.g. BP-2026-001" maxlength="30" style="border-radius:8px; padding: 0.6rem 0.85rem; font-size: 0.88rem;" autocomplete="off" required>
                                     </div>
                                 </div>
                             </div>
+
 
                             <div id="step2Error" class="text-danger mt-2 d-none" style="font-size:0.78rem;">
                                 <i data-lucide="alert-circle" style="width:14px;height:14px;vertical-align:-2px;"></i> <span id="step2ErrorMsg">Please fill in all required fields.</span>
@@ -170,7 +171,21 @@
                                     <label class="form-label fw-semibold text-muted small">Year <span class="text-danger">*</span></label>
                                     <input type="number" name="year" id="yearInput" class="form-control" value="{{ current_year }}" min="1990" max="{{ current_year }}" style="border-radius:8px; padding: 0.6rem 0.85rem; font-size: 0.88rem;">
                                 </div>
+
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold text-muted small mb-1">GIS Map Coordinates (Latitude &amp; Longitude)</label>
+                                    <div class="input-group">
+                                        <input type="number" step="any" name="latitude" id="id_latitude" class="form-control" placeholder="Latitude (e.g. 11.3021)" style="border-radius: 8px 0 0 8px; font-size: 0.85rem; padding: 8px 12px;">
+                                        <input type="number" step="any" name="longitude" id="id_longitude" class="form-control" placeholder="Longitude (e.g. 124.6897)" style="font-size: 0.85rem; padding: 8px 12px;">
+                                        <button type="button" class="btn btn-outline-primary text-xs font-semibold px-3 d-inline-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#mapPinPickerModal" onclick="initMapPinPicker()" style="border-radius: 0 8px 8px 0;">
+                                            <i class="fa-solid fa-map-pin text-primary"></i>
+                                            <span>Pick on Map</span>
+                                        </button>
+                                    </div>
+                                    <div class="text-muted small mt-1" style="font-size: 0.72rem;">Optional: Click "Pick on Map" to pin exact GPS location for Leaflet map &amp; GIS tracking.</div>
+                                </div>
                             </div>
+
 
                             <!-- Illegal Construction Option -->
                             <div class="mt-4 pt-3 border-top">
@@ -649,4 +664,87 @@ if (preselectCat) {
 }
 </script>
 
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Map Pin Picker Modal -->
+<div class="modal fade" id="mapPinPickerModal" tabindex="-1" aria-labelledby="mapPinPickerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-navy text-white py-3">
+                <h5 class="modal-title fs-6 font-bold d-flex align-items-center gap-2" id="mapPinPickerModalLabel">
+                    <i class="fa-solid fa-map-location-dot text-gold"></i> Select Geocoded Location on Map (Carigara, Leyte)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="pickerMap" style="height: 380px; width: 100%;"></div>
+                <div class="p-3 bg-light border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="text-xs text-slate-600">
+                        <strong>Selected GPS:</strong> 
+                        <span id="pickerLatDisplay" class="font-semibold text-navy">11.302100</span>, 
+                        <span id="pickerLngDisplay" class="font-semibold text-navy">124.689700</span>
+                    </div>
+                    <button type="button" class="btn btn-primary text-xs font-semibold px-4 py-2" onclick="confirmMapPinSelection()" data-bs-dismiss="modal">
+                        <i class="fa-solid fa-check me-1"></i> Use Selected Location
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let pickerMap = null;
+    let pickerMarker = null;
+
+    function initMapPinPicker() {
+        setTimeout(function() {
+            const curLat = parseFloat(document.getElementById('id_latitude').value) || 11.3021;
+            const curLng = parseFloat(document.getElementById('id_longitude').value) || 124.6897;
+
+            if (!pickerMap) {
+                pickerMap = L.map('pickerMap').setView([curLat, curLng], 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(pickerMap);
+
+                pickerMarker = L.marker([curLat, curLng], { draggable: true }).addTo(pickerMap);
+
+                pickerMap.on('click', function(e) {
+                    const lat = e.latlng.lat.toFixed(6);
+                    const lng = e.latlng.lng.toFixed(6);
+                    pickerMarker.setLatLng([lat, lng]);
+                    document.getElementById('pickerLatDisplay').innerText = lat;
+                    document.getElementById('pickerLngDisplay').innerText = lng;
+                });
+
+                pickerMarker.on('dragend', function() {
+                    const pos = pickerMarker.getLatLng();
+                    const lat = pos.lat.toFixed(6);
+                    const lng = pos.lng.toFixed(6);
+                    document.getElementById('pickerLatDisplay').innerText = lat;
+                    document.getElementById('pickerLngDisplay').innerText = lng;
+                });
+            } else {
+                pickerMap.invalidateSize();
+                pickerMap.setView([curLat, curLng], 14);
+                pickerMarker.setLatLng([curLat, curLng]);
+            }
+            document.getElementById('pickerLatDisplay').innerText = curLat.toFixed(6);
+            document.getElementById('pickerLngDisplay').innerText = curLng.toFixed(6);
+        }, 250);
+    }
+
+    function confirmMapPinSelection() {
+        const lat = document.getElementById('pickerLatDisplay').innerText;
+        const lng = document.getElementById('pickerLngDisplay').innerText;
+        document.getElementById('id_latitude').value = lat;
+        document.getElementById('id_longitude').value = lng;
+    }
+</script>
+
 {% endblock %}
+

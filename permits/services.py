@@ -54,10 +54,28 @@ def save_office_settings(office_name, municipality, province):
 
 # ─── RECORD ZIP ARCHIVE GENERATION SERVICE ───────────────────────────────────
 
+def sanitize_zip_name(raw_name, max_len=40):
+    """Sanitizes raw string and caps length for safe ZIP path creation across operating systems."""
+    if not raw_name:
+        return "item"
+    cleaned = "".join(c for c in str(raw_name) if c.isalnum() or c in (' ', '_', '-')).strip()
+    return cleaned[:max_len].strip() or "item"
+
+
+def sanitize_file_name(raw_filename, max_name_len=35):
+    """Sanitizes filename and extension, keeping total file name compact."""
+    if not raw_filename:
+        return "document"
+    name_part, ext_part = os.path.splitext(os.path.basename(str(raw_filename)))
+    clean_name = "".join(c for c in name_part if c.isalnum() or c in (' ', '_', '-')).strip()[:max_name_len].strip() or "doc"
+    clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip()
+    return f"{clean_name}{clean_ext}"
+
+
 def build_record_zip_buffer(record, stream_getter_func):
     """
     Generates an in-memory ZIP archive buffer containing all fulfilled documents for an EngineeringRecord.
-    Organizes files by requirement checklist slots and folders.
+    Organizes files by requirement checklist slots and folders with compact path limits.
     """
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -72,13 +90,16 @@ def build_record_zip_buffer(record, stream_getter_func):
                             file_obj.close()
                         
                         item = req.requirement_item
-                        doc_fname = req.document.file_name or 'document'
+                        clean_doc_fname = sanitize_file_name(req.document.file_name or 'document', max_name_len=35)
                         if item and item.parent:
-                            folder_path = f"{item.parent.name}/{item.name}_{doc_fname}"
+                            parent_folder = sanitize_zip_name(item.parent.name, max_len=30)
+                            item_name = sanitize_zip_name(item.name, max_len=25)
+                            folder_path = f"{parent_folder}/{item_name}_{clean_doc_fname}"
                         elif item:
-                            folder_path = f"{item.name}/{doc_fname}"
+                            item_name = sanitize_zip_name(item.name, max_len=30)
+                            folder_path = f"{item_name}/{clean_doc_fname}"
                         else:
-                            folder_path = f"Documents/{doc_fname}"
+                            folder_path = f"Documents/{clean_doc_fname}"
                         
                         zip_file.writestr(folder_path, file_data)
                 except Exception as exc:
@@ -92,8 +113,8 @@ def build_record_zip_buffer(record, stream_getter_func):
                     file_data = file_obj.read()
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
-                    doc_fname = doc.file_name or 'document'
-                    zip_file.writestr(f"Other_Documents/{doc_fname}", file_data)
+                    clean_doc_fname = sanitize_file_name(doc.file_name or 'document', max_name_len=35)
+                    zip_file.writestr(f"Other_Documents/{clean_doc_fname}", file_data)
             except Exception as exc:
                 logger.error(f"Error zipping document {doc.document_id}: {exc}")
 
@@ -119,13 +140,115 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                         file_data = file_obj.read()
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
-                        doc_fname = req.document.file_name or 'document'
-                        zip_file.writestr(f"{parent_item.name}/{req.requirement_item.name}_{doc_fname}", file_data)
+                        parent_name = sanitize_zip_name(parent_item.name, max_len=30)
+                        item_name = sanitize_zip_name(req.requirement_item.name, max_len=25)
+                        clean_doc_fname = sanitize_file_name(req.document.file_name or 'document', max_name_len=35)
+                        zip_file.writestr(f"{parent_name}/{item_name}_{clean_doc_fname}", file_data)
                 except Exception as exc:
                     logger.error(f"Error zipping sub-document {req.document.document_id}: {exc}")
 
     buffer.seek(0)
     return buffer
+
+
+def build_barangay_zip_buffer(barangay, stream_getter_func):
+    """
+    Generates an in-memory ZIP archive buffer containing all documents for an entire Barangay.
+    Organizes files into structured folders by Permits and Projects with compact path limits.
+    """
+    buffer = io.BytesIO()
+    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').prefetch_related('documents')
+    
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for record in records:
+            clean_record_title = sanitize_zip_name(record.title, max_len=40)
+            section = "Permits" if record.record_type == 'Permit' else "Projects"
+            
+            for doc in record.documents.all():
+                try:
+                    file_obj, _, _ = stream_getter_func(doc)
+                    if file_obj:
+                        file_data = file_obj.read()
+                        if hasattr(file_obj, 'close'):
+                            file_obj.close()
+                        
+                        clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=25)
+                        clean_doc_fname = sanitize_file_name(doc.file_name or (doc.file.name if doc.file else 'document'), max_name_len=35)
+                        folder_path = f"{clean_b_name}_Archive/{section}/{clean_record_title}/{clean_doc_fname}"
+                        zip_file.writestr(folder_path, file_data)
+
+                except Exception as exc:
+                    logger.error(f"Error zipping barangay document {doc.document_id}: {exc}")
+
+    buffer.seek(0)
+    return buffer
+
+
+
+def send_document_expiry_alerts():
+    """
+    Scans all active documents with an expiry_date within 30 days or already expired,
+    and sends a formatted HTML email summary to staff & admin users.
+    """
+    from django.core.mail import send_mail
+    from django.contrib.auth import get_user_model
+    
+    today_date = timezone.now().date()
+    thirty_days_later = today_date + timedelta(days=30)
+    
+    from .models import Document
+    alert_docs = Document.objects.filter(
+        expiry_date__isnull=False
+    ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item')
+    
+    expired_docs = alert_docs.filter(expiry_date__lt=today_date).order_by('-expiry_date')
+    expiring_docs = alert_docs.filter(expiry_date__range=(today_date, thirty_days_later)).order_by('expiry_date')
+    
+    if not expired_docs.exists() and not expiring_docs.exists():
+        return False, "No expired or expiring documents found."
+        
+    User = get_user_model()
+    recipients = list(User.objects.filter(is_active=True, role__in=['admin', 'staff']).values_list('email', flat=True))
+    if not recipients:
+        return False, "No active admin/staff email recipients found."
+
+    expired_items = "".join([f"<li><strong>{d.requirement_item.name if d.requirement_item else d.document_type}</strong> — {d.engineering_record.title} (Expired: {d.expiry_date.strftime('%b %d, %Y')})</li>" for d in expired_docs[:10]])
+    expiring_items = "".join([f"<li><strong>{d.requirement_item.name if d.requirement_item else d.document_type}</strong> — {d.engineering_record.title} (Expires: {d.expiry_date.strftime('%b %d, %Y')})</li>" for d in expiring_docs[:10]])
+
+    expired_section = f"<h3 style='color:#b91c1c; font-size:14px; margin:16px 0 8px 0;'>🚨 Expired Documents ({expired_docs.count()})</h3><ul style='padding-left:20px; color:#475569; font-size:13px;'>{expired_items}</ul>" if expired_docs.exists() else ""
+    expiring_section = f"<h3 style='color:#b45309; font-size:14px; margin:16px 0 8px 0;'>⚠️ Expiring Soon (&lt; 30 Days) ({expiring_docs.count()})</h3><ul style='padding-left:20px; color:#475569; font-size:13px;'>{expiring_items}</ul>" if expiring_docs.exists() else ""
+
+    html_message = f"""
+    <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #002855 0%, #001f42 100%); padding: 24px 28px; text-align: center;">
+            <h1 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: 700;">eTala Alert System</h1>
+            <p style="color: #C5A059; font-size: 11px; margin: 4px 0 0 0; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;">Municipal Engineering Office &bull; Carigara, Leyte</p>
+        </div>
+        <div style="padding: 24px 28px;">
+            <h2 style="color: #0f172a; font-size: 16px; margin: 0 0 12px 0;">Document Expiry Alert Summary</h2>
+            <p style="color: #475569; font-size: 14px; margin: 0 0 20px 0;">
+                The following engineering record documents require immediate administrative attention:
+            </p>
+            {expired_section}
+            {expiring_section}
+        </div>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; text-align: center;">
+            <p style="color: #94a3b8; font-size: 11px; margin: 0;">eTala Municipal Engineering Office &bull; Carigara, Leyte</p>
+        </div>
+    </div>
+    """
+
+    send_mail(
+        subject='eTala Alert: Document Expiry Summary Notice',
+        message=f'eTala Document Expiry Alert Summary: {expired_docs.count()} expired, {expiring_docs.count()} expiring soon.',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=recipients,
+        html_message=html_message,
+        fail_silently=False,
+    )
+
+    return True, f"Sent email notifications to {len(recipients)} staff/admin user(s) ({expired_docs.count()} expired, {expiring_docs.count()} expiring soon)."
+
 
 
 # ─── ACTIVITY LOGS CSV EXPORT SERVICE ─────────────────────────────────────────

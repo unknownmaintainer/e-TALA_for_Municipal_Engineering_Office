@@ -24,6 +24,8 @@ urlpatterns = [
     # Barangays
     path('barangays/', views.barangays_view, name='barangays'),
     path('barangays/<int:barangay_id>/', views.barangay_workspace_view, name='barangay_workspace'),
+    path('barangays/<int:barangay_id>/download-zip/', views.download_barangay_zip_view, name='download_barangay_zip'),
+
 
     # Engineering Records — Create Wizard (3 steps)
     path('records/new/', views.record_create_step1_view, name='create_step1'),
