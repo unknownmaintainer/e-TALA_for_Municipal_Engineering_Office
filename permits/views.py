@@ -415,17 +415,24 @@ def dashboard_view(request):
     total_archived = EngineeringRecord.objects.filter(status='archived').count()
     total_records = records.count()
 
-    # Incomplete records (have a checklist but not fully fulfilled or waived)
-    incomplete_records = records.filter(
-        requirements__isnull=False,
+    # Incomplete records (only check leaf requirement items, excluding parent group containers)
+    leaf_req_filter = Q(
+        requirements__requirement_item__is_group=False,
+        requirements__requirement_item__sub_items__isnull=True,
+        requirements__requirement_item__is_active=True
+    )
+
+    incomplete_filter = leaf_req_filter & Q(
         requirements__is_fulfilled=False,
         requirements__is_waived=False
-    ).distinct().count()
+    )
 
-    # Checklist Digitization Compliance Stats
+    incomplete_records = records.filter(incomplete_filter).distinct().count()
+
+    # Checklist Digitization Compliance Stats (Leaf items only)
     active_with_reqs = records.annotate(
-        total_reqs=Count('requirements'),
-        fulfilled_reqs=Count('requirements', filter=Q(requirements__is_fulfilled=True) | Q(requirements__is_waived=True))
+        total_reqs=Count('requirements', filter=leaf_req_filter),
+        fulfilled_reqs=Count('requirements', filter=leaf_req_filter & (Q(requirements__is_fulfilled=True) | Q(requirements__is_waived=True)))
     ).filter(total_reqs__gt=0)
     
     compliance_total = active_with_reqs.count()
@@ -461,11 +468,7 @@ def dashboard_view(request):
     recent_uploads = Document.objects.select_related('engineering_record', 'uploaded_by').order_by('-uploaded_at')[:5]
 
     # Incomplete Records list (select created_by for instant JS scope filtering)
-    incomplete_list = records.filter(
-        requirements__isnull=False,
-        requirements__is_fulfilled=False,
-        requirements__is_waived=False
-    ).distinct().select_related(
+    incomplete_list = records.filter(incomplete_filter).distinct().select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     ).prefetch_related(
         'requirements__requirement_item', 'requirements__document'
