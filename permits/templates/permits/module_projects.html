@@ -49,15 +49,13 @@
                 <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Search projects by title, contractor, barangay..." value="{{ q|default:'' }}">
 
                 <div id="moduleProjSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                    style="width: 14px; height: 14px; border-width: 2px;">
+                    style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
                     <span class="visually-hidden">Searching...</span>
                 </div>
 
-                {% if q %}
-                <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" style="background:transparent;" title="Clear search">
+                <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}" id="moduleProjClearBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background:transparent;" title="Clear search">
                     <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                 </a>
-                {% endif %}
 
                 <span class="etala-search-pill-divider"></span>
 
@@ -312,11 +310,13 @@
 document.addEventListener('DOMContentLoaded', function () {
     const projectSearchInput = document.querySelector('.etala-search-pill-input[name="q"]');
     const moduleProjSearchSpinner = document.getElementById('moduleProjSearchSpinner');
+    const moduleProjClearBtn = document.getElementById('moduleProjClearBtn');
     let projectSearchTimer;
 
     async function updateModuleProjTableAJAX(url) {
         const tableCard = document.querySelector('.content-card');
         if (moduleProjSearchSpinner) moduleProjSearchSpinner.classList.remove('d-none');
+        if (moduleProjClearBtn) moduleProjClearBtn.classList.add('d-none');
         if (tableCard) {
             tableCard.style.transition = 'opacity 0.08s ease';
             tableCard.style.opacity = '0.6';
@@ -341,6 +341,10 @@ document.addEventListener('DOMContentLoaded', function () {
         } finally {
             if (tableCard) tableCard.style.opacity = '1';
             if (moduleProjSearchSpinner) moduleProjSearchSpinner.classList.add('d-none');
+            if (moduleProjClearBtn) {
+                if (projectSearchInput && projectSearchInput.value.trim().length > 0) moduleProjClearBtn.classList.remove('d-none');
+                else moduleProjClearBtn.classList.add('d-none');
+            }
         }
     }
 
@@ -353,11 +357,25 @@ document.addEventListener('DOMContentLoaded', function () {
         projectSearchInput.addEventListener('input', function () {
             clearTimeout(projectSearchTimer);
             if (moduleProjSearchSpinner) moduleProjSearchSpinner.classList.remove('d-none');
+            if (moduleProjClearBtn) moduleProjClearBtn.classList.add('d-none');
             projectSearchTimer = setTimeout(() => {
                 const formData = new FormData(projectSearchInput.form);
                 const params = new URLSearchParams(formData);
                 updateModuleProjTableAJAX(window.location.pathname + '?' + params.toString());
             }, 450);
+        });
+    }
+
+    if (moduleProjClearBtn && projectSearchInput) {
+        moduleProjClearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            projectSearchInput.value = '';
+            if (moduleProjSearchSpinner) moduleProjSearchSpinner.classList.add('d-none');
+            moduleProjClearBtn.classList.add('d-none');
+            const formData = new FormData(projectSearchInput.form);
+            const params = new URLSearchParams(formData);
+            updateModuleProjTableAJAX(window.location.pathname + '?' + params.toString());
+            projectSearchInput.focus();
         });
     }
 });

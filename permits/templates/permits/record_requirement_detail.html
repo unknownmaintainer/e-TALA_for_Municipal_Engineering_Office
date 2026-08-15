@@ -241,11 +241,11 @@
 {% if can_edit and record.status != 'archived' %}
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3" style="background: #f8fafc;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header border-bottom px-4 py-3">
                 <div>
-                    <h5 class="modal-title fw-bold mb-0" style="font-size: 1rem;" id="uploadModalLabel">Upload Document File</h5>
-                    <div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">
+                    <h5 class="modal-title fw-bold mb-0 text-dark" style="font-size: 1.05rem;" id="uploadModalLabel">Upload Requirement Document</h5>
+                    <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">
                         Requirement: <strong id="uploadModalItemName" class="text-primary"></strong>
                     </div>
                 </div>
@@ -256,12 +256,21 @@
                     {% csrf_token %}
                     <input type="hidden" name="requirement_item_id" id="uploadItemId">
                     <!-- Drag & Drop Zone -->
-                    <div class="p-4 text-center border-2 border-dashed rounded-3" id="dropZone" 
+                    <div class="p-4 text-center mb-3" id="dropZone" 
                          onclick="document.getElementById('modalFileInput').click()" 
-                         style="cursor: pointer; background: #f8fafc; border-color: #cbd5e1 !important;">
-                        <i class="fa-solid fa-cloud-arrow-up text-primary mb-2" style="font-size: 26px;"></i>
-                        <div class="fw-bold mb-1" style="font-size: 0.9rem;">Click or drag file to upload</div>
-                        <div class="text-muted" style="font-size: 0.74rem;">PDF, JPG, PNG, WEBP — max 10MB</div>
+                         style="border: 2px dashed #cbd5e1; cursor: pointer; background: #f8fafc; border-radius: 12px; transition: all 0.2s ease;">
+                        <div class="mb-2 d-flex justify-content-center">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb;">
+                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px;"></i>
+                            </div>
+                        </div>
+                        <div class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">Drag &amp; drop your file here</div>
+                        <div class="mb-2 text-muted" style="font-size: 0.76rem;">or</div>
+                        <button type="button" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.82rem;" onclick="document.getElementById('modalFileInput').click();">
+                            <i class="fa-solid fa-folder-open me-1.5"></i> Browse Files
+                        </button>
+                        <div class="mt-2.5 text-muted" style="font-size: 0.74rem;">PDF, JPG, PNG, WEBP &bull; Max 10MB</div>
                         <input type="file" name="document_file" id="modalFileInput" accept=".pdf,.jpg,.jpeg,.png,.webp" class="d-none" onchange="showSelectedFile(this)">
                     </div>
 
@@ -273,34 +282,65 @@
                     </div>
                 </form>
             </div>
+            <div class="modal-footer border-top px-4 py-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-secondary px-3" style="border-radius: 8px; font-size: 0.82rem;" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary px-4 fw-semibold shadow-2xs" style="border-radius: 8px; font-size: 0.82rem;" onclick="document.getElementById('modalFileInput').click()">Choose File</button>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- ══ BATCH UPLOAD MODAL ══════════════════════════════════════════════════ -->
 <div class="modal fade" id="batchUploadModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow" style="border-radius: 12px; overflow: hidden;">
-            <div class="modal-header border-bottom p-3" style="background: #f8fafc;">
-                <h5 class="modal-title fw-bold text-dark" style="font-size: 0.95rem;">Batch Upload Documents</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 580px;">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header border-bottom p-3 px-4 bg-white d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 42px; height: 42px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #ffffff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 19px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.08rem;">Batch Document Upload</h5>
+                        <div class="text-muted" style="font-size: 0.78rem; margin-top: 1px;">Upload multiple files for this requirement folder.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
             </div>
             <form action="{% url 'batch_upload_documents' record.record_id %}" method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body p-4">
-                    <div class="p-3 rounded-3 mb-3" style="background: #eff6ff; border: 1px solid #bfdbfe; font-size: 0.82rem; color: #1e40af;">
-                        Select multiple PDF files or scanned images. The system will automatically classify files matching keywords in the filename.
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small">Select Files</label>
-                        <input type="file" name="files" class="form-control rounded-2" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" required style="font-size: 0.85rem;">
+                    <div class="premium-dropzone" id="reqBatchDropZone">
+                        <div class="premium-dropzone-icon-wrap">
+                            <span class="premium-dropzone-floating-badge floating-pdf">PDF</span>
+                            <span class="premium-dropzone-floating-badge floating-doc">DOCX</span>
+                            <span class="premium-dropzone-floating-badge floating-img">PNG</span>
+                            <div class="premium-dropzone-center-icon">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+                        </div>
+                        <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 1.02rem;">Drop Files Here</div>
+                        <div class="text-muted small mb-2" style="font-size: 0.80rem;">or <span class="text-primary fw-semibold text-decoration-underline cursor-pointer">Browse Files</span></div>
+                        <div>
+                            <span class="premium-dropzone-pill">
+                                <i class="fa-solid fa-file-shield text-primary" style="font-size: 11px;"></i>
+                                Supports PDF, DOC, DOCX, JPG, PNG &bull; Max 15 MB each
+                            </span>
+                        </div>
+                        <input type="file" name="files" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" required style="cursor: pointer; z-index: 5;">
                     </div>
                 </div>
-                <div class="modal-footer border-top p-3" style="background: #f8fafc;">
-                    <button type="button" class="btn btn-light px-3 py-1.5" data-bs-dismiss="modal" style="font-size: 0.82rem;">Cancel</button>
-                    <button type="submit" class="btn text-white px-4 py-1.5 fw-semibold" style="background: #002855; border-radius: 6px; font-size: 0.82rem;">
-                        Upload &amp; Classify
-                    </button>
+                <div class="modal-footer border-top p-3 px-4 bg-light d-flex justify-content-between align-items-center">
+                    <div class="text-muted small" style="font-size: 0.78rem;">
+                        <i class="fa-solid fa-circle-info me-1 text-primary"></i> Files will be stored securely.
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button type="button" class="btn btn-secondary px-3.5 py-2 fw-medium" style="border-radius: 10px; font-size: 0.84rem;" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold shadow-sm d-inline-flex align-items-center gap-2" style="border-radius: 10px; font-size: 0.84rem;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Upload Files</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

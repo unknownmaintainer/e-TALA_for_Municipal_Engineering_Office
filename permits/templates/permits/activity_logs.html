@@ -40,62 +40,90 @@
 <div class="content-card">
     <div class="content-card-body" style="padding: 24px;">
         
-        <!-- Toolbar: Sub-Tabs & Filters -->
-        <div class="d-flex flex-column flex-md-row gap-3 justify-content-between align-items-md-center mb-4 pb-3 border-bottom d-print-none">
-            <!-- Left: Sub-Tab Buttons -->
-            <div class="d-flex gap-2">
-                <button class="logs-tab-btn active" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button">
-                    <i class="fa-solid fa-list-check me-2" style="font-size: 14px;"></i>Audit Trail
-                </button>
-                {% if request.user.role == 'admin' %}
-                <button class="logs-tab-btn" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button">
-                    <i class="fa-solid fa-shield-halved me-2" style="font-size: 14px;"></i>Login History
-                </button>
-                {% endif %}
-            </div>
-            
-            <!-- Right: Integrated Search & Filter Pill -->
-            <form method="GET" action="{% url 'activity_logs' %}" class="d-flex gap-2 flex-wrap align-items-center">
-                <div class="etala-search-pill-wrapper" style="max-width: 340px; min-width: 240px;">
-                    <span class="etala-search-pill-icon">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </span>
-                    <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Search action or staff..." value="{{ query|default:'' }}">
-
-                    <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                        style="width: 14px; height: 14px; border-width: 2px;">
-                        <span class="visually-hidden">Searching...</span>
-                    </div>
-
-                    {% if query %}
-                    <a href="{% url 'activity_logs' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" style="background:transparent;" title="Clear search">
-                        <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
-                    </a>
+        <!-- Toolbar: Sub-Tabs & Filters (Matching Records & Illegal Constructions) -->
+        <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3 d-print-none">
+                <!-- Left: Scope Segmented Control (Audit Trail / Login History) -->
+                <div class="scope-segmented-control flex-shrink-0" style="height: 38px; border-radius: 12px; padding: 2.5px;">
+                    <button class="scope-pill-btn active" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button" title="Audit Trail" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
+                        <i class="fa-solid fa-list-check" style="font-size: 13px;"></i>
+                        <span>Audit Trail</span>
+                    </button>
+                    {% if request.user.role == 'admin' %}
+                    <button class="scope-pill-btn" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button" title="Login History" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
+                        <i class="fa-solid fa-shield-halved" style="font-size: 13px;"></i>
+                        <span>Login History</span>
+                    </button>
                     {% endif %}
+                </div>
 
-                    <span class="etala-search-pill-divider"></span>
+                <!-- Right: Integrated Search & Filter Pill (Standard eTala Pill) -->
+                <div class="d-flex align-items-center flex-grow-1 ms-auto" style="max-width: 360px; min-width: 240px;">
+                    <div class="etala-search-pill-wrapper" style="height: 38px; border-radius: 12px;">
+                        <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search logs">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                        <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
+                            placeholder="Search action or staff..." value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.82rem;">
 
-                    <!-- Integrated Filter Dropdown -->
-                    <div class="dropdown">
-                        <button type="button" class="etala-search-pill-filter-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" title="Filter Activity Logs">
+                        <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                            style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
+                            <span class="visually-hidden">Searching...</span>
+                        </div>
+
+                        {% if query %}
+                        <a href="{% url 'activity_logs' %}" id="logClearSearchBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon" style="background: transparent;" title="Clear search">
+                            <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                        </a>
+                        {% endif %}
+
+                        <span class="etala-search-pill-divider"></span>
+
+                        <!-- Integrated Filter Toggle Button -->
+                        <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
                             <i class="fa-solid fa-sliders"></i>
                         </button>
-                        <div class="dropdown-menu dropdown-menu-end shadow-sm p-3" style="min-width: 250px; border-radius: 10px; border: 1px solid var(--border-default); z-index: 1060; margin-top: 6px;">
-                        <!-- Filter 1: Date Range -->
-                        <div class="mb-3">
-                            <label class="form-label text-muted fw-semibold mb-1" style="font-size: 0.76rem;">Date Range</label>
-                            <select name="date_range" class="form-select form-select-sm" style="font-size: 0.82rem; border-radius: 6px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Filter Chips (if any filter is selected) -->
+            {% if date_filter and date_filter != 'all' or action_type and action_type != 'all' %}
+            <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2.5">
+                {% if date_filter and date_filter != 'all' %}
+                <div class="filter-chip">
+                    <span>Date: <strong>{{ date_filter|title }}</strong></span>
+                    <a href="?{% if query %}q={{ query }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}date_range=all" class="clear-chip-btn">&times;</a>
+                </div>
+                {% endif %}
+                {% if action_type and action_type != 'all' %}
+                <div class="filter-chip">
+                    <span>Action: <strong>{{ action_type|title }}</strong></span>
+                    <a href="?{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}action_type=all" class="clear-chip-btn">&times;</a>
+                </div>
+                {% endif %}
+                <a href="{% url 'activity_logs' %}" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: 0.72rem; padding: 2px 6px;">
+                    Reset All
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- Collapsible Filters Panel (Matching Records & Illegal Constructions) -->
+            <div class="collapse {% if date_filter and date_filter != 'all' or action_type and action_type != 'all' %}show{% endif %} mb-3" id="advancedFiltersCollapse">
+                <div class="filter-panel-unified py-2.5 px-3 rounded-3 border">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-sm-5">
+                            <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Date Range</label>
+                            <select name="date_range" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;" onchange="this.form.submit()">
                                 <option value="all" {% if date_filter == 'all' or not date_filter %}selected{% endif %}>All Dates</option>
                                 <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Today</option>
                                 <option value="7days" {% if date_filter == '7days' %}selected{% endif %}>Past 7 Days</option>
                                 <option value="30days" {% if date_filter == '30days' %}selected{% endif %}>Past 30 Days</option>
                             </select>
                         </div>
-
-                        <!-- Filter 2: Action Type -->
-                        <div class="mb-3">
-                            <label class="form-label text-muted fw-semibold mb-1" style="font-size: 0.76rem;">Action Type</label>
-                            <select name="action_type" class="form-select form-select-sm" style="font-size: 0.82rem; border-radius: 6px;">
+                        <div class="col-12 col-sm-5">
+                            <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Action Type</label>
+                            <select name="action_type" class="form-select form-select-sm" style="border-radius: 6px; height: 32px; font-size: 0.78rem;" onchange="this.form.submit()">
                                 <option value="all" {% if action_type == 'all' or not action_type %}selected{% endif %}>All Actions</option>
                                 <option value="create" {% if action_type == 'create' %}selected{% endif %}>Record Created</option>
                                 <option value="update" {% if action_type == 'update' %}selected{% endif %}>Record Updated</option>
@@ -103,21 +131,14 @@
                                 <option value="delete" {% if action_type == 'delete' %}selected{% endif %}>Record Deleted</option>
                             </select>
                         </div>
-
-                        <div class="d-flex justify-content-between align-items-center pt-2.5 border-top">
-                            <a href="{% url 'activity_logs' %}" class="text-muted text-decoration-none" style="font-size: 0.78rem;">Reset</a>
-                            <button type="submit" class="action-btn action-btn-primary action-btn-sm px-3" style="height: 32px; font-size: 0.78rem;">Apply</button>
+                        <div class="col-12 col-sm-2 d-flex gap-2">
+                            <a href="{% url 'activity_logs' %}" class="btn btn-sm btn-light border w-100" style="height: 32px; font-size: 0.76rem; border-radius: 6px;">Reset</a>
+                            <button type="submit" class="action-btn action-btn-primary action-btn-sm w-100" style="height: 32px; font-size: 0.76rem; border-radius: 6px;">Apply</button>
                         </div>
                     </div>
                 </div>
-
-                {% if status_filter != 'all' and status_filter or date_filter != 'all' or action_type != 'all' %}
-                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;" title="Reset all filters">
-                        <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
-                    </a>
-                {% endif %}
-            </form>
-        </div>
+            </div>
+        </form>
 
         <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
         <div id="log-tab-content-audit" class="tab-pane-custom">
@@ -127,10 +148,10 @@
                         <thead>
                             <tr>
                                 {% if request.user.role == 'admin' %}
-                                <th style="width: 250px;">STAFF MEMBER</th>
+                                <th style="width: 220px;">STAFF MEMBER</th>
                                 {% endif %}
-                                <th>ACTION PERFORMED</th>
-                                <th style="width: 160px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th style="width: auto;">ACTION PERFORMED</th>
+                                <th style="width: 150px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -158,11 +179,11 @@
                                 </td>
                                 {% endif %}
 
-                                <td data-label="Action Performed" style="vertical-align: middle;">
-                                    <div style="display: flex; align-items: flex-start; gap: 12px; min-width: 0;">
+                                <td data-label="Action Performed" style="vertical-align: middle; white-space: normal !important; overflow: hidden;">
+                                    <div style="display: flex; align-items: flex-start; gap: 12px; min-width: 0; width: 100%;">
                                         <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus text-primary{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square text-info{% elif 'Uploaded' in log.action %}fa-upload text-success{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash text-danger{% elif 'Blocked' in log.action %}fa-shield-halved text-warning{% else %}fa-clock-rotate-left text-secondary{% endif %}" style="font-size: 14px; opacity: 0.85; flex-shrink: 0; margin-top: 3px;"></i>
-                                        <div class="fw-medium text-dark" style="font-size: 0.84rem; word-break: break-word; line-height: 1.45; min-width: 0; flex: 1;">
-                                            {{ log.action }}
+                                        <div class="fw-medium text-dark" style="font-size: 0.84rem; white-space: normal !important; word-break: break-word; overflow-wrap: break-word; line-height: 1.45; min-width: 0; flex: 1;">
+                                            {{ log.action|safe }}
                                         </div>
                                     </div>
                                 </td>
@@ -181,51 +202,72 @@
                     </table>
                 </div>
 
-                <!-- Pagination for Audit Events -->
+                <!-- Pagination for Audit Events (Matching Records Archive Design) -->
                 <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 d-print-none">
                     <div class="d-flex align-items-center gap-3">
                         <span class="pagination-info m-0">
+                            {% if log_page_obj.paginator.count > 0 %}
                             Showing <strong>{{ log_page_obj.start_index }}–{{ log_page_obj.end_index }}</strong> of <strong>{{ log_page_obj.paginator.count }}</strong> events
+                            {% else %}
+                            Showing 0–0 of 0 events
+                            {% endif %}
                         </span>
                         <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
                             <span>Show:</span>
-                            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 62px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
-                                <option value="15" {% if per_page == 15 %}selected{% endif %}>15</option>
-                                <option value="30" {% if per_page == 30 %}selected{% endif %}>30</option>
-                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                                <option value="15" {% if per_page == 15 or per_page == '15' %}selected{% endif %}>15</option>
+                                <option value="30" {% if per_page == 30 or per_page == '30' %}selected{% endif %}>30</option>
+                                <option value="50" {% if per_page == 50 or per_page == '50' %}selected{% endif %}>50</option>
+                                <option value="100" {% if per_page == 100 or per_page == '100' %}selected{% endif %}>100</option>
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="d-flex align-items-center gap-2 pagination-controls">
                         {% if log_page_obj.paginator.num_pages > 5 %}
+                        <!-- Page Jump Input -->
                         <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                             <span>Page:</span>
-                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
+                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 54px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
                             <span>/ {{ log_page_obj.paginator.num_pages }}</span>
                         </div>
                         {% endif %}
 
                         {% if log_page_obj.has_other_pages %}
-                        <nav>
+                        <nav aria-label="Audit Log Pagination">
                             <ul class="pagination pagination-sm mb-0 gap-1">
                                 {% if log_page_obj.has_previous %}
-                                <li class="page-item"><a class="page-link" href="?log_page={{ log_page_obj.previous_page_number }}&q={{ query }}&per_page={{ per_page }}">‹ Prev</a></li>
+                                <li class="page-item"><a class="page-link" href="?log_page={{ log_page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date_range={{ date_filter }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}&per_page={{ per_page }}">‹ Prev</a></li>
                                 {% else %}
                                 <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                                 {% endif %}
 
+                                {% if log_page_obj.number > 3 %}
+                                <li class="page-item"><a class="page-link" href="?log_page=1{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date_range={{ date_filter }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}&per_page={{ per_page }}">1</a></li>
+                                {% if log_page_obj.number > 4 %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                                {% endif %}
+                                {% endif %}
+
                                 {% for p in log_page_obj.paginator.page_range %}
-                                {% if log_page_obj.number == p %}
-                                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                                {% elif p > log_page_obj.number|add:-3 and p < log_page_obj.number|add:3 %}
-                                <li class="page-item"><a class="page-link" href="?log_page={{ p }}&q={{ query }}&per_page={{ per_page }}">{{ p }}</a></li>
+                                {% if p >= log_page_obj.number|add:-2 and p <= log_page_obj.number|add:2 %}
+                                    {% if log_page_obj.number == p %}
+                                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                    {% else %}
+                                    <li class="page-item"><a class="page-link" href="?log_page={{ p }}{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date_range={{ date_filter }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}&per_page={{ per_page }}">{{ p }}</a></li>
+                                    {% endif %}
                                 {% endif %}
                                 {% endfor %}
 
+                                {% if log_page_obj.number < log_page_obj.paginator.num_pages|add:-2 %}
+                                    {% if log_page_obj.number < log_page_obj.paginator.num_pages|add:-3 %}
+                                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                                    {% endif %}
+                                    <li class="page-item"><a class="page-link" href="?log_page={{ log_page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date_range={{ date_filter }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}&per_page={{ per_page }}">{{ log_page_obj.paginator.num_pages }}</a></li>
+                                {% endif %}
+
                                 {% if log_page_obj.has_next %}
-                                <li class="page-item"><a class="page-link" href="?log_page={{ log_page_obj.next_page_number }}&q={{ query }}&per_page={{ per_page }}">Next ›</a></li>
+                                <li class="page-item"><a class="page-link" href="?log_page={{ log_page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date_range={{ date_filter }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}&per_page={{ per_page }}">Next ›</a></li>
                                 {% else %}
                                 <li class="page-item disabled"><span class="page-link">Next ›</span></li>
                                 {% endif %}
@@ -364,43 +406,74 @@
                     </table>
                 </div>
 
-                <!-- Pagination for Login History -->
-                <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-3 d-print-none">
+                <!-- Pagination for Login History (Matching Records Archive Design) -->
+                <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 d-print-none">
                     <div class="d-flex align-items-center gap-3">
                         <span class="pagination-info m-0">
-                            Showing {{ login_page_obj.start_index }}–{{ login_page_obj.end_index }} of {{ login_page_obj.paginator.count }} attempts
+                            {% if login_page_obj.paginator.count > 0 %}
+                            Showing <strong>{{ login_page_obj.start_index }}–{{ login_page_obj.end_index }}</strong> of <strong>{{ login_page_obj.paginator.count }}</strong> attempts
+                            {% else %}
+                            Showing 0–0 of 0 attempts
+                            {% endif %}
                         </span>
-                        <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
+                        <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
                             <span>Show:</span>
-                            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: var(--text-2xs); height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
-                                <option value="15" {% if per_page == 15 %}selected{% endif %}>15</option>
-                                <option value="30" {% if per_page == 30 %}selected{% endif %}>30</option>
-                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 65px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                                <option value="15" {% if per_page == 15 or per_page == '15' %}selected{% endif %}>15</option>
+                                <option value="30" {% if per_page == 30 or per_page == '30' %}selected{% endif %}>30</option>
+                                <option value="50" {% if per_page == 50 or per_page == '50' %}selected{% endif %}>50</option>
+                                <option value="100" {% if per_page == 100 or per_page == '100' %}selected{% endif %}>100</option>
                             </select>
                         </div>
                     </div>
-                    
-                    <div class="d-flex align-items-center gap-3">
+
+                    <div class="d-flex align-items-center gap-2 pagination-controls">
+                        {% if login_page_obj.paginator.num_pages > 5 %}
                         <!-- Page Jump Input -->
-                        <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
-                            <span>Go to:</span>
-                            <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
+                        <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                            <span>Page:</span>
+                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 54px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
                             <span>/ {{ login_page_obj.paginator.num_pages }}</span>
                         </div>
+                        {% endif %}
 
                         {% if login_page_obj.has_other_pages %}
-                        <nav>
+                        <nav aria-label="Login History Pagination">
                             <ul class="pagination pagination-sm mb-0 gap-1">
                                 {% if login_page_obj.has_previous %}
-                                    <li class="page-item">
-                                        <a class="page-link border rounded" href="?login_page={{ login_page_obj.previous_page_number }}&q={{ query }}&per_page={{ per_page }}" style="font-size: var(--text-xs); border-radius: 4px;">‹ Prev</a>
-                                    </li>
+                                <li class="page-item"><a class="page-link" href="?login_page={{ login_page_obj.previous_page_number }}&status={{ status_filter }}&q={{ query }}&per_page={{ per_page }}">‹ Prev</a></li>
+                                {% else %}
+                                <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                                 {% endif %}
+
+                                {% if login_page_obj.number > 3 %}
+                                <li class="page-item"><a class="page-link" href="?login_page=1&status={{ status_filter }}&q={{ query }}&per_page={{ per_page }}">1</a></li>
+                                {% if login_page_obj.number > 4 %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                                {% endif %}
+                                {% endif %}
+
+                                {% for p in login_page_obj.paginator.page_range %}
+                                {% if p >= login_page_obj.number|add:-2 and p <= login_page_obj.number|add:2 %}
+                                    {% if login_page_obj.number == p %}
+                                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                    {% else %}
+                                    <li class="page-item"><a class="page-link" href="?login_page={{ p }}&status={{ status_filter }}&q={{ query }}&per_page={{ per_page }}">{{ p }}</a></li>
+                                    {% endif %}
+                                {% endif %}
+                                {% endfor %}
+
+                                {% if login_page_obj.number < login_page_obj.paginator.num_pages|add:-2 %}
+                                    {% if login_page_obj.number < login_page_obj.paginator.num_pages|add:-3 %}
+                                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                                    {% endif %}
+                                    <li class="page-item"><a class="page-link" href="?login_page={{ login_page_obj.paginator.num_pages }}&status={{ status_filter }}&q={{ query }}&per_page={{ per_page }}">{{ login_page_obj.paginator.num_pages }}</a></li>
+                                {% endif %}
+
                                 {% if login_page_obj.has_next %}
-                                    <li class="page-item">
-                                        <a class="page-link border rounded" href="?login_page={{ login_page_obj.next_page_number }}&q={{ query }}&per_page={{ per_page }}" style="font-size: var(--text-xs); border-radius: 4px;">Next ›</a>
-                                    </li>
+                                <li class="page-item"><a class="page-link" href="?login_page={{ login_page_obj.next_page_number }}&status={{ status_filter }}&q={{ query }}&per_page={{ per_page }}">Next ›</a></li>
+                                {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next ›</span></li>
                                 {% endif %}
                             </ul>
                         </nav>
@@ -479,6 +552,16 @@
         padding-bottom: 14px !important;
         vertical-align: middle !important;
         border-bottom: 1px solid var(--gray-100, #f1f5f9) !important;
+    }
+
+    .table-responsive-cards .data-table td[data-label="Action Performed"] {
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        word-break: break-word !important;
+    }
+
+    .table-responsive-cards .data-table td.text-end {
+        white-space: nowrap !important;
     }
 
     .table-responsive-cards .data-table tbody tr {
@@ -739,11 +822,13 @@
     document.addEventListener('DOMContentLoaded', function () {
         const logSearchInput = document.querySelector('input[name="q"]');
         const logSearchSpinner = document.getElementById('logSearchSpinner');
+        const logClearBtn = document.getElementById('logClearSearchBtn');
         let logSearchTimer;
 
         async function updateLogsTableAJAX(url) {
             const tableCard = document.querySelector('.content-card') || document.querySelector('.table-responsive');
             if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
+            if (logClearBtn) logClearBtn.classList.add('d-none');
             if (tableCard) {
                 tableCard.style.transition = 'opacity 0.08s ease';
                 tableCard.style.opacity = '0.6';
@@ -768,6 +853,10 @@
             } finally {
                 if (tableCard) tableCard.style.opacity = '1';
                 if (logSearchSpinner) logSearchSpinner.classList.add('d-none');
+                if (logClearBtn) {
+                    if (logSearchInput && logSearchInput.value.trim().length > 0) logClearBtn.classList.remove('d-none');
+                    else logClearBtn.classList.add('d-none');
+                }
             }
         }
 
@@ -780,11 +869,25 @@
             logSearchInput.addEventListener('input', function () {
                 clearTimeout(logSearchTimer);
                 if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
+                if (logClearBtn) logClearBtn.classList.add('d-none');
                 logSearchTimer = setTimeout(() => {
                     const formData = new FormData(logSearchInput.form);
                     const params = new URLSearchParams(formData);
                     updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
                 }, 450);
+            });
+        }
+
+        if (logClearBtn && logSearchInput) {
+            logClearBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                logSearchInput.value = '';
+                if (logSearchSpinner) logSearchSpinner.classList.add('d-none');
+                logClearBtn.classList.add('d-none');
+                const formData = new FormData(logSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
+                logSearchInput.focus();
             });
         }
     });

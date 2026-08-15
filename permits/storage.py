@@ -113,7 +113,7 @@ class SupabaseStorage(Storage):
             headers['x-upsert'] = 'true'
 
             session = get_http_session()
-            resp = session.post(endpoint, headers=headers, data=data, timeout=(4.0, 15.0))
+            resp = session.post(endpoint, headers=headers, data=data, timeout=(5.0, 45.0))
             if resp.status_code in (200, 201):
                 logger.info(f"Successfully uploaded {clean_name} to Supabase bucket '{bucket}'.")
             else:

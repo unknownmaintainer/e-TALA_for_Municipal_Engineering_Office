@@ -280,7 +280,7 @@
 }
 .dark-mode #regularizeDetailModal .modal-body .form-control,
 .dark-mode #regularizeDetailModal .modal-body .form-select {
-    background: #0f172a !important;
+    background-color: #0f172a !important;
     border-color: #334155 !important;
     color: #f1f5f9 !important;
 }
@@ -295,6 +295,11 @@
 .dark-mode #regularizeDetailModal .modal-footer {
     background: #0f172a !important;
     border-color: #334155 !important;
+}
+.dark-mode #regularizeDetailModal .reg-info-banner {
+    background: rgba(34, 197, 94, 0.12) !important;
+    border-color: rgba(34, 197, 94, 0.3) !important;
+    color: #4ade80 !important;
 }
 
 /* ── Dark Mode: Compliance Stepper ── */
@@ -409,6 +414,75 @@
 .dark-mode .checklist-group-header {
     background: transparent;
 }
+
+/* ── Hero Badges in Record Detail ── */
+.badge-record-hero {
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.01em;
+}
+
+.badge-record-hero span,
+.badge-record-hero i {
+    color: inherit !important;
+}
+
+/* Violation Badge */
+.badge-hero-violation {
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fca5a5 !important;
+}
+
+.dark-mode .badge-hero-violation,
+[data-bs-theme="dark"] .badge-hero-violation {
+    background: rgba(220, 38, 38, 0.22) !important;
+    color: #fca5a5 !important;
+    border: 1px solid rgba(239, 68, 68, 0.45) !important;
+}
+
+/* Project Badge */
+.badge-hero-project {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
+}
+
+.dark-mode .badge-hero-project,
+[data-bs-theme="dark"] .badge-hero-project {
+    background: rgba(37, 99, 235, 0.22) !important;
+    color: #93c5fd !important;
+    border: 1px solid rgba(59, 130, 246, 0.45) !important;
+}
+
+/* Permit Badge */
+.badge-hero-permit {
+    background: #f0fdf4 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+}
+
+.dark-mode .badge-hero-permit,
+[data-bs-theme="dark"] .badge-hero-permit {
+    background: rgba(22, 163, 74, 0.22) !important;
+    color: #86efac !important;
+    border: 1px solid rgba(34, 197, 94, 0.45) !important;
+}
+
+/* Status Badge */
+.badge-hero-status {
+    background: #f8fafc !important;
+    color: #475569 !important;
+    border: 1px solid #e2e8f0 !important;
+    font-weight: 600 !important;
+}
+
+.dark-mode .badge-hero-status,
+[data-bs-theme="dark"] .badge-hero-status {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #475569 !important;
+}
 </style>
 {% endblock %}
 
@@ -419,38 +493,38 @@
     <div class="min-w-0 flex-grow-1">
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
             {% if record.is_illegal_construction %}
-            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
-                style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 0.76rem; font-weight: 700;">
+            <span class="badge badge-record-hero badge-hero-violation d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <span>Violation Incident Report</span>
             </span>
             {% elif record.record_type == 'Project' %}
-            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
-                style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.76rem; font-weight: 600;">
+            <span class="badge badge-record-hero badge-hero-project d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
                 <i class="fa-solid fa-diagram-project"></i>
                 <span>{{ record.get_project_scope_display }} Project</span>
             </span>
             {% else %}
-            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
-                style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-size: 0.76rem; font-weight: 600;">
+            <span class="badge badge-record-hero badge-hero-permit d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
                 <i class="fa-solid fa-file-shield"></i>
                 <span>Permit Record</span>
             </span>
             {% endif %}
 
-            <span class="badge d-inline-flex align-items-center px-2.5 py-1 rounded-pill"
-                style="background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.75rem; font-weight: 600;">
+            <span class="badge badge-record-hero badge-hero-status d-inline-flex align-items-center px-2.5 py-1 rounded-pill">
                 {{ record.get_status_display }}
             </span>
         </div>
 
         <h1 class="etala-page-title mb-1.5" style="font-size: 1.30rem; font-weight: 750; letter-spacing: -0.015em; color: var(--gray-900); word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
             {% if record.is_illegal_construction %}
-            {{ record.title }}
+                {% if record.title and record.title|cut:"─"|cut:","|cut:" "|cut:"."|length > 1 %}
+                    {{ record.title }}
+                {% else %}
+                    Violation Incident Report #{{ record.record_id }}
+                {% endif %}
             {% elif record.record_type == 'Permit' %}
-            {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} <span class="text-muted fw-normal" style="font-size: 1.05rem;">(#{{ record.permit_detail.permit_number }})</span>{% endif %}
+                {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} <span class="text-muted fw-normal" style="font-size: 1.05rem;">(#{{ record.permit_detail.permit_number }})</span>{% endif %}
             {% else %}
-            {{ record.title }}
+                {{ record.title }}
             {% endif %}
         </h1>
 
@@ -833,27 +907,31 @@
 {% if can_edit and record.is_illegal_construction %}
 <!-- ══ REGULARIZE DETAIL MODAL ════════════════════════════════════════ -->
 <div class="modal fade" id="regularizeDetailModal" tabindex="-1" aria-labelledby="regularizeDetailModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
-            <div class="modal-header border-0 px-4 pt-4 pb-0">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+        <div class="modal-content border-0 shadow-xl" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header border-bottom px-4 py-3 bg-white d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center rounded-3" style="width: 36px; height: 36px; background: #dcfce7; color: #16a34a;">
-                        <i class="fa-solid fa-certificate" style="font-size: 15px;"></i>
+                    <div class="d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 10px;">
+                        <i class="fa-solid fa-certificate" style="font-size: 16px;"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold mb-0" id="regularizeDetailModalLabel" style="font-size: 1.05rem;">Regularize &amp; Issue Permit</h5>
-                        <p class="mb-0 text-muted" style="font-size: 0.75rem;">Convert compliant incident into an official permit record</p>
+                        <h5 class="modal-title fw-bold mb-0 text-dark" id="regularizeDetailModalLabel" style="font-size: 1.05rem;">Regularize &amp; Issue Permit</h5>
+                        <p class="mb-0 text-muted" style="font-size: 0.74rem;">Convert compliant case into an official permit record</p>
                     </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem;"></button>
             </div>
 
             <form method="POST" action="{% url 'regularize_record' record.record_id %}">
                 {% csrf_token %}
-                <div class="modal-body px-4 pt-3 pb-4">
+                <div class="modal-body px-4 py-3.5">
+                    <div class="reg-info-banner d-flex align-items-center gap-2.5 p-2.5 rounded-3 mb-3" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.22); color: #15803d; font-size: 0.78rem;">
+                        <i class="fa-solid fa-circle-check text-success flex-shrink-0" style="font-size: 14px;"></i>
+                        <span>Upon compliance and fee payment, enter the issued <strong>Official Permit Number</strong> to regularize this record.</span>
+                    </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Permit Type to Issue <span class="text-danger">*</span></label>
+                        <label class="cr-label">Permit Type <span class="text-danger">*</span></label>
                         <select name="permit_type" class="form-select cr-field" required>
                             {% for pt_val, pt_lbl in permit_types %}
                             <option value="{{ pt_val }}" {% if pt_val == 'Building Permit' %}selected{% endif %}>{{ pt_lbl }}</option>
@@ -861,13 +939,13 @@
                         </select>
                     </div>
 
-                    <div class="row g-2 mb-3">
+                    <div class="row g-2.5 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Official Permit Number <span class="text-danger">*</span></label>
-                            <input type="text" name="permit_number" class="form-control cr-field" value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-0042" required>
+                            <label class="cr-label">Permit Number <span class="text-danger">*</span></label>
+                            <input type="text" name="permit_number" class="form-control cr-field" value="{% if permit_detail and permit_detail.permit_number and permit_detail.permit_number != 'm' %}{{ permit_detail.permit_number }}{% endif %}" placeholder="e.g. BP-2026-0042" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Building Type</label>
+                            <label class="cr-label">Building Type</label>
                             <select name="building_type" class="form-select cr-field">
                                 {% for bt_val, bt_lbl in building_types %}
                                 <option value="{{ bt_val }}" {% if bt_val == permit_detail.building_type or bt_val == 'Residential' %}selected{% endif %}>{{ bt_lbl }}</option>
@@ -876,16 +954,17 @@
                         </div>
                     </div>
 
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Applicant / Property Owner Name <span class="text-danger">*</span></label>
-                        <input type="text" name="applicant_name" class="form-control cr-field" value="{{ permit_detail.applicant_name|default:'' }}" placeholder="e.g. Juan Dela Cruz" required>
+                    <div class="mb-1">
+                        <label class="cr-label">Applicant / Owner Name <span class="text-danger">*</span></label>
+                        <input type="text" name="applicant_name" class="form-control cr-field" value="{% if permit_detail.applicant_name|is_valid_applicant %}{{ permit_detail.applicant_name }}{% endif %}" placeholder="e.g. Juan Dela Cruz" required>
                     </div>
                 </div>
 
-                <div class="modal-footer border-top px-4 py-3">
-                    <button type="button" class="btn btn-secondary px-3 py-2" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
-                    <button type="submit" class="btn btn-success px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2" style="border-radius: 8px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-check"></i> Complete Regularization
+                <div class="modal-footer border-top px-4 py-2.5 bg-light d-flex align-items-center justify-content-end gap-2 flex-shrink-0">
+                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem; height: 36px;">Cancel</button>
+                    <button type="submit" class="btn text-white px-3.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem; height: 36px; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); border: none; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
+                        <i class="fa-solid fa-check" style="font-size: 12px;"></i>
+                        <span>Complete Regularization</span>
                     </button>
                 </div>
             </form>
@@ -1343,12 +1422,12 @@
                     </div>
                 </div>
 
-                <!-- Applicant / Owner -->
+                <!-- Applicant / Owner / Alleged Violator -->
                 {% if permit_detail and permit_detail.applicant_name|is_valid_applicant %}
                 <div class="py-1 border-bottom d-flex flex-column gap-0.5">
                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                         <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                        <span>Applicant / Owner</span>
+                        <span>{% if record.is_illegal_construction %}Alleged Violator / Owner{% else %}Applicant / Owner{% endif %}</span>
                     </div>
                     <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
                         {{ permit_detail.applicant_name }}
@@ -1356,8 +1435,8 @@
                 </div>
                 {% endif %}
 
-                <!-- Permit No. -->
-                {% if permit_detail and permit_detail.permit_number %}
+                <!-- Permit No. or Violation Status -->
+                {% if not record.is_illegal_construction and permit_detail and permit_detail.permit_number %}
                 <div class="py-1 border-bottom d-flex flex-column gap-0.5">
                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                         <i class="fa-solid fa-id-card text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
@@ -1365,6 +1444,22 @@
                     </div>
                     <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
                         {{ permit_detail.permit_number }}
+                    </div>
+                </div>
+                {% elif record.is_illegal_construction %}
+                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                        <i class="fa-solid fa-shield-halved text-danger opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                        <span>Permit Status</span>
+                    </div>
+                    <div class="fw-bold text-danger text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                        {% if record.illegal_compliance_status == 'resolved' %}
+                            Regularized (Permit: {{ permit_detail.permit_number|default:'Issued' }})
+                        {% elif record.illegal_compliance_status == 'pending_permit' %}
+                            Permit Application In Process
+                        {% else %}
+                            Unpermitted (No Permit Issued)
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}
@@ -2059,16 +2154,40 @@
         };
     });
 
+    const isIllegalReport = {% if record.is_illegal_construction and record.illegal_compliance_status == 'unresolved' %}true{% else %}false{% endif %};
+
     function openGroupBatchUploadModal(groupId, groupName) {
         activeBatchGroupId = String(groupId || '').trim();
         const titleEl = document.getElementById('batchUploadModalLabel');
         const subTitle = document.getElementById('batchUploadSubTitle');
+        const iconWrap = document.querySelector('#batchUploadModal .modal-header .rounded-3');
+
         if (titleEl) {
-            titleEl.textContent = groupName && groupId ? `Batch Upload — ${groupName}` : 'Batch Upload';
+            if (isIllegalReport) {
+                titleEl.textContent = 'Upload Incident Evidence & Documents';
+            } else {
+                titleEl.textContent = groupName ? `Batch Upload — ${groupName}` : 'Batch Document Upload';
+            }
         }
         if (subTitle) {
-            subTitle.textContent = groupName && groupId ? `Upload documents for ${groupName}` : 'Upload multiple documents at once.';
+            if (isIllegalReport) {
+                subTitle.textContent = 'Attach field inspection photos, Notice of Violation (NOV), or Work Stoppage Orders.';
+            } else {
+                subTitle.textContent = groupName ? `Upload documents for ${groupName}` : 'Upload multiple documents and assign each file to its requirement.';
+            }
         }
+        if (iconWrap) {
+            if (isIllegalReport) {
+                iconWrap.style.background = 'linear-gradient(135deg, #dc2626, #ea580c)';
+                iconWrap.style.boxShadow = '0 4px 14px rgba(220, 38, 38, 0.25)';
+                iconWrap.innerHTML = '<i class="fa-solid fa-shield-halved" style="font-size: 19px;"></i>';
+            } else {
+                iconWrap.style.background = 'linear-gradient(135deg, #2563eb, #4f46e5)';
+                iconWrap.style.boxShadow = '0 4px 14px rgba(37, 99, 235, 0.25)';
+                iconWrap.innerHTML = '<i class="fa-solid fa-cloud-arrow-up" style="font-size: 19px;"></i>';
+            }
+        }
+
         selectedBatchFilesStore = [];
         const fileInput = document.getElementById('batchFileInput');
         if (fileInput) fileInput.value = '';
@@ -2232,16 +2351,35 @@
                     .filter((other, i) => i !== index && other.selectedSlotId)
                     .map(other => String(other.selectedSlotId));
                 
-                let slotOptionsHTML = `<option value="">-- Choose target checklist slot --</option>`;
-                targetSlots.forEach(slot => {
-                    const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
-                    if (claimedByOthers.includes(String(slot.id)) && !isSelected) {
-                        return; // Remove slot from dropdown if taken by another file
-                    }
-                    const occupiedLabel = slot.is_fulfilled ? ' ⚠️ (Replaces existing file)' : '';
-                    const groupLabel = (!activeBatchGroupId && slot.groupName) ? ` [${slot.groupName}]` : '';
-                    slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${slot.name}${groupLabel}${occupiedLabel}</option>`;
-                });
+                let slotOptionsHTML = '';
+                let labelHTML = '';
+                let badgeHTML = '';
+
+                if (targetSlots.length === 0 || isIllegalReport) {
+                    labelHTML = `<i class="fa-solid fa-tag me-1 text-danger"></i> Document Classification:`;
+                    badgeHTML = `<span class="badge px-2 py-0.5 rounded-pill text-danger" style="background: rgba(220, 38, 38, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Incident Evidence</span>`;
+                    slotOptionsHTML = `
+                        <option value="">Field Inspection Photo / Site Evidence</option>
+                        <option value="">Notice of Violation (NOV)</option>
+                        <option value="">Work Stoppage Order (WSO)</option>
+                        <option value="">Barangay Summons / Notice to Comply</option>
+                        <option value="">Property Owner Response / Affidavit</option>
+                        <option value="">Other Investigation Document</option>
+                    `;
+                } else {
+                    labelHTML = `<i class="fa-solid fa-folder-tree me-1 text-primary"></i> Checklist Requirement:`;
+                    badgeHTML = assignedSlot ? `<span class="badge px-2 py-0.5 rounded-pill text-primary" style="background: rgba(37, 99, 235, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-check me-1"></i>Assigned</span>` : `<span class="badge px-2 py-0.5 rounded-pill text-warning" style="background: rgba(217, 119, 6, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Unassigned</span>`;
+                    slotOptionsHTML = `<option value="">-- Choose target checklist slot --</option>`;
+                    targetSlots.forEach(slot => {
+                        const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
+                        if (claimedByOthers.includes(String(slot.id)) && !isSelected) {
+                            return;
+                        }
+                        const occupiedLabel = slot.is_fulfilled ? ' ⚠️ (Replaces existing file)' : '';
+                        const groupLabel = (!activeBatchGroupId && slot.groupName) ? ` [${slot.groupName}]` : '';
+                        slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${slot.name}${groupLabel}${occupiedLabel}</option>`;
+                    });
+                }
 
                 const wrapper = document.createElement('div');
                 wrapper.className = 'batch-file-card mb-2.5';
@@ -2271,7 +2409,7 @@
                                 <div class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.88rem;" title="${f.name}">${f.name}</div>
                                 <div class="d-flex align-items-center gap-2 mt-0.5">
                                     <span class="badge px-2 py-0.5 rounded-pill" style="background: rgba(100, 116, 139, 0.12); color: #64748b; font-size: 0.70rem; font-weight: 600;">${formatBytes(f.size)}</span>
-                                    ${assignedSlot ? `<span class="badge px-2 py-0.5 rounded-pill text-primary" style="background: rgba(37, 99, 235, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-check me-1"></i>Assigned</span>` : `<span class="badge px-2 py-0.5 rounded-pill text-warning" style="background: rgba(217, 119, 6, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Unassigned</span>`}
+                                    ${badgeHTML}
                                 </div>
                             </div>
                         </div>
@@ -2283,7 +2421,7 @@
                     <!-- Slot Selector -->
                     <div class="d-flex flex-column gap-1">
                         <label class="text-muted fw-semibold mb-0" style="font-size: 0.75rem;">
-                            <i class="fa-solid fa-folder-tree me-1 text-primary"></i> Checklist Requirement:
+                            ${labelHTML}
                         </label>
                         <select name="item_ids" class="form-select form-select-sm batch-slot-select"
                             style="border-radius: 8px; font-size: 0.82rem; height: 38px; cursor: pointer;"

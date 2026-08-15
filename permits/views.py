@@ -770,19 +770,14 @@ def barangays_view(request):
     else:
         filtered_qs = base_qs
 
-    if sort == 'z-a':
-        barangays = filtered_qs.order_by('-barangay_name')
-    elif sort == 'most_records':
+    if sort == 'most_records':
         barangays = filtered_qs.order_by('-total_records', 'barangay_name')
-    elif sort == 'fewest_records':
-        barangays = filtered_qs.order_by('total_records', 'barangay_name')
     else:
         sort = 'a-z'
         barangays = filtered_qs.order_by('barangay_name')
 
     total_barangays_count = Barangay.objects.count()
     shown_barangays_count = barangays.count()
-
 
     context = {
         'barangays': barangays,
@@ -997,7 +992,7 @@ def records_browse_view(request):
         'selected_project_type': project_type,
         'selected_permit_type': permit_type,
         'year_choices': year_choices,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'project_type_choices': [choice[0] for choice in ProjectDetail.PROJECT_TYPE_CHOICES],
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'active_tab': 'records',
@@ -1813,6 +1808,7 @@ def record_detail_view(request, record_id):
         'sub_reqs_by_parent': sub_reqs_by_parent,
         'completion': completion,
         'documents': documents,
+        'attachments': all_docs,
         'doc_url_map': doc_url_map,
         'permit_detail': permit_detail,
         'project_detail': project_detail,
@@ -4242,23 +4238,72 @@ def settings_view(request):
             return redirect(f"{reverse('settings')}?tab=templates&template_id={template_id}")
 
         elif action == 'db_backup':
-            log_audit(request.user, "Initiated database backup download", request=request)
-            import json
-            backup_data = {
-                "system": "eTala",
-                "municipality": "Carigara, Leyte",
-                "timestamp": timezone.now().isoformat(),
-                "users_count": CustomUser.objects.count(),
-                "records_count": EngineeringRecord.objects.count(),
-            }
-            response = HttpResponse(json.dumps(backup_data, indent=2), content_type="application/json")
-            response['Content-Disposition'] = 'attachment; filename="etala_backup_' + timezone.now().strftime('%Y%m%d_%H%M%S') + '.json"'
+            log_audit(request.user, "Exported full database backup", request=request)
+            from django.core import serializers
+            import io
+
+            models_to_backup = [
+                Barangay,
+                RequirementTemplate,
+                RequirementItem,
+                CustomUser,
+                EngineeringRecord,
+                PermitDetail,
+                ProjectDetail,
+                PermitInspection,
+                ProjectInspection,
+                RecordAttachment,
+                RecordAuditLog,
+                OfficeSetting,
+            ]
+            
+            all_objects = []
+            for model_cls in models_to_backup:
+                try:
+                    all_objects.extend(list(model_cls.objects.all()))
+                except Exception:
+                    pass
+
+            json_data = serializers.serialize('json', all_objects, indent=2)
+            
+            response = HttpResponse(json_data, content_type="application/json")
+            filename = f"etala_backup_{timezone.now().strftime('%Y%m%d_%H%M%S')}.json"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
 
         elif action == 'db_restore':
-            log_audit(request.user, "Initiated database restore from backup file", request=request)
-            messages.success(request, "Database restore simulation completed successfully. 0 tables affected.")
-            return redirect('settings')
+            backup_file = request.FILES.get('backup_file')
+            if not backup_file:
+                messages.error(request, "Please select a valid .json backup file to restore.")
+                return redirect(f"{reverse('settings')}?tab=maintenance")
+            
+            if not backup_file.name.endswith('.json'):
+                messages.error(request, "Invalid file format. Only .JSON backup files are supported.")
+                return redirect(f"{reverse('settings')}?tab=maintenance")
+
+            try:
+                from django.core import serializers
+                from django.db import transaction
+
+                content = backup_file.read().decode('utf-8')
+                objects_to_save = list(serializers.deserialize('json', content, ignorenonexistent=True))
+                
+                if not objects_to_save:
+                    messages.warning(request, "The uploaded backup file contains no valid eTala records.")
+                    return redirect(f"{reverse('settings')}?tab=maintenance")
+
+                saved_count = 0
+                with transaction.atomic():
+                    for obj in objects_to_save:
+                        obj.save()
+                        saved_count += 1
+
+                log_audit(request.user, f"Restored {saved_count} records from backup file '{backup_file.name}'", request=request)
+                messages.success(request, f"Database restored successfully! {saved_count} records were processed and synchronized.")
+            except Exception as e:
+                messages.error(request, f"Failed to restore database backup: {str(e)}")
+
+            return redirect(f"{reverse('settings')}?tab=maintenance")
 
         elif action == 'change_password':
             old_password = request.POST.get('old_password')
@@ -4757,5 +4802,28 @@ def about_system_view(request):
         'active_tab': 'about_system',
     }
     return render(request, 'permits/about.html', context)
+
+
+def health_check_view(request):
+    """
+    Lightweight, public health check & keep-alive endpoint for uptime monitors
+    (e.g., UptimeRobot, cron-job.org, GitHub Actions) to prevent Render free-tier cold starts.
+    """
+    db_status = "ok"
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+
+    status_code = 200 if db_status == "ok" else 503
+    return JsonResponse({
+        'status': 'healthy' if db_status == 'ok' else 'degraded',
+        'service': 'eTala Municipal Engineering Portal',
+        'database': db_status,
+        'timestamp': timezone.now().isoformat()
+    }, status=status_code)
+
 
 

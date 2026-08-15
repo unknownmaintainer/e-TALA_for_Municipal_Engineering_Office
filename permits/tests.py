@@ -442,6 +442,19 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         form = UserCreationForm(data=form_data)
         self.assertTrue(form.is_valid())
 
+    def test_health_and_ping_endpoints(self):
+        # Test /health/
+        health_res = self.client.get(reverse('health_check'))
+        self.assertEqual(health_res.status_code, 200)
+        self.assertEqual(health_res.json().get('status'), 'healthy')
+
+        # Test /ping/
+        ping_res = self.client.get(reverse('ping_check'))
+        self.assertEqual(ping_res.status_code, 200)
+        self.assertEqual(ping_res.json().get('status'), 'healthy')
+
+
+
 
 
 

@@ -324,7 +324,7 @@
                                             data-bs-toggle="modal" data-bs-target="#regularizeModal"
                                             data-record-id="{{ r.record_id }}"
                                             data-title="{{ r.title }}"
-                                            data-applicant="{{ r.permit_detail.applicant_name|default:'' }}">
+                                            data-applicant="{% if r.permit_detail.applicant_name|is_valid_applicant %}{{ r.permit_detail.applicant_name }}{% endif %}">
                                             <i class="fa-solid fa-certificate text-success" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
                                             <span>Regularize &amp; Issue Permit</span>
                                         </button>
@@ -369,19 +369,19 @@
                     {% endfor %}
                     {% else %}
                     <tr>
-                        <td colspan="7" class="p-4">
-                            <div class="empty-state-card">
-                                <div class="empty-state-icon-wrapper">
-                                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 32px; color: #94a3b8;"></i>
+                        <td colspan="7" class="p-4 text-center">
+                            <div class="empty-state-card text-center mx-auto">
+                                <div class="empty-state-icon-wrapper mb-3">
+                                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 26px; color: #94a3b8;"></i>
                                 </div>
-                                <h3 class="h6 fw-bold mb-1">No matching incident reports found</h3>
-                                <p class="text-muted small mx-auto mb-4" style="max-width: 360px;">
-                                    We couldn't find any illegal construction incident records matching your search or filters.
+                                <h3 class="fw-bold mb-2 text-dark" style="font-size: 0.95rem; text-wrap: balance;">No matching incident reports found</h3>
+                                <p class="text-muted small mx-auto mb-3" style="max-width: 480px; line-height: 1.55; text-wrap: balance; font-size: 0.82rem;">
+                                    We couldn't find any illegal construction incident records matching your search or filters. Try adjusting your query or resetting filters.
                                 </p>
                                 <a href="{% url 'illegal_constructions' %}"
-                                    class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2"
-                                    style="text-decoration:none;">
-                                    <i class="fa-solid fa-rotate-left" style="font-size: 13px;"></i> Clear all filters
+                                    class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2 px-3 py-1.5"
+                                    style="text-decoration:none; border-radius: 8px;">
+                                    <i class="fa-solid fa-rotate-left" style="font-size: 12px;"></i> Clear all filters
                                 </a>
                             </div>
                         </td>
@@ -506,31 +506,31 @@
 
 <!-- ══ REGULARIZE & ISSUE PERMIT MODAL ════════════════════════════════ -->
 <div class="modal fade" id="regularizeModal" tabindex="-1" aria-labelledby="regularizeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
-            <div class="modal-header border-0 px-4 pt-4 pb-0 bg-white">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+        <div class="modal-content border-0 shadow-xl" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header border-bottom px-4 py-3 bg-white d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center rounded-3" style="width: 36px; height: 36px; background: #dcfce7; color: #16a34a;">
-                        <i class="fa-solid fa-certificate" style="font-size: 15px;"></i>
+                    <div class="d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 10px;">
+                        <i class="fa-solid fa-certificate" style="font-size: 16px;"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold mb-0" id="regularizeModalLabel" style="font-size: 1.05rem;">Regularize &amp; Issue Permit</h5>
-                        <p class="mb-0 text-muted" style="font-size: 0.75rem;">Convert compliant incident into an official permit record</p>
+                        <h5 class="modal-title fw-bold mb-0 text-dark" id="regularizeModalLabel" style="font-size: 1.05rem;">Regularize &amp; Issue Permit</h5>
+                        <p class="mb-0 text-muted" style="font-size: 0.74rem;">Convert compliant case into an official permit record</p>
                     </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem;"></button>
             </div>
 
             <form method="POST" id="regularizeForm" action="">
                 {% csrf_token %}
-                <div class="modal-body px-4 pt-3 pb-4">
-                    <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size: 0.78rem; border-radius: 8px;">
-                        <i class="fa-solid fa-circle-info text-primary flex-shrink-0"></i>
-                        <span>Once regularized, this record will officially appear under <strong>Master Records (Permits)</strong> with a <em>Regularized</em> compliance badge.</span>
+                <div class="modal-body px-4 py-3.5">
+                    <div class="reg-info-banner d-flex align-items-center gap-2.5 p-2.5 rounded-3 mb-3" style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.22); color: #15803d; font-size: 0.78rem;">
+                        <i class="fa-solid fa-circle-check text-success flex-shrink-0" style="font-size: 14px;"></i>
+                        <span>Upon compliance and fee payment, enter the issued <strong>Official Permit Number</strong> to regularize this record.</span>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Permit Type to Issue <span class="text-danger">*</span></label>
+                        <label class="cr-label">Permit Type <span class="text-danger">*</span></label>
                         <select name="permit_type" class="form-select cr-field" required>
                             {% for pt_val, pt_lbl in permit_types %}
                             <option value="{{ pt_val }}" {% if pt_val == 'Building Permit' %}selected{% endif %}>{{ pt_lbl }}</option>
@@ -538,13 +538,13 @@
                         </select>
                     </div>
 
-                    <div class="row g-2 mb-3">
+                    <div class="row g-2.5 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Official Permit Number <span class="text-danger">*</span></label>
+                            <label class="cr-label">Permit Number <span class="text-danger">*</span></label>
                             <input type="text" name="permit_number" class="form-control cr-field" placeholder="e.g. BP-2026-0042" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Building Type</label>
+                            <label class="cr-label">Building Type</label>
                             <select name="building_type" class="form-select cr-field">
                                 {% for bt_val, bt_lbl in building_types %}
                                 <option value="{{ bt_val }}" {% if bt_val == 'Residential' %}selected{% endif %}>{{ bt_lbl }}</option>
@@ -553,16 +553,17 @@
                         </div>
                     </div>
 
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Applicant / Property Owner Name <span class="text-danger">*</span></label>
+                    <div class="mb-1">
+                        <label class="cr-label">Applicant / Owner Name <span class="text-danger">*</span></label>
                         <input type="text" name="applicant_name" id="regApplicantInput" class="form-control cr-field" placeholder="e.g. Juan Dela Cruz" required>
                     </div>
                 </div>
 
-                <div class="modal-footer border-top px-4 py-3 bg-light">
-                    <button type="button" class="btn btn-secondary px-3 py-2" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
-                    <button type="submit" class="btn btn-success px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2" style="border-radius: 8px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-check"></i> Complete Regularization
+                <div class="modal-footer border-top px-4 py-2.5 bg-light d-flex align-items-center justify-content-end gap-2 flex-shrink-0">
+                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem; height: 36px;">Cancel</button>
+                    <button type="submit" class="btn text-white px-3.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem; height: 36px; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); border: none; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
+                        <i class="fa-solid fa-check" style="font-size: 12px;"></i>
+                        <span>Complete Regularization</span>
                     </button>
                 </div>
             </form>
@@ -737,6 +738,11 @@ document.addEventListener('DOMContentLoaded', function () {
         } finally {
             if (tableCard) tableCard.style.opacity = '1';
             if (searchSpinner) searchSpinner.classList.add('d-none');
+            const clearBtn = document.querySelector('.clear-search-icon');
+            if (clearBtn) {
+                if (searchInput && searchInput.value.trim().length > 0) clearBtn.classList.remove('d-none');
+                else clearBtn.classList.add('d-none');
+            }
         }
     }
 
@@ -845,6 +851,8 @@ document.addEventListener('DOMContentLoaded', function () {
         searchInput.addEventListener('input', function () {
             clearTimeout(searchTimer);
             if (searchSpinner) searchSpinner.classList.remove('d-none');
+            const clearBtn = document.querySelector('.clear-search-icon');
+            if (clearBtn) clearBtn.classList.add('d-none');
             searchTimer = setTimeout(() => {
                 if (filterForm) {
                     const formData = new FormData(filterForm);

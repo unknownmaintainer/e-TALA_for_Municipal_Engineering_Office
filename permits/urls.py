@@ -12,6 +12,8 @@ urlpatterns = [
     # Public / Auth
     path('', views.landing_view, name='landing'),
     path('landing/', views.landing_view, name='landing_page'),
+    path('health/', views.health_check_view, name='health_check'),
+    path('ping/', views.health_check_view, name='ping_check'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
