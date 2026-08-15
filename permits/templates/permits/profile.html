@@ -244,6 +244,20 @@
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
 }
 
+.profile-mini-stat-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all 0.2s ease;
+}
+
+.profile-mini-stat-card:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
 /* Metadata Row */
 .profile-meta-label {
     font-size: 0.7rem;
@@ -401,11 +415,25 @@
     border-color: #475569;
     color: #f8fafc;
 }
+
+.dark-mode .profile-mini-stat-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+.dark-mode .profile-mini-stat-card:hover {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+.dark-mode .profile-meta-value {
+    color: #f8fafc;
+}
 </style>
 {% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item">My Profile</span>
+<span class="breadcrumb-item active">My Profile</span>
 {% endblock %}
 
 {% block content %}
@@ -454,10 +482,17 @@
 
                 <!-- Action Buttons -->
                 <div class="profile-btn-group">
-                    <button type="button" class="btn-profile-edit" id="btnEditProfilePhoto" onclick="document.getElementById('profilePhotoInput').click();">
-                        <i class="fa-solid fa-camera" style="font-size: 13px;"></i>
-                        Edit profile photo
+                    {% if request.user.profile_picture_url %}
+                    <button type="button" class="btn-profile-edit" id="btnViewProfilePhoto" data-bs-toggle="modal" data-bs-target="#viewPhotoModal">
+                        <i class="fa-solid fa-eye" style="font-size: 13px;"></i>
+                        View photo
                     </button>
+                    {% else %}
+                    <button type="button" class="btn-profile-edit" id="btnUploadProfilePhoto" onclick="document.getElementById('profilePhotoInput').click();">
+                        <i class="fa-solid fa-camera" style="font-size: 13px;"></i>
+                        Upload photo
+                    </button>
+                    {% endif %}
 
                     {% if request.user.profile_picture %}
                     <form method="POST" action="{% url 'profile' %}" id="removePhotoForm" class="m-0" onsubmit="handlePhotoRemove(this);">
@@ -508,19 +543,34 @@
 
                     <div class="my-4 border-top" style="border-color: #f1f5f9;"></div>
 
-                    <!-- Readonly User Attributes -->
+                    <!-- Readonly User Attributes (3 Distinct Mini Cards) -->
                     <div class="row g-3 mb-4">
-                        <div class="col-4">
-                            <div class="profile-meta-label">Role Type</div>
-                            <div class="profile-meta-value">{{ request.user.get_role_display }}</div>
+                        <div class="col-12 col-md-4">
+                            <div class="profile-mini-stat-card">
+                                <div class="profile-meta-label d-flex align-items-center gap-1.5 mb-1.5">
+                                    <i class="fa-solid fa-user-shield text-primary" style="font-size: 12px;"></i>
+                                    <span>Role Type</span>
+                                </div>
+                                <div class="profile-meta-value">{{ request.user.get_role_display }}</div>
+                            </div>
                         </div>
-                        <div class="col-4">
-                            <div class="profile-meta-label">Department</div>
-                            <div class="profile-meta-value">Engineering</div>
+                        <div class="col-12 col-md-4">
+                            <div class="profile-mini-stat-card">
+                                <div class="profile-meta-label d-flex align-items-center gap-1.5 mb-1.5">
+                                    <i class="fa-solid fa-building text-primary" style="font-size: 12px;"></i>
+                                    <span>Department</span>
+                                </div>
+                                <div class="profile-meta-value">Engineering</div>
+                            </div>
                         </div>
-                        <div class="col-4">
-                            <div class="profile-meta-label">Date Joined</div>
-                            <div class="profile-meta-value">{{ request.user.date_joined|date:"Y-m-d" }}</div>
+                        <div class="col-12 col-md-4">
+                            <div class="profile-mini-stat-card">
+                                <div class="profile-meta-label d-flex align-items-center gap-1.5 mb-1.5">
+                                    <i class="fa-solid fa-calendar-days text-primary" style="font-size: 12px;"></i>
+                                    <span>Date Joined</span>
+                                </div>
+                                <div class="profile-meta-value">{{ request.user.date_joined|date:"M d, Y" }}</div>
+                            </div>
                         </div>
                     </div>
 
@@ -558,7 +608,26 @@
             </a>
         </div>
     </div>
-</div>{% endblock %}
+</div>
+
+<!-- ══ VIEW PHOTO PREVIEW MODAL ═══════════════════════════════════════════ -->
+<div class="modal fade" id="viewPhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden; background: #0f172a;">
+            <div class="modal-header border-0 pb-0 justify-content-end p-3">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4 pt-0">
+                {% if request.user.profile_picture_url %}
+                <img src="{{ request.user.profile_picture_url }}" alt="{{ request.user.full_name }}" class="img-fluid rounded-4 shadow-lg mb-3" style="max-height: 280px; width: 100%; object-fit: cover; border: 2px solid rgba(255,255,255,0.1);">
+                {% endif %}
+                <div class="text-white fw-bold" style="font-size: 1.05rem;">{{ request.user.full_name|default:request.user.username }}</div>
+                <div class="small text-muted mt-1">{{ request.user.get_role_display }} · MEO Carigara</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
 {% block extra_js %}
 <script>

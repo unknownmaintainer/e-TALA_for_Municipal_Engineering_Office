@@ -1,6 +1,7 @@
 import datetime
 from django.utils import timezone
 from django.urls import reverse
+from django.core.cache import cache
 from .models import AuditLog, Document, LoginAttempt
 
 def recent_notifications(request):
@@ -10,6 +11,11 @@ def recent_notifications(request):
     # Skip heavy DB context processor on static, media, or API requests
     if request.path.startswith('/static/') or request.path.startswith('/media/') or request.path.startswith('/api/'):
         return {'recent_notifications': [], 'notifications_count': 0, 'has_urgent_alerts': False}
+
+    cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}"
+    cached_payload = cache.get(cache_key)
+    if cached_payload is not None:
+        return cached_payload
 
     alerts = []
     
@@ -63,8 +69,11 @@ def recent_notifications(request):
                 'performed_at': None,
             })
 
-    return {
+    result = {
         'recent_notifications': alerts[:8],
         'notifications_count': len(alerts),
         'has_urgent_alerts': len(alerts) > 0,
     }
+    # Cache for 30 seconds
+    cache.set(cache_key, result, timeout=30)
+    return result

@@ -1,10 +1,10 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters %}
 
-{% block title %}Search Results | eTala{% endblock %}
+{% block title %}Search Results · eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item">Search Results</span>
+<span class="breadcrumb-item active">Global Search</span>
 {% endblock %}
 
 {% block content %}
@@ -26,14 +26,16 @@
     
     {% if request.user.role == 'staff' or request.user.role == 'admin' %}
     <div class="etala-header-actions">
-        <button type="button" class="etala-btn etala-btn-secondary text-decoration-none" data-bs-toggle="modal" data-bs-target="#flagIllegalModal">
-            <i class="fa-solid fa-triangle-exclamation text-danger" style="font-size: 13px;"></i>
-            <span>Report Violation</span>
-        </button>
-        <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary text-decoration-none">
-            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
+        <a href="{% url 'create_step1' %}" class="premium-btn btn-add" title="Create New Record">
+            <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+            <span class="btn-divider"></span>
             <span>New Record</span>
         </a>
+        <button type="button" class="premium-btn btn-delete text-decoration-none" data-bs-toggle="modal" data-bs-target="#flagIllegalModal" title="Report Violation">
+            <span class="btn-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <span class="btn-divider"></span>
+            <span>Report Violation</span>
+        </button>
     </div>
     {% endif %}
 </div>
@@ -64,29 +66,38 @@
 <form method="GET" action="{% url 'search' %}" id="filterForm">
     <input type="hidden" name="record_type" value="{{ selected_record_type }}">
 
-    <div class="filter-bar">
-        <!-- Search Input Group -->
-        <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 320px; width: 100%; flex-grow: 1; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);">
-            <button type="submit" class="border-0 bg-transparent p-0 d-flex align-items-center justify-content-center text-muted me-2" style="cursor: pointer;" title="Search">
-                <i class="fa-solid fa-magnifying-glass" style="font-size: 13px; color: #64748b;"></i>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <!-- Search Input Group (Integrated Pill Design) -->
+        <div class="etala-search-pill-wrapper" style="max-width: 440px; width: 100%; flex-grow: 1;">
+            <button type="submit" class="etala-search-pill-icon" style="cursor: pointer;" title="Search">
+                <i class="fa-solid fa-magnifying-glass"></i>
             </button>
-            <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Type year (2026), permit, barangay, owner..." value="{{ q }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+            <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Type year (2026), permit, barangay, owner..." value="{{ q }}">
+
+            <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                style="width: 14px; height: 14px; border-width: 2px;">
+                <span class="visually-hidden">Searching...</span>
+            </div>
+
             {% if q %}
-            <a href="{% url 'search' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
-                <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+            <a href="{% url 'search' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" style="background:transparent;" title="Clear search">
+                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
             </a>
             {% endif %}
+
+            <span class="etala-search-pill-divider"></span>
+
+            <!-- Integrated Filter Toggle button -->
+            <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#searchFiltersCollapse" aria-expanded="false" title="Toggle Filters">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
         </div>
 
-        <!-- Filter Toggle button -->
-        <button class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5" type="button" data-bs-toggle="collapse" data-bs-target="#searchFiltersCollapse" aria-expanded="false" style="height: 38px;">
-            <i class="fa-solid fa-sliders" style="font-size: 13px;"></i>
-            <span>Filters</span>
-        </button>
-
         {% if selected_barangay or selected_year or selected_status or selected_record_type %}
-        <a href="{% url 'search' %}" class="action-btn action-btn-secondary action-btn-sm text-danger d-inline-flex align-items-center gap-1" style="height: 38px;">
-            <i class="fa-solid fa-rotate-left" style="font-size: 13px;"></i> Reset Filters
+        <a href="{% url 'search' %}" class="premium-btn btn-delete text-decoration-none" style="height: 42px;" title="Reset Filters">
+            <span class="btn-icon"><i class="fa-solid fa-rotate-left"></i></span>
+            <span class="btn-divider"></span>
+            <span>Reset Filters</span>
         </a>
         {% endif %}
     </div>
@@ -149,12 +160,12 @@
             </thead>
             <tbody>
                 {% for record in page_obj %}
-                <tr onclick="window.location='{% url 'record_detail' record.record_id %}'" style="cursor: pointer;">
+                <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
                     <!-- Record Title & Details -->
                     <td data-label="Record Title">
-                        <div class="cell-title d-flex align-items-center gap-1.5" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: {{ record.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
+                        <div class="cell-title d-flex align-items-center gap-1.5" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: #dc2626; font-weight: 700;"{% endif %}>
                             {% if record.is_illegal_construction %}
-                            <i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px; color: {{ record.illegal_status_info.color|default:'#dc2626' }};"></i>
+                            <i class="fa-solid fa-triangle-exclamation me-1 text-danger" style="font-size: 11px;"></i>
                             {% endif %}
                             <span>
                                 {% if record.record_type == 'Permit' %}
@@ -196,7 +207,7 @@
                     <!-- Status -->
                     <td data-label="Status">
                         {% if record.is_illegal_construction %}
-                            <span class="badge" style="{{ record.illegal_status_info.bg_style }} font-size: 0.72rem; padding: 4px 8px;">
+                            <span class="badge bg-danger text-white" style="font-size: 0.72rem; padding: 4px 8px;">
                                 {{ record.illegal_status_info.short_label }}
                             </span>
                         {% elif record.status == 'active' or record.status == 'completed' %}
@@ -230,8 +241,8 @@
                                 {% if request.user.role == 'admin' %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="confirmArchiveFromSearch('{% url 'archive_record' record.record_id %}', '{{ record.title|escapejs }}')">
-                                        <i class="fa-solid fa-trash-can text-danger" style="font-size: 13px;"></i> Move to Trash
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-amber" href="javascript:void(0)" data-url="{% url 'archive_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmArchiveFromSearch(this.dataset.url, this.dataset.title)">
+                                        <i class="fa-solid fa-box-archive text-warning" style="font-size: 13px;"></i> Move to Trash
                                     </a>
                                 </li>
                                 {% endif %}
@@ -246,19 +257,19 @@
 
     <!-- Pagination Footer -->
     <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 border-top">
-        <div class="text-muted small">
+        <span class="text-muted" style="font-size: 0.76rem;">
             Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records
-        </div>
+        </span>
 
         {% if page_obj.has_other_pages %}
         <nav aria-label="Search pagination">
-            <ul class="pagination pagination-sm m-0">
+            <ul class="pagination pagination-sm mb-0 gap-1">
                 {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.previous_page_number }}">Previous</a>
+                    <a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>
                 </li>
                 {% else %}
-                <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                 {% endif %}
 
                 {% for pnum in page_obj.paginator.page_range %}
@@ -271,10 +282,10 @@
 
                 {% if page_obj.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.next_page_number }}">Next</a>
+                    <a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.next_page_number }}">Next ›</a>
                 </li>
                 {% else %}
-                <li class="page-item disabled"><span class="page-link">Next</span></li>
+                <li class="page-item disabled"><span class="page-link">Next ›</span></li>
                 {% endif %}
             </ul>
         </nav>
@@ -300,10 +311,11 @@ function confirmArchiveFromSearch(archiveUrl, recordTitle) {
     if (window.showConfirmModal) {
         showConfirmModal({
             title: 'Move to Trash',
-            message: "Are you sure you want to move '" + recordTitle + "' to Trash? It can be restored later.",
-            confirmText: 'Move to Trash',
-            confirmClass: 'action-btn-danger',
-            icon: 'trash-2',
+            message: "Are you sure you want to move '" + recordTitle + "' to Trash? It can be restored later at any time.",
+            confirmText: 'Yes, Move to Trash',
+            cancelText: 'No, Keep It.',
+            confirmClass: 'action-btn-warning',
+            iconClass: 'fa-solid fa-box-archive',
             onConfirm: function() {
                 window.location.href = archiveUrl;
             }
@@ -314,5 +326,73 @@ function confirmArchiveFromSearch(archiveUrl, recordTitle) {
         }
     }
 }
+
+// Live Debounced Auto-Search for Global Search Page with Loading Spinner & AJAX
+document.addEventListener('DOMContentLoaded', function () {
+    const mainSearchInput = document.querySelector('.etala-search-pill-input[name="q"]');
+    const searchSpinner = document.getElementById('searchSpinner');
+    const filterForm = document.getElementById('filterForm');
+    let mainSearchTimer;
+
+    async function updateSearchTableAJAX(url) {
+        const tableCard = document.querySelector('.content-card.overflow-hidden') || document.querySelector('.content-card');
+        if (searchSpinner) searchSpinner.classList.remove('d-none');
+        if (tableCard) {
+            tableCard.style.transition = 'opacity 0.08s ease';
+            tableCard.style.opacity = '0.6';
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            const newTableCard = doc.querySelector('.content-card.overflow-hidden') || doc.querySelector('.content-card');
+            if (tableCard && newTableCard) {
+                tableCard.innerHTML = newTableCard.innerHTML;
+            }
+            window.history.pushState({}, '', url);
+        } catch (err) {
+            console.error("AJAX search error:", err);
+            if (filterForm) filterForm.submit();
+        } finally {
+            if (tableCard) tableCard.style.opacity = '1';
+            if (searchSpinner) searchSpinner.classList.add('d-none');
+        }
+    }
+
+    if (mainSearchInput) {
+        // Keep focus at end of input
+        if (mainSearchInput.value) {
+            const len = mainSearchInput.value.length;
+            mainSearchInput.focus();
+            mainSearchInput.setSelectionRange(len, len);
+        }
+        mainSearchInput.addEventListener('input', function () {
+            clearTimeout(mainSearchTimer);
+            if (searchSpinner) searchSpinner.classList.remove('d-none');
+            mainSearchTimer = setTimeout(() => {
+                if (filterForm) {
+                    const formData = new FormData(filterForm);
+                    const params = new URLSearchParams(formData);
+                    updateSearchTableAJAX(window.location.pathname + '?' + params.toString());
+                }
+            }, 450);
+        });
+    }
+
+    // Auto-submit filter selects via AJAX
+    document.addEventListener('change', function (e) {
+        const selectElem = e.target.closest('#filterForm select');
+        if (selectElem && filterForm) {
+            const formData = new FormData(filterForm);
+            const params = new URLSearchParams(formData);
+            updateSearchTableAJAX(window.location.pathname + '?' + params.toString());
+        }
+    });
+});
 </script>
 {% endblock %}

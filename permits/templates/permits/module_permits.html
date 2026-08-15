@@ -3,7 +3,7 @@
 {% load permit_filters %}
 
 
-{% block title %}Building Permits | eTala{% endblock %}
+{% block title %}Building Permits · eTala{% endblock %}
 
 {% block content %}
 
@@ -31,27 +31,33 @@
 <form method="GET" class="mb-4">
     <!-- Sleek persistent search row in 1 line -->
     <div class="records-filter-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3">
-        <!-- Left: Search + Filter Toggle Button side-by-side -->
-        <div class="d-flex align-items-center gap-2 flex-grow-1 search-filter-combo" style="max-width: 600px; min-width: 270px;">
-            <div class="filter-search-group d-flex align-items-center px-3 flex-grow-1" style="height: 38px; border: 1px solid var(--border-default, #cbd5e1); border-radius: 10px; background: var(--card-bg, #ffffff); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); transition: all 0.2s ease;">
-                <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
-                <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1 search-text-input" placeholder="Search permits by name, number, barangay..." value="{{ q|default:'' }}" style="font-size: 0.84rem; outline: none !important; box-shadow: none !important; height: 100%; background: transparent; color: var(--text-primary, #1e293b);">
+        <!-- Left: Integrated Search & Filter Pill -->
+        <div class="d-flex align-items-center flex-grow-1" style="max-width: 440px; min-width: 270px;">
+            <div class="etala-search-pill-wrapper">
+                <span class="etala-search-pill-icon">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Search permits by name, number, barangay..." value="{{ q|default:'' }}">
+
+                <div id="modulePermitSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                    style="width: 14px; height: 14px; border-width: 2px;">
+                    <span class="visually-hidden">Searching...</span>
+                </div>
+
                 {% if q %}
-                <a href="{% url 'permit_records' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
-                    <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+                <a href="{% url 'permit_records' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" style="background:transparent;" title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                 </a>
                 {% endif %}
-            </div>
 
-            <!-- Filter Toggle button (Directly beside search) -->
-            <button class="action-btn action-btn-secondary action-btn-sm filter-toggle-btn d-inline-flex align-items-center gap-1.5 flex-shrink-0" type="button"
-                    data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" style="height: 38px; border-radius: 10px; padding: 0 14px; font-size: 0.82rem; font-weight: 600;" title="Toggle filters">
-                <i class="fa-solid fa-sliders" style="font-size: 13px;"></i>
-                <span>Filters</span>
-                {% if active_filters_count > 0 %}
-                <span class="tag tag-filter-active ms-1" style="background: var(--primary-brand, #002855); color: #fff; font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">{{ active_filters_count }}</span>
-                {% endif %}
-            </button>
+                <span class="etala-search-pill-divider"></span>
+
+                <!-- Integrated Filter button -->
+                <button class="etala-search-pill-filter-btn" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
 
             {% if q or selected_barangay or selected_permit_type or selected_status or selected_year %}
             <a href="{% url 'permit_records' %}"
@@ -205,7 +211,7 @@
                     </div>
 
                     <div class="progress" style="height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden;">
-                        <div class="progress-bar" style="width: {{ stats.pct }}%; background: {% if stats.is_complete %}#16a34a{% else %}#f59e0b{% endif %}; height: 100%;"></div>
+                        <div class="progress-bar" style="width: {{ stats.pct }}%; {% if stats.is_complete %}background: #16a34a;{% else %}background: #f59e0b;{% endif %} height: 100%;"></div>
                     </div>
                 </div>
 
@@ -267,7 +273,7 @@
         {% if page_obj.paginator.num_pages > 5 %}
         <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
             <span>Page:</span>
-            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
             <span>/ {{ page_obj.paginator.num_pages }}</span>
         </div>
         {% endif %}
@@ -320,4 +326,58 @@
 </div>
 {% endif %}
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const permitSearchInput = document.querySelector('.etala-search-pill-input[name="q"]');
+    const modulePermitSearchSpinner = document.getElementById('modulePermitSearchSpinner');
+    let permitSearchTimer;
+
+    async function updateModulePermitTableAJAX(url) {
+        const tableCard = document.querySelector('.content-card');
+        if (modulePermitSearchSpinner) modulePermitSearchSpinner.classList.remove('d-none');
+        if (tableCard) {
+            tableCard.style.transition = 'opacity 0.08s ease';
+            tableCard.style.opacity = '0.6';
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            const newTableCard = doc.querySelector('.content-card');
+            if (tableCard && newTableCard) {
+                tableCard.innerHTML = newTableCard.innerHTML;
+            }
+            window.history.pushState({}, '', url);
+        } catch (err) {
+            console.error("AJAX refresh error:", err);
+            if (permitSearchInput && permitSearchInput.form) permitSearchInput.form.submit();
+        } finally {
+            if (tableCard) tableCard.style.opacity = '1';
+            if (modulePermitSearchSpinner) modulePermitSearchSpinner.classList.add('d-none');
+        }
+    }
+
+    if (permitSearchInput) {
+        if (permitSearchInput.value) {
+            const len = permitSearchInput.value.length;
+            permitSearchInput.focus();
+            permitSearchInput.setSelectionRange(len, len);
+        }
+        permitSearchInput.addEventListener('input', function () {
+            clearTimeout(permitSearchTimer);
+            if (modulePermitSearchSpinner) modulePermitSearchSpinner.classList.remove('d-none');
+            permitSearchTimer = setTimeout(() => {
+                const formData = new FormData(permitSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateModulePermitTableAJAX(window.location.pathname + '?' + params.toString());
+            }, 450);
+        });
+    }
+});
+</script>
 {% endblock %}

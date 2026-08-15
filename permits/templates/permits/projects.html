@@ -30,9 +30,15 @@
             <!-- Search bar -->
             <div class="col-12 col-md-5">
                 <label for="searchQuery" class="form-label small fw-semibold text-muted mb-1">Search Keywords</label>
-                <div class="d-flex align-items-center filter-search-group px-3" style="height: 38px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--card-bg);">
-                    <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b;"></i>
-                    <input type="text" name="q" id="searchQuery" class="form-control border-0 p-0 flex-grow-1" placeholder="Search project name or details..." value="{{ q }}" style="font-size: 0.85rem; outline: none; box-shadow: none; height: 100%; background: transparent;">
+                <div class="etala-search-pill-wrapper" style="height: 38px;">
+                    <span class="etala-search-pill-icon">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" name="q" id="searchQuery" class="etala-search-pill-input search-text-input" placeholder="Search project name or details..." value="{{ q }}">
+                    <div id="projectSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                        style="width: 14px; height: 14px; border-width: 2px;">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
                 </div>
             </div>
 
@@ -127,17 +133,17 @@
 
         <!-- Progress bar indicator -->
         <div class="project-card-progress-wrapper mt-auto">
+            {% with doc_count=r.documents.count %}
             <div class="project-card-progress-header">
                 <span>Documentation Progress</span>
                 <span>
-                    {% with doc_count=r.documents.count %}
-                        {% if doc_count >= 3 %}90%{% elif doc_count == 2 %}75%{% elif doc_count == 1 %}50%{% else %}30%{% endif %}
-                    {% endwith %}
+                    {% if doc_count >= 3 %}90%{% elif doc_count == 2 %}75%{% elif doc_count == 1 %}50%{% else %}30%{% endif %}
                 </span>
             </div>
             <div class="project-card-progress-bar">
-                <div class="project-card-progress-fill" style="width: {% with doc_count=r.documents.count %}{% if doc_count >= 3 %}90%{% elif doc_count == 2 %}75%{% elif doc_count == 1 %}50%{% else %}30%{% endif %}{% endwith %};"></div>
+                <div class="project-card-progress-fill" style="{% if doc_count >= 3 %}width: 90%;{% elif doc_count == 2 %}width: 75%;{% elif doc_count == 1 %}width: 50%;{% else %}width: 30%;{% endif %}"></div>
             </div>
+            {% endwith %}
         </div>
     </div>
     {% endfor %}
@@ -149,4 +155,62 @@
     <p class="small mb-0">Try searching another keyword or remove filters.</p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Live Debounced Auto-Search for Projects with Loading Spinner
+document.addEventListener('DOMContentLoaded', function () {
+    const projectSearchInput = document.getElementById('searchQuery') || document.querySelector('input[name="q"]');
+    const projectSearchSpinner = document.getElementById('projectSearchSpinner');
+    let projectSearchTimer;
+
+    async function updateProjectsAJAX(url) {
+        const container = document.querySelector('.row.g-4') || document.querySelector('.content-card');
+        if (projectSearchSpinner) projectSearchSpinner.classList.remove('d-none');
+        if (container) {
+            container.style.transition = 'opacity 0.08s ease';
+            container.style.opacity = '0.6';
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            const newContainer = doc.querySelector('.row.g-4') || doc.querySelector('.content-card');
+            if (container && newContainer) {
+                container.innerHTML = newContainer.innerHTML;
+            }
+            window.history.pushState({}, '', url);
+        } catch (err) {
+            console.error("AJAX refresh error:", err);
+            if (projectSearchInput && projectSearchInput.form) projectSearchInput.form.submit();
+        } finally {
+            if (container) container.style.opacity = '1';
+            if (projectSearchSpinner) projectSearchSpinner.classList.add('d-none');
+        }
+    }
+
+    if (projectSearchInput && projectSearchInput.form) {
+        if (projectSearchInput.value) {
+            const len = projectSearchInput.value.length;
+            projectSearchInput.focus();
+            projectSearchInput.setSelectionRange(len, len);
+        }
+        projectSearchInput.addEventListener('input', function () {
+            clearTimeout(projectSearchTimer);
+            if (projectSearchSpinner) projectSearchSpinner.classList.remove('d-none');
+            projectSearchTimer = setTimeout(() => {
+                const formData = new FormData(projectSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateProjectsAJAX(window.location.pathname + '?' + params.toString());
+            }, 450);
+        });
+    }
+});
+</script>
 {% endblock %}

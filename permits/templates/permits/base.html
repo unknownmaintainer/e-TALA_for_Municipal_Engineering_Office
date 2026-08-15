@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dashboard | eTala{% endblock %}</title>
+    <title>{% block title %}Dashboard · eTala{% endblock %}</title>
     <link rel="icon" type="image/png" href="{% static 'carigara_logo.png' %}">
     <link rel="apple-touch-icon" href="{% static 'carigara_logo.png' %}">
     <meta name="description"
@@ -16,6 +16,8 @@
     <script src="{% static 'js/fa_adapter.js' %}"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=100">
     <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=100">
     <script>
@@ -27,6 +29,290 @@
         }
     </script>
     <style>
+        /* ══ PAGE TRANSITIONS & VIEW TRANSITIONS API ════════════════════════════ */
+        @view-transition {
+            navigation: auto;
+        }
+
+        ::view-transition-old(root) {
+            animation: 160ms cubic-bezier(0.4, 0, 1, 1) both etalaPageFadeOut;
+        }
+        ::view-transition-new(root) {
+            animation: 220ms cubic-bezier(0, 0, 0.2, 1) both etalaPageFadeIn;
+        }
+
+        @keyframes etalaPageFadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.996); }
+        }
+
+        @keyframes etalaPageFadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Fluid content entrance */
+        .etala-content {
+            animation: etalaPageEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            will-change: opacity, transform;
+        }
+
+        @keyframes etalaPageEnter {
+            0% {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .etala-content,
+            ::view-transition-old(root),
+            ::view-transition-new(root) {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* Top Nano-Progress Bar */
+        .etala-top-progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            width: 0%;
+            background: linear-gradient(90deg, #1d4ed8 0%, #0284c7 50%, #0d9488 100%);
+            z-index: 999999;
+            opacity: 0;
+            pointer-events: none;
+            transition: width 0.35s cubic-bezier(0.1, 0.85, 0.25, 1), opacity 0.2s ease;
+            box-shadow: 0 0 10px rgba(2, 132, 199, 0.7);
+        }
+        .etala-top-progress-bar.loading {
+            opacity: 1;
+            width: 72%;
+        }
+        .etala-top-progress-bar.complete {
+            width: 100%;
+            opacity: 0;
+            transition: width 0.15s ease, opacity 0.25s ease 0.12s;
+        }
+
+        /* ─── UNIFIED SINGLE SLIM SCROLLBAR (ZERO REDUNDANCY) ─── */
+        html,
+        body {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+        }
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+        html::-webkit-scrollbar-track,
+        body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        html::-webkit-scrollbar-thumb,
+        body::-webkit-scrollbar-thumb {
+            background-color: rgba(148, 163, 184, 0.35);
+            border-radius: 9999px;
+        }
+        html::-webkit-scrollbar-thumb:hover,
+        body::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(100, 116, 139, 0.6);
+        }
+        .dark-mode html,
+        .dark-mode body {
+            scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+        }
+        .dark-mode html::-webkit-scrollbar-thumb,
+        .dark-mode body::-webkit-scrollbar-thumb {
+            background-color: rgba(100, 116, 139, 0.45);
+        }
+        .dark-mode html::-webkit-scrollbar-thumb:hover,
+        .dark-mode body::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(148, 163, 184, 0.7);
+        }
+
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(148, 163, 184, 0.35);
+            border-radius: 9999px;
+        }
+
+        /* ─── STICKY TABLE & SCROLL CONTAINMENT (NO OVERLAPPING OR CLIPPING) ─── */
+        .table-responsive,
+        .table-card-responsive,
+        .table-scroll-container {
+            position: relative;
+            overflow-x: auto;
+            overflow-y: visible !important;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .data-table,
+        .compact-data-table {
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+            width: 100%;
+        }
+
+        .data-table thead,
+        .compact-data-table thead,
+        .table thead,
+        .table-responsive thead {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 25 !important;
+            background-color: #f8fafc !important;
+            background: #f8fafc !important;
+        }
+
+        .data-table thead tr,
+        .compact-data-table thead tr,
+        .table thead tr,
+        .table-responsive thead tr {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 25 !important;
+            background-color: #f8fafc !important;
+            background: #f8fafc !important;
+        }
+
+        .data-table thead th,
+        .compact-data-table thead th,
+        .table thead th,
+        .table-responsive thead th {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 25 !important;
+            background-color: #f8fafc !important;
+            background: #f8fafc !important;
+            background-clip: padding-box !important;
+            box-shadow: inset 0 -1px 0 #e2e8f0, 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            padding: 10px 14px !important;
+            font-weight: 700 !important;
+            font-size: 0.72rem !important;
+            letter-spacing: 0.4px !important;
+            text-transform: uppercase !important;
+            color: #64748b !important;
+            opacity: 1 !important;
+        }
+
+        .dark-mode .data-table thead,
+        .dark-mode .compact-data-table thead,
+        .dark-mode .table thead,
+        .dark-mode .table-responsive thead,
+        .dark-mode .data-table thead tr,
+        .dark-mode .compact-data-table thead tr,
+        .dark-mode .table thead tr,
+        .dark-mode .table-responsive thead tr,
+        [data-bs-theme="dark"] .data-table thead,
+        [data-bs-theme="dark"] .compact-data-table thead,
+        [data-bs-theme="dark"] .table thead,
+        [data-bs-theme="dark"] .table-responsive thead,
+        [data-bs-theme="dark"] .data-table thead tr,
+        [data-bs-theme="dark"] .compact-data-table thead tr,
+        [data-bs-theme="dark"] .table thead tr,
+        [data-bs-theme="dark"] .table-responsive thead tr {
+            background-color: #1e293b !important;
+            background: #1e293b !important;
+        }
+
+        .dark-mode .data-table thead th,
+        .dark-mode .compact-data-table thead th,
+        .dark-mode .table thead th,
+        .dark-mode .table-responsive thead th,
+        [data-bs-theme="dark"] .data-table thead th,
+        [data-bs-theme="dark"] .compact-data-table thead th,
+        [data-bs-theme="dark"] .table thead th,
+        [data-bs-theme="dark"] .table-responsive thead th {
+            background-color: #1e293b !important;
+            background: #1e293b !important;
+            box-shadow: inset 0 -1px 0 #334155 !important;
+            border-bottom-color: #334155 !important;
+            color: #cbd5e1 !important;
+            opacity: 1 !important;
+        }
+
+        .data-table tbody tr,
+        .table-card-responsive tbody tr {
+            transition: background-color 0.15s ease, box-shadow 0.15s ease !important;
+        }
+
+        .data-table tbody tr:hover,
+        .table-card-responsive tbody tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        .data-table tbody td {
+            padding: 11px 14px !important;
+            vertical-align: middle !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+        }
+
+        .dark-mode .data-table tbody td,
+        [data-bs-theme="dark"] .data-table tbody td {
+            border-bottom-color: #334155 !important;
+        }
+
+        .dark-mode .data-table tbody tr:hover,
+        .dark-mode .table-card-responsive tbody tr:hover,
+        [data-bs-theme="dark"] .data-table tbody tr:hover,
+        [data-bs-theme="dark"] .table-card-responsive tbody tr:hover {
+            background-color: #334155 !important;
+        }
+
+        /* ══ FRACTIONAL SPACING, GAP & PADDING UTILITY EXTENSIONS ═════════════ */
+        .gap-0\.5 { gap: 0.125rem !important; }
+        .gap-1\.5 { gap: 0.375rem !important; }
+        .gap-2\.5 { gap: 0.625rem !important; }
+        .gap-3\.5 { gap: 0.875rem !important; }
+
+        .p-1\.5 { padding: 0.375rem !important; }
+        .p-2\.5 { padding: 0.625rem !important; }
+        .p-3\.5 { padding: 0.875rem !important; }
+
+        .px-1\.5 { padding-left: 0.375rem !important; padding-right: 0.375rem !important; }
+        .px-2\.5 { padding-left: 0.625rem !important; padding-right: 0.625rem !important; }
+        .px-3\.5 { padding-left: 0.875rem !important; padding-right: 0.875rem !important; }
+
+        .py-1\.5 { padding-top: 0.375rem !important; padding-bottom: 0.375rem !important; }
+        .py-2\.5 { padding-top: 0.625rem !important; padding-bottom: 0.625rem !important; }
+        .py-3\.5 { padding-top: 0.875rem !important; padding-bottom: 0.875rem !important; }
+
+        .mb-1\.5 { margin-bottom: 0.375rem !important; }
+        .mb-2\.5 { margin-bottom: 0.625rem !important; }
+        .mb-3\.5 { margin-bottom: 0.875rem !important; }
+
+        .mt-1\.5 { margin-top: 0.375rem !important; }
+        .mt-2\.5 { margin-top: 0.625rem !important; }
+        .mt-3\.5 { margin-top: 0.875rem !important; }
+
+        .me-1\.5 { margin-right: 0.375rem !important; }
+        .me-2\.5 { margin-right: 0.625rem !important; }
+        .me-3\.5 { margin-right: 0.875rem !important; }
+
+        .ms-1\.5 { margin-left: 0.375rem !important; }
+        .ms-2\.5 { margin-left: 0.625rem !important; }
+        .ms-3\.5 { margin-left: 0.875rem !important; }
+
+        .g-1\.5 { --bs-gutter-x: 0.375rem; --bs-gutter-y: 0.375rem; }
+        .g-2\.5 { --bs-gutter-x: 0.625rem; --bs-gutter-y: 0.625rem; }
+        .g-3\.5 { --bs-gutter-x: 0.875rem; --bs-gutter-y: 0.875rem; }
+
         /* ══ SCOPE SEGMENTED CONTROL ("My Records" vs "All Records") ═══════════ */
         .scope-segmented-control {
             display: inline-flex !important;
@@ -45,8 +331,8 @@
             align-items: center !important;
             justify-content: center !important;
             gap: 6px !important;
-            padding: 5px 14px !important;
-            height: 30px !important;
+            padding: 6px 14px !important;
+            min-height: 34px !important;
             font-size: 0.8rem !important;
             font-weight: 600 !important;
             color: #64748b !important;
@@ -158,10 +444,11 @@
             overflow-x: hidden !important;
         }
 
-        /* Prevent long unbroken text strings (like long applicant or contractor names) from expanding table width */
+        /* Maximize table content width to fill columns without awkward whitespace gaps */
         .cell-title,
         .data-table .cell-title {
-            max-width: 380px !important;
+            width: 100% !important;
+            max-width: 100% !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
@@ -174,7 +461,8 @@
             align-items: flex-start !important;
             gap: 2px !important;
             margin-top: 3px !important;
-            max-width: 450px !important;
+            width: 100% !important;
+            max-width: 100% !important;
         }
 
         .cell-subtitle .subtitle-row {
@@ -186,6 +474,7 @@
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+            width: 100% !important;
             max-width: 100% !important;
         }
 
@@ -194,7 +483,7 @@
             color: #94a3b8 !important;
         }
 
-        /* Ensure 3-Dot Action Dropdown Menu anchors directly below the 3-dot button */
+        /* Ensure 3-Dot Action Dropdown Menu anchors directly below the 3-dot button smoothly */
         .data-table td .dropdown,
         td.action-menu-cell,
         td.action-column,
@@ -207,7 +496,8 @@
 
         .data-table .dropdown-menu,
         .table-card-responsive .dropdown-menu,
-        .action-dropdown .dropdown-menu {
+        .action-dropdown .dropdown-menu,
+        .action-menu-cell .dropdown-menu {
             position: absolute !important;
             top: 100% !important;
             bottom: auto !important;
@@ -216,71 +506,118 @@
             margin-top: 4px !important;
             margin-bottom: 0 !important;
             z-index: 99999 !important;
+            transform: none !important;
         }
 
         .data-table td.text-end,
         .data-table td.action-menu-cell,
-        .data-table tbody td {
+        .data-table th:nth-child(2),
+        .data-table td:nth-child(2),
+        .data-table td.cell-type {
             overflow: visible !important;
+            text-overflow: clip !important;
         }
 
-        /* ── USER PROFILE DROPDOWN SMOOTH 60FPS ANIMATIONS ── */
+        .tag {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            max-width: none !important;
+        }
+
+        .data-table td {
+            vertical-align: middle !important;
+            padding: 10px 10px !important;
+        }
+
+        .data-table th {
+            padding: 10px 10px !important;
+            white-space: nowrap !important;
+        }
+
+        /* ── USER PROFILE DROPDOWN SMOOTH 60FPS ANIMATIONS (ZERO GLITCH) ── */
+        .header-user-profile-btn,
         .profile-toggle-btn {
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            transition: background-color 0.2s ease !important;
             border-radius: 12px !important;
             padding: 4px 8px !important;
+            user-select: none !important;
         }
 
+        .header-user-profile-btn:hover,
         .profile-toggle-btn:hover {
-            background: rgba(15, 23, 42, 0.04) !important;
+            background: rgba(15, 23, 42, 0.05) !important;
         }
 
+        .dark-mode .header-user-profile-btn:hover,
+        .dark-mode .profile-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        .header-user-profile-btn .fa-chevron-down,
         .profile-toggle-btn .fa-chevron-down,
+        .header-user-profile-btn .profile-chevron-icon,
         .profile-toggle-btn .profile-chevron-icon {
             display: inline-block !important;
-            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+            font-size: 11px !important;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
             transform-origin: center center !important;
         }
 
+        .header-user-profile-btn[aria-expanded="true"] .fa-chevron-down,
         .profile-toggle-btn[aria-expanded="true"] .fa-chevron-down,
-        .profile-toggle-btn[aria-expanded="true"] .profile-chevron-icon,
+        .dropdown.show .header-user-profile-btn .fa-chevron-down,
         .dropdown.show .profile-toggle-btn .fa-chevron-down,
-        .show > .profile-toggle-btn .fa-chevron-down,
-        .profile-toggle-btn.active-open .fa-chevron-down {
+        .show > .header-user-profile-btn .fa-chevron-down,
+        .show > .profile-toggle-btn .fa-chevron-down {
             transform: rotate(180deg) !important;
-            color: var(--primary-brand, #002855) !important;
         }
 
-        .user-profile-dropdown-card {
-            display: block !important;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px) scale(0.96);
-            transform-origin: top right;
-            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-                        transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-                        visibility 0.25s !important;
-            pointer-events: none;
-            box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.15), 0 10px 15px -8px rgba(15, 23, 42, 0.08) !important;
+        .user-profile-dropdown-card.dropdown-menu {
+            border-radius: 16px !important;
+            border: 1px solid rgba(226, 232, 240, 0.9) !important;
+            box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.06) !important;
+            transform-origin: top right !important;
         }
 
-        .user-profile-dropdown-card.show,
-        .show > .user-profile-dropdown-card {
-            opacity: 1 !important;
-            visibility: visible !important;
-            transform: translateY(0) scale(1) !important;
-            pointer-events: auto !important;
+        .user-profile-dropdown-card.dropdown-menu.show {
+            animation: etalaProfileDropdownFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+        }
+
+        @keyframes etalaProfileDropdownFadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-6px) scale(0.98);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         .user-profile-dropdown-card .dropdown-item {
-            transition: all 0.18s ease-in-out !important;
+            transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease !important;
             border-radius: 8px !important;
         }
 
         .user-profile-dropdown-card .dropdown-item:hover {
             background: #f1f5f9 !important;
-            transform: translateX(3px) !important;
+            transform: translateX(2px) !important;
             color: #0f172a !important;
+        }
+
+        .dark-mode .user-profile-dropdown-card.dropdown-menu {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6) !important;
+        }
+
+        .dark-mode .user-profile-dropdown-card .dropdown-item:hover {
+            background: #334155 !important;
+            color: #ffffff !important;
         }
 
         /* ── FILTER PANEL DRAWER DARK MODE FIX ── */
@@ -459,7 +796,6 @@
         .dark-mode .toast,
         .dark-mode .custom-app-toast,
         .dark-mode .etala-toast,
-        #toastContainer .toast,
         [data-bs-theme="dark"] .toast,
         [data-bs-theme="dark"] .custom-app-toast,
         [data-bs-theme="dark"] .etala-toast {
@@ -592,21 +928,68 @@
             color: #cbd5e1 !important;
         }
 
-        /* ── Smooth Dropdown Transitions & Balanced Alignment ── */
+        /* ── GLOBAL ZERO-GLITCH SMOOTH DROPDOWN ANIMATIONS (ALL PAGES & MENUS) ── */
         .dropdown-menu {
-            display: block !important;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(8px) scale(0.98);
-            transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s ease !important;
-            pointer-events: none;
+            border-radius: 12px !important;
+            border: 1px solid rgba(226, 232, 240, 0.9) !important;
+            box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.05) !important;
+            padding: 6px !important;
         }
 
         .dropdown-menu.show {
-            opacity: 1 !important;
-            visibility: visible !important;
-            transform: translateY(0) scale(1) !important;
-            pointer-events: auto !important;
+            animation: etalaGlobalDropdownFadeIn 0.16s ease-out forwards !important;
+        }
+
+        @keyframes etalaGlobalDropdownFadeIn {
+            0% {
+                opacity: 0;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .dropdown-item {
+            transition: background-color 0.15s ease, color 0.15s ease !important;
+            border-radius: 8px !important;
+            padding: 7px 12px !important;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            width: 100% !important;
+            text-align: left !important;
+            gap: 8px !important;
+            white-space: nowrap !important;
+            cursor: pointer !important;
+        }
+
+        .dropdown-item i,
+        .dropdown-item svg {
+            flex-shrink: 0 !important;
+            width: 16px !important;
+            text-align: center !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+
+        .dark-mode .dropdown-menu,
+        [data-bs-theme="dark"] .dropdown-menu {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6) !important;
+        }
+
+        .dark-mode .dropdown-item:hover,
+        [data-bs-theme="dark"] .dropdown-item:hover {
+            background-color: #334155 !important;
+            color: #ffffff !important;
         }
 
         .header-bell-btn {
@@ -777,9 +1160,48 @@
             color: #f8fafc !important;
         }
 
-        .dark-mode .notification-header-badge {
-            background: rgba(3, 105, 161, 0.3) !important;
-            color: #38bdf8 !important;
+        .notification-item.is-unread-item {
+            background-color: rgba(37, 99, 235, 0.05) !important;
+        }
+        .notification-item.is-unread-item:hover {
+            background-color: rgba(37, 99, 235, 0.1) !important;
+        }
+
+        .unread-blue-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #2563eb;
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(37, 99, 235, 0.6);
+        }
+
+        .dark-mode .notification-item.is-unread-item {
+            background-color: rgba(30, 58, 138, 0.28) !important;
+        }
+        .dark-mode .notification-item.is-unread-item:hover {
+            background-color: rgba(30, 58, 138, 0.45) !important;
+        }
+
+        .dark-mode .notification-icon-wrapper.notif-security {
+            background: rgba(239, 68, 68, 0.22) !important;
+            color: #f87171 !important;
+        }
+        .dark-mode .notification-icon-wrapper.notif-fsic {
+            background: rgba(217, 119, 6, 0.22) !important;
+            color: #fbbf24 !important;
+        }
+        .dark-mode .notification-icon-wrapper.notif-electrical {
+            background: rgba(147, 51, 234, 0.22) !important;
+            color: #c084fc !important;
+        }
+        .dark-mode .notification-icon-wrapper.notif-record {
+            background: rgba(22, 163, 74, 0.22) !important;
+            color: #4ade80 !important;
+        }
+        .dark-mode .notification-icon-wrapper.notif-default {
+            background: rgba(239, 68, 68, 0.22) !important;
+            color: #f87171 !important;
         }
 
         .dark-mode .notification-item {
@@ -1857,6 +2279,44 @@
             .dark-mode .dropdown-icon-badge.badge-red {
                 background: rgba(239, 68, 68, 0.22);
                 color: #f87171;
+            }
+
+            /* Warning / Amber Dropdown Action (Move to Trash) */
+            .text-amber,
+            .action-dropdown-warning {
+                color: #d97706 !important;
+            }
+
+            .action-dropdown-warning:hover,
+            .dropdown-item.text-amber:hover {
+                background-color: rgba(245, 158, 11, 0.08) !important;
+                color: #b45309 !important;
+            }
+
+            .dark-mode .text-amber,
+            .dark-mode .action-dropdown-warning,
+            [data-bs-theme="dark"] .text-amber,
+            [data-bs-theme="dark"] .action-dropdown-warning {
+                color: #fbbf24 !important;
+            }
+
+            .dark-mode .action-dropdown-warning:hover,
+            .dark-mode .dropdown-item.text-amber:hover,
+            [data-bs-theme="dark"] .action-dropdown-warning:hover,
+            [data-bs-theme="dark"] .dropdown-item.text-amber:hover {
+                background-color: rgba(245, 158, 11, 0.16) !important;
+                color: #fde68a !important;
+            }
+
+            /* Profile Dropdown Chevron State Rotation (Closed -> Down, Open -> Up) */
+            .header-user-profile-btn .fa-chevron-down {
+                transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                transform-origin: center center !important;
+            }
+
+            .header-user-profile-btn[aria-expanded="true"] .fa-chevron-down,
+            .dropdown.show .header-user-profile-btn .fa-chevron-down {
+                transform: rotate(180deg) !important;
             }
 
             /* Destructive Logout Link */
@@ -2951,7 +3411,18 @@
             bottom: auto !important;
             right: 0 !important;
             left: auto !important;
-            margin-top: 4px !important;
+            margin-top: 0px !important;
+            transform: none !important;
+        }
+
+        .barangay-card-wrapper .dropdown-menu,
+        .brgy-card .dropdown-menu {
+            position: absolute !important;
+            top: -2px !important;
+            bottom: auto !important;
+            right: 28px !important;
+            left: auto !important;
+            margin-top: 0px !important;
             transform: none !important;
         }
 
@@ -2960,11 +3431,15 @@
         .dark-mode .user-group-card .dropdown-menu,
         .dark-mode .data-table .dropdown-menu,
         .dark-mode .action-menu-cell .dropdown-menu,
+        .dark-mode .barangay-card-wrapper .dropdown-menu,
+        .dark-mode .brgy-card .dropdown-menu,
         [data-bs-theme="dark"] .row-action-btn + .dropdown-menu,
         [data-bs-theme="dark"] .user-row-item .dropdown-menu,
         [data-bs-theme="dark"] .user-group-card .dropdown-menu,
         [data-bs-theme="dark"] .data-table .dropdown-menu,
-        [data-bs-theme="dark"] .action-menu-cell .dropdown-menu {
+        [data-bs-theme="dark"] .action-menu-cell .dropdown-menu,
+        [data-bs-theme="dark"] .barangay-card-wrapper .dropdown-menu,
+        [data-bs-theme="dark"] .brgy-card .dropdown-menu {
             background-color: #1e293b !important;
             border-color: #334155 !important;
             color: #f8fafc !important;
@@ -2986,8 +3461,15 @@
         .checklist-group-header,
         .checklist-sub-item,
         .checklist-standalone-item {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            justify-content: space-between !important;
             padding: 12px 16px !important;
             gap: 14px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
         }
 
         .checklist-group-header > div:first-child,
@@ -2998,9 +3480,10 @@
             flex-direction: row !important;
             flex-wrap: nowrap !important;
             align-items: center !important;
-            gap: 14px !important;
+            gap: 12px !important;
             min-width: 0 !important;
             flex: 1 1 auto !important;
+            overflow: hidden !important;
         }
 
         /* Target the ICON BOX specifically (first child of left container) */
@@ -3017,7 +3500,7 @@
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            margin-right: 14px !important;
+            margin-right: 0 !important;
             position: static !important;
             float: none !important;
         }
@@ -3033,6 +3516,7 @@
             flex-direction: column !important;
             justify-content: center !important;
             margin: 0 !important;
+            overflow: hidden !important;
         }
 
         .checklist-group-header h6,
@@ -3045,6 +3529,88 @@
             line-height: 1.35 !important;
             white-space: normal !important;
             word-break: break-word !important;
+        }
+
+        /* Far-right action controls: ALWAYS INLINE / NEVER WRAP TO 2ND LINE */
+        .checklist-sub-item > div:last-child,
+        .checklist-standalone-item > div:last-child,
+        .checklist-group-header > div:last-child,
+        .content-card .card-header > div:last-child {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex: 0 0 auto !important;
+            flex-shrink: 0 !important;
+            margin-left: auto !important;
+            white-space: nowrap !important;
+            align-self: center !important;
+        }
+
+        .content-card .card-header {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 14px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 16px 20px !important;
+            min-height: 66px !important;
+        }
+
+        /* ── PERFECT ACCORDION CHEVRON TOGGLE (TRANSPARENT, SMOOTH 180° ROTATION) ── */
+        .group-chevron-btn {
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 4px 6px !important;
+            margin: 0 !important;
+            color: #64748b !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 6px !important;
+            outline: none !important;
+            transition: color 0.2s ease, background-color 0.2s ease !important;
+        }
+
+        .group-chevron-btn:hover {
+            color: #0f172a !important;
+            background-color: rgba(15, 23, 42, 0.06) !important;
+        }
+
+        .dark-mode .group-chevron-btn {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .group-chevron-btn:hover {
+            color: #f8fafc !important;
+            background-color: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        .group-chevron {
+            display: inline-block !important;
+            font-size: 13px !important;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            transform-origin: center center !important;
+            transform: rotate(180deg) !important; /* Open by default */
+        }
+
+        .group-chevron-btn.collapsed .group-chevron,
+        .group-chevron-btn[aria-expanded="false"] .group-chevron,
+        [data-bs-toggle="collapse"].collapsed ~ div .group-chevron,
+        [data-bs-toggle="collapse"][aria-expanded="false"] ~ div .group-chevron {
+            transform: rotate(0deg) !important;
+        }
+
+        .group-chevron-btn:not(.collapsed) .group-chevron,
+        .group-chevron-btn[aria-expanded="true"] .group-chevron {
+            transform: rotate(180deg) !important;
         }
 
         /* ═════════════════════════════════════════════════════════════════════
@@ -3226,6 +3792,9 @@
 </head>
 
 <body>
+    <!-- ══ TOP NANO PROGRESS BAR (INSTANT FEEDBACK FOR PAGE TRANSITIONS) ══ -->
+    <div id="etalaTopProgressBar" class="etala-top-progress-bar" aria-hidden="true"></div>
+
     {% if request.user.is_authenticated %}
     <div class="etala-layout">
         <!-- ═══════════════════════════════════════════
@@ -3305,7 +3874,7 @@
                     </a>
 
                     <!-- Illegal Constructions -->
-                    <a href="{% url 'records_browse' %}?illegal=1"
+                    <a href="{% url 'illegal_constructions' %}"
                         class="nav-item {% if active_tab == 'illegal' %}active{% endif %}"
                         title="Illegal Constructions">
                         <div class="nav-item-content">
@@ -3412,15 +3981,20 @@
                             <i data-lucide="menu" style="width: 20px; height: 20px;"></i>
                         </button>
                         <button type="button" class="header-back-btn"
-                            onclick="if(window.history.length > 1){ history.back(); } else { window.location.href='{% url 'dashboard' %}'; }"
+                            data-fallback-url="{% url 'dashboard' %}"
+                            onclick="if(window.history.length > 1){ history.back(); } else { window.location.href = this.dataset.fallbackUrl; }"
                             title="Go back">
                             <i data-lucide="arrow-left" style="width: 16px; height: 16px;"></i>
                             <span class="d-none d-sm-inline">Back</span>
                         </button>
-                        <!-- Breadcrumb -->
-                        <nav class="breadcrumb-nav" aria-label="breadcrumb">
+                        <!-- Floating Pill Breadcrumb (Exact User Reference Design) -->
+                        <nav class="etala-breadcrumb-capsule" aria-label="breadcrumb">
+                            <a href="{% url 'dashboard' %}" class="breadcrumb-home-circle" title="Dashboard">
+                                <i class="fa-solid fa-house"></i>
+                            </a>
+                            <span class="breadcrumb-chevron">›</span>
                             {% block breadcrumb %}
-                            <span class="breadcrumb-item">Dashboard</span>
+                            <span class="breadcrumb-item active">Overview</span>
                             {% endblock %}
                         </nav>
                     </div>
@@ -3467,7 +4041,7 @@
                                 <i class="fa-solid fa-bell" style="font-size: 16px;"></i>
                                 <span id="notificationBadge"
                                     class="position-absolute bg-danger text-white rounded-pill notification-pulse-badge {% if not notifications_count %}d-none{% endif %}"
-                                    style="font-size: 9px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 4px; display: {% if notifications_count %}inline-flex{% else %}none{% endif %}; align-items: center; justify-content: center; top: -1px; right: -2px; border: 2px solid #ffffff; line-height: 1; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">{% if notifications_count > 99 %}99+{% else %}{{ notifications_count }}{% endif %}</span>
+                                    style="font-size: 9px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 4px; align-items: center; justify-content: center; top: -1px; right: -2px; border: 2px solid #ffffff; line-height: 1; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">{% if notifications_count > 99 %}99+{% else %}{{ notifications_count }}{% endif %}</span>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card dropdown-card-with-caret shadow-lg"
                                 style="min-width: 390px; max-width: 410px; border-radius: 18px; overflow: hidden; z-index: 99999; margin-top: 10px;">
@@ -3498,12 +4072,8 @@
                                         data-notification-id="{{ n.action|slugify }}">
 
                                         <!-- Left Pastel Icon Circle (Fixed size on left) -->
-                                        <div class="notification-icon-wrapper flex-shrink-0"
-                                            style="{% if n.type == 'security' %}background: #fee2e2; color: #ef4444;
-                                              {% elif 'FSIC' in n.action %}background: #fef3c7; color: #d97706;
-                                              {% elif 'Electrical' in n.action %}background: #f3e8ff; color: #9333ea;
-                                              {% elif 'Other' in n.action or 'Record' in n.action %}background: #dcfce7; color: #16a34a;
-                                              {% else %}background: #fee2e2; color: #ef4444;{% endif %}">
+                                        <div class="notification-icon-wrapper flex-shrink-0 {% if n.type == 'security' %}notif-security{% elif 'FSIC' in n.action %}notif-fsic{% elif 'Electrical' in n.action %}notif-electrical{% elif 'Other' in n.action or 'Record' in n.action %}notif-record{% else %}notif-default{% endif %}"
+                                            style="{% if n.type == 'security' %}background: #fee2e2; color: #ef4444;{% elif 'FSIC' in n.action %}background: #fef3c7; color: #d97706;{% elif 'Electrical' in n.action %}background: #f3e8ff; color: #9333ea;{% elif 'Other' in n.action or 'Record' in n.action %}background: #dcfce7; color: #16a34a;{% else %}background: #fee2e2; color: #ef4444;{% endif %}">
                                             {% if n.type == 'security' %}
                                             <i class="fa-solid fa-exclamation"
                                                 style="font-size: 14px; font-weight: 900;"></i>
@@ -3819,14 +4389,14 @@
         if (mobileDrawerCloseBtn) mobileDrawerCloseBtn.addEventListener('click', closeMobileSidebar);
         if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeMobileSidebar);
 
-        // Close other open dropdowns when a new one is shown (resolves event propagation blocking auto-close)
+        // Close other open dropdowns when a new one is shown (clean 1-at-a-time dropdown experience)
         document.addEventListener('show.bs.dropdown', function (e) {
-            const openMenus = document.querySelectorAll('.dropdown-menu.show');
-            openMenus.forEach(menu => {
+            const currentToggle = e.target;
+            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
                 const parent = menu.closest('.dropdown');
-                if (parent && parent !== e.target) {
+                if (parent) {
                     const toggle = parent.querySelector('[data-bs-toggle="dropdown"]');
-                    if (toggle) {
+                    if (toggle && toggle !== currentToggle) {
                         const instance = bootstrap.Dropdown.getInstance(toggle);
                         if (instance) instance.hide();
                     }
@@ -3878,59 +4448,11 @@
             });
         }
 
-        // Notification unread state and count badge logic (persisted via localStorage)
+        // Notification unread state and count badge initialization
         document.addEventListener("DOMContentLoaded", function () {
-            const bellBtn = document.getElementById('notificationBellBtn');
-            const badge = document.getElementById('notificationBadge');
-            if (!bellBtn || !badge) return;
-
-            const items = document.querySelectorAll('[data-notification-id]');
-            const currentIds = Array.from(items).map(el => el.getAttribute('data-notification-id'));
-
-            let readIds = [];
-            try {
-                readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
-            } catch (e) {
-                readIds = [];
+            if (typeof updateNotificationBadges === 'function') {
+                updateNotificationBadges();
             }
-
-            let unreadCount = 0;
-            items.forEach(el => {
-                const id = el.getAttribute('data-notification-id');
-                if (!readIds.includes(id)) {
-                    unreadCount++;
-                    el.classList.add('unread-notification');
-
-                    // Add small blue dot to denote unread item
-                    const dot = document.createElement('span');
-                    dot.className = 'unread-dot';
-                    dot.style.cssText = 'width: 6px; height: 6px; background-color: #2563eb; border-radius: 50%; margin-left: auto; align-self: center; flex-shrink: 0;';
-                    el.appendChild(dot);
-                }
-            });
-
-            if (unreadCount > 0) {
-                badge.innerText = unreadCount;
-                badge.classList.remove('d-none');
-            } else {
-                badge.classList.add('d-none');
-            }
-
-            bellBtn.addEventListener('click', function () {
-                const updatedReadIds = Array.from(new Set([...readIds, ...currentIds]));
-                localStorage.setItem('read_notifications', JSON.stringify(updatedReadIds));
-                badge.classList.add('d-none');
-
-                // Fade out unread styles and dots after a short delay
-                setTimeout(() => {
-                    document.querySelectorAll('.unread-notification').forEach(el => {
-                        el.classList.remove('unread-notification');
-                    });
-                    document.querySelectorAll('.unread-dot').forEach(el => {
-                        el.remove();
-                    });
-                }, 1500);
-            });
         });
 
         // Theme switching logic
@@ -4001,6 +4523,156 @@
     <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3"
         style="z-index: 10000; pointer-events: none;"></div>
 
+    <style>
+        /* ══ STANDARD COMPACT TOAST SYSTEM (Sleek & Non-Bulky) ════════════ */
+        .custom-app-toast {
+            border-radius: 10px !important;
+            min-width: 270px;
+            max-width: 380px;
+            pointer-events: auto;
+            position: relative;
+            overflow: hidden;
+            background: #ffffff !important;
+            box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.05) !important;
+            animation: etalaToastBounceIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        @keyframes etalaToastBounceIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-16px) scale(0.96);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .custom-app-toast.toast-hiding {
+            opacity: 0 !important;
+            transform: translateY(-8px) scale(0.96) !important;
+        }
+
+        /* Light Mode Clean Variants */
+        .custom-app-toast.toast-variant-success {
+            border: 1px solid #dcfce7 !important;
+            border-left: 4px solid #16a34a !important;
+        }
+        .custom-app-toast.toast-variant-info {
+            border: 1px solid #dbeafe !important;
+            border-left: 4px solid #2563eb !important;
+        }
+        .custom-app-toast.toast-variant-warning {
+            border: 1px solid #fef3c7 !important;
+            border-left: 4px solid #d97706 !important;
+        }
+        .custom-app-toast.toast-variant-error {
+            border: 1px solid #fee2e2 !important;
+            border-left: 4px solid #dc2626 !important;
+        }
+
+        .custom-app-toast .toast-icon-badge {
+            width: 30px !important;
+            height: 30px !important;
+            min-width: 30px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+            margin-right: 12px !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+        }
+
+        .custom-app-toast .toast-title-text {
+            font-size: 0.86rem !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            letter-spacing: -0.01em !important;
+            line-height: 1.25 !important;
+            margin-bottom: 2px !important;
+        }
+
+        .custom-app-toast .toast-body-text {
+            font-size: 0.78rem !important;
+            font-weight: 400 !important;
+            color: #475569 !important;
+            line-height: 1.35 !important;
+            margin-top: 1px !important;
+            word-break: break-word !important;
+        }
+
+        .custom-app-toast .toast-close-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: color 0.15s ease, background-color 0.15s ease;
+        }
+        .custom-app-toast .toast-close-btn:hover {
+            color: #0f172a;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .custom-app-toast .toast-progress-track {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2.5px;
+            width: 100%;
+            opacity: 0.85;
+        }
+
+        /* ── Dark Mode Clean Variants ── */
+        .dark-mode .custom-app-toast,
+        [data-bs-theme="dark"] .custom-app-toast {
+            background: #1e293b !important;
+            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
+        }
+        .dark-mode .custom-app-toast.toast-variant-success,
+        [data-bs-theme="dark"] .custom-app-toast.toast-variant-success {
+            border: 1px solid #14532d !important;
+            border-left: 4px solid #22c55e !important;
+        }
+        .dark-mode .custom-app-toast.toast-variant-info,
+        [data-bs-theme="dark"] .custom-app-toast.toast-variant-info {
+            border: 1px solid #1e3a8a !important;
+            border-left: 4px solid #3b82f6 !important;
+        }
+        .dark-mode .custom-app-toast.toast-variant-warning,
+        [data-bs-theme="dark"] .custom-app-toast.toast-variant-warning {
+            border: 1px solid #78350f !important;
+            border-left: 4px solid #f59e0b !important;
+        }
+        .dark-mode .custom-app-toast.toast-variant-error,
+        [data-bs-theme="dark"] .custom-app-toast.toast-variant-error {
+            border: 1px solid #7f1d1d !important;
+            border-left: 4px solid #ef4444 !important;
+        }
+
+        .dark-mode .custom-app-toast .toast-title-text,
+        [data-bs-theme="dark"] .custom-app-toast .toast-title-text {
+            color: #f8fafc !important;
+        }
+        .dark-mode .custom-app-toast .toast-body-text,
+        [data-bs-theme="dark"] .custom-app-toast .toast-body-text {
+            color: #94a3b8 !important;
+        }
+        .dark-mode .custom-app-toast .toast-close-btn:hover,
+        [data-bs-theme="dark"] .custom-app-toast .toast-close-btn:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+
     <script>
         function showToast(type, title, message, duration = 4000) {
             const container = document.getElementById('toastContainer');
@@ -4011,122 +4683,303 @@
             const isWarning = tagLower.includes('warning') || tagLower.includes('alert');
             const isError = tagLower.includes('error') || tagLower.includes('danger');
 
-            let color = '#0284c7';
-            let bgIcon = '#e0f2fe';
-            let iconHtml = '<i class="fa-solid fa-circle-info" style="font-size: 16px;"></i>';
-            let defaultTitle = 'Notice';
+            let variantClass = 'toast-variant-info';
+            let iconBg = '#2563eb';
+            let iconHtml = '<i class="fa-solid fa-info" style="font-size: 13px;"></i>';
+            let defaultTitle = 'Information';
+
+            const msgLower = (message || '').toLowerCase();
 
             if (isSuccess) {
-                color = '#16a34a';
-                bgIcon = '#dcfce7';
-                iconHtml = '<i class="fa-solid fa-circle-check" style="font-size: 16px;"></i>';
-                defaultTitle = 'Success';
+                variantClass = 'toast-variant-success';
+                iconBg = '#16a34a';
+                iconHtml = '<i class="fa-solid fa-check" style="font-size: 13px;"></i>';
+                
+                if (msgLower.includes('regulariz')) {
+                    defaultTitle = 'Regularized Successfully';
+                } else if (msgLower.includes('trash')) {
+                    defaultTitle = 'Moved to Trash';
+                } else if (msgLower.includes('archiv')) {
+                    defaultTitle = 'Archived Successfully';
+                } else if (msgLower.includes('restor')) {
+                    defaultTitle = 'Restored Successfully';
+                } else if (msgLower.includes('deactivat')) {
+                    defaultTitle = 'Deactivated Successfully';
+                } else if (msgLower.includes('activat')) {
+                    defaultTitle = 'Activated Successfully';
+                } else if (msgLower.includes('upload')) {
+                    defaultTitle = 'Uploaded Successfully';
+                } else if (msgLower.includes('creat') || msgLower.includes('added')) {
+                    defaultTitle = 'Created Successfully';
+                } else if (msgLower.includes('delet') || msgLower.includes('remov') || msgLower.includes('purg')) {
+                    defaultTitle = 'Deleted Successfully';
+                } else if (msgLower.includes('updat') || msgLower.includes('sav') || msgLower.includes('edit')) {
+                    defaultTitle = 'Saved Successfully';
+                } else if (msgLower.includes('reset') || msgLower.includes('password')) {
+                    defaultTitle = 'Password Reset';
+                } else {
+                    defaultTitle = 'Success';
+                }
             } else if (isError) {
-                color = '#dc2626';
-                bgIcon = '#fee2e2';
-                iconHtml = '<i class="fa-solid fa-circle-xmark" style="font-size: 16px;"></i>';
-                defaultTitle = 'Error';
+                variantClass = 'toast-variant-error';
+                iconBg = '#dc2626';
+                iconHtml = '<i class="fa-solid fa-xmark" style="font-size: 13px;"></i>';
+                
+                if (msgLower.includes('delet')) {
+                    defaultTitle = 'Deletion Failed';
+                } else if (msgLower.includes('upload')) {
+                    defaultTitle = 'Upload Failed';
+                } else if (msgLower.includes('password')) {
+                    defaultTitle = 'Password Error';
+                } else if (msgLower.includes('permission') || msgLower.includes('denied') || msgLower.includes('unauthoriz')) {
+                    defaultTitle = 'Access Denied';
+                } else {
+                    defaultTitle = 'Error Occurred';
+                }
             } else if (isWarning) {
-                color = '#d97706';
-                bgIcon = '#fef3c7';
-                iconHtml = '<i class="fa-solid fa-triangle-exclamation" style="font-size: 15px;"></i>';
-                defaultTitle = 'Warning';
+                variantClass = 'toast-variant-warning';
+                iconBg = '#d97706';
+                iconHtml = '<i class="fa-solid fa-exclamation" style="font-size: 13px; font-weight: 900;"></i>';
+                
+                if (msgLower.includes('prevent') || msgLower.includes('cannot') || msgLower.includes('restricted')) {
+                    defaultTitle = 'Action Prevented';
+                } else {
+                    defaultTitle = 'Action Required';
+                }
             }
 
-            const finalTitle = title || defaultTitle;
+            const finalTitle = (title && title.trim()) ? title : defaultTitle;
+            const finalMessage = (message && message.trim()) ? message : '';
             const toastId = 'toast-' + Date.now() + Math.random().toString(36).substr(2, 4);
 
             const toastHtml = `
-            <div id="${toastId}" class="toast border-0 shadow-lg mb-2.5 fade show position-relative overflow-hidden custom-app-toast" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto; border-radius: 12px; min-width: 320px; max-width: 450px;">
-                <div class="d-flex align-items-center p-3">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle me-3 flex-shrink-0" style="width: 34px; height: 34px; background: ${bgIcon}; color: ${color};">
+            <div id="${toastId}" class="custom-app-toast ${variantClass} mb-2.5" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex align-items-center" style="padding: 12px 14px; gap: 12px;">
+                    <div class="toast-icon-badge" style="background: ${iconBg};">
                         ${iconHtml}
                     </div>
-                    <div class="flex-grow-1 min-w-0 me-2" style="font-size: 0.83rem; line-height: 1.4;">
-                        <span class="fw-bold toast-msg-title">${finalTitle}:</span>
-                        <span class="toast-msg-body ms-1">${message || ''}</span>
+                    <div class="flex-grow-1" style="min-width: 0;">
+                        <div class="toast-title-text">${finalTitle}</div>
+                        ${finalMessage ? `<div class="toast-body-text">${finalMessage}</div>` : ''}
                     </div>
-                    <button type="button" class="btn-close ms-auto flex-shrink-0" data-bs-dismiss="toast" aria-label="Close" style="font-size: 0.72rem; opacity: 0.6;"></button>
+                    <button type="button" class="toast-close-btn flex-shrink-0 ms-auto" onclick="dismissToast('${toastId}')" aria-label="Close" style="align-self: flex-start; margin-top: -2px;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div class="toast-progress-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; background: ${color}; width: 100%;"></div>
+                <div class="toast-progress-track" id="${toastId}-bar" style="background: ${iconBg};"></div>
             </div>
-        `;
+            `;
 
             container.insertAdjacentHTML('beforeend', toastHtml);
             const toastEl = document.getElementById(toastId);
+            const pBar = document.getElementById(`${toastId}-bar`);
 
-            setTimeout(() => {
-                const pBar = toastEl.querySelector('.toast-progress-bar');
+            let timerId = null;
+            let startTime = Date.now();
+            let remainingTime = duration;
+
+            function startTimer() {
+                if (remainingTime <= 0) {
+                    dismissToast(toastId);
+                    return;
+                }
                 if (pBar) {
-                    pBar.style.transition = `width ${duration}ms linear`;
+                    void pBar.offsetWidth; // Force reflow
+                    pBar.style.transition = `width ${remainingTime}ms linear`;
                     pBar.style.width = '0%';
                 }
-            }, 30);
-
-            if (window.bootstrap && bootstrap.Toast) {
-                const bsToast = new bootstrap.Toast(toastEl, { delay: duration, autohide: true });
-                bsToast.show();
-                toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
-            } else {
-                setTimeout(() => {
-                    toastEl.classList.remove('show');
-                    setTimeout(() => toastEl.remove(), 300);
-                }, duration);
+                startTime = Date.now();
+                timerId = setTimeout(() => {
+                    dismissToast(toastId);
+                }, remainingTime);
             }
+
+            function pauseTimer() {
+                if (timerId) {
+                    clearTimeout(timerId);
+                    timerId = null;
+                }
+                const elapsed = Date.now() - startTime;
+                remainingTime = Math.max(0, remainingTime - elapsed);
+                if (pBar) {
+                    const computedWidth = window.getComputedStyle(pBar).width;
+                    pBar.style.transition = 'none';
+                    pBar.style.width = computedWidth;
+                }
+            }
+
+            toastEl.addEventListener('mouseenter', pauseTimer);
+            toastEl.addEventListener('mouseleave', () => {
+                if (remainingTime > 0) startTimer();
+            });
+
+            // Start countdown animation
+            setTimeout(startTimer, 40);
+        }
+
+        function dismissToast(toastId) {
+            const toastEl = document.getElementById(toastId);
+            if (!toastEl) return;
+            toastEl.classList.add('toast-hiding');
+            setTimeout(() => {
+                if (toastEl && toastEl.parentElement) {
+                    toastEl.remove();
+                }
+            }, 230);
         }
 
         window.showToastNotification = showToast;
+        window.dismissToast = dismissToast;
     </script>
 
-    <!-- Custom Dark-Mode Aware Confirmation Modal (Replaces native browser popup) -->
+    <!-- Custom Modern Animated Confirmation Modal (Matching Reference Design) -->
     <div class="modal fade" id="customConfirmModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-                <div class="modal-header border-0 pb-0 pt-4 px-4 d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center gap-2">
-                        <div id="confirmModalIconWrapper"
-                            class="rounded-circle p-2 d-flex align-items-center justify-content-center bg-danger-subtle text-danger"
-                            style="width: 36px; height: 36px;">
-                            <i class="fa-solid fa-trash-can" id="confirmModalIcon" style="font-size: 16px;"></i>
-                        </div>
-                        <h5 class="modal-title fw-bold mb-0" id="confirmModalTitle" style="font-size: 1rem;">Confirm
-                            Action</h5>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+            <div class="modal-content border-0 shadow-2xl p-4 text-center position-relative custom-confirm-card" style="border-radius: 24px; background: #ffffff;">
+                <!-- Close Button Top Right -->
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-3.5" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem; opacity: 0.5;"></button>
+
+                <!-- Centered Icon Badge -->
+                <div id="confirmModalIconWrapper"
+                    class="d-flex align-items-center justify-content-center mx-auto mb-3"
+                    style="width: 56px; height: 56px; border-radius: 50%; background: #fee2e2; color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);">
+                    <i class="fa-solid fa-triangle-exclamation" id="confirmModalIcon" style="font-size: 22px;"></i>
                 </div>
-                <div class="modal-body px-4 py-3">
-                    <p class="mb-0 text-muted small" id="confirmModalMessage"
-                        style="font-size: 0.85rem; line-height: 1.5;">Are you sure you want to proceed?</p>
-                </div>
-                <div class="modal-footer border-0 px-4 pb-4 pt-0 d-flex gap-2">
-                    <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm flex-fill"
-                        data-bs-dismiss="modal" id="confirmModalCancelBtn">Cancel</button>
-                    <button type="button" class="etala-btn etala-btn-danger etala-btn-sm flex-fill"
-                        id="confirmModalActionBtn">Confirm</button>
+
+                <!-- Centered Title & Description -->
+                <h5 class="fw-bold mb-1.5 modal-confirm-title" id="confirmModalTitle" style="font-size: 1.15rem; color: #0f172a; letter-spacing: -0.01em;">Confirm Action</h5>
+                <p class="mb-4 modal-confirm-desc" id="confirmModalMessage" style="font-size: 0.84rem; color: #64748b; line-height: 1.45;">Are you sure you want to proceed?</p>
+
+                <!-- Two Action Pill Buttons -->
+                <div class="d-flex gap-2.5 justify-content-center">
+                    <button type="button" class="btn flex-fill py-2.5 px-3 fw-semibold confirm-cancel-btn"
+                        data-bs-dismiss="modal" id="confirmModalCancelBtn" style="border-radius: 12px; font-size: 0.85rem; background: #f1f5f9; color: #334155; border: none; transition: background-color 0.15s ease;">No, Keep It.</button>
+                    <button type="button" class="btn flex-fill py-2.5 px-3 fw-semibold confirm-action-btn"
+                        id="confirmModalActionBtn" style="border-radius: 12px; font-size: 0.85rem; background: #ef4444; color: #ffffff; border: none; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25); transition: opacity 0.15s ease, transform 0.15s ease;">Yes, Delete!</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <style>
+        .custom-confirm-card {
+            box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.18), 0 8px 16px -4px rgba(15, 23, 42, 0.08) !important;
+            animation: modalPopIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes modalPopIn {
+            0% { transform: scale(0.94); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .confirm-cancel-btn:hover {
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        .confirm-action-btn:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        /* Dark mode for confirmation modal */
+        .dark-mode .custom-confirm-card,
+        [data-bs-theme="dark"] .custom-confirm-card {
+            background: #1e293b !important;
+            border: 1px solid #334155 !important;
+            box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.6) !important;
+        }
+        .dark-mode .modal-confirm-title,
+        [data-bs-theme="dark"] .modal-confirm-title {
+            color: #f8fafc !important;
+        }
+        .dark-mode .modal-confirm-desc,
+        [data-bs-theme="dark"] .modal-confirm-desc {
+            color: #94a3b8 !important;
+        }
+        .dark-mode .confirm-cancel-btn,
+        [data-bs-theme="dark"] .confirm-cancel-btn {
+            background: #334155 !important;
+            color: #f8fafc !important;
+        }
+        .dark-mode .confirm-cancel-btn:hover,
+        [data-bs-theme="dark"] .confirm-cancel-btn:hover {
+            background: #475569 !important;
+            color: #ffffff !important;
+        }
+    </style>
+
     <script>
         window.showConfirmModal = function (options) {
             const title = options.title || 'Confirm Action';
             const message = options.message || 'Are you sure you want to proceed?';
-            const confirmText = options.confirmText || 'Confirm';
-            const confirmClass = options.confirmClass || 'etala-btn-danger';
-            const iconClass = options.iconClass || 'fa-solid fa-trash-can';
+            const titleLower = title.toLowerCase();
+            const messageLower = message.toLowerCase();
+            const classLower = (options.confirmClass || '').toLowerCase();
+
+            // Intelligent Intent Detection for Appropriate Color Coding
+            const isRestore = titleLower.includes('restore') || messageLower.includes('restore');
+            const isArchive = titleLower.includes('trash') || titleLower.includes('archive') || messageLower.includes('trash');
+            const isDelete = titleLower.includes('delete') || titleLower.includes('remove') || titleLower.includes('purge');
+            const isSecurity = titleLower.includes('block') || titleLower.includes('ban') || titleLower.includes('deactivate');
+
+            let confirmBg = '#ef4444';
+            let iconClass = 'fa-solid fa-trash-can';
+            let bgIcon = '#fee2e2';
+            let defaultConfirmText = 'Yes, Delete!';
+            let defaultCancelText = 'No, Keep It.';
+
+            if (isRestore || classLower.includes('success')) {
+                confirmBg = '#16a34a';
+                iconClass = 'fa-solid fa-arrow-rotate-left';
+                bgIcon = '#dcfce7';
+                defaultConfirmText = 'Yes, Restore!';
+                defaultCancelText = 'No, Keep in Trash';
+            } else if (isArchive) {
+                confirmBg = '#d97706'; // Amber warm action for Trash/Archive
+                iconClass = 'fa-solid fa-box-archive';
+                bgIcon = '#fef3c7';
+                defaultConfirmText = 'Yes, Move to Trash';
+                defaultCancelText = 'No, Keep It.';
+            } else if (isSecurity) {
+                confirmBg = '#ea580c';
+                iconClass = 'fa-solid fa-ban';
+                bgIcon = '#ffedd5';
+                defaultConfirmText = 'Yes, Proceed';
+                defaultCancelText = 'Cancel';
+            } else if (classLower.includes('primary') || classLower.includes('info')) {
+                confirmBg = '#2563eb';
+                iconClass = 'fa-solid fa-circle-question';
+                bgIcon = '#e0f2fe';
+                defaultConfirmText = 'Yes, Proceed';
+                defaultCancelText = 'Cancel';
+            }
+
+            // Allow custom overrides if explicitly provided
+            if (options.confirmBg) confirmBg = options.confirmBg;
+            if (options.iconClass) iconClass = options.iconClass;
+
+            const confirmText = options.confirmText || defaultConfirmText;
+            const cancelText = options.cancelText || defaultCancelText;
             const onConfirm = options.onConfirm;
 
             document.getElementById('confirmModalTitle').innerText = title;
             document.getElementById('confirmModalMessage').innerText = message;
 
+            const cancelBtn = document.getElementById('confirmModalCancelBtn');
+            if (cancelBtn) cancelBtn.innerText = cancelText;
+
             const actionBtn = document.getElementById('confirmModalActionBtn');
             actionBtn.innerText = confirmText;
-            actionBtn.className = `etala-btn etala-btn-sm flex-fill ${confirmClass}`;
+            actionBtn.style.background = confirmBg;
+            actionBtn.style.boxShadow = `0 4px 14px ${confirmBg}40`;
 
             const iconEl = document.getElementById('confirmModalIcon');
+            const iconWrapper = document.getElementById('confirmModalIconWrapper');
             if (iconEl) {
                 iconEl.className = iconClass;
+            }
+            if (iconWrapper) {
+                iconWrapper.style.background = bgIcon;
+                iconWrapper.style.color = confirmBg;
+                iconWrapper.style.boxShadow = `0 4px 12px ${confirmBg}25`;
             }
 
             const modalEl = document.getElementById('customConfirmModal');
@@ -4145,9 +4998,16 @@
     {% if messages %}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            {% for message in messages %}
-            showToast('{{ message.tags }}', '', '{{ message.message|escapejs }}');
-            {% endfor %}
+            const djangoMessages = [
+                {% for msg in messages %}
+                { tag: "{{ msg.tags|default:'info'|escapejs }}", message: "{{ msg.message|escapejs }}" }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ];
+            djangoMessages.forEach(function(m) {
+                if (m.message) {
+                    showToast(m.tag, '', m.message);
+                }
+            });
         });
     </script>
     {% endif %}
@@ -4308,12 +5168,12 @@
                                 <div class="text-muted small" style="font-size: 0.78rem;">Frequently Asked Questions
                                     &amp; Troubleshooting Guides</div>
                             </div>
-                            <div class="faq-search-wrapper position-relative" style="width: 100%; max-width: 320px;">
+                            <div class="etala-search-pill-wrapper" style="width: 100%; max-width: 320px;">
+                                <span class="etala-search-pill-icon">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </span>
                                 <input type="text" id="faqSearchInput" onkeyup="filterFaqs()"
-                                    class="form-control rounded-pill pe-5 ps-4 border-0" placeholder="Search.."
-                                    style="height: 44px; background: #ffffff; font-size: 0.88rem; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);">
-                                <i data-lucide="search" class="position-absolute text-muted"
-                                    style="right: 16px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: #64748b !important;"></i>
+                                    class="etala-search-pill-input search-text-input" placeholder="Search FAQ topics...">
                             </div>
                         </div>
 
@@ -4508,9 +5368,8 @@
                 dot.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
                 dot.style.opacity = '0';
                 dot.style.transform = 'scale(0)';
+                setTimeout(() => { dot.style.display = 'none'; }, 250);
             }
-            element.style.transition = 'background 0.25s ease';
-            element.style.background = 'transparent';
             element.classList.remove('is-unread-item');
 
             updateNotificationBadges();
@@ -4532,12 +5391,10 @@
                 const dot = el.querySelector('.unread-blue-dot');
                 if (readList.includes(id)) {
                     if (dot) dot.style.display = 'none';
-                    el.style.background = 'transparent';
                     el.classList.remove('is-unread-item');
                 } else {
                     unreadCount++;
                     if (dot) dot.style.display = 'inline-block';
-                    el.style.background = 'rgba(37, 99, 235, 0.04)';
                     el.classList.add('is-unread-item');
                 }
             });
@@ -4587,8 +5444,6 @@
                     dot.style.transform = 'scale(0)';
                     setTimeout(() => { dot.style.display = 'none'; }, 300);
                 }
-                el.style.transition = 'background 0.3s ease';
-                el.style.background = 'transparent';
                 el.classList.remove('is-unread-item');
             });
 
@@ -4776,13 +5631,112 @@
             }, 2000);
         }
 
+        // ══ PAGE TRANSITION NANO PROGRESS BAR CONTROLLER ════════════════════
+        const topProgressBar = document.getElementById('etalaTopProgressBar');
+
+        function startPageProgress() {
+            if (topProgressBar) {
+                topProgressBar.classList.remove('complete');
+                topProgressBar.classList.add('loading');
+            }
+        }
+
+        function finishPageProgress() {
+            if (topProgressBar) {
+                topProgressBar.classList.remove('loading');
+                topProgressBar.classList.add('complete');
+                setTimeout(() => {
+                    topProgressBar.classList.remove('complete');
+                }, 400);
+            }
+        }
+
+        window.addEventListener('pageshow', function() {
+            finishPageProgress();
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
+            finishPageProgress();
+
             document.addEventListener('click', function(e) {
                 const btn = e.target.closest('a[href*="download-zip"], a[href*="download_zip"], .zip-download-btn');
                 if (btn) {
                     showZipDownloadToast('Preparing ZIP Archive', 'Compressing documents into a structured ZIP file...');
                 }
+
+                // Smooth page navigation progress indicator
+                const link = e.target.closest('a[href]');
+                if (link && !e.defaultPrevented && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                    const href = link.getAttribute('href');
+                    const target = link.getAttribute('target');
+                    if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:') && !href.startsWith('tel:') && target !== '_blank' && !link.hasAttribute('download') && !link.classList.contains('no-progress')) {
+                        startPageProgress();
+                    }
+                }
+
+                // Global table row navigation for data-href
+                const row = e.target.closest('tr[data-href]');
+                if (row && !e.target.closest('a, button, input, select, textarea, .dropdown, [data-bs-toggle], .action-menu-cell')) {
+                    const href = row.getAttribute('data-href');
+                    if (href) {
+                        startPageProgress();
+                        window.location.href = href;
+                    }
+                }
             });
+
+            // ══ GLOBAL PREMIUM FLATPICKR INITIALIZER ═════════════════════════
+            if (window.initPremiumDatePickers) {
+                window.initPremiumDatePickers();
+            }
+        });
+
+        // Global Premium Date Picker Controller
+        window.initPremiumDatePickers = function(root = document) {
+            if (typeof flatpickr === 'undefined') return;
+            const dateInputs = root.querySelectorAll('input[type="date"], input.date-picker');
+            dateInputs.forEach(el => {
+                if (!el._flatpickr) {
+                    flatpickr(el, {
+                        dateFormat: 'Y-m-d',
+                        altInput: true,
+                        altFormat: 'F j, Y',
+                        altInputClass: (el.className || 'form-control') + ' flatpickr-custom-input',
+                        allowInput: true,
+                        monthSelectorType: 'dropdown',
+                        prevArrow: '<i class="fa-solid fa-chevron-left" style="font-size: 11px;"></i>',
+                        nextArrow: '<i class="fa-solid fa-chevron-right" style="font-size: 11px;"></i>',
+                        onReady: function(selectedDates, dateStr, instance) {
+                            if (!instance.calendarContainer.querySelector('.flatpickr-footer-actions')) {
+                                const footer = document.createElement('div');
+                                footer.className = 'flatpickr-footer-actions d-flex align-items-center justify-content-between';
+                                footer.innerHTML = `
+                                    <button type="button" class="flatpickr-footer-btn btn-clear">Clear</button>
+                                    <button type="button" class="flatpickr-footer-btn btn-today">Today</button>
+                                `;
+                                footer.querySelector('.btn-clear').addEventListener('click', function(ev) {
+                                    ev.preventDefault();
+                                    instance.clear();
+                                    instance.close();
+                                });
+                                footer.querySelector('.btn-today').addEventListener('click', function(ev) {
+                                    ev.preventDefault();
+                                    instance.setDate(new Date(), true);
+                                    instance.close();
+                                });
+                                instance.calendarContainer.appendChild(footer);
+                            }
+                        }
+                    });
+                }
+            });
+        };
+
+        // Re-run for dynamic modal inputs
+        document.addEventListener('shown.bs.modal', function(e) {
+            if (window.initPremiumDatePickers) {
+                window.initPremiumDatePickers(e.target);
+            }
         });
     </script>
 

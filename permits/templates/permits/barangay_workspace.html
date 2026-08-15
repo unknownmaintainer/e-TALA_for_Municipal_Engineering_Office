@@ -2,44 +2,148 @@
 {% load static %}
 {% load permit_filters %}
 
-{% block title %}Brgy. {{ barangay.barangay_name }} Workspace | eTala{% endblock %}
+{% block title %}Brgy. {{ barangay.barangay_name }} · eTala{% endblock %}
 
 {% block breadcrumb %}
-<a href="{% url 'barangays' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Barangays</a>
-<span class="breadcrumb-item active">Brgy. {{ barangay.barangay_name }}</span>
+<a href="{% url 'barangays' %}" class="breadcrumb-item">Barangays</a>
+<span class="breadcrumb-chevron">›</span>
+<span class="breadcrumb-item active d-inline-block text-truncate align-middle" style="max-width: 240px;">Brgy. {{ barangay.barangay_name }}</span>
 {% endblock %}
 
-{% block back_button %}
-<a href="{% url 'barangays' %}" class="header-back-btn d-inline-flex align-items-center gap-1 text-decoration-none" title="Back to Barangays">
-    <i class="fa-solid fa-arrow-left" style="font-size: 13px;"></i>
-    <span>Barangays</span>
-</a>
+{% block extra_css %}
+<style>
+    .data-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+        min-width: 780px !important;
+    }
+
+    .data-table th {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.03em !important;
+        color: var(--gray-500, #64748b) !important;
+        padding: 12px 14px !important;
+    }
+
+    .data-table td {
+        padding: 12px 14px !important;
+        vertical-align: middle !important;
+    }
+
+    .data-table .cell-title {
+        font-weight: 600 !important;
+        font-size: 0.86rem !important;
+        line-height: 1.35 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+        max-width: 100% !important;
+    }
+
+    .data-table .cell-subtitle {
+        font-size: 0.76rem !important;
+        line-height: 1.4 !important;
+        margin-top: 3px !important;
+    }
+
+    .data-table .cell-subtitle .subtitle-row {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+        max-width: 100% !important;
+    }
+
+    /* Clean Status: No colored dots, clean readable text */
+    .data-table .status-indicator,
+    .status-indicator {
+        display: inline-block !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        font-weight: 500 !important;
+        font-size: 0.78rem !important;
+        color: var(--gray-700, #334155) !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+    }
+    .data-table .status-indicator::before,
+    .status-indicator::before {
+        display: none !important;
+    }
+    .dark-mode .data-table .status-indicator,
+    .dark-mode .status-indicator {
+        color: #e2e8f0 !important;
+    }
+
+    .data-table .tag,
+    .data-table .tag-permit,
+    .data-table .tag-municipal,
+    .data-table .tag-project,
+    .data-table .tag-barangay,
+    .data-table .badge {
+        display: inline-block !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 100% !important;
+        vertical-align: middle !important;
+    }
+
+    /* Dark Mode Menu Parity */
+    .dark-mode .dropdown-menu {
+        background-color: #1e293b !important;
+        border: 1px solid #334155 !important;
+    }
+    .dark-mode .dropdown-item {
+        color: #f1f5f9 !important;
+    }
+    .dark-mode .dropdown-item:hover {
+        background-color: #334155 !important;
+        color: #ffffff !important;
+    }
+    .dark-mode .dropdown-divider {
+        border-top-color: #334155 !important;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 
-<!-- ══ PAGE HEADER — Modern clean layout without redundant back buttons ══════ -->
+<!-- ══ PAGE HEADER ═════════════════════════════════════════════════════════ -->
 <div class="etala-page-header">
     <div>
-        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
             <span class="tag tag-workspace">Barangay Workspace</span>
             <span class="tag tag-id">ID: #{{ barangay.barangay_id }}</span>
         </div>
-        <h1 class="etala-page-title" style="word-break: break-word; overflow-wrap: break-word;">
+        <h1 class="etala-page-title" style="word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
             Brgy. {{ barangay.barangay_name }}
         </h1>
         <p class="etala-page-subtitle">
             Total Records: <strong style="color: var(--gray-900);">{{ total_records }}</strong> ({{ total_projects }} projects, {{ total_permits }} permits, {{ total_documents }} documents)
         </p>
     </div>
-    <div class="etala-header-actions d-flex align-items-center gap-2 flex-wrap">
-        <a href="{% url 'download_barangay_zip' barangay.barangay_id %}" class="etala-btn etala-btn-secondary text-decoration-none d-inline-flex align-items-center gap-2" title="Download all documents for this barangay in a structured ZIP archive">
-            <i class="fa-solid fa-file-zipper text-teal" style="font-size: 14px;"></i>
-            <span>Download All Documents (ZIP)</span>
+    <div class="etala-header-actions">
+        <a href="{% url 'download_barangay_zip' barangay.barangay_id %}"
+            download
+            class="premium-btn btn-export"
+            title="Download all documents for this barangay in a structured ZIP archive"
+            onclick="if(window.showToast){showToast('info', 'Downloading Archive', 'Preparing files for Brgy. {{ barangay.barangay_name }}... Please wait.');}">
+            <span class="btn-icon"><i class="fa-solid fa-file-zipper"></i></span>
+            <span class="btn-divider"></span>
+            <span>Download All (ZIP)</span>
         </a>
         {% if request.user.role == 'staff' or request.user.role == 'admin' %}
-        <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}" class="etala-btn etala-btn-primary text-decoration-none d-inline-flex align-items-center gap-2">
-            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
+        <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}"
+            class="premium-btn btn-add"
+            title="Encode New Record for this Barangay">
+            <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+            <span class="btn-divider"></span>
             <span>New Record</span>
         </a>
         {% endif %}
@@ -47,11 +151,11 @@
 </div>
 
 
-<!-- ══ TABS & SEARCH ROW — Integrated design matching records_browse ══════ -->
+<!-- ══ TABS & SEARCH ROW ══════════════════════════════════════════════════ -->
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 section-gap">
-    <!-- Category Tabs (Standard System Filter Tabs) -->
+    <!-- Category Tabs -->
     <div class="filter-tabs m-0" style="overflow-x: auto; max-width: 100%;">
-        <a href="?tab=all{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'all' %}active{% endif %}">
+        <a href="?tab=all{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'all' or not current_tab %}active{% endif %}">
             All Records
         </a>
         <a href="?tab=projects{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'projects' %}active{% endif %}">
@@ -62,211 +166,264 @@
         </a>
     </div>
 
-    <!-- Clean unified search wrapper -->
-    <form method="GET" class="d-flex flex-grow-1 align-items-center mb-0 search-form-responsive" style="max-width: 380px;">
-        <input type="hidden" name="tab" value="{{ current_tab }}">
-        <div class="d-flex align-items-center filter-search-group w-100 px-3" style="height: 38px; border: 1px solid var(--border-default, #cbd5e1); border-radius: 10px; background: var(--card-bg, #ffffff); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); transition: all 0.2s ease;">
-            <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
-            <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1 search-text-input"
-                   placeholder="Search workspace records..."
-                   style="font-size: 0.84rem; border: none !important; padding: 0 !important; outline: none !important; box-shadow: none !important; height: 100%; background: transparent; color: var(--text-primary, #1e293b);">
+    <!-- Clean unified search wrapper (Integrated Pill Design) -->
+    <form method="GET" class="d-flex flex-grow-1 align-items-center mb-0 search-form-responsive" style="max-width: 420px;">
+        <input type="hidden" name="tab" value="{{ current_tab|default:'all' }}">
+        <div class="etala-search-pill-wrapper">
+            <span class="etala-search-pill-icon">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" name="q" value="{{ q|default:'' }}" class="etala-search-pill-input search-text-input"
+                   placeholder="Search workspace records...">
+
+            <div id="wsSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                style="width: 14px; height: 14px; border-width: 2px;">
+                <span class="visually-hidden">Searching...</span>
+            </div>
+
             {% if q %}
-            <a href="?tab={{ current_tab }}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background: transparent;" title="Clear search">
-                <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+            <a href="?tab={{ current_tab|default:'all' }}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" style="background: transparent;" title="Clear search">
+                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
             </a>
             {% endif %}
         </div>
     </form>
 </div>
 
-<!-- ══ MAIN LAYOUT SECTION ════════════════════════════════════════════════ -->
+<!-- ══ MAIN TABLE SECTION ═════════════════════════════════════════════════ -->
 <div class="row g-4">
     <!-- FULL WIDTH: Workspace Records -->
     <div class="col-12">
         {% if page_obj %}
-        <div class="content-card">
-            <!-- Desktop Table View -->
-            <div class="table-responsive d-none d-md-block">
-                <table class="data-table" style="width: 100%;">
-                    <thead>
-                        <tr>
-                            <th>Record Title</th>
-                            <th>Type</th>
-                            <th>Year</th>
-                            <th>Status</th>
-                            <th class="text-end" style="width: 80px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <div class="content-card" style="height: auto !important; min-height: 220px !important; overflow: visible !important;">
+            <div class="card-body p-0" style="overflow: visible !important;">
+                <!-- Desktop Table View -->
+                <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important;">
+                    <table class="data-table" style="width: 100%; table-layout: fixed;">
+                        <thead>
+                            <tr>
+                                <th style="width: 38%; min-width: 240px;">Title</th>
+                                <th style="width: 22%; min-width: 140px;">Type</th>
+                                <th style="width: 8%; min-width: 55px;">Year</th>
+                                <th style="width: 14%; min-width: 110px;">Status</th>
+                                <th style="width: 12%; min-width: 80px;">Uploads</th>
+                                <th class="text-end" style="width: 6%; min-width: 44px; padding-right: 14px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in page_obj %}
+                            <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer; {% if r.is_illegal_construction and r.illegal_compliance_status == 'unresolved' %}background-color: rgba(254, 226, 226, 0.3);{% elif r.is_illegal_construction and r.illegal_compliance_status == 'pending_permit' %}background-color: rgba(254, 243, 199, 0.3);{% elif r.is_illegal_construction and r.illegal_compliance_status == 'resolved' %}background-color: rgba(220, 252, 231, 0.3);{% endif %}">
+                                <td>
+                                    <div class="cell-title"
+                                        {% if r.is_illegal_construction and r.illegal_status_info %}style="color: {{ r.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}
+                                        title="{% if r.record_type == 'Permit' %}{{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}{% else %}{{ r.title }}{% endif %}">
+                                        {% if r.record_type == 'Permit' %}
+                                        {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
+                                        {% else %}
+                                        {{ r.title }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="cell-subtitle">
+                                        {% if r.record_type == 'Permit' and r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                        <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                        {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
+                                        <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>
+                                        {% endif %}
+                                        <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if r.is_illegal_construction %}
+                                    <span class="tag" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 600;">{{ r.specific_type_label }}</span>
+                                    {% elif r.record_type == 'Permit' %}
+                                    <span class="tag tag-permit">{{ r.specific_type_label }}</span>
+                                    {% elif r.project_scope == 'Municipal' %}
+                                    <span class="tag tag-municipal">{{ r.specific_type_label }}</span>
+                                    {% else %}
+                                    <span class="tag tag-barangay">{{ r.specific_type_label }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="cell-muted">{{ r.year|default:"—" }}</td>
+                                <td>
+                                    {% if r.is_illegal_construction and r.illegal_status_info %}
+                                    <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">
+                                        {{ r.illegal_status_info.short_label }}
+                                    </span>
+                                    {% elif r.status == 'active' %}
+                                    <span class="status-indicator status-indicator-active">Active</span>
+                                    {% elif r.status == 'in_progress' %}
+                                    <span class="status-indicator status-indicator-in_progress">In Progress</span>
+                                    {% elif r.status == 'completed' %}
+                                    <span class="status-indicator status-indicator-completed">Completed</span>
+                                    {% elif r.status == 'archived' %}
+                                    <span class="status-indicator status-indicator-archived">Archived</span>
+                                    {% else %}
+                                    <span class="status-indicator">{{ r.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% with stats=r.completion_stats %}
+                                    {% if stats.total > 0 %}
+                                        {% if stats.is_complete %}
+                                        <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="All {{ stats.total }} documents uploaded">
+                                            ✓ {{ stats.fulfilled }}/{{ stats.total }}
+                                        </span>
+                                        {% elif stats.fulfilled > 0 %}
+                                        <span class="badge" style="background: #fef3c7; color: #b45309; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded. Missing: {{ stats.missing|join:', ' }}">
+                                            {{ stats.fulfilled }}/{{ stats.total }}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="No documents uploaded">
+                                            0/{{ stats.total }}
+                                        </span>
+                                        {% endif %}
+                                    {% else %}
+                                        {% if r.is_illegal_construction %}
+                                        <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px;">
+                                            {{ r.documents.count }} files
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% endwith %}
+                                </td>
+                                <td class="text-end pe-3 action-menu-cell" style="width: 55px;"
+                                    onclick="event.stopPropagation();">
+                                    <div class="dropdown" onclick="event.stopPropagation();">
+                                        <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
+                                            data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
+                                            onclick="event.stopPropagation();" title="Actions">
+                                            <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
+                                            style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999;"
+                                            onclick="event.stopPropagation();">
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                    href="{% url 'record_detail' r.record_id %}"><i class="fa-solid fa-eye text-primary" style="font-size: 13px; flex-shrink: 0;"></i> <span>View Details</span></a></li>
+                                            {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                                            {% if r.status != 'archived' %}
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                    href="{% url 'edit_record' r.record_id %}"><i class="fa-solid fa-pen-to-square text-info" style="font-size: 13px; flex-shrink: 0;"></i> <span>Edit Record</span></a></li>
+                                            <li>
+                                                <hr class="dropdown-divider my-1">
+                                            </li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-amber text-nowrap action-dropdown-warning"
+                                                    href="javascript:void(0)"
+                                                    data-url="{% url 'archive_record' r.record_id %}"
+                                                    data-title="{{ r.title|escapejs }}"
+                                                    onclick="confirmArchiveRecord(this.dataset.url, this.dataset.title)"><i
+                                                        class="fa-solid fa-box-archive text-warning" style="font-size: 13px; flex-shrink: 0;"></i> <span>Move to Trash</span></a></li>
+                                            {% endif %}
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card List View -->
+                <div class="d-block d-md-none p-2">
+                    <div class="d-flex flex-column gap-2">
                         {% for r in page_obj %}
-                        <tr onclick="window.location='{% url 'record_detail' r.record_id %}'" style="cursor: pointer;">
-                            <td>
-                                <div class="cell-title" {% if r.is_illegal_construction and r.illegal_status_info %}style="color: {{ r.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
+                        <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item text-decoration-none">
+                            <div class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
+                                <i data-lucide="{% if r.record_type == 'Permit' %}file-check{% elif r.project_scope == 'Municipal' %}landmark{% else %}map-pin{% endif %}"></i>
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="mobile-record-title">
                                     {% if r.record_type == 'Permit' %}
                                         {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
                                     {% else %}
                                         {{ r.title }}
                                     {% endif %}
                                 </div>
-                                <div class="cell-subtitle">
-                                    {% if r.record_type == 'Permit' and r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
-                                        <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
-                                    {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
-                                        <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>
-                                    {% endif %}
-                                    <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
-                                </div>
-                            </td>
-                            <td>
-                                {% if r.record_type == 'Permit' %}
-                                <span class="tag tag-permit">{{ r.specific_type_label }}</span>
-                                {% else %}
-                                <span class="tag tag-project">{{ r.specific_type_label }}</span>
-                                {% endif %}
-                            </td>
-                            <td class="cell-muted">{{ r.year|default:"—" }}</td>
-                            <td>
-                                {% if r.status == 'active' %}
-                                <span class="status-indicator status-indicator-active">Active</span>
-                                {% elif r.status == 'in_progress' %}
-                                <span class="status-indicator status-indicator-in_progress">In Progress</span>
-                                {% elif r.status == 'completed' %}
-                                <span class="status-indicator status-indicator-completed">Completed</span>
-                                {% elif r.status == 'archived' %}
-                                <span class="status-indicator status-indicator-archived">Archived</span>
-                                {% else %}
-                                <span class="status-indicator">{{ r.status|capfirst }}</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end action-menu-cell" onclick="event.stopPropagation();">
-                                <div class="dropdown">
-                                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-popper-config='{"strategy":"fixed"}' title="Actions">
-                                        <i class="fa-solid fa-ellipsis-vertical" style="font-size: 13px;"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 170px; font-size: 0.80rem; border-radius: 10px; padding: 6px; z-index: 99999; background: #ffffff;">
-                                        <li>
-                                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" href="{% url 'record_detail' r.record_id %}">
-                                                <i class="fa-solid fa-eye" style="font-size: 11px; color: #0284c7;"></i> View Details
-                                            </a>
-                                        </li>
-                                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-                                            {% if r.status != 'archived' %}
-                                            <li>
-                                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" href="{% url 'edit_record' r.record_id %}">
-                                                    <i class="fa-solid fa-pen" style="font-size: 11px; color: #3b82f6;"></i> Edit Record
-                                                </a>
-                                            </li>
-                                            <li><hr class="dropdown-divider my-1"></li>
-                                            <li>
-                                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="javascript:void(0)" onclick="confirmArchiveRecord('{% url 'archive_record' r.record_id %}', '{{ r.title|escapejs }}')">
-                                                    <i class="fa-solid fa-trash-can" style="font-size: 11px; color: #ef4444;"></i> Move to Trash
-                                                </a>
-                                            </li>
-                                            {% endif %}
-                                        {% endif %}
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Mobile Card List View (Consistent with Records Browse) -->
-            <div class="d-block d-md-none">
-                <div class="d-flex flex-column gap-0">
-                    {% for r in page_obj %}
-                    <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item">
-                        <div class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
-                            <i data-lucide="{% if r.record_type == 'Permit' %}file-check{% elif r.project_scope == 'Municipal' %}landmark{% else %}map-pin{% endif %}"></i>
-                        </div>
-                        <div class="flex-grow-1 min-w-0">
-                            <div class="mobile-record-title">
-                                {% if r.record_type == 'Permit' %}
-                                    {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
-                                {% else %}
-                                    {{ r.title }}
-                                {% endif %}
+                                <div class="mobile-record-meta">{{ r.year|default:"—" }} · {{ r.get_status_display }}</div>
                             </div>
-                            <div class="mobile-record-meta">{{ r.barangay.barangay_name|default:barangay.barangay_name }} · {{ r.year|default:"—" }} · {{ r.get_status_display }}</div>
+                            <i data-lucide="chevron-right" class="flex-shrink-0" style="width:14px;height:14px;color:var(--gray-300);"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Pagination Bar -->
+                <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 border-top">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="pagination-info m-0">
+                            {% if page_obj.paginator.count > 0 %}
+                            Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records
+                            {% else %}
+                            Showing 0–0 of 0 records
+                            {% endif %}
+                        </span>
+                        <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
+                            <span>Show:</span>
+                            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 62px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
+                                <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                                <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                            </select>
                         </div>
-                        <i data-lucide="chevron-right" class="flex-shrink-0" style="width:14px;height:14px;color:var(--gray-300);"></i>
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <div class="d-flex align-items-center gap-3">
-                    <span class="pagination-info m-0">
-                        {% if page_obj.paginator.count > 0 %}
-                        Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records
-                        {% else %}
-                        Showing 0–0 of 0 records
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-2 pagination-controls">
+                        {% if page_obj.paginator.num_pages > 5 %}
+                        <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                            <span>Page:</span>
+                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
+                            <span>/ {{ page_obj.paginator.num_pages }}</span>
+                        </div>
                         {% endif %}
-                    </span>
-                    <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
-                        <span>Show:</span>
-                        <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 62px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
-                            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                            <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-                            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-                        </select>
+
+                        {% if page_obj.has_other_pages %}
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0 gap-1">
+                                {% if page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">‹ Prev</a></li>
+                                {% else %}
+                                <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
+                                {% endif %}
+
+                                {% for p in page_obj.paginator.page_range %}
+                                {% if page_obj.number == p %}
+                                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                                <li class="page-item"><a class="page-link" href="?page={{ p }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">{{ p }}</a></li>
+                                {% endif %}
+                                {% endfor %}
+
+                                {% if page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">Next ›</a></li>
+                                {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
                     </div>
-                </div>
-                
-                <div class="d-flex align-items-center gap-2 pagination-controls">
-                    {% if page_obj.paginator.num_pages > 5 %}
-                    <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
-                        <span>Page:</span>
-                        <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
-                        <span>/ {{ page_obj.paginator.num_pages }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if page_obj.has_other_pages %}
-                    <nav>
-                        <ul class="pagination pagination-sm mb-0 gap-1">
-                            {% if page_obj.has_previous %}
-                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab={{ current_tab }}&q={{ q }}&per_page={{ per_page }}">‹ Prev</a></li>
-                            {% else %}
-                            <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
-                            {% endif %}
-
-                            {% for p in page_obj.paginator.page_range %}
-                            {% if page_obj.number == p %}
-                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                            {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                            <li class="page-item"><a class="page-link" href="?page={{ p }}&tab={{ current_tab }}&q={{ q }}&per_page={{ per_page }}">{{ p }}</a></li>
-                            {% endif %}
-                            {% endfor %}
-
-                            {% if page_obj.has_next %}
-                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&tab={{ current_tab }}&q={{ q }}&per_page={{ per_page }}">Next ›</a></li>
-                            {% else %}
-                            <li class="page-item disabled"><span class="page-link">Next ›</span></li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                    {% endif %}
                 </div>
             </div>
         </div>
 
         {% else %}
-        <div class="content-card shadow-sm border-0 p-5 text-center my-3" style="border-radius: 14px; background: #ffffff;">
+        <!-- Empty state card (Full Dark & Light Parity) -->
+        <div class="content-card p-5 text-center my-3" style="border-radius: 14px;">
             <div class="d-flex flex-column align-items-center justify-content-center py-4">
-                <div class="rounded-circle d-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; background: rgba(2, 132, 199, 0.1); color: #0284c7;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; background: rgba(2, 132, 199, 0.12); color: #0284c7;">
                     <i class="fa-solid fa-folder-open" style="font-size: 28px;"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1" style="font-size: 1.05rem;">No Records Encoded for Brgy. {{ barangay.barangay_name }}</h5>
+                <h5 class="fw-bold mb-1 title-text-adaptive" style="font-size: 1.05rem;">No Records Encoded for Brgy. {{ barangay.barangay_name }}</h5>
                 <p class="text-muted small mb-4" style="font-size: 0.84rem; max-width: 440px;">
                     There are currently no permits or projects registered in this barangay workspace. Start encoding the first engineering record for this barangay below.
                 </p>
                 {% if request.user.role == 'staff' or request.user.role == 'admin' %}
-                <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}" class="etala-btn etala-btn-primary text-decoration-none d-inline-flex align-items-center gap-2 px-4 py-2">
-                    <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
+                <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}" class="premium-btn btn-add text-decoration-none">
+                    <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+                    <span class="btn-divider"></span>
                     <span>Encode First Record for {{ barangay.barangay_name }}</span>
                 </a>
                 {% endif %}
@@ -285,10 +442,11 @@ function confirmArchiveRecord(archiveUrl, recordTitle) {
     if (window.showConfirmModal) {
         showConfirmModal({
             title: 'Move to Trash',
-            message: "Are you sure you want to move '" + recordTitle + "' to Trash? It can be restored later.",
-            confirmText: 'Move to Trash',
-            confirmClass: 'action-btn-danger',
-            icon: 'trash-2',
+            message: "Are you sure you want to move '" + recordTitle + "' to Trash? It can be restored later at any time.",
+            confirmText: 'Yes, Move to Trash',
+            cancelText: 'No, Keep It.',
+            confirmClass: 'action-btn-warning',
+            iconClass: 'fa-solid fa-box-archive',
             onConfirm: function() {
                 window.location.href = archiveUrl;
             }
@@ -299,5 +457,75 @@ function confirmArchiveRecord(archiveUrl, recordTitle) {
         }
     }
 }
+
+function changePerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function jumpToPage(val, max) {
+    let p = parseInt(val, 10);
+    if (!isNaN(p) && p >= 1 && p <= parseInt(max, 10)) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', p);
+        window.location.href = url.toString();
+    }
+}
+
+// Live Debounced Auto-Search for Barangay Workspace with Loading Spinner
+document.addEventListener('DOMContentLoaded', function () {
+    const wsSearchInput = document.querySelector('input[name="q"]');
+    const wsSearchSpinner = document.getElementById('wsSearchSpinner');
+    let wsSearchTimer;
+
+    async function updateWorkspaceTableAJAX(url) {
+        const mainContainer = document.querySelector('.row.g-4') || document.querySelector('.content-card');
+        if (wsSearchSpinner) wsSearchSpinner.classList.remove('d-none');
+        if (mainContainer) {
+            mainContainer.style.transition = 'opacity 0.08s ease';
+            mainContainer.style.opacity = '0.6';
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            const newContainer = doc.querySelector('.row.g-4') || doc.querySelector('.content-card');
+            if (mainContainer && newContainer) {
+                mainContainer.innerHTML = newContainer.innerHTML;
+            }
+            window.history.pushState({}, '', url);
+        } catch (err) {
+            console.error("AJAX refresh error:", err);
+            if (wsSearchInput && wsSearchInput.form) wsSearchInput.form.submit();
+        } finally {
+            if (mainContainer) mainContainer.style.opacity = '1';
+            if (wsSearchSpinner) wsSearchSpinner.classList.add('d-none');
+        }
+    }
+
+    if (wsSearchInput && wsSearchInput.form) {
+        if (wsSearchInput.value) {
+            const len = wsSearchInput.value.length;
+            wsSearchInput.focus();
+            wsSearchInput.setSelectionRange(len, len);
+        }
+        wsSearchInput.addEventListener('input', function () {
+            clearTimeout(wsSearchTimer);
+            if (wsSearchSpinner) wsSearchSpinner.classList.remove('d-none');
+            wsSearchTimer = setTimeout(() => {
+                const formData = new FormData(wsSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateWorkspaceTableAJAX(window.location.pathname + '?' + params.toString());
+            }, 450);
+        });
+    }
+});
 </script>
 {% endblock %}

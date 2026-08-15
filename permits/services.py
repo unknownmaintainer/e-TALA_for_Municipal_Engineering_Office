@@ -7,12 +7,34 @@ import logging
 import os
 import zipfile
 
+from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from .models import EngineeringRecord, RecordRequirement, AuditLog, LoginAttempt
 
 logger = logging.getLogger('permits')
+
+
+def parse_decimal_safely(raw_val, max_digits=14, decimal_places=2):
+    """Safely converts string/number to Decimal, handling commas, Philippine Peso symbols (₱, PHP, Php), exponents, and max digits."""
+    if raw_val is None or raw_val == '':
+        return None
+    val_str = str(raw_val).replace(',', '').replace('₱', '').replace('PHP', '').replace('Php', '').replace('php', '').strip()
+    if not val_str:
+        return None
+    try:
+        dec = Decimal(val_str)
+        if dec.is_nan() or dec.is_infinite():
+            return None
+        max_allowed = (Decimal(10) ** (max_digits - decimal_places)) - Decimal('0.01')
+        if dec > max_allowed:
+            dec = max_allowed
+        elif dec < -max_allowed:
+            dec = -max_allowed
+        return dec.quantize(Decimal(10) ** -decimal_places)
+    except (InvalidOperation, TypeError, ValueError, OverflowError):
+        return None
 
 
 # ─── OFFICE SETTINGS PERSISTENCE SERVICE ───────────────────────────────────────
@@ -75,48 +97,40 @@ def sanitize_file_name(raw_filename, max_name_len=35):
 def build_record_zip_buffer(record, stream_getter_func):
     """
     Generates an in-memory ZIP archive buffer containing all fulfilled documents for an EngineeringRecord.
-    Organizes files by requirement checklist slots and folders with compact path limits.
+    Organizes dropdown items into their parent folder, and standalone items directly in the record.
     """
     buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        requirements = record.requirements.select_related('requirement_item', 'document')
-        for req in requirements:
-            if req.document:
-                try:
-                    file_obj, _, _ = stream_getter_func(req.document)
-                    if file_obj:
-                        file_data = file_obj.read()
-                        if hasattr(file_obj, 'close'):
-                            file_obj.close()
-                        
-                        item = req.requirement_item
-                        clean_doc_fname = sanitize_file_name(req.document.file_name or 'document', max_name_len=35)
-                        if item and item.parent:
-                            parent_folder = sanitize_zip_name(item.parent.name, max_len=30)
-                            item_name = sanitize_zip_name(item.name, max_len=25)
-                            folder_path = f"{parent_folder}/{item_name}_{clean_doc_fname}"
-                        elif item:
-                            item_name = sanitize_zip_name(item.name, max_len=30)
-                            folder_path = f"{item_name}/{clean_doc_fname}"
-                        else:
-                            folder_path = f"Documents/{clean_doc_fname}"
-                        
-                        zip_file.writestr(folder_path, file_data)
-                except Exception as exc:
-                    logger.error(f"Error zipping document {req.document.document_id}: {exc}")
+    clean_record_title = sanitize_zip_name(record.title, max_len=35)
+    root_folder = f"#{record.record_id}_{clean_record_title}"
 
-        other_docs = record.documents.filter(requirement_item__isnull=True)
-        for doc in other_docs:
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for doc in record.documents.select_related('requirement_item', 'requirement_item__parent'):
             try:
                 file_obj, _, _ = stream_getter_func(doc)
                 if file_obj:
                     file_data = file_obj.read()
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
-                    clean_doc_fname = sanitize_file_name(doc.file_name or 'document', max_name_len=35)
-                    zip_file.writestr(f"Other_Documents/{clean_doc_fname}", file_data)
+
+                    raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
+                    _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
+                    clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+
+                    req_item = doc.requirement_item
+                    if req_item and req_item.parent:
+                        parent_folder = sanitize_zip_name(req_item.parent.name, max_len=35)
+                        item_file_name = sanitize_zip_name(req_item.name, max_len=45) + clean_ext
+                        folder_path = f"{root_folder}/{parent_folder}/{item_file_name}"
+                    elif req_item:
+                        item_file_name = sanitize_zip_name(req_item.name, max_len=45) + clean_ext
+                        folder_path = f"{root_folder}/{item_file_name}"
+                    else:
+                        clean_doc_fname = sanitize_file_name(raw_fname, max_name_len=40)
+                        folder_path = f"{root_folder}/Attachments/{clean_doc_fname}"
+
+                    zip_file.writestr(folder_path, file_data)
             except Exception as exc:
-                logger.error(f"Error zipping document {doc.document_id}: {exc}")
+                logger.error(f"Error zipping record document {doc.document_id}: {exc}")
 
     buffer.seek(0)
     return buffer
@@ -131,6 +145,10 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
     sub_reqs = RecordRequirement.objects.filter(record=record, requirement_item__in=sub_items).select_related('requirement_item', 'document')
     
     buffer = io.BytesIO()
+    clean_record_title = sanitize_zip_name(record.title, max_len=30)
+    parent_name = sanitize_zip_name(parent_item.name, max_len=35)
+    root_folder = f"#{record.record_id}_{clean_record_title}/{parent_name}"
+
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for req in sub_reqs:
             if req.document:
@@ -140,10 +158,11 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                         file_data = file_obj.read()
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
-                        parent_name = sanitize_zip_name(parent_item.name, max_len=30)
-                        item_name = sanitize_zip_name(req.requirement_item.name, max_len=25)
-                        clean_doc_fname = sanitize_file_name(req.document.file_name or 'document', max_name_len=35)
-                        zip_file.writestr(f"{parent_name}/{item_name}_{clean_doc_fname}", file_data)
+                        raw_fname = req.document.file_name or (req.document.file.name if req.document.file else 'document')
+                        _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
+                        clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+                        item_file_name = sanitize_zip_name(req.requirement_item.name, max_len=45) + clean_ext
+                        zip_file.writestr(f"{root_folder}/{item_file_name}", file_data)
                 except Exception as exc:
                     logger.error(f"Error zipping sub-document {req.document.document_id}: {exc}")
 
@@ -154,15 +173,19 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
 def build_barangay_zip_buffer(barangay, stream_getter_func):
     """
     Generates an in-memory ZIP archive buffer containing all documents for an entire Barangay.
-    Organizes files into structured folders by Permits and Projects with compact path limits.
+    Organizes files cleanly into Barangay -> 01_Permits / 02_Projects -> Record -> Parent Category Folders & Files.
     """
     buffer = io.BytesIO()
-    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').prefetch_related('documents')
+    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30)
+    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').prefetch_related(
+        'documents__requirement_item__parent'
+    )
     
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for record in records:
-            clean_record_title = sanitize_zip_name(record.title, max_len=40)
-            section = "Permits" if record.record_type == 'Permit' else "Projects"
+            clean_record_title = sanitize_zip_name(record.title, max_len=35)
+            section = "01_Permits" if record.record_type == 'Permit' else "02_Projects"
+            record_folder = f"#{record.record_id}_{clean_record_title}"
             
             for doc in record.documents.all():
                 try:
@@ -172,9 +195,22 @@ def build_barangay_zip_buffer(barangay, stream_getter_func):
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
                         
-                        clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=25)
-                        clean_doc_fname = sanitize_file_name(doc.file_name or (doc.file.name if doc.file else 'document'), max_name_len=35)
-                        folder_path = f"{clean_b_name}_Archive/{section}/{clean_record_title}/{clean_doc_fname}"
+                        raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
+                        _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
+                        clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+                        req_item = doc.requirement_item
+
+                        if req_item and req_item.parent:
+                            parent_folder = sanitize_zip_name(req_item.parent.name, max_len=35)
+                            item_file_name = sanitize_zip_name(req_item.name, max_len=45) + clean_ext
+                            folder_path = f"Brgy_{clean_b_name}/{section}/{record_folder}/{parent_folder}/{item_file_name}"
+                        elif req_item:
+                            item_file_name = sanitize_zip_name(req_item.name, max_len=45) + clean_ext
+                            folder_path = f"Brgy_{clean_b_name}/{section}/{record_folder}/{item_file_name}"
+                        else:
+                            clean_doc_fname = sanitize_file_name(raw_fname, max_name_len=40)
+                            folder_path = f"Brgy_{clean_b_name}/{section}/{record_folder}/Attachments/{clean_doc_fname}"
+
                         zip_file.writestr(folder_path, file_data)
 
                 except Exception as exc:
@@ -372,5 +408,9 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
         qs = qs.filter(is_illegal_construction=True)
     elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
         qs = qs.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
+    else:
+        # Only regularized (resolved) illegal constructions appear in Master Records.
+        # Unresolved and pending_permit cases remain exclusively in the Illegal Constructions module.
+        qs = qs.exclude(is_illegal_construction=True, illegal_compliance_status__in=['unresolved', 'pending_permit'])
 
     return qs

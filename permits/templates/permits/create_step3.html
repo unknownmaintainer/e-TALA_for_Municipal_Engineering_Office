@@ -1,5 +1,15 @@
 {% extends "permits/base.html" %}
-{% block title %}New Record — Step 3{% endblock %}
+{% block title %}Step 3 · New Record · eTala{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'records_browse' %}" class="breadcrumb-item">Records</a>
+<span class="breadcrumb-chevron">›</span>
+<a href="{% url 'create_step1' %}" class="breadcrumb-item">Step 1</a>
+<span class="breadcrumb-chevron">›</span>
+<a href="{% url 'create_step2' %}?category={{ category }}&scope={{ scope|lower }}" class="breadcrumb-item">Step 2</a>
+<span class="breadcrumb-chevron">›</span>
+<span class="breadcrumb-item active">Step 3</span>
+{% endblock %}
 
 {% block content %}
 <div class="py-4" style="max-width: 820px; margin: 0 auto;">
@@ -46,45 +56,47 @@
                 <!-- ── PERMIT FIELDS ─────────────────────────────────────── -->
                 {% if category == 'permit' %}
                 <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Applicant Name <span class="text-danger">*</span></label>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Applicant / Property Owner <span class="text-danger">*</span></label>
                         <input type="text" name="applicant_name" class="form-control rounded-3"
-                               placeholder="Full name of applicant" required autocomplete="off">
+                               placeholder="e.g. Juan D. Dela Cruz" required autocomplete="off">
+                        <div class="invalid-feedback">Please provide the applicant or property owner's full name.</div>
                         <input type="hidden" name="title" id="permitTitle">
                     </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger">*</span></label>
+                        <select name="barangay" class="form-select rounded-3" required>
+                            <option value="" disabled selected>— Select barangay —</option>
+                            {% for b in barangays %}
+                            <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Permit Number</label>
                         <input type="text" name="permit_number" class="form-control rounded-3"
                                placeholder="e.g. {% if subtype == 'Building' %}BP-2026-001{% elif subtype == 'Electrical' %}EP-2026-001{% else %}BP-2026-001{% endif %}" autocomplete="off">
                     </div>
+
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Date Issued</label>
                         <input type="date" name="date_issued" class="form-control rounded-3">
                     </div>
+
                     {% if subtype == 'Building' %}
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger">*</span></label>
-                        <select name="barangay" class="form-select rounded-3" required>
-                            <option value="" disabled selected>Select barangay</option>
-                            {% for b in barangays %}
-                            <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Year <span class="text-danger">*</span></label>
-                        <input type="number" name="year" class="form-control rounded-3"
-                               placeholder="{{ current_year }}" value="{{ current_year }}" min="1990" max="{{ current_year }}" required>
-                    </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Building Type</label>
                         <select name="building_type" class="form-select rounded-3">
                             <option value="">Select building type</option>
                             {% for val, label in building_types %}
-                            <option value="{{ val }}">{{ label }}</option>
+                            <option value="{{ val }}" {% if val == 'Residential' %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    {% endif %}
+
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Status</label>
                         <select name="status" class="form-select rounded-3">
@@ -93,30 +105,9 @@
                             {% endfor %}
                         </select>
                     </div>
-                    {% else %}
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger">*</span></label>
-                        <select name="barangay" class="form-select rounded-3" required>
-                            <option value="" disabled selected>Select barangay</option>
-                            {% for b in barangays %}
-                            <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Year <span class="text-danger">*</span></label>
-                        <input type="number" name="year" class="form-control rounded-3"
-                               placeholder="{{ current_year }}" value="{{ current_year }}" min="1990" max="{{ current_year }}" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Status</label>
-                        <select name="status" class="form-select rounded-3">
-                            {% for val, label in status_choices %}
-                            <option value="{{ val }}" {% if val == 'active' %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% endif %}
+
+                    <input type="hidden" name="year" value="{{ current_year }}">
+
                     <div class="col-12">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Description / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
                         <textarea name="remarks" class="form-control rounded-3 char-counted" rows="3" maxlength="250"
@@ -135,28 +126,39 @@
                                placeholder="e.g. Concreting of Barangay Road" required autocomplete="off">
                     </div>
 
-                    <!-- Row 2: Barangay * | Year * -->
+                    <!-- Row 2: Contractor * (Full-width) -->
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Contractor / Implementing Entity <span class="text-danger">*</span></label>
+                            <button type="button" class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1 text-primary fw-semibold"
+                                onclick="setByAdmin()" style="font-size: 0.74rem;" title="Autofill By Administration">
+                                <i class="fa-solid fa-building-flag" style="font-size: 10px;"></i>
+                                <span>By Admin</span>
+                            </button>
+                        </div>
+                        <input type="text" name="contractor" id="contractorInput" class="form-control rounded-3"
+                               placeholder="e.g. ABC Builders Corp. or By Administration" required autocomplete="off">
+                        <div class="invalid-feedback">Please specify the contractor or click By Administration.</div>
+                    </div>
+
+                    <!-- Row 3: Barangay * | Budget Amount (₱) -->
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger">*</span></label>
                         <select name="barangay" class="form-select rounded-3" required>
-                            <option value="" disabled selected>Select barangay</option>
+                            <option value="" disabled selected>— Select barangay —</option>
                             {% for b in barangays %}
                             <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Year <span class="text-danger">*</span></label>
-                        <input type="number" name="year" class="form-control rounded-3"
-                               placeholder="{{ current_year }}" value="{{ current_year }}" min="1990" max="{{ current_year }}" required>
-                    </div>
 
-                    <!-- Row 3: Budget Amount (₱) | Funding Source -->
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Budget Amount (₱)</label>
                         <input type="number" name="project_cost" class="form-control rounded-3"
                                placeholder="₱ 0.00" step="0.01" min="0">
                     </div>
+
+                    <!-- Row 4: Funding Source | Project Status -->
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Funding Source</label>
                         <select name="funding_source" id="fundingSourceSelect" class="form-select rounded-3" onchange="toggleFundingOther(this.value)">
@@ -165,17 +167,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-12" id="fundingOtherWrapper" style="display: none;">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Specify Other Funding Source</label>
-                        <input type="text" name="funding_source_other" class="form-control rounded-3" placeholder="Specify other funding source...">
-                    </div>
 
-                    <!-- Row 4: Contractor | Project Status -->
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Contractor</label>
-                        <input type="text" name="contractor" class="form-control rounded-3"
-                               placeholder="Contractor name (if applicable)" autocomplete="off">
-                    </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Project Status</label>
                         <select name="project_status" class="form-select rounded-3">
@@ -184,6 +176,13 @@
                             {% endfor %}
                         </select>
                     </div>
+
+                    <div class="col-12" id="fundingOtherWrapper" style="display: none;">
+                        <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Specify Other Funding Source</label>
+                        <input type="text" name="funding_source_other" class="form-control rounded-3" placeholder="Specify other funding source...">
+                    </div>
+
+                    <input type="hidden" name="year" value="{{ current_year }}">
 
                     <!-- Row 5: Description / Remarks (Optional) -->
                     <div class="col-12">
@@ -244,7 +243,13 @@ function toggleFundingOther(val) {
         wrapper.style.display = (val === 'Others') ? 'block' : 'none';
     }
 }
-{% if category == 'permit' %}
+function setByAdmin() {
+    const input = document.getElementById('contractorInput');
+    if (input) {
+        input.value = 'By Administration (LGU Carigara)';
+        input.classList.remove('is-invalid');
+    }
+}
 // Auto-populate hidden title field from applicant name for permit records
 const applicantInput = document.querySelector('input[name="applicant_name"]');
 const titleInput = document.getElementById('permitTitle');
@@ -258,6 +263,5 @@ if (applicantInput && titleInput) {
     applicantInput.addEventListener('input', updateTitle);
     if (permitNumInput) permitNumInput.addEventListener('input', updateTitle);
 }
-{% endif %}
 </script>
 {% endblock %}

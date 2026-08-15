@@ -4,6 +4,8 @@ import logging
 import mimetypes
 import io
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from django.core.files.storage import Storage, FileSystemStorage
 from django.core.files.base import ContentFile
 from django.utils.deconstruct import deconstructible
@@ -11,16 +13,28 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+# Global persistent connection session for high-throughput Supabase transfers
+_http_session = None
+
+def get_http_session():
+    global _http_session
+    if _http_session is None:
+        _http_session = requests.Session()
+        retries = Retry(total=2, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504])
+        adapter = HTTPAdapter(pool_connections=20, pool_maxsize=30, max_retries=retries)
+        _http_session.mount('https://', adapter)
+        _http_session.mount('http://', adapter)
+    return _http_session
+
 
 @deconstructible
 class SupabaseStorage(Storage):
     """
-    S3/REST-compatible Supabase Object Storage backend for eTala.
+    High-performance S3/REST-compatible Supabase Object Storage backend for eTala.
     
     Stores documents in a dedicated Supabase bucket (default: 'etala-documents').
     Only clean relative paths are stored in database models (e.g. 'documents/2026/08/BP_001.pdf').
-    Generates time-limited private Signed URLs for secure staff viewing.
-    Automatically falls back to local FileSystemStorage if Supabase credentials are not configured.
+    Automatically caches files locally for ultra-fast response times and seamless offline fallback.
     """
 
     def __init__(self, bucket_name=None, *args, **kwargs):
@@ -52,10 +66,24 @@ class SupabaseStorage(Storage):
             name_str = name_str[6:]
         return name_str
 
+    def _find_local_candidate(self, clean_name):
+        """Checks multiple candidate local file paths for immediate zero-latency access."""
+        base_name = os.path.basename(clean_name)
+        candidates = [
+            clean_name,
+            os.path.join('documents', base_name),
+            os.path.join('profile_pictures', base_name),
+            base_name,
+        ]
+        for c in candidates:
+            if self.fallback_storage.exists(c):
+                return c
+        return None
+
     def _save(self, name, content):
         clean_name = self._clean_path(name)
         
-        # Save to local fallback storage first for guaranteed offline availability / caching
+        # Save to local fallback storage first for guaranteed instant availability & caching
         saved_name = self.fallback_storage.save(clean_name, content)
         
         if not self._is_configured():
@@ -84,7 +112,8 @@ class SupabaseStorage(Storage):
             headers['Content-Type'] = mime_type or 'application/octet-stream'
             headers['x-upsert'] = 'true'
 
-            resp = requests.post(endpoint, headers=headers, data=data, timeout=20)
+            session = get_http_session()
+            resp = session.post(endpoint, headers=headers, data=data, timeout=(4.0, 15.0))
             if resp.status_code in (200, 201):
                 logger.info(f"Successfully uploaded {clean_name} to Supabase bucket '{bucket}'.")
             else:
@@ -97,51 +126,53 @@ class SupabaseStorage(Storage):
     def open(self, name, mode='rb'):
         clean_name = self._clean_path(name)
         
-        # Check local storage first
-        if self.fallback_storage.exists(clean_name):
+        # 1. Check local storage first (instant 0ms retrieval)
+        local_cand = self._find_local_candidate(clean_name)
+        if local_cand:
             try:
-                return self.fallback_storage.open(clean_name, mode)
+                return self.fallback_storage.open(local_cand, mode)
             except Exception as exc:
-                logger.debug(f"Failed opening {clean_name} from local fallback: {exc}")
+                logger.debug(f"Failed opening local candidate {local_cand}: {exc}")
 
         if not self._is_configured():
             return self.fallback_storage.open(clean_name, mode)
 
-        # Download from Supabase bucket
+        # 2. Fast authenticated download from Supabase bucket
         url, _, bucket = self._get_supabase_config()
         endpoint = f"{url}/storage/v1/object/authenticated/{bucket}/{clean_name}"
         
         try:
-            resp = requests.get(endpoint, headers=self._headers(), timeout=15)
+            session = get_http_session()
+            resp = session.get(endpoint, headers=self._headers(), timeout=(3.0, 8.0))
             if resp.status_code == 200:
-                file_obj = io.BytesIO(resp.content)
+                content = resp.content
+                # Cache locally so subsequent accesses never need a network request
+                try:
+                    self.fallback_storage.save(clean_name, ContentFile(content))
+                except Exception:
+                    pass
+                file_obj = io.BytesIO(content)
                 file_obj.name = os.path.basename(clean_name)
                 return file_obj
-            
-            # Try public object endpoint
-            public_endpoint = f"{url}/storage/v1/object/public/{bucket}/{clean_name}"
-            resp_pub = requests.get(public_endpoint, timeout=10)
-            if resp_pub.status_code == 200:
-                file_obj = io.BytesIO(resp_pub.content)
-                file_obj.name = os.path.basename(clean_name)
-                return file_obj
+            elif resp.status_code == 404:
+                logger.debug(f"File {clean_name} not found in Supabase bucket '{bucket}'.")
         except Exception as exc:
-            logger.warning(f"Failed opening from Supabase ({exc}), checking fallback.")
+            logger.warning(f"Supabase download for {clean_name} encountered {exc}. Using fallback.")
 
         return self.fallback_storage.open(clean_name, mode)
 
     def _open(self, name, mode='rb'):
         return self.open(name, mode)
 
-    def url(self, name, expires_in=600):
-        """Generates Supabase storage URL directly without blocking synchronous network requests during page rendering."""
+    def url(self, name, expires_in=3600):
+        """Generates a secure authenticated URL or local fallback URL."""
         clean_name = self._clean_path(name)
         
         if not self._is_configured():
             return self.fallback_storage.url(clean_name)
 
         url, _, bucket = self._get_supabase_config()
-        return f"{url}/storage/v1/object/public/{bucket}/{clean_name}"
+        return f"{url}/storage/v1/object/authenticated/{bucket}/{clean_name}"
 
     def delete(self, name):
         clean_name = self._clean_path(name)
@@ -155,29 +186,35 @@ class SupabaseStorage(Storage):
             url, _, bucket = self._get_supabase_config()
             delete_endpoint = f"{url}/storage/v1/object/{bucket}"
             try:
-                requests.delete(
+                session = get_http_session()
+                session.delete(
                     delete_endpoint,
                     headers=self._headers(),
                     json={'prefixes': [clean_name]},
-                    timeout=8
+                    timeout=(3.0, 6.0)
                 )
             except Exception as exc:
                 logger.warning(f"Failed deleting {clean_name} from Supabase: {exc}")
 
     def exists(self, name):
         clean_name = self._clean_path(name)
-        if self.fallback_storage.exists(clean_name):
+        if self._find_local_candidate(clean_name):
             return True
         if not self._is_configured():
             return False
 
         url, _, bucket = self._get_supabase_config()
-        info_endpoint = f"{url}/storage/v1/object/info/{bucket}/{clean_name}"
+        endpoint = f"{url}/storage/v1/object/authenticated/{bucket}/{clean_name}"
         try:
-            resp = requests.get(info_endpoint, headers=self._headers(), timeout=5)
-            return resp.status_code == 200
+            session = get_http_session()
+            resp = session.head(endpoint, headers=self._headers(), timeout=(2.0, 4.0))
+            if resp.status_code == 200:
+                return True
+            if resp.status_code == 404:
+                return False
         except Exception:
-            return False
+            pass
+        return False
 
     def size(self, name):
         clean_name = self._clean_path(name)

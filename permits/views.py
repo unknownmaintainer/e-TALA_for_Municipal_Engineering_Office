@@ -38,7 +38,8 @@ from .services import (
     get_office_settings, save_office_settings,
     build_record_zip_buffer, build_category_zip_buffer, build_barangay_zip_buffer,
     sanitize_zip_name, sanitize_file_name,
-    send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records
+    send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records,
+    parse_decimal_safely
 )
 
 
@@ -254,41 +255,18 @@ def forgot_password_view(request):
                 reverse('reset_password') + f'?token={token}'
             )
 
-            # Send email via Django's configured email backend (Resend SMTP)
+            # Send email via Django's configured email backend (Resend / Gmail SMTP / Console)
             from django.core.mail import send_mail
             from django.conf import settings
+            from django.template.loader import render_to_string
 
             subject = 'eTala — Password Reset Request'
-            html_message = f'''
-            <div style="font-family: 'Inter', Arial, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-                <div style="background: linear-gradient(135deg, #002855 0%, #001f42 100%); padding: 24px 28px; text-align: center;">
-                    <h1 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: 700;">eTala</h1>
-                    <p style="color: #C5A059; font-size: 11px; margin: 4px 0 0 0; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;">Municipal Engineering Office &bull; Carigara, Leyte</p>
-                </div>
-                <div style="padding: 28px 28px 20px 28px;">
-                    <h2 style="color: #0f172a; font-size: 17px; margin: 0 0 12px 0;">Password Reset Request</h2>
-                    <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
-                        We received a request to reset your password for <strong>{user.full_name or user.username}</strong>.
-                        Click the button below to set a new password. This link is valid for <strong>30 minutes</strong>.
-                    </p>
-                    <div style="text-align: center; margin: 24px 0;">
-                        <a href="{reset_url}" style="background: linear-gradient(135deg, #002855 0%, #001f42 100%); color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 700; display: inline-block; box-shadow: 0 4px 12px rgba(0, 40, 85, 0.3);">
-                            Reset My Password
-                        </a>
-                    </div>
-                    <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 20px 0 0 0;">
-                        If you did not request this, you can safely ignore this email. Your password will remain unchanged.
-                    </p>
-                </div>
-                <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 28px; text-align: center;">
-                    <p style="color: #94a3b8; font-size: 10px; margin: 0;">
-                        eTala &mdash; Engineering Records Archiving and Document Management System<br>
-                        Municipal Engineering Office of Carigara, Leyte
-                    </p>
-                </div>
-            </div>
-            '''
-            plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 30 minutes.'
+            user_display_name = user.full_name or user.username
+            html_message = render_to_string('emails/email_password_reset.html', {
+                'user_display_name': user_display_name,
+                'reset_url': reset_url,
+            })
+            plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 1 hour.'
 
             send_mail(
                 subject=subject,
@@ -314,9 +292,10 @@ def reset_password_view(request):
     """Handle the password reset link — validate token and allow new password."""
     token = request.GET.get('token') or request.POST.get('token', '')
 
-    # Validate token
+    # Validate token (valid for 1 hour matching PASSWORD_RESET_TIMEOUT)
+    reset_timeout = getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)
     try:
-        token_data = signing.loads(token, salt='password-reset', max_age=1800)  # 30 min
+        token_data = signing.loads(token, salt='password-reset', max_age=reset_timeout)  # 30 min
     except signing.SignatureExpired:
         messages.error(request, "This password reset link has expired. Please request a new one.")
         return redirect('forgot_password')
@@ -613,16 +592,8 @@ def dashboard_view(request):
 
 
 def ensure_barangay_schema():
-    """Self-healing helper: Ensures psgc_code column exists in SQLite table and populates 49 PSGC codes without requiring manual migration commands."""
-    from django.db import connection
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("PRAGMA table_info(permits_barangay)")
-            columns = [col[1] for col in cursor.fetchall()]
-            if 'psgc_code' not in columns:
-                cursor.execute("ALTER TABLE permits_barangay ADD COLUMN psgc_code varchar(20)")
-    except Exception:
-        pass
+    """Self-healing helper: Populates 49 PSGC codes and geocoordinates for Carigara barangays if missing."""
+
 
     try:
         from permits.models import Barangay
@@ -925,6 +896,18 @@ def barangay_workspace_view(request, barangay_id):
 
 @login_required
 def records_browse_view(request):
+    illegal_filter = request.GET.get('illegal', '').strip()
+    record_type = request.GET.get('record_type', '')
+    if illegal_filter or record_type == 'Illegal':
+        url = reverse('illegal_constructions')
+        params = request.GET.copy()
+        if 'illegal' in params:
+            del params['illegal']
+        if params.get('record_type') == 'Illegal':
+            del params['record_type']
+        qstr = params.urlencode()
+        return redirect(f"{url}?{qstr}" if qstr else url)
+
     base_records = EngineeringRecord.objects.exclude(status='archived').select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     ).prefetch_related(
@@ -934,7 +917,6 @@ def records_browse_view(request):
 
     # Filters
     query = request.GET.get('q', '').strip()
-    record_type = request.GET.get('record_type', '')
     project_scope = request.GET.get('project_scope', '')
     barangay_id = request.GET.get('barangay', '')
     status = request.GET.get('status', '')
@@ -942,9 +924,8 @@ def records_browse_view(request):
     
     project_type = request.GET.get('project_type', '').strip()
     permit_type = request.GET.get('permit_type', '').strip()
-    illegal_filter = request.GET.get('illegal', '').strip()
 
-    # 1. Compute unfiltered base for stable count statistics across tabs
+    # 1. Compute unfiltered base for stable count statistics across regular tabs
     unfiltered_base = filter_engineering_records(
         base_records,
         query=query,
@@ -964,24 +945,20 @@ def records_browse_view(request):
     if selected_scope == 'my':
         unfiltered_base = unfiltered_base.filter(created_by=request.user)
 
-    # 2. Compute TRUE STABLE COUNTS for all top tabs & sub-filter pills
+    # 2. Compute TRUE STABLE COUNTS for top tabs
     all_count = unfiltered_base.count()
     municipal_count = unfiltered_base.filter(record_type='Project', project_scope='Municipal').count()
     barangay_count = unfiltered_base.filter(record_type='Project', project_scope='Barangay').count()
     permits_count = unfiltered_base.filter(record_type='Permit').count()
 
-    illegal_base = unfiltered_base.filter(is_illegal_construction=True)
-    illegal_count = illegal_base.count()
-    illegal_unresolved_count = illegal_base.filter(illegal_compliance_status='unresolved').count()
-    illegal_pending_count = illegal_base.filter(illegal_compliance_status='pending_permit').count()
-    illegal_resolved_count = illegal_base.filter(illegal_compliance_status='resolved').count()
-
-    # 3. Now apply active tab & sub-filter to get the final records list
+    # 3. Apply active tab & sub-filter to get the final records list
     records = filter_engineering_records(
         unfiltered_base,
         record_type=record_type,
-        illegal_filter=illegal_filter
+        illegal_filter=None
     )
+    if selected_scope == 'my':
+        records = records.filter(created_by=request.user)
     if project_scope and record_type == 'Project':
         records = records.filter(project_scope=project_scope)
 
@@ -1004,17 +981,12 @@ def records_browse_view(request):
         'municipal_count': municipal_count,
         'barangay_count': barangay_count,
         'permits_count': permits_count,
-        'illegal_count': illegal_count,
-        'illegal_unresolved_count': illegal_unresolved_count,
-        'illegal_pending_count': illegal_pending_count,
-        'illegal_resolved_count': illegal_resolved_count,
         'active_filters_count': active_filters_count,
         'q': query,
         'selected_record_type': record_type,
         'selected_scope': selected_scope,
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
-        'selected_illegal': illegal_filter,
         'selected_project_scope': project_scope,
         'selected_barangay': barangay_id,
         'selected_status': status,
@@ -1025,9 +997,104 @@ def records_browse_view(request):
         'status_choices': EngineeringRecord.STATUS_CHOICES,
         'project_type_choices': [choice[0] for choice in ProjectDetail.PROJECT_TYPE_CHOICES],
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
-        'active_tab': 'illegal' if (illegal_filter or record_type == 'Illegal') else 'records',
+        'active_tab': 'records',
     }
     return render(request, 'permits/records_browse.html', context)
+
+
+@login_required
+def illegal_constructions_view(request):
+    """
+    Dedicated Standalone Case Management View for Illegal Construction Incidents.
+    Tracks unresolved violations (Stop Orders / Notices to Comply), applications filed, and regularized cases.
+    """
+    base_records = EngineeringRecord.objects.exclude(status='archived').filter(
+        is_illegal_construction=True
+    ).select_related(
+        'barangay', 'created_by', 'permit_detail', 'project_detail'
+    ).prefetch_related(
+        'requirements__requirement_item', 'requirements__document', 'documents'
+    )
+    barangays = Barangay.objects.all()
+
+    query = request.GET.get('q', '').strip()
+    barangay_id = request.GET.get('barangay', '')
+    year = request.GET.get('year', '')
+    stage_filter = request.GET.get('stage', '').strip()  # 'unresolved', 'pending_permit', 'resolved'
+
+    # Filter base
+    qs = base_records
+    if query:
+        search_filter = (
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(barangay__barangay_name__icontains=query) |
+            Q(permit_detail__applicant_name__icontains=query) |
+            Q(created_by__full_name__icontains=query) |
+            Q(created_by__username__icontains=query)
+        )
+        if query.isdigit():
+            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))
+        qs = qs.filter(search_filter).distinct()
+
+    if barangay_id:
+        qs = qs.filter(barangay_id=barangay_id)
+    if year:
+        try:
+            qs = qs.filter(year=int(year))
+        except (ValueError, TypeError):
+            qs = qs.filter(year=year)
+
+    selected_scope = resolve_scope(request)
+    my_scope_count = qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
+    all_scope_count = qs.count()
+
+    if selected_scope == 'my':
+        qs = qs.filter(created_by=request.user)
+
+    # Incident status metrics
+    all_count = qs.count()
+    unresolved_count = qs.filter(illegal_compliance_status='unresolved').count()
+    pending_count = qs.filter(illegal_compliance_status='pending_permit').count()
+    resolved_count = qs.filter(illegal_compliance_status='resolved').count()
+
+    # Stage filtering
+    if stage_filter in ['unresolved', 'pending_permit', 'resolved']:
+        records = qs.filter(illegal_compliance_status=stage_filter)
+    else:
+        records = qs
+
+    total_count = records.count()
+    per_page = get_per_page(request, 10)
+    paginator = Paginator(records, per_page)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    year_choices = get_year_choices()
+    active_filters_count = sum(1 for val in [barangay_id, year, stage_filter] if val)
+
+    context = {
+        'per_page': per_page,
+        'barangays': barangays,
+        'page_obj': page_obj,
+        'total_count': total_count,
+        'all_count': all_count,
+        'unresolved_count': unresolved_count,
+        'pending_count': pending_count,
+        'resolved_count': resolved_count,
+        'stage_filter': stage_filter,
+        'active_filters_count': active_filters_count,
+        'q': query,
+        'selected_scope': selected_scope,
+        'my_scope_count': my_scope_count,
+        'all_scope_count': all_scope_count,
+        'selected_barangay': barangay_id,
+        'selected_year': year,
+        'year_choices': year_choices,
+        'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
+        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+        'active_tab': 'illegal',
+    }
+    return render(request, 'permits/illegal_constructions.html', context)
 
 
 
@@ -1148,10 +1215,17 @@ def record_create_step3_view(request):
         
         if category == 'permit':
             applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
+            if not applicant_name:
+                messages.error(request, "Applicant / Property Owner name is required for permits.")
+                return render(request, 'permits/create_step3.html', context_extra)
             permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
             title = permit_number + ' — ' + applicant_name if permit_number else applicant_name
         else:
             title = sanitize_input(request.POST.get('title', '')).strip()
+            contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
+            if not contractor_val:
+                messages.error(request, "Contractor or Implementing Entity is required for projects (or specify 'By Administration').")
+                return render(request, 'permits/create_step3.html', context_extra)
             
         if not barangay_id or not title or not year:
             messages.error(request, "Please fill in all required fields.")
@@ -1197,22 +1271,13 @@ def record_create_step3_view(request):
             funding_val = sanitize_input(request.POST.get('funding_source', 'General Fund')).strip()
             funding_other_val = sanitize_input(request.POST.get('funding_source_other', '')).strip() if funding_val == 'Others' else ''
             
-            cost_raw = str(request.POST.get('project_cost', '') or '').replace(',', '').replace('₱', '').strip()
-            project_cost = None
-            if cost_raw:
-                try:
-                    from decimal import Decimal
-                    project_cost = Decimal(cost_raw)
-                except Exception:
-                    project_cost = None
-
             ProjectDetail.objects.create(
                 engineering_record=record,
                 project_type=subtype,
                 funding_source=funding_val or 'General Fund',
                 funding_source_other=funding_other_val,
                 contractor=sanitize_input(request.POST.get('contractor', '')).strip(),
-                project_cost=project_cost,
+                project_cost=parse_decimal_safely(request.POST.get('project_cost')),
                 project_status=project_status,
             )
             # Sync parent record status
@@ -1586,7 +1651,7 @@ def record_create_view(request):
                 project_type=subtype,
                 funding_source=sanitize_input(request.POST.get('funding_source', '')).strip(),
                 contractor=sanitize_input(request.POST.get('contractor', '')).strip(),
-                project_cost=request.POST.get('project_cost', '') or None,
+                project_cost=parse_decimal_safely(request.POST.get('project_cost')),
                 project_status=project_status,
             )
             # Sync parent record status based on project status
@@ -1691,7 +1756,7 @@ def record_detail_view(request, record_id):
     elif record.record_type == 'Project':
         try:
             project_detail = record.project_detail
-        except ProjectDetail.DoesNotExist:
+        except (ProjectDetail.DoesNotExist, Exception):
             pass
 
     # Activity timeline
@@ -1752,7 +1817,9 @@ def record_detail_view(request, record_id):
         'related_records': related_records,
         'can_edit': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
         'can_archive': (request.user.role == 'admin'),
-        'active_tab': 'records',
+        'active_tab': 'illegal' if (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved') else 'records',
+        'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
+        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'today': today,
         'thirty_days_later': thirty_days_later,
     }
@@ -1834,7 +1901,7 @@ def update_illegal_status_view(request, record_id):
             action_msg = "Flagged as Illegal Construction." if record.is_illegal_construction else "Unflagged Illegal Construction."
             log_audit(request.user, action_msg, target_record_id=record.record_id, request=request)
             messages.success(request, action_msg)
-        elif status_val in ['unresolved', 'pending_permit', 'resolved']:
+        elif status_val in ['unresolved', 'pending_permit']:
             record.is_illegal_construction = True
             record.illegal_compliance_status = status_val
             record.save()
@@ -1851,6 +1918,53 @@ def update_illegal_status_view(request, record_id):
 
 
 @login_required
+def regularize_record_view(request, record_id):
+    """
+    Converts a compliant unpermitted construction incident into an official regularized permit record.
+    Staff specifies the exact Permit Type (e.g. Building Permit, Fencing Permit, etc.), Permit Number, and Applicant Name.
+    """
+    if request.user.role not in ['staff', 'admin']:
+        return HttpResponseForbidden("Unauthorized")
+
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if request.method == 'POST':
+        permit_type = sanitize_input(request.POST.get('permit_type', 'Building Permit')).strip()
+        permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
+        applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
+        building_type = sanitize_input(request.POST.get('building_type', 'Residential')).strip()
+
+        # Update or create PermitDetail
+        permit_detail, created = PermitDetail.objects.get_or_create(engineering_record=record)
+        permit_detail.permit_type = permit_type
+        if permit_number:
+            permit_detail.permit_number = permit_number
+        if applicant_name:
+            permit_detail.applicant_name = applicant_name
+        if building_type:
+            permit_detail.building_type = building_type
+        permit_detail.save()
+
+        # Update EngineeringRecord
+        record.record_type = 'Permit'
+        record.is_illegal_construction = True
+        record.illegal_compliance_status = 'resolved'
+        record.save()
+
+        log_audit(
+            request.user,
+            f"Regularized incident case into {permit_type} (Permit #{permit_detail.permit_number or 'N/A'})",
+            target_record_id=record.record_id,
+            request=request
+        )
+        messages.success(
+            request,
+            f"Successfully regularized case into official {permit_type}! Record is now available in Master Records."
+        )
+
+    return redirect('record_detail', record_id=record.record_id)
+
+
+@login_required
 def flag_illegal_construction_view(request):
     """Creates a simple violation/incident report record — no checklist, no permit detail.
     Checklist is only attached if/when the owner applies for a retroactive building permit."""
@@ -1862,9 +1976,12 @@ def flag_illegal_construction_view(request):
         barangay_id = request.POST.get('barangay', '')
         location_address = sanitize_input(request.POST.get('location_address', '')).strip()
         violation_type = sanitize_input(request.POST.get('violation_type', 'Unpermitted Construction')).strip()
+        structure_type = sanitize_input(request.POST.get('structure_type', 'Residential')).strip()
+        action_taken = sanitize_input(request.POST.get('action_taken', 'Notice of Violation / Stop Order Issued')).strip()
         description = sanitize_input(request.POST.get('description', '')).strip()
         date_discovered_str = request.POST.get('date_discovered', '')
         remarks = sanitize_input(request.POST.get('remarks', '')).strip()
+        owner_name = sanitize_input(request.POST.get('owner_name', '')).strip()
         
         if not title:
             title = "Unpermitted Structure Discovered"
@@ -1884,18 +2001,22 @@ def flag_illegal_construction_view(request):
         else:
             date_discovered = timezone.now().date()
         
-        # Build a clear, structured description
+        # Build a clear, structured description matching official LGU inspection forms
         desc_parts = []
         if violation_type:
-            desc_parts.append(f"Violation: {violation_type}")
+            desc_parts.append(f"Violation Category: {violation_type}")
+        if structure_type:
+            desc_parts.append(f"Structure Type: {structure_type}")
         if location_address:
             desc_parts.append(f"Location: {location_address}")
+        if action_taken:
+            desc_parts.append(f"Enforcement Action: {action_taken}")
         if description:
-            desc_parts.append(f"Details: {description}")
+            desc_parts.append(f"Inspection Findings: {description}")
         if remarks:
             desc_parts.append(f"Remarks: {remarks}")
         full_description = '\n'.join(desc_parts) if desc_parts else title
-            
+        
         record = EngineeringRecord.objects.create(
             record_type='Permit',
             project_scope='',
@@ -1910,10 +2031,15 @@ def flag_illegal_construction_view(request):
             created_by=request.user
         )
         
-        # No PermitDetail — this is just a violation report, not a permit application.
-        # No checklist — checklist is only attached when/if the owner files for regularization.
+        # Store in PermitDetail for applicant/violator tracking & structure categorization
+        PermitDetail.objects.create(
+            engineering_record=record,
+            permit_type='Violation Report',
+            applicant_name=owner_name if owner_name else 'Under Investigation',
+            building_type=structure_type if structure_type else 'Residential'
+        )
 
-        # Handle photo/document upload
+        # Handle photo/document upload (Digital Evidence Storage)
         if 'photo' in request.FILES and request.FILES['photo']:
             photo_file = request.FILES['photo']
             try:
@@ -2005,12 +2131,16 @@ def record_edit_view(request, record_id):
         record.latitude = float(lat_raw) if lat_raw else None
         record.longitude = float(lng_raw) if lng_raw else None
 
-        is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
-        record.is_illegal_construction = is_illegal
-        if is_illegal:
+        # Preserve illegal construction status unless explicitly passed in POST
+        if 'is_illegal_construction' in request.POST:
+            is_illegal = request.POST.get('is_illegal_construction') in ['on', 'true', '1']
+            record.is_illegal_construction = is_illegal
+            if is_illegal:
+                record.illegal_compliance_status = request.POST.get('illegal_compliance_status', record.illegal_compliance_status or 'unresolved')
+            else:
+                record.illegal_compliance_status = 'unresolved'
+        elif 'illegal_compliance_status' in request.POST and record.is_illegal_construction:
             record.illegal_compliance_status = request.POST.get('illegal_compliance_status', record.illegal_compliance_status or 'unresolved')
-        else:
-            record.illegal_compliance_status = 'unresolved'
             
         record.save()
 
@@ -2025,13 +2155,17 @@ def record_edit_view(request, record_id):
             
             if detail:
                 # Normal permit record — update detail fields
+                applicant_name_val = sanitize_input(request.POST.get('applicant_name', '')).strip()
+                if not applicant_name_val:
+                    messages.error(request, "Applicant / Property Owner name is required for permits.")
+                    return redirect('edit_record', record_id=record.record_id)
                 old_subtype = detail.permit_type
                 new_subtype = request.POST.get('permit_type', '') or old_subtype
                 
                 detail.permit_type = new_subtype
                 detail.building_type = request.POST.get('building_type', detail.building_type)
                 detail.permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
-                detail.applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
+                detail.applicant_name = applicant_name_val
                 detail.resolution_required = request.POST.get('resolution_required') == 'on'
                 detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
                 detail.save()
@@ -2058,14 +2192,18 @@ def record_edit_view(request, record_id):
             # else: pure violation report — only basic fields (title, description, barangay) were updated above
                     
         elif record.record_type == 'Project':
+            contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
+            if not contractor_val:
+                messages.error(request, "Contractor or Implementing Entity is required for projects (or specify 'By Administration').")
+                return redirect('edit_record', record_id=record.record_id)
             detail, _ = ProjectDetail.objects.get_or_create(engineering_record=record)
             old_subtype = detail.project_type
             new_subtype = request.POST.get('project_type', '')
             
             detail.project_type = new_subtype
             detail.funding_source = sanitize_input(request.POST.get('funding_source', '')).strip()
-            detail.contractor = sanitize_input(request.POST.get('contractor', '')).strip()
-            detail.project_cost = request.POST.get('project_cost', '') or None
+            detail.contractor = contractor_val
+            detail.project_cost = parse_decimal_safely(request.POST.get('project_cost'))
             project_status = request.POST.get('project_status', detail.project_status)
             detail.project_status = project_status
             detail.save()
@@ -2268,11 +2406,11 @@ def serve_document_view(request, token):
     if not doc:
         raise Http404("Document not found.")
 
-    # Authorization Check: Staff can only access their own records; Engineer/Admin can access all active records
+    # Authorization Check: Authenticated LGU staff, engineers, and admins can view documents on active records. Non-admin users cannot access archived record documents.
     if doc.engineering_record:
         rec = doc.engineering_record
-        if request.user.role == 'staff' and rec.created_by != request.user:
-            return HttpResponseForbidden("You do not have permission to view documents attached to this record.")
+        if rec.status == 'archived' and request.user.role != 'admin':
+            return HttpResponseForbidden("You do not have permission to view documents for archived records.")
 
     file_obj, content_type, redirect_url = _get_document_stream(doc)
     if redirect_url:
@@ -2576,12 +2714,12 @@ def reports_view(request):
     selected_year = request.GET.get('year', '').strip()
     selected_status = request.GET.get('status', '').strip()
 
-    # 2. Start with all records
+    # 2. Start with all records ordered chronologically (oldest / earliest records first)
     records = EngineeringRecord.objects.all().select_related(
-        'barangay', 'permit_detail', 'project_detail'
+        'barangay', 'permit_detail', 'project_detail', 'created_by'
     ).prefetch_related(
         'requirements__requirement_item', 'requirements__document'
-    )
+    ).order_by('record_id')
 
     # Apply filters to base queryset
     if selected_record_type:
@@ -2599,14 +2737,19 @@ def reports_view(request):
         # Format filters description
         meta_info = []
         if selected_record_type:
-            meta_info.append(f"Type: {selected_record_type}s")
+            meta_info.append(f"Category: {selected_record_type}s")
         if selected_barangay:
             barangay_obj = Barangay.objects.filter(barangay_id=selected_barangay).first()
             if barangay_obj:
                 meta_info.append(f"Barangay: {barangay_obj.barangay_name}")
         if selected_year:
             meta_info.append(f"Year: {selected_year}")
+        if selected_status:
+            status_lbl = dict(EngineeringRecord.STATUS_CHOICES).get(selected_status, selected_status)
+            meta_info.append(f"Status: {status_lbl}")
 
+        active_filter_str = ", ".join(meta_info) if meta_info else "All Engineering Records"
+        gen_timestamp = timezone.now().strftime("%B %d, %Y • %I:%M %p")
 
         if export_format == 'excel':
             import openpyxl
@@ -2618,106 +2761,316 @@ def reports_view(request):
             ws.title = "Engineering Records"
             ws.views.sheetView[0].showGridLines = True
 
-            # Styles
-            title_font = Font(name='Arial', size=16, bold=True, color='1E3A8A')
-            header_font = Font(name='Arial', size=10, bold=True, color='FFFFFF')
-            data_font = Font(name='Arial', size=10)
-            bold_font = Font(name='Arial', size=10, bold=True)
+            # Color Palette
+            NAVY_HEX = '002855'
+            GOLD_HEX = 'C5A059'
+            SLATE_LIGHT = 'F8FAFC'
+            BORDER_GRAY = 'CBD5E1'
+
+            # Violation Highlight Tints (Excel)
+            RED_BG_HEX = 'FEE2E2'
+            RED_TEXT_HEX = 'B91C1C'
+            AMBER_BG_HEX = 'FEF3C7'
+            AMBER_TEXT_HEX = 'B45309'
+            GREEN_BG_HEX = 'DCFCE7'
+            GREEN_TEXT_HEX = '15803D'
+
+            title_sub_font = Font(name='Segoe UI', size=9, bold=True, color='475569')
+            title_main_font = Font(name='Segoe UI', size=13, bold=True, color=NAVY_HEX)
+            title_report_font = Font(name='Segoe UI', size=11, bold=True, color=GOLD_HEX)
+            meta_font = Font(name='Segoe UI', size=8.5, italic=True, color='64748B')
+            header_font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
+            data_font = Font(name='Segoe UI', size=9)
+            total_font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
             
-            header_fill = PatternFill(start_color='1E3A8A', end_color='1E3A8A', fill_type='solid')
-            subtotal_fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
+            header_fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
+            alt_row_fill = PatternFill(start_color=SLATE_LIGHT, end_color=SLATE_LIGHT, fill_type='solid')
+            total_fill = PatternFill(start_color='EEF2F6', end_color='EEF2F6', fill_type='solid')
+
+            violation_unresolved_fill = PatternFill(start_color=RED_BG_HEX, end_color=RED_BG_HEX, fill_type='solid')
+            violation_unresolved_font = Font(name='Segoe UI', size=9, bold=True, color=RED_TEXT_HEX)
+            
+            violation_pending_fill = PatternFill(start_color=AMBER_BG_HEX, end_color=AMBER_BG_HEX, fill_type='solid')
+            violation_pending_font = Font(name='Segoe UI', size=9, bold=True, color=AMBER_TEXT_HEX)
+            
+            violation_resolved_fill = PatternFill(start_color=GREEN_BG_HEX, end_color=GREEN_BG_HEX, fill_type='solid')
+            violation_resolved_font = Font(name='Segoe UI', size=9, bold=True, color=GREEN_TEXT_HEX)
 
             thin_border = Border(
-                left=Side(style='thin', color='CBD5E1'),
-                right=Side(style='thin', color='CBD5E1'),
-                top=Side(style='thin', color='CBD5E1'),
-                bottom=Side(style='thin', color='CBD5E1')
+                left=Side(style='thin', color=BORDER_GRAY),
+                right=Side(style='thin', color=BORDER_GRAY),
+                top=Side(style='thin', color=BORDER_GRAY),
+                bottom=Side(style='thin', color=BORDER_GRAY)
             )
             double_bottom_border = Border(
+                left=Side(style='thin', color=BORDER_GRAY),
+                right=Side(style='thin', color=BORDER_GRAY),
                 top=Side(style='thin', color='94A3B8'),
-                bottom=Side(style='double', color='1E3A8A')
+                bottom=Side(style='double', color=NAVY_HEX)
             )
 
-            ws['A1'] = "MUNICIPAL ENGINEERING OFFICE"
-            ws['A1'].font = title_font
-            ws['A2'] = f"Engineering Records Summary Report — Generated: {timezone.now().strftime('%Y-%m-%d %H:%M')}"
-            ws['A2'].font = Font(name='Arial', size=11, italic=True, color='475569')
-            ws['A3'] = f"Filters: {', '.join(meta_info) if meta_info else 'All Records'}"
-            ws['A3'].font = Font(name='Arial', size=9, bold=True, color='475569')
+            # Title Header Block
+            ws['A1'] = "REPUBLIC OF THE PHILIPPINES • PROVINCE OF LEYTE"
+            ws['A1'].font = title_sub_font
+            ws['A2'] = "MUNICIPALITY OF CARIGARA • OFFICE OF THE MUNICIPAL ENGINEER"
+            ws['A2'].font = title_main_font
+            ws['A3'] = "Engineering Records Summary Report"
+            ws['A3'].font = title_report_font
+            ws['A4'] = f"Generated: {gen_timestamp}  |  Filters: {active_filter_str}  |  Total: {records.count()} records"
+            ws['A4'].font = meta_font
 
-            ws.append([]) # Empty row
+            ws.append([]) # Row 5 empty
 
-            headers = ["Record ID", "Reference No / Project Title", "Specific Type", "Barangay", "Year", "Status", "Owner/Client", "Estimated Cost / Fee"]
+            headers = ["Record ID", "Record Title", "Type", "Barangay", "Year", "Status", "Applicant", "Contractor", "Cost / Budget (₱)", "Uploads"]
             ws.append(headers)
-            
-            header_row_idx = 5
+            header_row_idx = 6
+
             for col_idx, header in enumerate(headers, 1):
                 cell = ws.cell(row=header_row_idx, column=col_idx)
                 cell.font = header_font
                 cell.fill = header_fill
-                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 5, 6] else 'left', vertical='center')
+                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 5, 6, 10] else ('right' if col_idx == 9 else 'left'), vertical='center')
+                cell.border = thin_border
+            ws.row_dimensions[header_row_idx].height = 24
 
             total_val = 0
-            for r in records:
-                specific_type = r.specific_type_label
-                status_label = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
+            for idx, r in enumerate(records, 1):
+                is_violation = bool(r.is_illegal_construction)
+                violation_status = r.illegal_compliance_status or 'unresolved'
+
+                if is_violation:
+                    if violation_status == 'unresolved':
+                        status_label = "Unresolved"
+                        row_fill = violation_unresolved_fill
+                        row_highlight_font = violation_unresolved_font
+                    elif violation_status == 'pending_permit':
+                        status_label = "Permit Filed"
+                        row_fill = violation_pending_fill
+                        row_highlight_font = violation_pending_font
+                    elif violation_status == 'resolved':
+                        status_label = "Regularized"
+                        row_fill = violation_resolved_fill
+                        row_highlight_font = violation_resolved_font
+                    else:
+                        status_label = "Violation"
+                        row_fill = violation_unresolved_fill
+                        row_highlight_font = violation_unresolved_font
+                else:
+                    status_label = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
+                    row_fill = alt_row_fill if (idx % 2 == 0) else None
+                    row_highlight_font = None
                 
+                # Resolve Record Title cleanly
+                if r.record_type == 'Permit':
+                    permit_num = (r.permit_detail.permit_number.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_number else '').strip()
+                    if permit_num:
+                        ref_no = permit_num
+                    elif r.title and r.title.strip() and r.title.strip() != '—' and not r.is_illegal_construction and r.title.strip().lower() != 'permit':
+                        ref_no = r.title.strip()
+                    elif r.is_illegal_construction:
+                        ref_no = f"Violation #{r.record_id}"
+                    else:
+                        ref_no = f"Permit #{r.record_id}"
+                else:
+                    ref_no = r.title.strip() if r.title and r.title.strip() and r.title.strip() != '—' else f"Project #{r.record_id}"
+
+                # Resolve Specific Type
+                if r.record_type == 'Permit':
+                    if is_violation:
+                        if violation_status == 'resolved':
+                            specific_type = "Regularized Building"
+                        elif violation_status == 'pending_permit':
+                            specific_type = "Violation (Permit Filed)"
+                        else:
+                            specific_type = "Violation Report"
+                    elif hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_type:
+                        specific_type = r.specific_type_label
+                    else:
+                        specific_type = "Building Permit"
+                else:
+                    if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_type:
+                        specific_type = r.specific_type_label
+                    else:
+                        specific_type = f"{r.project_scope} Project" if r.project_scope else "Project"
+
+                # Resolve Applicant and Contractor separately
+                applicant_val = "—"
+                contractor_val = "—"
+                if r.record_type == 'Permit':
+                    app_name = (r.permit_detail.applicant_name.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name else '').strip()
+                    if app_name and app_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not app_name.startswith('[') and 'unpermitted' not in app_name.lower() and 'violation' not in app_name.lower():
+                        applicant_val = app_name
+                else:
+                    c_name = (r.project_detail.contractor.strip() if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.contractor else '').strip()
+                    if c_name and c_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not c_name.startswith('[') and 'unpermitted' not in c_name.lower() and 'violation' not in c_name.lower():
+                        contractor_val = c_name
+
+                # Resolve Cost / Budget
                 cost = 0
-                if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail:
-                    cost = r.project_detail.project_cost or 0
-                total_val += cost
+                if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_cost:
+                    cost = r.project_detail.project_cost
+                    total_val += cost
 
-                ref_no = r.permit_detail.permit_number if r.record_type == 'Permit' and hasattr(r, 'permit_detail') and r.permit_detail else r.title
-                owner = r.permit_detail.applicant_name if r.record_type == 'Permit' and hasattr(r, 'permit_detail') and r.permit_detail else (r.project_detail.contractor if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail else "")
+                # Resolve Upload Completion Status
+                c_stats = r.completion_stats
+                if c_stats['total'] > 0:
+                    doc_status = f"{c_stats['fulfilled']}/{c_stats['total']}"
+                else:
+                    doc_status = f"{r.documents.count()} files" if is_violation else "—"
 
-                row_data = [r.record_id, ref_no, specific_type, r.barangay.barangay_name if r.barangay else "", r.year, status_label, owner, cost]
+                barangay_name = r.barangay.barangay_name if r.barangay else "—"
+                year_val = r.year if r.year else "—"
+
+                row_data = [r.record_id, ref_no, specific_type, barangay_name, year_val, status_label, applicant_val, contractor_val, cost if cost > 0 else "—", doc_status]
                 ws.append(row_data)
                 
                 curr_row = ws.max_row
+                ws.row_dimensions[curr_row].height = 19
+
                 for col_idx in range(1, len(headers) + 1):
                     cell = ws.cell(row=curr_row, column=col_idx)
-                    cell.font = data_font
                     cell.border = thin_border
-                    if col_idx in [1, 5, 6]:
-                        cell.alignment = Alignment(horizontal='center')
-                    elif col_idx == 8:
-                        cell.alignment = Alignment(horizontal='right')
-                        cell.number_format = '₱#,##0.00'
+                    
+                    if is_violation and col_idx in [3, 6]:
+                        cell.font = row_highlight_font
+                    else:
+                        cell.font = data_font
 
+                    if row_fill:
+                        cell.fill = row_fill
+                    
+                    if col_idx in [1, 5, 6, 10]:
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                    elif col_idx == 9:
+                        cell.alignment = Alignment(horizontal='right', vertical='center')
+                        if isinstance(cell.value, (int, float, Decimal)):
+                            cell.number_format = '₱#,##0.00'
+                    else:
+                        cell.alignment = Alignment(horizontal='left', vertical='center')
+
+            # Summary Row
             tot_row_idx = ws.max_row + 1
-            ws.cell(row=tot_row_idx, column=1, value="Total Records").font = bold_font
-            ws.cell(row=tot_row_idx, column=2, value=records.count()).font = bold_font
-            ws.cell(row=tot_row_idx, column=7, value="Total Cost / Fees").font = bold_font
-            ws.cell(row=tot_row_idx, column=8, value=total_val).font = bold_font
+            ws.row_dimensions[tot_row_idx].height = 22
+            ws.cell(row=tot_row_idx, column=1, value="TOTAL").font = total_font
+            ws.cell(row=tot_row_idx, column=2, value=f"{records.count()} Record(s)").font = total_font
+            ws.cell(row=tot_row_idx, column=8, value="Total Budget:").font = total_font
+            
+            cost_total_cell = ws.cell(row=tot_row_idx, column=9, value=total_val)
+            cost_total_cell.font = total_font
+            cost_total_cell.number_format = '₱#,##0.00'
+            cost_total_cell.alignment = Alignment(horizontal='right', vertical='center')
             
             for col_idx in range(1, len(headers) + 1):
                 cell = ws.cell(row=tot_row_idx, column=col_idx)
                 cell.border = double_bottom_border
-                cell.fill = subtotal_fill
-                if col_idx == 8:
-                    cell.alignment = Alignment(horizontal='right')
-                    cell.number_format = '₱#,##0.00'
+                cell.fill = total_fill
+                if col_idx not in [1, 2, 8, 9]:
+                    cell.value = ""
 
+            # Auto-fit Column Widths
             for col in ws.columns:
                 max_len = 0
                 col_letter = col[0].column_letter
-                for cell in col[4:]:
+                for cell in col[5:]:
                     if cell.value:
-                        max_len = max(max_len, len(str(cell.value)))
-                ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+                        val_str = str(cell.value)
+                        if len(val_str) > max_len:
+                            max_len = len(val_str)
+                ws.column_dimensions[col_letter].width = max(max_len + 4, 11)
+            ws.column_dimensions['A'].width = 11
+            ws.column_dimensions['B'].width = 26
+            ws.column_dimensions['C'].width = 20
+            ws.column_dimensions['G'].width = 20
+            ws.column_dimensions['H'].width = 20
+            ws.column_dimensions['I'].width = 18
+            ws.column_dimensions['J'].width = 13
 
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = 'attachment; filename=engineering_records_report.xlsx'
+            response['Content-Disposition'] = f'attachment; filename=eTala_Engineering_Records_{timezone.now().strftime("%Y%m%d_%H%M")}.xlsx'
             wb.save(response)
             return response
 
         elif export_format == 'pdf':
             from reportlab.lib.pagesizes import letter, landscape
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, HRFlowable, Image
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib import colors
+            from reportlab.pdfgen import canvas
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
             from io import BytesIO
             from django.http import HttpResponse
+            from django.conf import settings
+            import os
+
+            # Register Unicode TTF Font for native Peso Sign (₱) rendering across OS environments
+            font_candidates = [
+                # Local project assets font
+                (os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans.ttf'), os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans-Bold.ttf')),
+                # Windows system fonts
+                (r'C:\Windows\Fonts\segoeui.ttf', r'C:\Windows\Fonts\segoeuib.ttf'),
+                (r'C:\Windows\Fonts\arial.ttf', r'C:\Windows\Fonts\arialbd.ttf'),
+                # Linux / Container fonts (Debian / Ubuntu / Render)
+                ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+                ('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'),
+                ('/usr/share/fonts/truetype/freefont/FreeSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'),
+            ]
+
+            font_registered = False
+            for reg_path, bold_path in font_candidates:
+                try:
+                    if os.path.exists(reg_path) and os.path.exists(bold_path):
+                        pdfmetrics.registerFont(TTFont('eTalaFont', reg_path))
+                        pdfmetrics.registerFont(TTFont('eTalaFont-Bold', bold_path))
+                        font_registered = True
+                        break
+                except Exception:
+                    continue
+
+            main_font = 'eTalaFont' if font_registered else 'Helvetica'
+            bold_font = 'eTalaFont-Bold' if font_registered else 'Helvetica-Bold'
+
+            # Running Numbered Canvas with Header & Footer
+            class NumberedCanvas(canvas.Canvas):
+                def __init__(self, *args, **kwargs):
+                    super(NumberedCanvas, self).__init__(*args, **kwargs)
+                    self._saved_page_states = []
+
+                def showPage(self):
+                    self._saved_page_states.append(dict(self.__dict__))
+                    self._startPage()
+
+                def save(self):
+                    num_pages = len(self._saved_page_states)
+                    for state in self._saved_page_states:
+                        self.__dict__.update(state)
+                        self.draw_page_decorations(num_pages)
+                        canvas.Canvas.showPage(self)
+                    canvas.Canvas.save(self)
+
+                def draw_page_decorations(self, page_count):
+                    self.saveState()
+                    # Running top header on page 2+
+                    if self._pageNumber > 1:
+                        self.setFont(bold_font, 7.5)
+                        self.setFillColor(colors.HexColor("#002855"))
+                        self.drawString(36, 582, "MUNICIPAL ENGINEERING OFFICE — CARIGARA, LEYTE")
+                        self.setFont(main_font, 7.5)
+                        self.setFillColor(colors.HexColor("#64748B"))
+                        self.drawRightString(792 - 36, 582, "Engineering Records Summary Report")
+                        self.setStrokeColor(colors.HexColor("#CBD5E1"))
+                        self.setLineWidth(0.5)
+                        self.line(36, 576, 792 - 36, 576)
+
+                    # Running Footer
+                    self.setFont(main_font, 7.5)
+                    self.setFillColor(colors.HexColor("#64748B"))
+                    self.drawString(36, 22, f"Municipal Engineering Office • Carigara, Leyte | eTala Management System | Generated: {timezone.now().strftime('%Y-%m-%d %H:%M')}")
+                    self.drawRightString(792 - 36, 22, f"Page {self._pageNumber} of {page_count}")
+                    self.setStrokeColor(colors.HexColor("#CBD5E1"))
+                    self.setLineWidth(0.5)
+                    self.line(36, 32, 792 - 36, 32)
+                    self.restoreState()
 
             buffer = BytesIO()
             doc = SimpleDocTemplate(
@@ -2725,131 +3078,304 @@ def reports_view(request):
                 pagesize=landscape(letter),
                 rightMargin=36,
                 leftMargin=36,
-                topMargin=36,
-                bottomMargin=36
+                topMargin=26,
+                bottomMargin=40
             )
             
             story = []
             styles = getSampleStyleSheet()
 
-            title_style = ParagraphStyle(
-                'TitleStyle',
-                parent=styles['Heading1'],
-                fontName='Helvetica-Bold',
-                fontSize=16,
-                textColor=colors.HexColor('#1E3A8A'),
-                spaceAfter=4
-            )
-            meta_style = ParagraphStyle(
-                'MetaStyle',
+            NAVY = colors.HexColor('#002855')
+            GOLD = colors.HexColor('#C5A059')
+            TEXT_DARK = colors.HexColor('#0F172A')
+            TEXT_MUTED = colors.HexColor('#475569')
+
+            sub_header_style = ParagraphStyle(
+                'SubHeaderStyle',
                 parent=styles['Normal'],
-                fontName='Helvetica-Bold',
-                fontSize=9,
-                textColor=colors.HexColor('#475569'),
-                spaceAfter=12
-            )
-            cell_style = ParagraphStyle(
-                'CellStyle',
-                parent=styles['Normal'],
-                fontName='Helvetica',
+                fontName=bold_font,
                 fontSize=8,
-                textColor=colors.HexColor('#1E293B')
+                leading=10,
+                textColor=TEXT_MUTED,
+                alignment=1
+            )
+            office_title_style = ParagraphStyle(
+                'OfficeTitleStyle',
+                parent=styles['Heading1'],
+                fontName=bold_font,
+                fontSize=12,
+                leading=15,
+                textColor=NAVY,
+                alignment=1
+            )
+            report_title_style = ParagraphStyle(
+                'ReportTitleStyle',
+                parent=styles['Heading2'],
+                fontName=bold_font,
+                fontSize=9.5,
+                leading=12,
+                textColor=GOLD,
+                alignment=1,
+                spaceAfter=2
+            )
+            meta_box_style = ParagraphStyle(
+                'MetaBoxStyle',
+                parent=styles['Normal'],
+                fontName=main_font,
+                fontSize=7.5,
+                leading=9.5,
+                textColor=TEXT_MUTED,
+                alignment=1
+            )
+
+            # Table Typography Styles
+            header_cell_style = ParagraphStyle(
+                'HeaderCellStyle',
+                parent=styles['Normal'],
+                fontName=bold_font,
+                fontSize=7.5,
+                leading=9.5,
+                textColor=colors.white,
+                alignment=0
+            )
+            header_center_style = ParagraphStyle(
+                'HeaderCenterStyle',
+                parent=header_cell_style,
+                alignment=1
+            )
+            header_right_style = ParagraphStyle(
+                'HeaderRightStyle',
+                parent=header_cell_style,
+                alignment=2
+            )
+
+            cell_style = ParagraphStyle(
+                'BodyCellStyle',
+                parent=styles['Normal'],
+                fontName=main_font,
+                fontSize=7.5,
+                leading=9.5,
+                textColor=TEXT_DARK
             )
             cell_center = ParagraphStyle(
-                'CellCenter',
+                'BodyCellCenter',
                 parent=cell_style,
                 alignment=1
             )
             cell_right = ParagraphStyle(
-                'CellRight',
+                'BodyCellRight',
                 parent=cell_style,
                 alignment=2
             )
-            header_style = ParagraphStyle(
-                'HeaderStyle',
-                parent=styles['Normal'],
-                fontName='Helvetica-Bold',
-                fontSize=8,
-                textColor=colors.white,
-                alignment=1
-            )
 
-            story.append(Paragraph("MUNICIPAL ENGINEERING OFFICE", title_style))
-            story.append(Paragraph(f"Engineering Records Summary Report — Generated: {timezone.now().strftime('%Y-%m-%d %H:%M')}", styles['Italic']))
-            meta_text = f"Filters: {', '.join(meta_info) if meta_info else 'All Records'}"
-            story.append(Paragraph(meta_text, meta_style))
-            story.append(Spacer(1, 10))
+            meta_summary_text = f"<b>Generated:</b> {gen_timestamp} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Filters:</b> {active_filter_str} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Records:</b> {records.count()}"
 
-            col_widths = [50, 150, 100, 90, 40, 60, 110, 80]
+            # Top Centered Official Municipal Logo
+            logo_path = os.path.join(settings.BASE_DIR, 'assets', 'carigara_logo.png')
+            if os.path.exists(logo_path):
+                logo_img = Image(logo_path, width=40, height=40)
+                logo_img.hAlign = 'CENTER'
+                story.append(logo_img)
+                story.append(Spacer(1, 2))
+
+            story.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style))
+            story.append(Paragraph("MUNICIPALITY OF CARIGARA &bull; OFFICE OF THE MUNICIPAL ENGINEER", office_title_style))
+            story.append(Paragraph("ENGINEERING RECORDS SUMMARY REPORT", report_title_style))
+            story.append(Paragraph(meta_summary_text, meta_box_style))
+            story.append(Spacer(1, 6))
+
+            # Column Widths (Total: 720pt across landscape letter with 36pt margins)
+            col_widths = [35, 135, 80, 75, 30, 55, 85, 85, 80, 45]
             table_data = [[
-                Paragraph("Record ID", header_style),
-                Paragraph("Reference No / Project Title", header_style),
-                Paragraph("Specific Type", header_style),
-                Paragraph("Barangay", header_style),
-                Paragraph("Year", header_style),
-                Paragraph("Status", header_style),
-                Paragraph("Owner/Client", header_style),
-                Paragraph("Cost / Fee", header_style)
+                Paragraph("ID", header_center_style),
+                Paragraph("Record Title", header_cell_style),
+                Paragraph("Type", header_cell_style),
+                Paragraph("Barangay", header_cell_style),
+                Paragraph("Year", header_center_style),
+                Paragraph("Status", header_center_style),
+                Paragraph("Applicant", header_cell_style),
+                Paragraph("Contractor", header_cell_style),
+                Paragraph("Cost / Budget (₱)", header_right_style),
+                Paragraph("Uploads", header_center_style)
             ]]
 
+            violation_rows_info = {} # row_idx -> bg_color
             total_val = 0
-            for r in records:
-                specific_type = r.specific_type_label
-                status_label = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
-                
-                cost = 0
-                if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail:
-                    cost = r.project_detail.project_cost or 0
-                total_val += cost
+            for row_idx, r in enumerate(records, 1):
+                is_violation = bool(r.is_illegal_construction)
+                violation_status = r.illegal_compliance_status or 'unresolved'
 
-                ref_no = r.permit_detail.permit_number if r.record_type == 'Permit' and hasattr(r, 'permit_detail') and r.permit_detail else r.title
-                owner = r.permit_detail.applicant_name if r.record_type == 'Permit' and hasattr(r, 'permit_detail') and r.permit_detail else (r.project_detail.contractor if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail else "")
+                if is_violation:
+                    if violation_status == 'unresolved':
+                        status_html = '<font color="#B91C1C"><b>Unresolved</b></font>'
+                        violation_rows_info[row_idx] = colors.HexColor('#FFF1F2')
+                    elif violation_status == 'pending_permit':
+                        status_html = '<font color="#B45309"><b>Permit Filed</b></font>'
+                        violation_rows_info[row_idx] = colors.HexColor('#FFFBEB')
+                    elif violation_status == 'resolved':
+                        status_html = '<font color="#15803D"><b>Regularized</b></font>'
+                        violation_rows_info[row_idx] = colors.HexColor('#F0FDF4')
+                    else:
+                        status_html = '<font color="#B91C1C"><b>Violation</b></font>'
+                        violation_rows_info[row_idx] = colors.HexColor('#FFF1F2')
+                else:
+                    status_label = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
+                    status_html = status_label
+                
+                # Resolve Record Title cleanly
+                if r.record_type == 'Permit':
+                    permit_num = (r.permit_detail.permit_number.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_number else '').strip()
+                    if permit_num:
+                        ref_no = permit_num
+                    elif r.title and r.title.strip() and r.title.strip() != '—' and not r.is_illegal_construction and r.title.strip().lower() != 'permit':
+                        ref_no = r.title.strip()
+                    elif r.is_illegal_construction:
+                        ref_no = f"Violation #{r.record_id}"
+                    else:
+                        ref_no = f"Permit #{r.record_id}"
+                else:
+                    ref_no = r.title.strip() if r.title and r.title.strip() and r.title.strip() != '—' else f"Project #{r.record_id}"
+
+                # Resolve Specific Type
+                if r.record_type == 'Permit':
+                    if is_violation:
+                        if violation_status == 'resolved':
+                            specific_type = '<font color="#15803D"><b>Regularized Building</b></font>'
+                        elif violation_status == 'pending_permit':
+                            specific_type = '<font color="#B45309"><b>Violation (Permit Filed)</b></font>'
+                        else:
+                            specific_type = '<font color="#B91C1C"><b>Violation Report</b></font>'
+                    elif hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_type:
+                        specific_type = r.specific_type_label
+                    else:
+                        specific_type = "Building Permit"
+                else:
+                    if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_type:
+                        specific_type = r.specific_type_label
+                    else:
+                        specific_type = f"{r.project_scope} Project" if r.project_scope else "Project"
+
+                # Resolve Applicant and Contractor separately
+                applicant_val = "—"
+                contractor_val = "—"
+                if r.record_type == 'Permit':
+                    app_name = (r.permit_detail.applicant_name.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name else '').strip()
+                    if app_name and app_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not app_name.startswith('[') and 'unpermitted' not in app_name.lower() and 'violation' not in app_name.lower():
+                        applicant_val = app_name
+                else:
+                    c_name = (r.project_detail.contractor.strip() if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.contractor else '').strip()
+                    if c_name and c_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not c_name.startswith('[') and 'unpermitted' not in c_name.lower() and 'violation' not in c_name.lower():
+                        contractor_val = c_name
+
+                # Resolve Cost / Budget
+                cost = 0
+                if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_cost:
+                    cost = r.project_detail.project_cost
+                    total_val += cost
+
+                # Resolve Upload Completion Status
+                c_stats = r.completion_stats
+                if c_stats['total'] > 0:
+                    if c_stats['is_complete']:
+                        doc_para = Paragraph(f'<font color="#15803D"><b>{c_stats["fulfilled"]}/{c_stats["total"]}</b></font>', cell_center)
+                    elif c_stats['fulfilled'] > 0:
+                        doc_para = Paragraph(f'<font color="#B45309">{c_stats["fulfilled"]}/{c_stats["total"]}</font>', cell_center)
+                    else:
+                        doc_para = Paragraph(f'<font color="#B91C1C">0/{c_stats["total"]}</font>', cell_center)
+                else:
+                    doc_para = Paragraph(f'<font color="#64748B">{r.documents.count()} files</font>' if is_violation else '<font color="#94A3B8">—</font>', cell_center)
+
+                barangay_name = r.barangay.barangay_name if r.barangay else "—"
+                year_val = str(r.year) if r.year else "—"
 
                 table_data.append([
                     Paragraph(str(r.record_id), cell_center),
                     Paragraph(ref_no, cell_style),
                     Paragraph(specific_type, cell_style),
-                    Paragraph(r.barangay.barangay_name if r.barangay else "", cell_style),
-                    Paragraph(str(r.year), cell_center),
-                    Paragraph(status_label, cell_center),
-                    Paragraph(owner, cell_style),
-                    Paragraph(f"Php {cost:,.2f}", cell_right)
+                    Paragraph(barangay_name, cell_style),
+                    Paragraph(year_val, cell_center),
+                    Paragraph(status_html, cell_center),
+                    Paragraph(applicant_val if applicant_val != '—' else '<font color="#94A3B8">—</font>', cell_style),
+                    Paragraph(contractor_val if contractor_val != '—' else '<font color="#94A3B8">—</font>', cell_style),
+                    Paragraph(f"₱ {cost:,.2f}" if cost > 0 else '<font color="#94A3B8">—</font>', cell_right),
+                    doc_para
                 ])
 
+            # Total summary row
+            total_label_style = ParagraphStyle('TotalLabel', parent=cell_style, fontName=bold_font, fontSize=8, textColor=NAVY)
+            total_right_style = ParagraphStyle('TotalRight', parent=cell_right, fontName=bold_font, fontSize=8, textColor=NAVY)
+            
             table_data.append([
-                Paragraph("<b>Total Records:</b>", cell_style),
-                Paragraph(f"<b>{records.count()}</b>", cell_style),
+                Paragraph("<b>TOTAL</b>", ParagraphStyle('TotCenter', parent=cell_center, fontName=bold_font, fontSize=8, textColor=NAVY)),
+                Paragraph(f"<b>{records.count()} Record(s)</b>", total_label_style),
                 Paragraph("", cell_style),
                 Paragraph("", cell_style),
                 Paragraph("", cell_style),
                 Paragraph("", cell_style),
-                Paragraph("<b>Total Cost / Fees:</b>", cell_right),
-                Paragraph(f"<b>Php {total_val:,.2f}</b>", cell_right)
+                Paragraph("", cell_style),
+                Paragraph("<b>Total Budget:</b>", total_right_style),
+                Paragraph(f"<b>₱ {total_val:,.2f}</b>", total_right_style),
+                Paragraph("", cell_style)
             ])
 
             t = Table(table_data, colWidths=col_widths, repeatRows=1)
-            t_style = TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E3A8A')),
+            
+            # Construct styling with alternating row backgrounds
+            t_style_cmds = [
+                ('BACKGROUND', (0, 0), (-1, 0), NAVY),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-                ('TOPPADDING', (0, 0), (-1, 0), 6),
-                ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CBD5E1')),
-                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#F1F5F9')),
+                ('TOPPADDING', (0, 0), (-1, 0), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+                ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#E2E8F0')),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EEF2F6')),
                 ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor('#94A3B8')),
-                ('LINEBELOW', (0, -1), (-1, -1), 1.5, colors.HexColor('#1E3A8A')),
-                ('TOPPADDING', (0, 1), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-            ])
-            t.setStyle(t_style)
+                ('LINEBELOW', (0, -1), (-1, -1), 1.5, NAVY),
+                ('TOPPADDING', (0, -1), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, -1), (-1, -1), 5),
+            ]
+
+            for row_i in range(1, len(table_data) - 1):
+                if row_i in violation_rows_info:
+                    bg = violation_rows_info[row_i]
+                else:
+                    bg = colors.HexColor('#F8FAFC') if row_i % 2 == 0 else colors.HexColor('#FFFFFF')
+                
+                t_style_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), bg))
+                t_style_cmds.append(('TOPPADDING', (0, row_i), (-1, row_i), 3))
+                t_style_cmds.append(('BOTTOMPADDING', (0, row_i), (-1, row_i), 3))
+
+            t.setStyle(TableStyle(t_style_cmds))
             story.append(t)
 
-            doc.build(story)
+            # Official Sign-off block
+            sign_style_left = ParagraphStyle('SignLeft', parent=styles['Normal'], fontName=main_font, fontSize=8, leading=12, textColor=TEXT_DARK)
+            sign_style_right = ParagraphStyle('SignRight', parent=styles['Normal'], fontName=main_font, fontSize=8, leading=12, textColor=TEXT_DARK, alignment=2)
+            
+            signatory_data = [
+                [
+                    Paragraph(f"<b>Prepared &amp; Exported by:</b><br/><br/><br/><u><b>{request.user.full_name or request.user.username}</b></u><br/>{request.user.get_role_display()}", sign_style_left),
+                    Paragraph("<b>Certified Correct:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office — Carigara, Leyte", sign_style_right)
+                ]
+            ]
+            sign_table = Table(signatory_data, colWidths=[360, 360])
+            sign_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('TOPPADDING', (0, 0), (-1, -1), 16),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+
+            story.append(KeepTogether([
+                Spacer(1, 14),
+                sign_table
+            ]))
+
+            doc.build(story, canvasmaker=NumberedCanvas)
             pdf_data = buffer.getvalue()
             buffer.close()
 
             response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename=engineering_records_report.pdf'
+            response['Content-Disposition'] = f'attachment; filename=eTala_Engineering_Records_{timezone.now().strftime("%Y%m%d_%H%M")}.pdf'
             response.write(pdf_data)
             return response
 
@@ -2874,10 +3400,10 @@ def reports_view(request):
     ]
 
     # Group by Barangay
-    by_barangay = records.values('barangay__barangay_name').annotate(count=Count('record_id')).order_by('-count')
+    by_barangay = list(records.values('barangay__barangay_name').annotate(count=Count('record_id')).order_by('-count'))
 
     # Group by Year
-    by_year = records.values('year').annotate(count=Count('record_id')).order_by('-year')
+    by_year = list(records.values('year').annotate(count=Count('record_id')).order_by('-year'))
 
     # Growth data (last 6 months) respecting filters
     import datetime
@@ -2932,10 +3458,10 @@ def reports_view(request):
     permits_qs = records.filter(record_type='Permit')
     total_permits = permits_qs.count()
     
-    building_permits_count = permits_qs.filter(permit_detail__permit_type='building').count()
-    occupancy_permits_count = permits_qs.filter(permit_detail__permit_type='occupancy').count()
-    fencing_permits_count = permits_qs.filter(permit_detail__permit_type='fencing').count()
-    electrical_permits_count = permits_qs.filter(permit_detail__permit_type='electrical').count()
+    building_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Building').count()
+    occupancy_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Occupancy').count()
+    fencing_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Fencing').count()
+    electrical_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Electrical').count()
 
     expiring_permits_qs = permits_qs.select_related('permit_detail', 'barangay').prefetch_related('documents')
     
@@ -3001,12 +3527,11 @@ def reports_view(request):
     illegal_cases_list = illegal_cases_qs.select_related('barangay')[:6]
 
     # 4. Document Completion Metrics
-    completed_records_count = records.exclude(
-        requirements__isnull=False,
-        requirements__is_fulfilled=False,
-        requirements__is_waived=False
-    ).count()
-    completion_rate_pct = round((completed_records_count / total_count * 100)) if total_count > 0 else 85
+    completed_records_count = 0
+    for rec in records:
+        if rec.completion_stats.get('is_complete', False):
+            completed_records_count += 1
+    completion_rate_pct = round((completed_records_count / total_count * 100)) if total_count > 0 else 100
 
     barangays = Barangay.objects.all()
 
@@ -3196,36 +3721,270 @@ def export_activity_logs_view(request):
     query = request.GET.get('q', '').strip()
     date_filter = request.GET.get('date_range', 'all').strip()
     action_type = request.GET.get('action_type', 'all').strip()
+    export_format = request.GET.get('format', 'pdf').strip().lower()
 
-    filename, row_gen = build_activity_logs_csv_rows(tab, query, date_filter, action_type, request.user)
-    
-    pseudo_buffer = Echo()
-    writer = csv.writer(pseudo_buffer)
-    response = StreamingHttpResponse(
-        (writer.writerow(row) for row in row_gen()),
-        content_type="text/csv"
+    if export_format == 'csv':
+        filename, row_gen = build_activity_logs_csv_rows(tab, query, date_filter, action_type, request.user)
+        pseudo_buffer = Echo()
+        writer = csv.writer(pseudo_buffer)
+        response = StreamingHttpResponse(
+            (writer.writerow(row) for row in row_gen()),
+            content_type="text/csv"
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        log_audit(request.user, f"Exported {tab.capitalize()} Activity Logs to CSV", request=request)
+        return response
+
+    # ── DEFAULT: Direct PDF Export via ReportLab ──
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas
+    from io import BytesIO
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        leftMargin=36,
+        rightMargin=36,
+        topMargin=36,
+        bottomMargin=40
     )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor('#0f172a'),
+        alignment=1
+    )
+    subtitle_style = ParagraphStyle(
+        'DocSubTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor('#475569'),
+        alignment=1
+    )
+    meta_style = ParagraphStyle(
+        'MetaStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor('#334155')
+    )
+    th_style = ParagraphStyle(
+        'THStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        textColor=colors.white
+    )
+    td_style = ParagraphStyle(
+        'TDStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=7.5,
+        leading=10,
+        textColor=colors.HexColor('#1e293b')
+    )
+    td_badge = ParagraphStyle(
+        'TDBadge',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=7.5,
+        leading=10,
+        textColor=colors.HexColor('#1e40af')
+    )
+
+    elements = []
+
+    # Header section with Logo
+    logo_path = os.path.join(settings.BASE_DIR, 'assets', 'carigara_logo.png')
+    if os.path.exists(logo_path):
+        img = Image(logo_path, width=42, height=42)
+        header_text = [
+            Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", subtitle_style),
+            Paragraph("MUNICIPALITY OF CARIGARA &bull; MUNICIPAL ENGINEERING OFFICE", subtitle_style),
+            Spacer(1, 2),
+            Paragraph("OFFICIAL SECURITY AUDIT &amp; ACTIVITY TRAIL REPORT", title_style)
+        ]
+        header_table = Table([[img, header_text]], colWidths=[55, 665])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+        ]))
+        elements.append(header_table)
+    else:
+        elements.append(Paragraph("MUNICIPALITY OF CARIGARA &bull; MUNICIPAL ENGINEERING OFFICE", subtitle_style))
+        elements.append(Paragraph("OFFICIAL SECURITY AUDIT &amp; ACTIVITY TRAIL REPORT", title_style))
+
+    elements.append(Spacer(1, 10))
+
+    # Meta banner
+    now_pst = timezone.now()
+    tab_title = "Authentication & Login History" if (tab == 'login' and request.user.role == 'admin') else "System Activity & Record Audit Trail"
+    meta_p = Paragraph(
+        f"<b>Log Scope:</b> {tab_title} &nbsp;|&nbsp; <b>Generated By:</b> {request.user.full_name or request.user.username} ({request.user.get_role_display()}) &nbsp;|&nbsp; <b>Generated At:</b> {now_pst.strftime('%B %d, %Y %I:%M %p')} PST",
+        meta_style
+    )
+    meta_box = Table([[meta_p]], colWidths=[720])
+    meta_box.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f1f5f9')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('PADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(meta_box)
+    elements.append(Spacer(1, 10))
+
+    # Query Data
+    if tab == 'login' and request.user.role == 'admin':
+        qs = LoginAttempt.objects.all().order_by('-timestamp')
+        if date_filter == 'today':
+            qs = qs.filter(timestamp__date=now_pst.date())
+        elif date_filter == '7days':
+            qs = qs.filter(timestamp__gte=now_pst - timedelta(days=7))
+        elif date_filter == '30days':
+            qs = qs.filter(timestamp__gte=now_pst - timedelta(days=30))
+        if action_type == 'success':
+            qs = qs.filter(success=True)
+        elif action_type == 'failed':
+            qs = qs.filter(success=False)
+        if query:
+            qs = qs.filter(Q(email_attempted__icontains=query) | Q(ip_address__icontains=query))
+
+        table_data = [[
+            Paragraph("#", th_style),
+            Paragraph("TIMESTAMP (PST)", th_style),
+            Paragraph("EMAIL ATTEMPTED", th_style),
+            Paragraph("LOGIN STATUS", th_style),
+            Paragraph("IP ADDRESS", th_style)
+        ]]
+        for idx, item in enumerate(qs[:1000], start=1):
+            status_text = "SUCCESSFUL" if item.success else "FAILED"
+            status_color = "#16a34a" if item.success else "#dc2626"
+            status_p = Paragraph(f"<font color='{status_color}'><b>{status_text}</b></font>", td_style)
+            table_data.append([
+                Paragraph(str(idx), td_style),
+                Paragraph(item.timestamp.strftime("%Y-%m-%d %H:%M:%S"), td_style),
+                Paragraph(item.email_attempted or "Unknown", td_style),
+                status_p,
+                Paragraph(item.ip_address or "N/A", td_style)
+            ])
+        col_widths = [35, 130, 240, 135, 180]
+    else:
+        qs = AuditLog.objects.all().select_related('user').order_by('-performed_at')
+        if request.user.role != 'admin':
+            qs = qs.filter(user=request.user)
+        if date_filter == 'today':
+            qs = qs.filter(performed_at__date=now_pst.date())
+        elif date_filter == '7days':
+            qs = qs.filter(performed_at__gte=now_pst - timedelta(days=7))
+        elif date_filter == '30days':
+            qs = qs.filter(performed_at__gte=now_pst - timedelta(days=30))
+        if action_type and action_type != 'all':
+            qs = qs.filter(action__icontains=action_type)
+        if query:
+            qs = qs.filter(Q(action__icontains=query) | Q(user__username__icontains=query) | Q(user__full_name__icontains=query))
+
+        table_data = [[
+            Paragraph("#", th_style),
+            Paragraph("DATE &amp; TIME", th_style),
+            Paragraph("OPERATOR / STAFF", th_style),
+            Paragraph("OFFICIAL ROLE", th_style),
+            Paragraph("ACTION EXECUTED", th_style),
+            Paragraph("IP ADDRESS", th_style)
+        ]]
+        for idx, item in enumerate(qs[:1000], start=1):
+            if item.user:
+                user_str = item.user.full_name or item.user.username
+                role_str = item.user.get_role_display()
+            else:
+                user_str = "System"
+                role_str = "System"
+            table_data.append([
+                Paragraph(str(idx), td_style),
+                Paragraph(item.performed_at.strftime("%Y-%m-%d %H:%M:%S"), td_style),
+                Paragraph(user_str, td_badge),
+                Paragraph(role_str, td_style),
+                Paragraph(item.action, td_style),
+                Paragraph(item.ip_address or "N/A", td_style)
+            ])
+        col_widths = [30, 115, 140, 105, 230, 100]
+
+    log_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    log_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('PADDING', (0, 0), (-1, -1), 4.5),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+    ]))
+    elements.append(log_table)
+
+    class NumberedCanvas(canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            canvas.Canvas.__init__(self, *args, **kwargs)
+            self._saved_page_states = []
+
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self.draw_footer(num_pages)
+                canvas.Canvas.showPage(self)
+            canvas.Canvas.save(self)
+
+        def draw_footer(self, page_count):
+            self.saveState()
+            self.setFont("Helvetica", 7.5)
+            self.setFillColor(colors.HexColor('#64748b'))
+            self.drawString(36, 20, "CONFIDENTIAL & OFFICIAL RECORD \u2022 eTala Municipal Engineering Office")
+            self.drawRightString(792 - 36, 20, f"Page {self._pageNumber} of {page_count}")
+            self.restoreState()
+
+    doc.build(elements, canvasmaker=NumberedCanvas)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    filename = f"eTala_Activity_Logs_{tab}_{now_pst.strftime('%Y%m%d_%H%M')}.pdf"
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    log_audit(request.user, f"Exported {tab.capitalize()} Activity Logs to CSV", request=request)
+    log_audit(request.user, f"Exported {tab.capitalize()} Activity Logs to PDF", request=request)
     return response
 
 
 @login_required
 def serve_user_avatar_view(request, user_id):
-    """Securely streams a user's profile avatar picture with browser caching."""
+    """Securely streams a user's profile avatar picture with browser caching from Supabase storage."""
     target_user = get_object_or_404(CustomUser, pk=user_id)
     if not target_user.profile_picture:
         raise Http404("User has no profile picture.")
 
     try:
         if not target_user.profile_picture.storage.exists(target_user.profile_picture.name):
-            logger.warning(f"Profile picture file missing on disk for user {user_id}: {target_user.profile_picture.name}")
-            raise Http404("Avatar file missing on disk.")
+            # Auto-heal orphaned DB pointer to prevent 404 console spam
+            target_user.profile_picture = None
+            target_user.save(update_fields=['profile_picture'])
+            raise Http404("Avatar file not found in cloud storage.")
         file_obj = target_user.profile_picture.open('rb')
         filename = os.path.basename(target_user.profile_picture.name)
         content_type, _ = mimetypes.guess_type(filename)
         response = FileResponse(file_obj, content_type=content_type or 'image/jpeg')
-        response['Cache-Control'] = 'no-cache, must-revalidate'
+        response['Cache-Control'] = 'public, max-age=3600'
         return response
     except Exception as e:
         if not isinstance(e, Http404):
@@ -3600,7 +4359,7 @@ def users_view(request):
             new_user.save()
 
             log_audit(request.user, f"Created user '{username}' with role '{role}'", request=request)
-            messages.success(request, f"User '{full_name}' created successfully.")
+            messages.success(request, f"User {full_name} created successfully.")
             return redirect('users')
 
         elif action == 'toggle_status':
@@ -3613,8 +4372,9 @@ def users_view(request):
             user_to_toggle.is_active = not user_to_toggle.is_active
             user_to_toggle.save()
             status_str = "activated" if user_to_toggle.is_active else "deactivated"
+            target_name = user_to_toggle.full_name or user_to_toggle.username
             log_audit(request.user, f"Toggled user '{user_to_toggle.username}' to {status_str}", request=request)
-            messages.success(request, f"User '{user_to_toggle.full_name or user_to_toggle.username}' has been {status_str}.")
+            messages.success(request, f"{target_name} has been {status_str}.")
             return redirect('users')
 
         elif action == 'reset_password':
@@ -3629,8 +4389,9 @@ def users_view(request):
 
             user_obj.set_password(new_password)
             user_obj.save()
+            target_name = user_obj.full_name or user_obj.username
             log_audit(request.user, f"Reset password for user '{user_obj.username}'", request=request)
-            messages.success(request, f"Password for '{user_obj.full_name or user_obj.username}' has been reset.")
+            messages.success(request, f"Password for {target_name} has been reset.")
             return redirect('users')
 
         elif action == 'edit_user':
@@ -3664,7 +4425,7 @@ def users_view(request):
             
             user_to_edit.save()
             log_audit(request.user, f"Updated user profile for '{user_to_edit.username}'", request=request)
-            messages.success(request, f"User '{full_name}' updated successfully.")
+            messages.success(request, f"User {full_name} updated successfully.")
             return redirect('users')
 
     users_base = CustomUser.objects.all().order_by('-created_at')
@@ -3779,6 +4540,10 @@ def sanitize_zip_name(raw_name, max_len=40):
 def download_record_zip_view(request, record_id):
     """Downloads all documents for a record as a structured ZIP file."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if record.documents.count() == 0:
+        messages.warning(request, f"No uploaded documents found for '{record.title}' to download.")
+        return redirect('record_detail', record_id=record.record_id)
+
     buffer = build_record_zip_buffer(record, _get_document_stream)
     clean_title = sanitize_zip_name(record.title, max_len=35)
     filename = f"{clean_title}_Archive.zip"
@@ -3793,6 +4558,15 @@ def download_category_zip_view(request, record_id, req_id):
     """Downloads all sub-documents under a specific requirement folder as a ZIP file."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     parent_req = get_object_or_404(RecordRequirement, req_id=req_id, record=record)
+    sub_items = parent_req.requirement_item.sub_items.all()
+    sub_docs_count = RecordRequirement.objects.filter(
+        record=record, requirement_item__in=sub_items, document__isnull=False
+    ).count()
+
+    if sub_docs_count == 0:
+        messages.warning(request, f"No uploaded documents found under '{parent_req.requirement_item.name}'.")
+        return redirect('record_detail', record_id=record.record_id)
+
     buffer = build_category_zip_buffer(record, parent_req, _get_document_stream)
     clean_title = sanitize_zip_name(record.title, max_len=25)
     clean_parent = sanitize_zip_name(parent_req.requirement_item.name, max_len=20)
@@ -3806,6 +4580,14 @@ def download_category_zip_view(request, record_id, req_id):
 def download_barangay_zip_view(request, barangay_id):
     """Downloads all documents for an entire Barangay as a structured ZIP archive."""
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
+    doc_count = Document.objects.filter(
+        engineering_record__barangay=barangay
+    ).exclude(engineering_record__status='archived').count()
+
+    if doc_count == 0:
+        messages.warning(request, f"No uploaded documents found for Barangay {barangay.barangay_name} to download.")
+        return redirect(request.META.get('HTTP_REFERER') or 'barangays')
+
     buffer = build_barangay_zip_buffer(barangay, _get_document_stream)
     clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=25)
     filename = f"Brgy_{clean_b_name}_Archive.zip"
@@ -3922,6 +4704,8 @@ def bulk_encoding_view(request):
     context = {
         'barangays': barangays,
         'recent_encoded': recent_encoded,
+        'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
+        'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
         'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,

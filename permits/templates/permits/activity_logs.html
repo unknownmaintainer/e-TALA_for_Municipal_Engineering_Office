@@ -1,10 +1,10 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}Activity Logs | eTala{% endblock %}
+{% block title %}Activity Logs · eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item">Activity Logs</span>
+<span class="breadcrumb-item active">Activity Logs</span>
 {% endblock %}
 
 {% block content %}
@@ -12,28 +12,26 @@
 <!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
 <div class="etala-page-header d-print-none">
     <div>
-        <h1 class="etala-page-title d-flex align-items-center gap-2">
-            <i class="fa-solid fa-clock-rotate-left text-primary" style="font-size: 20px;"></i>
-            <span>
-                {% if request.user.role == 'admin' %}
-                System Security Audit Trail &amp; Logs
-                {% else %}
-                My Activity Logs
-                {% endif %}
-            </span>
+        <h1 class="etala-page-title">
+            {% if request.user.role == 'admin' %}
+            Activity Logs &amp; Audit Trail
+            {% else %}
+            My Activity Logs
+            {% endif %}
         </h1>
         <p class="etala-page-subtitle">
             {% if request.user.role == 'admin' %}
-            Immutable chronological audit log of all system authentication, record modifications, and administrative operations.
+            Immutable audit log of all authentications, record modifications, and system events.
             {% else %}
-            Personal activity trail of records encoded, modified, and actions performed within your account session.
+            Activity trail of records encoded, modified, and actions performed within your account.
             {% endif %}
         </p>
     </div>
     <div class="etala-header-actions">
-        <a href="{% url 'export_activity_logs' %}" class="etala-btn etala-btn-secondary text-decoration-none d-inline-flex align-items-center gap-1.5" title="Export activity logs to CSV spreadsheet">
-            <i class="fa-solid fa-file-csv text-success" style="font-size: 14px;"></i>
-            <span>Export Logs (CSV)</span>
+        <a href="{% url 'export_activity_logs' %}" id="exportPdfHeaderBtn" class="premium-btn btn-view text-nowrap d-flex align-items-center text-decoration-none" title="Download Official Activity Logs (PDF)" style="height: 42px; border-radius: 14px; font-size: 0.83rem;">
+            <span class="btn-icon"><i class="fa-solid fa-file-pdf text-danger"></i></span>
+            <span class="btn-divider"></span>
+            <span>Export PDF</span>
         </a>
     </div>
 </div>
@@ -56,26 +54,33 @@
                 {% endif %}
             </div>
             
-            <!-- Right: Search, Filter Dropdown & Export -->
+            <!-- Right: Integrated Search & Filter Pill -->
             <form method="GET" action="{% url 'activity_logs' %}" class="d-flex gap-2 flex-wrap align-items-center">
-                <div class="d-flex align-items-center filter-search-group px-3" style="max-width: 280px; height: 38px; border: 1px solid var(--border-default); border-radius: 24px; background: var(--card-bg); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); transition: all 0.25s ease;">
-                    <i class="fa-solid fa-magnifying-glass me-1" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
-                    <div style="width: 1px; height: 16px; background: #e2e8f0; margin-left: 8px; margin-right: 10px; flex-shrink: 0;"></div>
-                    <input type="text" name="q" class="form-control border-0 p-0 flex-grow-1" placeholder="Search action or staff..." value="{{ query|default:'' }}" style="font-size: var(--text-sm); outline:none; box-shadow:none; height:100%; background:transparent;">
+                <div class="etala-search-pill-wrapper" style="max-width: 340px; min-width: 240px;">
+                    <span class="etala-search-pill-icon">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Search action or staff..." value="{{ query|default:'' }}">
+
+                    <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                        style="width: 14px; height: 14px; border-width: 2px;">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
+
                     {% if query %}
-                    <a href="{% url 'activity_logs' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background:transparent;" title="Clear search">
-                        <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+                    <a href="{% url 'activity_logs' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" style="background:transparent;" title="Clear search">
+                        <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                     </a>
                     {% endif %}
-                </div>
 
-                <!-- Interactive Filter Popover -->
-                <div class="dropdown">
-                    <button type="button" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center gap-1.5" style="height: 38px;" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" title="Filter Activity Logs">
-                        <i class="fa-solid fa-sliders" style="font-size: 13px;"></i>
-                        <span>Filter</span>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end shadow-sm p-3" style="min-width: 250px; border-radius: 10px; border: 1px solid var(--border-default); z-index: 1060; margin-top: 6px;">
+                    <span class="etala-search-pill-divider"></span>
+
+                    <!-- Integrated Filter Dropdown -->
+                    <div class="dropdown">
+                        <button type="button" class="etala-search-pill-filter-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" title="Filter Activity Logs">
+                            <i class="fa-solid fa-sliders"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end shadow-sm p-3" style="min-width: 250px; border-radius: 10px; border: 1px solid var(--border-default); z-index: 1060; margin-top: 6px;">
                         <!-- Filter 1: Date Range -->
                         <div class="mb-3">
                             <label class="form-label text-muted fw-semibold mb-1" style="font-size: 0.76rem;">Date Range</label>
@@ -106,9 +111,6 @@
                     </div>
                 </div>
 
-                <a id="exportLogsBtn" href="#" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center gap-1.5" style="height: 38px; text-decoration: none;" title="Export logs as CSV">
-                    <i class="fa-solid fa-download" style="font-size: 13px;"></i> Export
-                </a>
                 {% if status_filter != 'all' and status_filter or date_filter != 'all' or action_type != 'all' %}
                     <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;" title="Reset all filters">
                         <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
@@ -200,7 +202,7 @@
                         {% if log_page_obj.paginator.num_pages > 5 %}
                         <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                             <span>Page:</span>
-                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ log_page_obj.paginator.num_pages }}, 'log_page')">
+                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
                             <span>/ {{ log_page_obj.paginator.num_pages }}</span>
                         </div>
                         {% endif %}
@@ -312,7 +314,13 @@
                                         <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 175px; font-size: 0.82rem; border-radius: 10px; padding: 6px; z-index: 99999; background: #ffffff;">
                                             <!-- Option 1: View Details 👀 -->
                                             <li>
-                                                <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2" onclick="showLogDetailsModal('{{ attempt.email_attempted|escapejs }}', '{{ attempt.timestamp|date:"M d, Y - h:i A" }}', '{{ attempt.ip_address|default:"127.0.0.1" }}', '{% if attempt.success %}Success{% else %}Failed{% endif %}', '{% if attempt.success %}N/A (Authenticated Successfully){% else %}Incorrect Password / Invalid Credentials{% endif %}')">
+                                                <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 rounded-2"
+                                                    data-email="{{ attempt.email_attempted|escapejs }}"
+                                                    data-time="{{ attempt.timestamp|date:'M d, Y - h:i A' }}"
+                                                    data-ip="{{ attempt.ip_address|default:'127.0.0.1' }}"
+                                                    data-status="{% if attempt.success %}Success{% else %}Failed{% endif %}"
+                                                    data-reason="{% if attempt.success %}N/A (Authenticated Successfully){% else %}Incorrect Password / Invalid Credentials{% endif %}"
+                                                    onclick="showLogDetailsModal(this.dataset.email, this.dataset.time, this.dataset.ip, this.dataset.status, this.dataset.reason)">
                                                     <i data-lucide="eye" style="width: 14px; height: 14px; color: #0284c7;"></i>
                                                     <span>View Details</span>
                                                 </button>
@@ -377,7 +385,7 @@
                         <!-- Page Jump Input -->
                         <div class="page-jump d-flex align-items-center gap-1.5 text-muted" style="font-size: var(--text-2xs);">
                             <span>Go to:</span>
-                            <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ login_page_obj.paginator.num_pages }}, 'login_page')">
+                            <input type="number" class="form-control form-control-sm text-center p-1 py-0.5" style="width: 50px; height: 26px; font-size: var(--text-2xs); border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
                             <span>/ {{ login_page_obj.paginator.num_pages }}</span>
                         </div>
 
@@ -518,6 +526,40 @@
             text-align: left !important;
         }
     }
+
+    @media print {
+        body {
+            background: #ffffff !important;
+            color: #000000 !important;
+        }
+        .etala-sidebar, .topbar, .etala-breadcrumb-capsule, .d-print-none, .etala-header-actions, .pagination, .etala-search-pill-wrapper {
+            display: none !important;
+        }
+        .content-card {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+        }
+        .content-card-body {
+            padding: 0 !important;
+        }
+        .data-table {
+            border-collapse: collapse !important;
+            width: 100% !important;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 8px 10px !important;
+            font-size: 11px !important;
+        }
+        .data-table thead {
+            display: table-header-group !important;
+        }
+        .data-table tr {
+            page-break-inside: avoid !important;
+        }
+    }
 </style>
 
 <script>
@@ -531,7 +573,7 @@
         const query = urlParams.get('q') || '';
         const dateRange = urlParams.get('date_range') || '';
         const actionType = urlParams.get('action_type') || '';
-        const exportBtn = document.getElementById('exportLogsBtn');
+        const exportBtn = document.getElementById('exportPdfHeaderBtn');
         if (exportBtn) {
             exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + activeSubTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType);
         }
@@ -692,6 +734,60 @@
         }
         bsModal.show();
     }
+
+    // Live Debounced Auto-Search for Activity Logs with Loading Spinner
+    document.addEventListener('DOMContentLoaded', function () {
+        const logSearchInput = document.querySelector('input[name="q"]');
+        const logSearchSpinner = document.getElementById('logSearchSpinner');
+        let logSearchTimer;
+
+        async function updateLogsTableAJAX(url) {
+            const tableCard = document.querySelector('.content-card') || document.querySelector('.table-responsive');
+            if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
+            if (tableCard) {
+                tableCard.style.transition = 'opacity 0.08s ease';
+                tableCard.style.opacity = '0.6';
+            }
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const text = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+
+                const newTableCard = doc.querySelector('.content-card') || doc.querySelector('.table-responsive');
+                if (tableCard && newTableCard) {
+                    tableCard.innerHTML = newTableCard.innerHTML;
+                }
+                window.history.pushState({}, '', url);
+            } catch (err) {
+                console.error("AJAX refresh error:", err);
+                if (logSearchInput && logSearchInput.form) logSearchInput.form.submit();
+            } finally {
+                if (tableCard) tableCard.style.opacity = '1';
+                if (logSearchSpinner) logSearchSpinner.classList.add('d-none');
+            }
+        }
+
+        if (logSearchInput && logSearchInput.form) {
+            if (logSearchInput.value) {
+                const len = logSearchInput.value.length;
+                logSearchInput.focus();
+                logSearchInput.setSelectionRange(len, len);
+            }
+            logSearchInput.addEventListener('input', function () {
+                clearTimeout(logSearchTimer);
+                if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
+                logSearchTimer = setTimeout(() => {
+                    const formData = new FormData(logSearchInput.form);
+                    const params = new URLSearchParams(formData);
+                    updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
+                }, 450);
+            });
+        }
+    });
 </script>
 
 <!-- ══ VIEW LOG DETAILS MODAL (PERFECTLY CENTERED, BODY-APPENDED & ELEVATED) ══════════════════════ -->

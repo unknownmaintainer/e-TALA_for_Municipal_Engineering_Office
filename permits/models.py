@@ -46,8 +46,6 @@ class CustomUser(AbstractUser):
         if not self.profile_picture:
             return ''
         try:
-            if not self.profile_picture.storage.exists(self.profile_picture.name):
-                return ''
             from django.urls import reverse
             import hashlib
             v_token = hashlib.md5(str(self.profile_picture.name).encode('utf-8')).hexdigest()[:8]
@@ -181,16 +179,22 @@ class EngineeringRecord(models.Model):
                 try:
                     pd = self.permit_detail
                     if pd and pd.permit_type:
-                        return f"{pd.get_permit_type_display()} Permit"
+                        pt = pd.get_permit_type_display() or pd.permit_type
+                        return pt if pt.lower().endswith('permit') else f"{pt} Permit"
                 except PermitDetail.DoesNotExist:
                     return "Violation Report"
-            if hasattr(self, 'permit_detail') and self.permit_detail.permit_type:
-                return f"{self.permit_detail.get_permit_type_display()} Permit"
+            if hasattr(self, 'permit_detail') and self.permit_detail and self.permit_detail.permit_type:
+                pt = self.permit_detail.get_permit_type_display() or self.permit_detail.permit_type
+                if pt:
+                    return pt if pt.lower().endswith('permit') else f"{pt} Permit"
             return "Permit"
         else: # Project
-            if hasattr(self, 'project_detail') and self.project_detail.project_type:
-                return f"{self.project_detail.get_project_type_display()} Project"
-            return f"{self.get_project_scope_display()} Project"
+            if hasattr(self, 'project_detail') and self.project_detail and self.project_detail.project_type:
+                pt = self.project_detail.get_project_type_display() or self.project_detail.project_type
+                if pt:
+                    return pt if pt.lower().endswith('project') else f"{pt} Project"
+            scope = self.get_project_scope_display() or self.project_scope
+            return f"{scope} Project" if scope else "Project"
 
     @property
     def illegal_status_info(self):

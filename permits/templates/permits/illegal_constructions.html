@@ -1,0 +1,879 @@
+{% extends 'permits/base.html' %}
+{% load static %}
+{% load humanize %}
+{% load permit_filters %}
+
+{% block title %}Illegal Constructions · eTala{% endblock %}
+
+{% block breadcrumb %}
+<span class="breadcrumb-item active">Illegal Constructions</span>
+{% endblock %}
+
+{% block content %}
+<style>
+    .etala-content {
+        max-width: 100% !important;
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+    }
+
+    .data-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+
+    .data-table th {
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+    }
+
+    .data-table td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .data-table .cell-title,
+    .data-table .cell-subtitle {
+        width: 100% !important;
+        max-width: 100% !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .data-table .tag-permit,
+    .data-table .tag-municipal,
+    .data-table .tag-project,
+    .data-table .tag-barangay,
+    .data-table .barangay-table-link {
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+</style>
+
+<!-- ══ HEADING ════════════════════════════════════════════════════════ -->
+<div class="etala-page-header">
+    <div>
+        <h1 class="etala-page-title">Illegal Constructions</h1>
+        <p class="etala-page-subtitle">Track unpermitted structures, site inspections, and regularization compliance.</p>
+    </div>
+    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+    <div class="etala-header-actions">
+        <button type="button" class="premium-btn btn-delete text-decoration-none" data-bs-toggle="modal"
+            data-bs-target="#flagIllegalModal" title="Flag Illegal Construction">
+            <span class="btn-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <span class="btn-divider"></span>
+            <span>Report Violation</span>
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<form method="GET" action="{% url 'illegal_constructions' %}" id="filterForm">
+    <input type="hidden" name="scope" value="{{ selected_scope }}">
+
+    <!-- ══ ONE-LINE ACTION & FILTER BAR ══════════════════════════════════ -->
+    <div class="records-filter-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3">
+        <!-- Left Group: Integrated Search & Filter Pill -->
+        <div class="d-flex align-items-center flex-grow-1" style="max-width: 420px; min-width: 240px;">
+            <div class="etala-search-pill-wrapper">
+                <button type="submit"
+                    class="etala-search-pill-icon search-btn-icon"
+                    style="cursor: pointer;" title="Search records">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
+                    placeholder="Search records, owner, year..." value="{{ q|default:'' }}" autocomplete="off">
+
+                <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                    style="width: 13px; height: 13px;">
+                    <span class="visually-hidden">Searching...</span>
+                </div>
+
+                {% if q %}
+                <a href="?stage={{ stage_filter }}&barangay={{ selected_barangay }}&year={{ selected_year }}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
+                    class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon"
+                    style="background: transparent;" title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                </a>
+                {% endif %}
+
+                <span class="etala-search-pill-divider"></span>
+
+                <!-- Integrated Filter Icon Button -->
+                <button class="etala-search-pill-filter-btn"
+                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Side: Scope Toggle ("My Cases" vs "All Cases") -->
+        <div class="scope-segmented-control flex-shrink-0 ms-auto">
+            <a href="?{% param_replace scope='my' page=1 %}"
+                class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}"
+                title="Show cases reported by you">
+                <i class="fa-solid fa-user"></i>
+                <span>My Cases</span>
+                <span class="scope-count-badge">{{ my_scope_count }}</span>
+            </a>
+            <a href="?{% param_replace scope='all' page=1 %}"
+                class="scope-pill-btn {% if selected_scope == 'all' or not selected_scope %}active{% endif %}"
+                title="Show all municipal violation cases">
+                <i class="fa-solid fa-layer-group"></i>
+                <span>All Cases</span>
+                <span class="scope-count-badge">{{ all_scope_count }}</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Active Filter Chips -->
+    {% if active_filters_count > 0 %}
+    <div class="active-filter-chips">
+        {% if stage_filter %}
+        <div class="filter-chip">
+            <span>Status: <strong>
+                {% if stage_filter == 'unresolved' %}Unresolved
+                {% elif stage_filter == 'pending_permit' %}Permit Filed
+                {% elif stage_filter == 'resolved' %}Regularized{% endif %}
+            </strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="stage">&times;</button>
+        </div>
+        {% endif %}
+        {% if selected_barangay %}
+        <div class="filter-chip">
+            <span>Barangay: <strong>
+                    {% for b in barangays %}
+                    {% if b.barangay_id|stringformat:"i" == selected_barangay %}{{ b.barangay_name }}{% endif %}
+                    {% endfor %}
+                </strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="barangay">&times;</button>
+        </div>
+        {% endif %}
+        {% if selected_year %}
+        <div class="filter-chip">
+            <span>Year: <strong>{{ selected_year }}</strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="year">&times;</button>
+        </div>
+        {% endif %}
+
+        <a href="{% url 'illegal_constructions' %}{% if q %}?q={{ q }}{% endif %}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
+            class="action-btn action-btn-ghost action-btn-xs ms-auto"
+            style="font-size: var(--text-2xs); padding: 2px 6px;">
+            Reset All
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Collapsible filters panel -->
+    <div class="collapse {% if selected_barangay or selected_year or stage_filter %}show{% endif %}"
+        id="advancedFiltersCollapse">
+        <div class="filter-panel-unified py-2 px-3 rounded-3 border mb-2">
+            <div class="row row-cols-md-3 row-cols-sm-2 row-cols-1 g-2 align-items-end">
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax"
+                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Barangays</option>
+                        {% for b in barangays %}
+                        <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
+                    <select name="stage" class="form-select form-select-sm filter-dropdown-ajax"
+                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Statuses</option>
+                        <option value="unresolved" {% if stage_filter == 'unresolved' %}selected{% endif %}>Unresolved</option>
+                        <option value="pending_permit" {% if stage_filter == 'pending_permit' %}selected{% endif %}>Permit Filed</option>
+                        <option value="resolved" {% if stage_filter == 'resolved' %}selected{% endif %}>Regularized</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
+                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax"
+                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="">All Years</option>
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- ══ DATA TABLE (Matching Exact Records Layout) ═════════════════════ -->
+<div class="content-card" id="recordsTableCard"
+    style="height: auto !important; min-height: 220px !important; overflow: visible !important;">
+    <div class="card-body p-0" style="overflow: visible !important;">
+        <!-- Desktop Table View -->
+        <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important;">
+            <table class="data-table" style="width: 100%; table-layout: fixed;">
+                <thead>
+                    <tr>
+                        <th style="width: 28%; min-width: 175px;">Title</th>
+                        <th style="width: 18%; min-width: 135px;">Type</th>
+                        <th style="width: 14%; min-width: 110px;">Barangay</th>
+                        <th style="width: 7%; min-width: 65px;">Year</th>
+                        <th style="width: 16%; min-width: 120px;">Status</th>
+                        <th style="width: 11%; min-width: 85px;">Uploads</th>
+                        <th class="text-end" style="width: 6%; min-width: 48px; padding-right: 14px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if page_obj %}
+                    {% for r in page_obj %}
+                    <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer; {% if r.illegal_compliance_status == 'unresolved' %}background-color: rgba(254, 226, 226, 0.3);{% elif r.illegal_compliance_status == 'pending_permit' %}background-color: rgba(254, 243, 199, 0.3);{% elif r.illegal_compliance_status == 'resolved' %}background-color: rgba(220, 252, 231, 0.3);{% endif %}">
+                        <td>
+                            <div class="cell-title"
+                                {% if r.illegal_status_info %}style="color: {{ r.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}
+                                title="{{ r.title }}">
+                                {{ r.title }}
+                            </div>
+                            <div class="cell-subtitle">
+                                {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if r.illegal_compliance_status == 'resolved' %}Applicant{% else %}Owner/Violator{% endif %}: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                {% endif %}
+                                <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if r.illegal_compliance_status == 'resolved' %}
+                            <span class="tag" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-weight: 600;">{{ r.specific_type_label }}</span>
+                            {% else %}
+                            <span class="tag" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 600;">Violation Report</span>
+                            {% endif %}
+                        </td>
+                        <td class="cell-barangay" style="white-space: nowrap;">
+                            {% if r.barangay %}
+                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}"
+                                onclick="event.stopPropagation();"
+                                class="barangay-table-link text-decoration-none d-inline-flex align-items-center gap-1.5 fw-semibold"
+                                style="font-size: 0.8rem; white-space: nowrap;">
+                                <span class="barangay-name-text" style="white-space: nowrap;">{{ r.barangay.barangay_name }}</span>
+                            </a>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="cell-muted">{{ r.year|default:"—" }}</td>
+                        <td>
+                            {% if r.illegal_status_info %}
+                            <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">
+                                {{ r.illegal_status_info.short_label }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger text-white" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">Illegal Construction</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% with stats=r.completion_stats %}
+                            {% if stats.total > 0 %}
+                                {% if stats.is_complete %}
+                                <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="All {{ stats.total }} documents uploaded">
+                                    ✓ {{ stats.fulfilled }}/{{ stats.total }}
+                                </span>
+                                {% elif stats.fulfilled > 0 %}
+                                <span class="badge" style="background: #fef3c7; color: #b45309; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded.">
+                                    {{ stats.fulfilled }}/{{ stats.total }}
+                                </span>
+                                {% else %}
+                                <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="No documents uploaded">
+                                    0/{{ stats.total }}
+                                </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px;">
+                                    {{ r.documents.count }} files
+                                </span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="text-end pe-3 action-menu-cell" style="width: 55px;"
+                            onclick="event.stopPropagation();">
+                            <div class="dropdown" onclick="event.stopPropagation();">
+                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
+                                    data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
+                                    onclick="event.stopPropagation();" title="Actions">
+                                    <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
+                                    style="min-width: 215px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;"
+                                    onclick="event.stopPropagation();">
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                            href="{% url 'record_detail' r.record_id %}">
+                                            <i class="fa-solid fa-eye text-primary" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
+                                            <span>View Details</span>
+                                        </a>
+                                    </li>
+                                    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                                    {% if r.illegal_compliance_status != 'resolved' %}
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-semibold text-success text-nowrap border-0 bg-transparent w-100 text-start"
+                                            data-bs-toggle="modal" data-bs-target="#regularizeModal"
+                                            data-record-id="{{ r.record_id }}"
+                                            data-title="{{ r.title }}"
+                                            data-applicant="{{ r.permit_detail.applicant_name|default:'' }}">
+                                            <i class="fa-solid fa-certificate text-success" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
+                                            <span>Regularize &amp; Issue Permit</span>
+                                        </button>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <button type="button" class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap border-0 bg-transparent w-100 text-start"
+                                            data-bs-toggle="modal" data-bs-target="#statusModal"
+                                            data-record-id="{{ r.record_id }}"
+                                            data-current-status="{{ r.illegal_compliance_status|default:'unresolved' }}">
+                                            <i class="fa-solid fa-sliders text-secondary" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
+                                            <span>Update Status</span>
+                                        </button>
+                                    </li>
+                                    {% if r.status != 'archived' %}
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                            href="{% url 'edit_record' r.record_id %}">
+                                            <i class="fa-solid fa-pen-to-square text-primary" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
+                                            <span>Edit Record</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <hr class="dropdown-divider my-1">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-amber text-nowrap action-dropdown-warning"
+                                            href="javascript:void(0)"
+                                            data-url="{% url 'archive_record' r.record_id %}"
+                                            data-title="{{ r.title|escapejs }}"
+                                            onclick="confirmArchiveRecord(this.dataset.url, this.dataset.title)">
+                                            <i class="fa-solid fa-box-archive text-warning" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
+                                            <span>Move to Trash</span>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="p-4">
+                            <div class="empty-state-card">
+                                <div class="empty-state-icon-wrapper">
+                                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 32px; color: #94a3b8;"></i>
+                                </div>
+                                <h3 class="h6 fw-bold mb-1">No matching incident reports found</h3>
+                                <p class="text-muted small mx-auto mb-4" style="max-width: 360px;">
+                                    We couldn't find any illegal construction incident records matching your search or filters.
+                                </p>
+                                <a href="{% url 'illegal_constructions' %}"
+                                    class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2"
+                                    style="text-decoration:none;">
+                                    <i class="fa-solid fa-rotate-left" style="font-size: 13px;"></i> Clear all filters
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile Card List View -->
+        <div class="d-block d-md-none">
+            {% if page_obj %}
+            <div class="d-flex flex-column gap-0">
+                {% for r in page_obj %}
+                <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item text-decoration-none">
+                    <div class="mobile-record-header">
+                        <div class="mobile-record-title-row">
+                            <span class="mobile-record-title" {% if r.illegal_status_info %}style="color: {{ r.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
+                                {{ r.title }}
+                            </span>
+                            <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.7rem;">
+                                {{ r.illegal_status_info.short_label }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mobile-record-meta">
+                        <span class="mobile-meta-item"><i class="fa-solid fa-location-dot"></i> {{ r.barangay.barangay_name|default:"—" }}</span>
+                        <span class="mobile-meta-item"><i class="fa-solid fa-calendar"></i> {{ r.year|default:"—" }}</span>
+                        <span class="mobile-meta-item"><i class="fa-solid fa-file"></i> {{ r.documents.count }} files</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-card p-4">
+                <p class="text-muted small mb-0">No matching incident reports found.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <span class="pagination-info m-0">
+                    {% if page_obj.paginator.count > 0 %}
+                    Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count|intcomma }}</strong> records
+                    {% else %}
+                    Showing 0–0 of 0 records
+                    {% endif %}
+                </span>
+                <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
+                    <span>Show:</span>
+                    <select class="form-select form-select-sm ps-2 pe-4 py-0.5"
+                        style="width: 65px; font-size: 0.72rem; height: 26px; border-radius: 4px;"
+                        onchange="changePerPage(this.value)">
+                        <option value="10" {% if per_page == 10 or per_page == '10' %}selected{% endif %}>10</option>
+                        <option value="20" {% if per_page == 20 or per_page == '20' %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 or per_page == '50' %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 or per_page == '100' %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 pagination-controls">
+                {% if page_obj.paginator.num_pages > 5 %}
+                <!-- Page Jump Input (Scalable for 100k+ records / 10,000+ pages) -->
+                <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                    <span>Page:</span>
+                    <input type="number" class="form-control form-control-sm text-center px-1 py-0.5"
+                        style="width: 54px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1"
+                        max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}"
+                        onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
+                    <span>/ {{ page_obj.paginator.num_pages|intcomma }}</span>
+                </div>
+                {% endif %}
+
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Scalable Pagination Navigation">
+                    <ul class="pagination pagination-sm mb-0 gap-1">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?{% param_replace page=page_obj.previous_page_number %}">‹ Prev</a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
+                        {% endif %}
+
+                        {% if page_obj.number > 3 %}
+                        <li class="page-item"><a class="page-link" href="?{% param_replace page=1 %}">1</a></li>
+                        {% if page_obj.number > 4 %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                        {% endif %}
+
+                        {% for p in page_obj.paginator.page_range %}
+                        {% if p >= page_obj.number|add:-2 and p <= page_obj.number|add:2 %}
+                            {% if page_obj.number == p %}
+                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                            {% else %}
+                            <li class="page-item"><a class="page-link" href="?{% param_replace page=p %}">{{ p }}</a></li>
+                            {% endif %}
+                        {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
+                            {% if page_obj.number < page_obj.paginator.num_pages|add:-3 %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                            <li class="page-item"><a class="page-link" href="?{% param_replace page=page_obj.paginator.num_pages %}">{{ page_obj.paginator.num_pages }}</a></li>
+                        {% endif %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?{% param_replace page=page_obj.next_page_number %}">Next ›</a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ REGULARIZE & ISSUE PERMIT MODAL ════════════════════════════════ -->
+<div class="modal fade" id="regularizeModal" tabindex="-1" aria-labelledby="regularizeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-0 bg-white">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center rounded-3" style="width: 36px; height: 36px; background: #dcfce7; color: #16a34a;">
+                        <i class="fa-solid fa-certificate" style="font-size: 15px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="regularizeModalLabel" style="font-size: 1.05rem;">Regularize &amp; Issue Permit</h5>
+                        <p class="mb-0 text-muted" style="font-size: 0.75rem;">Convert compliant incident into an official permit record</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
+            </div>
+
+            <form method="POST" id="regularizeForm" action="">
+                {% csrf_token %}
+                <div class="modal-body px-4 pt-3 pb-4">
+                    <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size: 0.78rem; border-radius: 8px;">
+                        <i class="fa-solid fa-circle-info text-primary flex-shrink-0"></i>
+                        <span>Once regularized, this record will officially appear under <strong>Master Records (Permits)</strong> with a <em>Regularized</em> compliance badge.</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Permit Type to Issue <span class="text-danger">*</span></label>
+                        <select name="permit_type" class="form-select cr-field" required>
+                            {% for pt_val, pt_lbl in permit_types %}
+                            <option value="{{ pt_val }}" {% if pt_val == 'Building Permit' %}selected{% endif %}>{{ pt_lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Official Permit Number <span class="text-danger">*</span></label>
+                            <input type="text" name="permit_number" class="form-control cr-field" placeholder="e.g. BP-2026-0042" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Building Type</label>
+                            <select name="building_type" class="form-select cr-field">
+                                {% for bt_val, bt_lbl in building_types %}
+                                <option value="{{ bt_val }}" {% if bt_val == 'Residential' %}selected{% endif %}>{{ bt_lbl }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Applicant / Property Owner Name <span class="text-danger">*</span></label>
+                        <input type="text" name="applicant_name" id="regApplicantInput" class="form-control cr-field" placeholder="e.g. Juan Dela Cruz" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top px-4 py-3 bg-light">
+                    <button type="button" class="btn btn-secondary px-3 py-2" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
+                    <button type="submit" class="btn btn-success px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2" style="border-radius: 8px; font-size: 0.82rem;">
+                        <i class="fa-solid fa-check"></i> Complete Regularization
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ══ UPDATE STATUS MODAL ════════════════════════════════════════════ -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-0 bg-white">
+                <h5 class="modal-title fw-bold mb-0" id="statusModalLabel" style="font-size: 1.05rem;">Update Compliance Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
+            </div>
+
+            <form method="POST" id="statusForm" action="">
+                {% csrf_token %}
+                <div class="modal-body px-4 pt-3 pb-3">
+                    <div class="d-flex flex-column gap-2">
+                        <label class="d-flex align-items-center gap-2 p-2.5 rounded border cursor-pointer">
+                            <input type="radio" name="illegal_compliance_status" value="unresolved" id="st_unresolved">
+                            <div>
+                                <div class="fw-bold text-danger" style="font-size: 0.84rem;">🔴 Unresolved (Stop Order)</div>
+                                <div class="text-muted small" style="font-size: 0.72rem;">Stop order issued, waiting for response</div>
+                            </div>
+                        </label>
+                        <label class="d-flex align-items-center gap-2 p-2.5 rounded border cursor-pointer">
+                            <input type="radio" name="illegal_compliance_status" value="pending_permit" id="st_pending">
+                            <div>
+                                <div class="fw-bold text-warning" style="font-size: 0.84rem;">🟡 Permit Filed (In Review)</div>
+                                <div class="text-muted small" style="font-size: 0.72rem;">Owner filed building permit / compliance documents</div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="alert alert-light border-0 py-2 px-3 mt-2 mb-0 d-flex align-items-center gap-2" style="font-size: 0.72rem; border-radius: 8px; background: #f0fdf4;">
+                        <i class="fa-solid fa-circle-info text-success flex-shrink-0" style="font-size: 11px;"></i>
+                        <span>To mark as <strong>🟢 Regularized</strong>, use the <strong>"Regularize &amp; Issue Permit"</strong> button to properly assign a permit type, number, and applicant.</span>
+                    </div>
+                </div>
+                <div class="modal-footer border-top px-4 py-3 bg-light">
+                    <button type="button" class="btn btn-secondary px-3 py-2" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
+                    <button type="submit" class="btn btn-primary-custom px-4 py-2 fw-semibold" style="border-radius: 8px; font-size: 0.82rem;">Save Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% include 'permits/includes/flag_illegal_modal.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.getElementById('filterForm');
+    const searchInput = document.getElementById('liveSearchInput') || document.querySelector('input[name="q"]');
+    const searchSpinner = document.getElementById('searchSpinner');
+
+    // 1. Delegated Row Click Navigation
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('tr[data-href]');
+        if (row && !e.target.closest('.action-menu-cell') && !e.target.closest('.barangay-table-link') && !e.target.closest('.dropdown') && !e.target.closest('button') && !e.target.closest('a')) {
+            window.location.href = row.dataset.href;
+        }
+    });
+
+    // 2. Setup Regularize Modal Dynamic Action
+    const regularizeModal = document.getElementById('regularizeModal');
+    if (regularizeModal) {
+        regularizeModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            if (button) {
+                const recordId = button.getAttribute('data-record-id');
+                const applicant = button.getAttribute('data-applicant') || '';
+                const form = document.getElementById('regularizeForm');
+                if (form) form.action = `/records/${recordId}/regularize/`;
+                const appInput = document.getElementById('regApplicantInput');
+                if (appInput) appInput.value = applicant;
+            }
+        });
+    }
+
+    // 3. Setup Status Modal Dynamic Action
+    const statusModal = document.getElementById('statusModal');
+    if (statusModal) {
+        statusModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            if (button) {
+                const recordId = button.getAttribute('data-record-id');
+                const currentStatus = button.getAttribute('data-current-status');
+                const form = document.getElementById('statusForm');
+                if (form) form.action = `/records/${recordId}/illegal-status/`;
+                if (currentStatus === 'pending_permit') {
+                    const stPending = document.getElementById('st_pending');
+                    if (stPending) stPending.checked = true;
+                } else {
+                    const stUnresolved = document.getElementById('st_unresolved');
+                    if (stUnresolved) stUnresolved.checked = true;
+                }
+            }
+        });
+    }
+
+    // 4. Seamless Live AJAX Table Refresh with Micro-Fade Transition
+    async function updateIllegalTableAJAX(url) {
+        const tableCard = document.getElementById('recordsTableCard') || document.querySelector('.content-card');
+        if (searchSpinner) searchSpinner.classList.remove('d-none');
+        if (tableCard) {
+            tableCard.style.transition = 'opacity 0.08s ease';
+            tableCard.style.opacity = '0.6';
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            const newTableCard = doc.getElementById('recordsTableCard') || doc.querySelector('.content-card');
+            const newScopeControl = doc.querySelector('.scope-segmented-control');
+            const currentScopeControl = document.querySelector('.scope-segmented-control');
+            const newChipsContainer = doc.querySelector('.active-filter-chips');
+            const currentChipsContainer = document.querySelector('.active-filter-chips');
+
+            if (newScopeControl && currentScopeControl) {
+                currentScopeControl.innerHTML = newScopeControl.innerHTML;
+            }
+
+            if (tableCard && newTableCard) {
+                tableCard.innerHTML = newTableCard.innerHTML;
+            }
+
+            // Update filter chips
+            if (currentChipsContainer) {
+                if (newChipsContainer) {
+                    currentChipsContainer.innerHTML = newChipsContainer.innerHTML;
+                } else {
+                    currentChipsContainer.remove();
+                }
+            } else if (newChipsContainer) {
+                const filtersCollapse = document.getElementById('advancedFiltersCollapse');
+                if (filtersCollapse) {
+                    filtersCollapse.insertAdjacentElement('beforebegin', newChipsContainer);
+                }
+            }
+
+            // Synchronize hidden form fields from URL params
+            try {
+                const parsedUrl = new URL(url, window.location.origin);
+                if (filterForm) {
+                    ['stage', 'scope', 'barangay', 'year'].forEach(field => {
+                        const val = parsedUrl.searchParams.get(field) || '';
+                        const inp = filterForm.querySelector(`[name="${field}"]`);
+                        if (inp) inp.value = val;
+                    });
+                }
+            } catch (e) { }
+
+            // Rebind chip dismiss handlers
+            bindChipDismissHandlers();
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+            // Update browser history silently
+            window.history.pushState({}, '', url);
+
+        } catch (err) {
+            console.error("AJAX refresh error:", err);
+            if (filterForm) filterForm.submit();
+        } finally {
+            if (tableCard) tableCard.style.opacity = '1';
+            if (searchSpinner) searchSpinner.classList.add('d-none');
+        }
+    }
+
+    // 5. Intercept Click Events (Scope Buttons, Pagination, Clear Search, Reset All)
+    document.addEventListener('click', function (e) {
+        // Scope Pill Buttons (My Cases vs All Cases)
+        const scopeLink = e.target.closest('.scope-segmented-control .scope-pill-btn');
+        if (scopeLink) {
+            e.preventDefault();
+            const url = scopeLink.getAttribute('href');
+            if (url && url !== '#') {
+                updateIllegalTableAJAX(url);
+            }
+            return;
+        }
+
+        // Pagination Links
+        const pageLink = e.target.closest('.pagination-bar a.page-link');
+        if (pageLink && !pageLink.closest('.disabled')) {
+            e.preventDefault();
+            const url = pageLink.getAttribute('href');
+            if (url && url !== '#') {
+                updateIllegalTableAJAX(url);
+            }
+            return;
+        }
+
+        // Reset All link in active filter chips
+        const resetAllLink = e.target.closest('.active-filter-chips a');
+        if (resetAllLink) {
+            e.preventDefault();
+            const url = resetAllLink.getAttribute('href');
+            if (url && url !== '#') {
+                if (filterForm) {
+                    filterForm.querySelectorAll('select').forEach(sel => sel.value = '');
+                }
+                updateIllegalTableAJAX(url);
+            }
+            return;
+        }
+
+        // Clear Search button
+        const clearSearchLink = e.target.closest('.clear-search-icon');
+        if (clearSearchLink) {
+            e.preventDefault();
+            const url = clearSearchLink.getAttribute('href');
+            if (searchInput) searchInput.value = '';
+            if (url && url !== '#') {
+                updateIllegalTableAJAX(url);
+            }
+            return;
+        }
+    });
+
+    // 6. Intercept form submit
+    if (filterForm) {
+        filterForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(filterForm);
+            const params = new URLSearchParams(formData);
+            updateIllegalTableAJAX(window.location.pathname + '?' + params.toString());
+        });
+    }
+
+    // 7. Auto-submit dropdown filters via AJAX (Event Delegation)
+    document.addEventListener('change', function (e) {
+        const selectElem = e.target.closest('#filterForm select');
+        if (selectElem && filterForm) {
+            const formData = new FormData(filterForm);
+            const params = new URLSearchParams(formData);
+            updateIllegalTableAJAX(window.location.pathname + '?' + params.toString());
+        }
+    });
+
+    // 8. Handle active filter chip dismissal via AJAX
+    function bindChipDismissHandlers() {
+        document.querySelectorAll('.clear-chip-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const chip = this.closest('.filter-chip');
+                if (chip) chip.style.display = 'none';
+
+                const filterName = this.getAttribute('data-filter-name');
+                if (filterForm) {
+                    const targetElem = filterForm.querySelector(`[name="${filterName}"]`);
+                    if (targetElem) {
+                        targetElem.value = '';
+                        const formData = new FormData(filterForm);
+                        const params = new URLSearchParams(formData);
+                        updateIllegalTableAJAX(window.location.pathname + '?' + params.toString());
+                    }
+                }
+            });
+        });
+    }
+    bindChipDismissHandlers();
+
+    // 9. Live Debounced Auto-Search Input (450ms debounce)
+    let searchTimer;
+    if (searchInput) {
+        if (searchInput.value) {
+            const len = searchInput.value.length;
+            searchInput.focus();
+            searchInput.setSelectionRange(len, len);
+        }
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            if (searchSpinner) searchSpinner.classList.remove('d-none');
+            searchTimer = setTimeout(() => {
+                if (filterForm) {
+                    const formData = new FormData(filterForm);
+                    const params = new URLSearchParams(formData);
+                    updateIllegalTableAJAX(window.location.pathname + '?' + params.toString());
+                }
+            }, 450);
+        });
+    }
+});
+
+function confirmArchiveRecord(url, title) {
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Move to Trash',
+            message: "Are you sure you want to move '" + title + "' to Trash? It can be restored later at any time.",
+            confirmText: 'Yes, Move to Trash',
+            cancelText: 'No, Keep It.',
+            confirmClass: 'action-btn-warning',
+            iconClass: 'fa-solid fa-box-archive',
+            onConfirm: function () {
+                window.location.href = url;
+            }
+        });
+    } else {
+        if (confirm("Are you sure you want to move '" + title + "' to Trash?")) {
+            window.location.href = url;
+        }
+    }
+}
+</script>
+{% endblock %}

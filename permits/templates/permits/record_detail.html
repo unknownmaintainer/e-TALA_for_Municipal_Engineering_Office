@@ -3,11 +3,413 @@
 {% load permit_filters %}
 {% load humanize %}
 
-{% block title %}{{ record.title }} — Record Detail | eTala{% endblock %}
+{% block title %}{{ record.title }} · eTala{% endblock %}
 
 {% block breadcrumb %}
-<a href="{% url 'records_browse' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Records</a>
-<span class="breadcrumb-item active text-truncate" style="max-width: 320px;">{{ record.title }}</span>
+{% if record.is_illegal_construction %}
+<a href="{% url 'illegal_constructions' %}" class="breadcrumb-item">Illegal Constructions</a>
+{% else %}
+<a href="{% url 'records_browse' %}" class="breadcrumb-item">Records</a>
+{% endif %}
+<span class="breadcrumb-chevron">›</span>
+<span class="breadcrumb-item active d-inline-block text-truncate align-middle" style="max-width: 240px;">{{ record.title }}</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Checklist Items & Badges Color System ── */
+.checklist-icon-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.checklist-icon-default {
+    background-color: #eff6ff !important;
+    color: #2563eb !important;
+    border: 1px solid #dbeafe !important;
+}
+.dark-mode .checklist-icon-default {
+    background-color: rgba(37, 99, 235, 0.18) !important;
+    color: #60a5fa !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.checklist-icon-fulfilled {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+}
+.dark-mode .checklist-icon-fulfilled {
+    background-color: rgba(34, 197, 94, 0.18) !important;
+    color: #4ade80 !important;
+    border-color: rgba(34, 197, 94, 0.3) !important;
+}
+
+.checklist-icon-waived {
+    background-color: #f1f5f9 !important;
+    color: #64748b !important;
+    border: 1px solid #e2e8f0 !important;
+}
+.dark-mode .checklist-icon-waived {
+    background-color: rgba(100, 116, 139, 0.2) !important;
+    color: #94a3b8 !important;
+    border-color: rgba(100, 116, 139, 0.35) !important;
+}
+
+.checklist-folder-default {
+    background-color: #f8fafc !important;
+    color: #64748b !important;
+    border: 1px solid #e2e8f0 !important;
+}
+.dark-mode .checklist-folder-default {
+    background-color: rgba(51, 65, 85, 0.5) !important;
+    color: #cbd5e1 !important;
+    border-color: #334155 !important;
+}
+
+.checklist-badge-complete {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+}
+.dark-mode .checklist-badge-complete {
+    background-color: rgba(34, 197, 94, 0.2) !important;
+    color: #4ade80 !important;
+    border-color: rgba(34, 197, 94, 0.35) !important;
+}
+
+.checklist-badge-partial {
+    background-color: #eff6ff !important;
+    color: #2563eb !important;
+    border: 1px solid #dbeafe !important;
+}
+.dark-mode .checklist-badge-partial {
+    background-color: rgba(37, 99, 235, 0.2) !important;
+    color: #60a5fa !important;
+    border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+.checklist-badge-empty {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid #e2e8f0 !important;
+}
+.dark-mode .checklist-badge-empty {
+    background-color: rgba(51, 65, 85, 0.6) !important;
+    color: #cbd5e1 !important;
+    border-color: #334155 !important;
+}
+
+/* ── Batch Upload Modal & File Card System ── */
+#batchUploadModal .modal-dialog {
+    max-width: 680px !important;
+}
+#batchUploadModal .modal-content {
+    border-radius: 20px !important;
+    border: none;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+.batch-file-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all 0.2s ease;
+}
+.batch-file-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+.batch-file-icon {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+.batch-file-icon.icon-pdf { background: #fee2e2; color: #dc2626; }
+.batch-file-icon.icon-word { background: #dbeafe; color: #2563eb; }
+.batch-file-icon.icon-image { background: #dcfce7; color: #16a34a; }
+.batch-file-icon.icon-default { background: #f1f5f9; color: #64748b; }
+
+.batch-btn-remove {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 8px;
+    border: 1px solid #fecaca;
+    background: #fff5f5;
+    color: #ef4444;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+.batch-btn-remove:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+    transform: scale(1.05);
+}
+
+.batch-files-scroll-container {
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.batch-files-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+.batch-files-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.batch-files-scroll-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+/* ── Dark Mode Modal & Batch Upload Enhancements ── */
+.dark-mode #batchUploadModal .modal-content {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+    color: #f8fafc !important;
+}
+.dark-mode #batchUploadModal .modal-header {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+.dark-mode #batchUploadModal .modal-header .modal-title,
+.dark-mode #batchUploadModal .modal-header .text-dark {
+    color: #f8fafc !important;
+}
+.dark-mode #batchUploadModal .modal-footer {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+.dark-mode .batch-file-card {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+.dark-mode .batch-file-card:hover {
+    border-color: #475569 !important;
+}
+.dark-mode .batch-file-card .text-dark {
+    color: #f8fafc !important;
+}
+.dark-mode .batch-file-card .text-muted {
+    color: #94a3b8 !important;
+}
+.dark-mode .batch-file-icon.icon-pdf { background: rgba(220, 38, 38, 0.18); color: #f87171; }
+.dark-mode .batch-file-icon.icon-word { background: rgba(37, 99, 235, 0.18); color: #60a5fa; }
+.dark-mode .batch-file-icon.icon-image { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+.dark-mode .batch-file-icon.icon-default { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+.dark-mode .batch-btn-remove {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+.dark-mode .batch-btn-remove:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+}
+.dark-mode .batch-slot-select {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+.dark-mode .batch-slot-select:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+}
+.dark-mode .batch-files-scroll-container::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+/* ── Dark Mode Confirmation Modals ── */
+.dark-mode #deleteDocModal .custom-confirm-card {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+    color: #f8fafc !important;
+}
+.dark-mode #deleteDocModal .modal-confirm-title {
+    color: #f8fafc !important;
+}
+.dark-mode #deleteDocModal .modal-confirm-desc {
+    color: #94a3b8 !important;
+}
+.dark-mode #deleteDocModal .confirm-cancel-btn {
+    background: #334155 !important;
+    color: #cbd5e1 !important;
+}
+.dark-mode #deleteDocModal .confirm-cancel-btn:hover {
+    background: #475569 !important;
+    color: #ffffff !important;
+}
+
+/* ── Dark Mode: Regularize Modal ── */
+.dark-mode #regularizeDetailModal .modal-content {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+}
+.dark-mode #regularizeDetailModal .modal-header {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+.dark-mode #regularizeDetailModal .modal-header h5,
+.dark-mode #regularizeDetailModal .modal-title {
+    color: #f1f5f9 !important;
+}
+.dark-mode #regularizeDetailModal .modal-header p {
+    color: #94a3b8 !important;
+}
+.dark-mode #regularizeDetailModal .modal-body {
+    color: #e2e8f0 !important;
+}
+.dark-mode #regularizeDetailModal .modal-body .form-label {
+    color: #cbd5e1 !important;
+}
+.dark-mode #regularizeDetailModal .modal-body .form-control,
+.dark-mode #regularizeDetailModal .modal-body .form-select {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+.dark-mode #regularizeDetailModal .modal-body .form-control::placeholder {
+    color: #64748b !important;
+}
+.dark-mode #regularizeDetailModal .modal-body .form-control:focus,
+.dark-mode #regularizeDetailModal .modal-body .form-select:focus {
+    border-color: #22c55e !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15) !important;
+}
+.dark-mode #regularizeDetailModal .modal-footer {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+/* ── Dark Mode: Compliance Stepper ── */
+.dark-mode .compliance-stepper .step-desc {
+    color: #94a3b8 !important;
+}
+.dark-mode .compliance-step.pending .step-dot {
+    background: #1e293b !important;
+    color: #64748b !important;
+    border-color: #475569 !important;
+}
+.dark-mode .compliance-step:not(:last-child)::after {
+    background: #334155 !important;
+}
+.dark-mode .compliance-step.completed:not(:last-child)::after {
+    background: #16a34a !important;
+}
+
+/* ── Dark Mode: Evidence Card ── */
+.dark-mode .checklist-sub-item.bg-white {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+/* ── Dark Mode: Folder Icon Contrast Boost ── */
+.dark-mode .checklist-folder-default {
+    background-color: rgba(100, 116, 139, 0.25) !important;
+    color: #e2e8f0 !important;
+    border-color: #475569 !important;
+}
+.dark-mode .checklist-icon-default {
+    background-color: rgba(59, 130, 246, 0.2) !important;
+    color: #93c5fd !important;
+    border-color: rgba(59, 130, 246, 0.35) !important;
+}
+.dark-mode .checklist-icon-fulfilled {
+    background-color: rgba(34, 197, 94, 0.2) !important;
+    color: #86efac !important;
+    border-color: rgba(34, 197, 94, 0.35) !important;
+}
+
+/* ── Dark Mode: Stepper Body & Tracker Card ── */
+.dark-mode .compliance-stepper-body {
+    background: var(--card-bg, #1e293b) !important;
+}
+.dark-mode .compliance-step .step-label {
+    color: #e2e8f0;
+}
+
+/* ── Dark Mode: Illegal Construction Empty State ── */
+.dark-mode .content-card-body .text-center .fw-bold.text-dark {
+    color: #f1f5f9 !important;
+}
+
+/* ── Dark Mode: Single Upload Modal ── */
+.dark-mode #uploadModal .modal-content {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+    color: #f8fafc !important;
+}
+.dark-mode #uploadModal .modal-header {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+.dark-mode #uploadModal .modal-header .modal-title,
+.dark-mode #uploadModal .modal-header .text-dark,
+.dark-mode #uploadModal .fw-bold.text-dark {
+    color: #f8fafc !important;
+}
+.dark-mode #uploadModal .modal-footer {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+.dark-mode #uploadModal #dropZone {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+.dark-mode #uploadModal #dropZone:hover {
+    border-color: #3b82f6 !important;
+    background-color: rgba(59, 130, 246, 0.08) !important;
+}
+.dark-mode #uploadModal .selected-file-preview-card {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+.dark-mode #uploadModal #singleSelectedFileName {
+    color: #f8fafc !important;
+}
+.dark-mode #uploadModal #singleValidityBox {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+.dark-mode #uploadModal #singleValidityBox .form-control {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+.dark-mode #uploadModal #singleNoValidityBox {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #94a3b8 !important;
+}
+.dark-mode #uploadModal #selectedFileInfo {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+/* ── Dark Mode: Checklist Group Card ── */
+.dark-mode .checklist-group-card {
+    border-color: #334155 !important;
+}
+.dark-mode .checklist-group-header {
+    background: transparent;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -36,140 +438,461 @@
             </span>
             {% endif %}
 
-            <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
+            <span class="badge d-inline-flex align-items-center px-2.5 py-1 rounded-pill"
                 style="background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.75rem; font-weight: 600;">
-                <span class="d-inline-block rounded-circle" style="width: 6px; height: 6px; background-color: {% if record.status == 'approved' or record.status == 'completed' %}#16a34a{% elif record.status == 'archived' %}#94a3b8{% else %}#2563eb{% endif %};"></span>
                 {{ record.get_status_display }}
             </span>
         </div>
 
-        <h1 class="etala-page-title mb-1.5 text-truncate" style="font-size: 1.55rem; font-weight: 800; letter-spacing: -0.02em; color: var(--gray-900);">
+        <h1 class="etala-page-title mb-1.5" style="font-size: 1.30rem; font-weight: 750; letter-spacing: -0.015em; color: var(--gray-900); word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
             {% if record.is_illegal_construction %}
             {{ record.title }}
             {% elif record.record_type == 'Permit' %}
-            {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} <span class="text-muted fw-normal fs-5">(#{{ record.permit_detail.permit_number }})</span>{% endif %}
+            {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} <span class="text-muted fw-normal" style="font-size: 1.05rem;">(#{{ record.permit_detail.permit_number }})</span>{% endif %}
             {% else %}
             {{ record.title }}
             {% endif %}
         </h1>
 
-        <p class="etala-page-subtitle mb-0 text-muted text-truncate" style="font-size: 0.84rem;">
-            <i class="fa-solid fa-user-pen me-1 text-secondary"></i> Encoded by <strong>{{ record.created_by.full_name|default:record.created_by.username }}</strong>
-            &bull; <i class="fa-regular fa-calendar me-1 text-secondary"></i> {{ record.created_at|date:"M d, Y" }}
+        <p class="etala-page-subtitle mb-0 text-muted d-flex align-items-center flex-wrap gap-2" style="font-size: 0.80rem; line-height: 1.4;">
+            <span><i class="fa-solid fa-user-pen me-1 text-secondary"></i> Encoded by <strong>{{ record.created_by.full_name|default:record.created_by.username }}</strong></span>
+            <span class="text-muted">&bull;</span>
+            <span><i class="fa-regular fa-calendar me-1 text-secondary"></i> {{ record.created_at|date:"M d, Y" }}</span>
             {% if record.barangay %}
-            &bull; <i class="fa-solid fa-location-dot me-1 text-danger"></i> <strong>{{ record.barangay.barangay_name }}</strong>
+            <span class="text-muted">&bull;</span>
+            <span class="text-dark fw-semibold"><i class="fa-solid fa-location-dot me-1 text-danger"></i> {{ record.barangay.barangay_name }}</span>
             {% endif %}
         </p>
     </div>
 
-    <!-- Header Actions -->
+    <!-- Header Actions (Premium Button Upgrade) -->
     <div class="etala-header-actions">
         {% if can_edit and record.status != 'archived' %}
         <a href="{% url 'edit_record' record.record_id %}"
-            class="etala-btn etala-btn-primary text-nowrap text-decoration-none d-inline-flex align-items-center gap-2 shadow-2xs"
-            style="font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; font-weight: 600;"
+            class="premium-btn btn-edit text-nowrap"
             title="Edit Record Details">
-            <i class="fa-solid fa-pen-to-square"></i>
+            <span class="btn-icon"><i class="fa-solid fa-pen-to-square"></i></span>
+            <span class="btn-divider"></span>
             <span>Edit Record</span>
         </a>
         {% endif %}
 
         <a href="{% url 'download_record_zip' record.record_id %}"
-            class="etala-btn etala-btn-secondary text-nowrap text-decoration-none d-inline-flex align-items-center gap-2 shadow-2xs"
-            style="font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; font-weight: 600;"
-            title="Download all uploaded documents as a ZIP archive">
-            <i class="fa-solid fa-file-zipper text-primary"></i>
-            <span>Download ZIP</span>
+            class="premium-btn-icon btn-export"
+            download
+            title="Download all uploaded documents as ZIP archive">
+            <i class="fa-solid fa-file-zipper"></i>
         </a>
 
         {% if can_archive and record.status != 'archived' %}
         <button type="button"
-            class="etala-btn etala-btn-secondary text-danger border-danger-subtle text-nowrap d-inline-flex align-items-center gap-2 shadow-2xs"
-            style="font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; font-weight: 600;"
+            class="premium-btn-icon btn-delete"
             onclick="confirmArchiveDetail()" title="Move this record to Trash">
             <i class="fa-solid fa-trash-can"></i>
-            <span>Move to Trash</span>
         </button>
         {% endif %}
     </div>
 </div>
 
-<!-- ══ 2. ILLEGAL CONSTRUCTION BANNER (Conditional) ═════════════════════════ -->
+<!-- ══ 2. ILLEGAL CONSTRUCTION COMPLIANCE TRACKER (Visual Stepper) ════════════ -->
 {% if record.is_illegal_construction %}
-<div class="alert p-3.5 mb-4 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-3 shadow-2xs"
-    style="{{ record.illegal_status_info.bg_style }}; border-radius: 12px;">
-    <div class="d-flex align-items-center gap-3">
-        {% if record.discovery_photo %}
-        <div class="position-relative rounded-3 overflow-hidden border shadow-sm flex-shrink-0"
-            style="width: 48px; height: 48px; background: rgba(0,0,0,0.04);">
-            <a href="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}" target="_blank"
-                class="d-block w-100 h-100" title="View Site Photo Evidence">
-                <img src="{% url 'serve_document' record.discovery_photo.document_id|stringformat:'s' %}"
-                    alt="Discovery Photo" style="width: 100%; height: 100%; object-fit: cover;">
-            </a>
+<div class="mb-4 content-card illegal-banner-card overflow-hidden" style="border-radius: 14px !important; padding: 0 !important;">
+
+    <!-- Stepper Header -->
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 illegal-banner-header status-{{ record.illegal_compliance_status|default:'unresolved' }}"
+        style="padding: 18px 24px !important; min-height: 72px;">
+        <div class="d-flex align-items-center gap-3">
+            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
+                style="{% if record.illegal_compliance_status == 'resolved' %}background: rgba(22, 163, 74, 0.15); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.3);{% elif record.illegal_compliance_status == 'pending_permit' %}background: rgba(217, 119, 6, 0.15); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.3);{% else %}background: rgba(220, 38, 38, 0.15); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3);{% endif %} width: 42px; height: 42px; font-size: 18px;">
+                {% if record.illegal_compliance_status == 'resolved' %}
+                <i class="fa-solid fa-certificate"></i>
+                {% elif record.illegal_compliance_status == 'pending_permit' %}
+                <i class="fa-solid fa-file-pen"></i>
+                {% else %}
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                {% endif %}
+            </div>
+            <div>
+                <h6 class="fw-bold mb-0 status-header-title" style="font-size: 0.95rem; letter-spacing: -0.01em;">{{ record.illegal_status_info.label }}</h6>
+                <div class="status-header-sub" style="font-size: 0.78rem; margin-top: 2px;">
+                    Flagged as unpermitted construction{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.
+                </div>
+            </div>
         </div>
-        {% else %}
-        <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-            style="background: rgba(220, 38, 38, 0.12); width: 44px; height: 44px; color: #dc2626;">
-            <i class="fa-solid fa-shield-halved" style="font-size: 20px;"></i>
+
+        {% if can_edit %}
+        <div class="d-flex align-items-center gap-2.5 flex-shrink-0 ms-auto flex-nowrap">
+            {% if record.illegal_compliance_status != 'resolved' %}
+            <button type="button" class="btn btn-sm fw-semibold d-inline-flex align-items-center gap-1.5 btn-success text-white shadow-2xs text-nowrap"
+                data-bs-toggle="modal" data-bs-target="#regularizeDetailModal"
+                style="border-radius: 8px; font-size: 0.82rem; padding: 7px 15px; white-space: nowrap;">
+                <i class="fa-solid fa-certificate"></i>
+                <span>Regularize &amp; Issue Permit</span>
+            </button>
+            {% endif %}
+
+            <div class="dropdown">
+                <button
+                    class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-2 illegal-status-dropdown-btn shadow-2xs text-nowrap"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="border-radius: 8px; font-size: 0.82rem; padding: 7px 15px; white-space: nowrap;">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Update Status</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm border p-1" style="border-radius: 10px; font-size: 0.82rem; min-width: 190px;">
+                    <form method="POST" action="{% url 'update_illegal_status' record.record_id %}">
+                        {% csrf_token %}
+                        <li>
+                            <button type="submit" name="illegal_compliance_status" value="unresolved"
+                                class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'unresolved' %}fw-bold bg-light{% endif %}">
+                                <i class="fa-solid fa-circle text-danger" style="font-size: 10px;"></i>
+                                <span>Unresolved</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button type="submit" name="illegal_compliance_status" value="pending_permit"
+                                class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'pending_permit' %}fw-bold bg-light{% endif %}">
+                                <i class="fa-solid fa-circle text-warning" style="font-size: 10px;"></i>
+                                <span>Permit Filed</span>
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <button type="submit" name="illegal_compliance_status" value="remove"
+                                class="dropdown-item py-1.5 px-2.5 rounded text-danger fw-semibold d-flex align-items-center gap-2">
+                                <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
+                                <span>Remove Flag</span>
+                            </button>
+                        </li>
+                    </form>
+                </ul>
+            </div>
         </div>
         {% endif %}
-        <div>
-            <div class="d-flex align-items-center gap-2">
-                <h6 class="fw-bold mb-0" style="font-size: 0.95rem;">{{ record.illegal_status_info.label }}</h6>
-            </div>
-            <small style="opacity: 0.88; font-size: 0.8rem;">
-                Flagged as unpermitted construction{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.
-            </small>
-        </div>
     </div>
 
-    {% if can_edit %}
-    <div class="dropdown">
-        <button
-            class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-2 bg-white text-dark border shadow-2xs"
-            type="button" data-bs-toggle="dropdown" aria-expanded="false"
-            style="border-radius: 8px; font-size: 0.82rem; padding: 0.45rem 0.9rem;">
-            <i class="fa-solid fa-sliders text-secondary"></i>
-            <span>Update Compliance Status</span>
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow-sm border p-1" style="border-radius: 10px; font-size: 0.82rem; min-width: 190px;">
-            <form method="POST" action="{% url 'update_illegal_status' record.record_id %}">
-                {% csrf_token %}
-                <li>
-                    <button type="submit" name="illegal_compliance_status" value="unresolved"
-                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'unresolved' %}fw-bold bg-light{% endif %}">
-                        <i class="fa-solid fa-circle text-danger" style="font-size: 10px;"></i>
-                        <span>Unresolved</span>
-                    </button>
-                </li>
-                <li>
-                    <button type="submit" name="illegal_compliance_status" value="pending_permit"
-                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'pending_permit' %}fw-bold bg-light{% endif %}">
-                        <i class="fa-solid fa-circle text-warning" style="font-size: 10px;"></i>
-                        <span>Permit Filed</span>
-                    </button>
-                </li>
-                <li>
-                    <button type="submit" name="illegal_compliance_status" value="resolved"
-                        class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'resolved' %}fw-bold bg-light{% endif %}">
-                        <i class="fa-solid fa-circle text-success" style="font-size: 10px;"></i>
-                        <span>Regularized</span>
-                    </button>
-                </li>
-                <li><hr class="dropdown-divider my-1"></li>
-                <li>
-                    <button type="submit" name="illegal_compliance_status" value="remove"
-                        class="dropdown-item py-1.5 px-2.5 rounded text-danger fw-semibold d-flex align-items-center gap-2">
-                        <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
-                        <span>Remove Flag</span>
-                    </button>
-                </li>
-            </form>
-        </ul>
+    <!-- ── Visual 3-Step Progress Tracker ──────────────────────────────── -->
+    <div class="compliance-stepper-body" style="padding: 22px 28px 20px 28px !important;">
+        <style>
+            .illegal-banner-header.status-unresolved {
+                background: #fef2f2;
+                color: #991b1b;
+                border-bottom: 1px solid #fee2e2;
+            }
+            .illegal-banner-header.status-unresolved .status-header-sub {
+                color: #b91c1c;
+                opacity: 0.85;
+            }
+            .illegal-banner-header.status-pending_permit {
+                background: #fffbeb;
+                color: #92400e;
+                border-bottom: 1px solid #fef3c7;
+            }
+            .illegal-banner-header.status-pending_permit .status-header-sub {
+                color: #b45309;
+                opacity: 0.85;
+            }
+            .illegal-banner-header.status-resolved {
+                background: #f0fdf4;
+                color: #166534;
+                border-bottom: 1px solid #dcfce7;
+            }
+            .illegal-banner-header.status-resolved .status-header-sub {
+                color: #15803d;
+                opacity: 0.85;
+            }
+
+            .illegal-status-dropdown-btn {
+                background: #ffffff;
+                color: #1e293b;
+                border: 1px solid #cbd5e1;
+            }
+            .illegal-status-dropdown-btn:hover {
+                background: #f8fafc;
+                color: #0f172a;
+                border-color: #94a3b8;
+            }
+
+            .compliance-stepper {
+                display: flex;
+                align-items: flex-start;
+                gap: 0;
+                position: relative;
+                padding: 4px 0;
+            }
+            .compliance-step {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                position: relative;
+                z-index: 1;
+            }
+            .compliance-step .step-dot {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: 700;
+                position: relative;
+                z-index: 2;
+                transition: all 0.3s ease;
+                flex-shrink: 0;
+            }
+            .compliance-step .step-label {
+                font-size: 0.78rem;
+                font-weight: 700;
+                margin-top: 8px;
+                line-height: 1.25;
+            }
+            .compliance-step .step-desc {
+                font-size: 0.70rem;
+                color: #64748b;
+                margin-top: 3px;
+                line-height: 1.25;
+            }
+            .compliance-step:not(:last-child)::after {
+                content: '';
+                position: absolute;
+                top: 17px;
+                left: calc(50% + 20px);
+                width: calc(100% - 40px);
+                height: 3px;
+                background: #e2e8f0;
+                z-index: 0;
+            }
+            .compliance-step.completed:not(:last-child)::after {
+                background: #16a34a;
+            }
+            .compliance-step.active:not(:last-child)::after {
+                background: #e2e8f0;
+            }
+            .compliance-step.completed .step-dot {
+                background: #dcfce7;
+                color: #16a34a;
+                border: 2px solid #16a34a;
+            }
+            .compliance-step.active .step-dot {
+                border: 2px solid currentColor;
+                box-shadow: 0 0 0 4px rgba(var(--step-glow), 0.15);
+            }
+            .compliance-step.pending .step-dot {
+                background: #f1f5f9;
+                color: #94a3b8;
+                border: 2px solid #cbd5e1;
+            }
+
+            /* ── DARK MODE COMPATIBILITY ── */
+            .dark-mode .illegal-banner-card,
+            [data-bs-theme="dark"] .illegal-banner-card {
+                background: #1e293b !important;
+                border-color: #334155 !important;
+            }
+            .dark-mode .illegal-banner-header.status-unresolved,
+            [data-bs-theme="dark"] .illegal-banner-header.status-unresolved {
+                background: rgba(220, 38, 38, 0.15) !important;
+                color: #fca5a5 !important;
+                border-bottom-color: rgba(248, 113, 113, 0.25) !important;
+            }
+            .dark-mode .illegal-banner-header.status-unresolved .status-header-sub,
+            [data-bs-theme="dark"] .illegal-banner-header.status-unresolved .status-header-sub {
+                color: #cbd5e1 !important;
+            }
+            .dark-mode .illegal-banner-header.status-pending_permit,
+            [data-bs-theme="dark"] .illegal-banner-header.status-pending_permit {
+                background: rgba(217, 119, 6, 0.15) !important;
+                color: #fde047 !important;
+                border-bottom-color: rgba(251, 191, 36, 0.25) !important;
+            }
+            .dark-mode .illegal-banner-header.status-pending_permit .status-header-sub,
+            [data-bs-theme="dark"] .illegal-banner-header.status-pending_permit .status-header-sub {
+                color: #cbd5e1 !important;
+            }
+            .dark-mode .illegal-banner-header.status-resolved,
+            [data-bs-theme="dark"] .illegal-banner-header.status-resolved {
+                background: rgba(22, 163, 74, 0.15) !important;
+                color: #86efac !important;
+                border-bottom-color: rgba(74, 222, 128, 0.25) !important;
+            }
+            .dark-mode .illegal-banner-header.status-resolved .status-header-sub,
+            [data-bs-theme="dark"] .illegal-banner-header.status-resolved .status-header-sub {
+                color: #cbd5e1 !important;
+            }
+
+            .dark-mode .illegal-status-dropdown-btn,
+            [data-bs-theme="dark"] .illegal-status-dropdown-btn {
+                background: #0f172a !important;
+                border-color: #334155 !important;
+                color: #f8fafc !important;
+            }
+            .dark-mode .illegal-status-dropdown-btn:hover,
+            [data-bs-theme="dark"] .illegal-status-dropdown-btn:hover {
+                background: #1e293b !important;
+                border-color: #475569 !important;
+            }
+            .dark-mode .compliance-stepper-body,
+            [data-bs-theme="dark"] .compliance-stepper-body {
+                background: #1e293b !important;
+            }
+            .dark-mode .compliance-step:not(:last-child)::after,
+            [data-bs-theme="dark"] .compliance-step:not(:last-child)::after {
+                background: #334155 !important;
+            }
+            .dark-mode .compliance-step.completed:not(:last-child)::after,
+            [data-bs-theme="dark"] .compliance-step.completed:not(:last-child)::after {
+                background: #22c55e !important;
+            }
+            .dark-mode .compliance-step.pending .step-dot,
+            [data-bs-theme="dark"] .compliance-step.pending .step-dot {
+                background: #0f172a !important;
+                border-color: #334155 !important;
+                color: #64748b !important;
+            }
+            .dark-mode .compliance-step .step-desc,
+            [data-bs-theme="dark"] .compliance-step .step-desc {
+                color: #94a3b8 !important;
+            }
+
+            @media (max-width: 480px) {
+                .compliance-step .step-label { font-size: 0.65rem; }
+                .compliance-step .step-desc { display: none; }
+                .compliance-step .step-dot { width: 28px; height: 28px; font-size: 11px; }
+                .compliance-step:not(:last-child)::after { top: 13px; left: calc(50% + 16px); width: calc(100% - 32px); }
+            }
+        </style>
+
+        <div class="compliance-stepper">
+            <!-- Step 1: Detection & Stop Order -->
+            <div class="compliance-step {% if record.illegal_compliance_status == 'unresolved' %}active{% else %}completed{% endif %}"
+                {% if record.illegal_compliance_status == 'unresolved' %}style="color: #dc2626; --step-glow: 220, 38, 38;"{% endif %}>
+                <div class="step-dot"
+                    {% if record.illegal_compliance_status == 'unresolved' %}style="background: #fee2e2; color: #dc2626; border-color: #dc2626;"{% endif %}>
+                    {% if record.illegal_compliance_status == 'unresolved' %}
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    {% else %}
+                    <i class="fa-solid fa-check"></i>
+                    {% endif %}
+                </div>
+                <div class="step-label" {% if record.illegal_compliance_status == 'unresolved' %}style="color: #dc2626;"{% else %}style="color: #16a34a;"{% endif %}>
+                    Detection &amp; NOV
+                </div>
+                <div class="step-desc">
+                    {% if record.date_started %}{{ record.date_started|date:"M d, Y" }}{% else %}Stop Order{% endif %}
+                </div>
+            </div>
+
+            <!-- Step 2: Permit Application Filed -->
+            <div class="compliance-step {% if record.illegal_compliance_status == 'pending_permit' %}active{% elif record.illegal_compliance_status == 'resolved' %}completed{% else %}pending{% endif %}"
+                {% if record.illegal_compliance_status == 'pending_permit' %}style="color: #d97706; --step-glow: 217, 119, 6;"{% endif %}>
+                <div class="step-dot"
+                    {% if record.illegal_compliance_status == 'pending_permit' %}style="background: #fef3c7; color: #d97706; border-color: #d97706;"{% endif %}>
+                    {% if record.illegal_compliance_status == 'pending_permit' %}
+                    <i class="fa-solid fa-file-pen"></i>
+                    {% elif record.illegal_compliance_status == 'resolved' %}
+                    <i class="fa-solid fa-check"></i>
+                    {% else %}
+                    <span>2</span>
+                    {% endif %}
+                </div>
+                <div class="step-label" {% if record.illegal_compliance_status == 'pending_permit' %}style="color: #d97706;"{% elif record.illegal_compliance_status == 'resolved' %}style="color: #16a34a;"{% else %}style="color: #94a3b8;"{% endif %}>
+                    Permit Filed
+                </div>
+                <div class="step-desc">
+                    {% if record.illegal_compliance_status == 'pending_permit' %}Under Review{% elif record.illegal_compliance_status == 'resolved' %}Approved{% else %}Awaiting{% endif %}
+                </div>
+            </div>
+
+            <!-- Step 3: Regularized / Permit Issued -->
+            <div class="compliance-step {% if record.illegal_compliance_status == 'resolved' %}active{% else %}pending{% endif %}"
+                {% if record.illegal_compliance_status == 'resolved' %}style="color: #16a34a; --step-glow: 22, 163, 74;"{% endif %}>
+                <div class="step-dot"
+                    {% if record.illegal_compliance_status == 'resolved' %}style="background: #dcfce7; color: #16a34a; border-color: #16a34a;"{% endif %}>
+                    {% if record.illegal_compliance_status == 'resolved' %}
+                    <i class="fa-solid fa-certificate"></i>
+                    {% else %}
+                    <span>3</span>
+                    {% endif %}
+                </div>
+                <div class="step-label" {% if record.illegal_compliance_status == 'resolved' %}style="color: #16a34a;"{% else %}style="color: #94a3b8;"{% endif %}>
+                    Regularized
+                </div>
+                <div class="step-desc">
+                    {% if record.illegal_compliance_status == 'resolved' and record.permit_detail.permit_number %}
+                    {{ record.permit_detail.permit_type }} #{{ record.permit_detail.permit_number }}
+                    {% elif record.illegal_compliance_status == 'resolved' %}Permit Issued{% else %}Pending{% endif %}
+                </div>
+            </div>
+        </div>
     </div>
-    {% endif %}
 </div>
+
+{% if can_edit and record.is_illegal_construction %}
+<!-- ══ REGULARIZE DETAIL MODAL ════════════════════════════════════════ -->
+<div class="modal fade" id="regularizeDetailModal" tabindex="-1" aria-labelledby="regularizeDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-0">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center rounded-3" style="width: 36px; height: 36px; background: #dcfce7; color: #16a34a;">
+                        <i class="fa-solid fa-certificate" style="font-size: 15px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="regularizeDetailModalLabel" style="font-size: 1.05rem;">Regularize &amp; Issue Permit</h5>
+                        <p class="mb-0 text-muted" style="font-size: 0.75rem;">Convert compliant incident into an official permit record</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
+            </div>
+
+            <form method="POST" action="{% url 'regularize_record' record.record_id %}">
+                {% csrf_token %}
+                <div class="modal-body px-4 pt-3 pb-4">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Permit Type to Issue <span class="text-danger">*</span></label>
+                        <select name="permit_type" class="form-select cr-field" required>
+                            {% for pt_val, pt_lbl in permit_types %}
+                            <option value="{{ pt_val }}" {% if pt_val == 'Building Permit' %}selected{% endif %}>{{ pt_lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Official Permit Number <span class="text-danger">*</span></label>
+                            <input type="text" name="permit_number" class="form-control cr-field" value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-0042" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size: 0.8rem;">Building Type</label>
+                            <select name="building_type" class="form-select cr-field">
+                                {% for bt_val, bt_lbl in building_types %}
+                                <option value="{{ bt_val }}" {% if bt_val == permit_detail.building_type or bt_val == 'Residential' %}selected{% endif %}>{{ bt_lbl }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold" style="font-size: 0.8rem;">Applicant / Property Owner Name <span class="text-danger">*</span></label>
+                        <input type="text" name="applicant_name" class="form-control cr-field" value="{{ permit_detail.applicant_name|default:'' }}" placeholder="e.g. Juan Dela Cruz" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top px-4 py-3">
+                    <button type="button" class="btn btn-secondary px-3 py-2" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
+                    <button type="submit" class="btn btn-success px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2" style="border-radius: 8px; font-size: 0.82rem;">
+                        <i class="fa-solid fa-check"></i> Complete Regularization
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endif %}
 
 <!-- ══ 3. MAIN CONTENT GRID (8:4 Layout) ════════════════════════════════════ -->
@@ -181,23 +904,22 @@
         {% if record.is_illegal_construction and record.illegal_compliance_status == 'unresolved' %}
         <!-- ⚠️ UNRESOLVED VIOLATION INCIDENT EVIDENCE & DOCUMENTS CARD -->
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
-            <div class="card-header bg-white border-bottom p-3 px-3.5 d-flex align-items-center justify-content-between gap-3">
-                <div class="d-flex align-items-center gap-2.5 min-w-0">
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-3" style="padding: 18px 24px !important; min-height: 72px !important;">
+                <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 34px; height: 34px; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 15px;"></i>
+                        style="width: 38px; height: 38px; min-width: 38px; margin-right: 14px !important; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 17px;"></i>
                     </div>
-                    <div class="min-w-0">
-                        <h5 class="fw-bold mb-0 title-text-adaptive text-truncate" style="font-size: 1.0rem; letter-spacing: -0.01em;">Violation Incident Documents & Evidence</h5>
-                        <p class="mb-0 subtitle-text-adaptive text-truncate" style="font-size: 0.76rem;">Field inspection photos, Notice of Violation (NOV), Work Stop Orders, and compliance logs</p>
+                    <div class="min-w-0 flex-grow-1">
+                        <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 1rem; letter-spacing: -0.01em;">Incident Evidence Documents</h5>
                     </div>
                 </div>
 
-                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
                     {% if can_edit and record.status != 'archived' %}
                     <button type="button"
-                        class="btn btn-sm btn-danger fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs"
-                        style="border-radius: 8px; font-size: 0.8rem;"
+                        class="btn btn-sm btn-danger fw-semibold px-3.5 py-2 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        style="border-radius: 8px; font-size: 0.82rem; white-space: nowrap;"
                         onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                         <span>Upload Photos / NOV</span>
@@ -210,24 +932,26 @@
                 {% if attachments %}
                 <div class="d-flex flex-column gap-2">
                     {% for doc in attachments %}
-                    <div class="p-2.5 px-3 border rounded-3 d-flex align-items-center justify-content-between gap-3 bg-white shadow-2xs">
-                        <div class="d-flex align-items-center gap-2.5 min-w-0">
-                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                                style="width: 32px; height: 32px; background: #eff6ff; color: #2563eb; font-size: 14px;">
+                    <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                        <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+                            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                                style="width: 32px; height: 32px; min-width: 32px; margin-right: 14px !important; border-radius: 8px; background: rgba(37, 99, 235, 0.12); color: #2563eb; font-size: 14px;">
                                 <i class="fa-solid fa-file-lines"></i>
                             </div>
-                            <div class="min-w-0">
-                                <div class="fw-bold text-dark text-truncate" style="font-size: 0.86rem;">{{ doc.file_name }}</div>
-                                <div class="text-muted" style="font-size: 0.74rem;">Uploaded on {{ doc.uploaded_at|date:"M d, Y • h:i A" }}</div>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem;">{{ doc.file_name }}</div>
+                                <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">Uploaded on {{ doc.uploaded_at|date:"M d, Y • h:i A" }}</div>
                             </div>
                         </div>
-                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
                             <a href="{{ doc_url_map|dict_get:doc.document_id }}" target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none" style="font-size: 0.76rem;">
                                 <i class="fa-solid fa-arrow-up-right-from-square me-1" style="font-size: 11px;"></i>View
                             </a>
                             {% if can_edit and record.status != 'archived' %}
                             <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
-                                onclick="openDeleteDocModal('{% url 'delete_document' record.record_id doc.document_id %}', '{{ doc.file_name|escapejs }}')"
+                                data-url="{% url 'delete_document' record.record_id doc.document_id %}"
+                                data-name="{{ doc.file_name }}"
+                                onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
                                 title="Delete uploaded file">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
@@ -237,19 +961,19 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="text-center py-4 px-3 my-2 rounded-3 border" style="background: #fff5f5; border-color: #fecaca !important;">
+                <div class="text-center py-4 px-3 my-1 rounded-3 border evidence-empty-box">
                     <div class="rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-2"
-                        style="background: #fee2e2; color: #dc2626; width: 50px; height: 50px;">
-                        <i class="fa-solid fa-file-shield" style="font-size: 22px;"></i>
+                        style="background: rgba(220, 38, 38, 0.12); color: #dc2626; width: 48px; height: 48px;">
+                        <i class="fa-solid fa-file-shield" style="font-size: 20px;"></i>
                     </div>
-                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.92rem;">No Violation Evidence Documents Uploaded Yet</h6>
-                    <p class="text-muted small mx-auto mb-3" style="max-width: 480px; font-size: 0.8rem; line-height: 1.5;">
-                        Standard applicant permit checklists do not apply for unresolved violations. Attach field inspection photos, Notice of Violation (NOV), or Work Stop Orders directly.
+                    <h6 class="fw-bold title-text-adaptive mb-1" style="font-size: 0.90rem;">No Evidence Uploaded Yet</h6>
+                    <p class="text-muted small mx-auto mb-3" style="max-width: 420px; font-size: 0.78rem; line-height: 1.45;">
+                        Attach field inspection photos, Notice of Violation (NOV), or Work Stop Orders.
                     </p>
                     {% if can_edit and record.status != 'archived' %}
-                    <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1.5" onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')" style="font-size: 0.78rem; font-weight: 600; border-radius: 8px; padding: 6px 14px;">
+                    <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1.5 shadow-2xs" onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')" style="font-size: 0.78rem; font-weight: 600; border-radius: 8px; padding: 6px 16px;">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span>Upload Field Photos / NOV</span>
+                        <span>Upload Photos / NOV</span>
                     </button>
                     {% endif %}
                 </div>
@@ -261,22 +985,21 @@
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
             
             <!-- Card Header -->
-            <div class="card-header bg-white border-bottom p-3.5 px-4 d-flex align-items-center justify-content-between gap-3">
-                <div class="d-flex align-items-center min-w-0 flex-grow-1">
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-3" style="padding: 18px 24px !important; min-height: 72px !important;">
+                <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 14px !important; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe;">
-                        <i class="fa-solid fa-clipboard-check" style="font-size: 16px;"></i>
+                        style="width: 38px; height: 38px; min-width: 38px; margin-right: 14px !important; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe;">
+                        <i class="fa-solid fa-clipboard-check" style="font-size: 17px;"></i>
                     </div>
                     <div class="min-w-0 flex-grow-1">
-                        <h5 class="fw-bold mb-0 title-text-adaptive text-truncate" style="font-size: 1.0rem; letter-spacing: -0.01em;">Document Checklist</h5>
-                        <p class="mb-0 subtitle-text-adaptive text-truncate" style="font-size: 0.76rem;">Required plans, clearances, and attachments</p>
+                        <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 1rem; letter-spacing: -0.01em;">Document Checklist</h5>
                     </div>
                 </div>
 
-                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <div class="d-flex align-items-center gap-2.5 flex-shrink-0 ms-auto flex-nowrap">
                     {% if completion and completion.total > 0 %}
-                    <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 rounded-2"
-                        style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; font-size: 0.76rem; font-weight: 600;">
+                    <span class="badge checklist-badge-empty d-inline-flex align-items-center gap-1.5 px-3 py-1.5 rounded-2"
+                        style="font-size: 0.78rem; font-weight: 600; white-space: nowrap;">
                         <i class="fa-solid {% if completion.is_complete %}fa-circle-check text-success{% else %}fa-list-check{% endif %}"></i>
                         <span>{{ completion.fulfilled }}/{{ completion.total }} Complete</span>
                     </span>
@@ -284,8 +1007,8 @@
 
                     {% if can_edit and record.status != 'archived' %}
                     <button type="button"
-                        class="btn btn-sm btn-primary fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs"
-                        style="border-radius: 8px; font-size: 0.8rem;"
+                        class="btn btn-sm btn-primary fw-semibold px-3.5 py-2 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        style="border-radius: 8px; font-size: 0.82rem; white-space: nowrap;"
                         onclick="openGroupBatchUploadModal('', 'All Checklist Documents')">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                         <span>Batch Upload</span>
@@ -307,14 +1030,14 @@
                     <div class="checklist-group-card border rounded-3 overflow-hidden shadow-2xs" style="transition: all 0.2s ease;">
                         
                         <!-- Group Header -->
-                        <div class="p-3 px-3.5 checklist-group-header d-flex align-items-center justify-content-between gap-3" style="user-select: none;">
+                        <div class="p-3 px-3.5 checklist-group-header d-flex align-items-center justify-content-between flex-nowrap gap-3" style="user-select: none;">
 
                             <!-- Folder Title Area (Clickable to toggle collapse) -->
-                            <div class="d-flex align-items-center min-w-0 flex-grow-1 cursor-pointer"
+                            <div class="d-flex align-items-center min-w-0 flex-grow-1 cursor-pointer flex-nowrap"
                                 data-bs-toggle="collapse" data-bs-target="#groupCollapse_{{ req.req_id }}"
                                 aria-expanded="true" aria-controls="groupCollapse_{{ req.req_id }}">
-                                <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                                    style="width: 34px; height: 34px; min-width: 34px; margin-right: 14px !important; background: {% if g_stats.is_complete %}#dcfce7; color: #15803d; border: 1px solid #bbf7d0;{% elif g_stats.fulfilled > 0 %}#eff6ff; color: #2563eb; border: 1px solid #dbeafe;{% else %}#f8fafc; color: #64748b; border: 1px solid #e2e8f0;{% endif %}">
+                                <div class="rounded-3 checklist-icon-box checklist-folder-box flex-shrink-0 {% if g_stats.is_complete %}checklist-icon-fulfilled{% elif g_stats.fulfilled > 0 %}checklist-icon-default{% else %}checklist-folder-default{% endif %}"
+                                    style="width: 34px; height: 34px; min-width: 34px; margin-right: 14px !important;">
                                     {% if g_stats.is_complete %}
                                     <i class="fa-solid fa-folder-check" style="font-size: 14px;"></i>
                                     {% else %}
@@ -325,56 +1048,46 @@
                                     <h6 class="fw-bold mb-0 text-truncate title-text-adaptive" style="font-size: 0.88rem;">
                                         {{ req.requirement_item.name }}
                                     </h6>
-                                    <div class="text-muted" style="font-size: 0.75rem; margin-top: 1px;">
+                                    <div class="text-muted text-truncate" style="font-size: 0.75rem; margin-top: 1px;">
                                         {{ g_stats.total }} required document{% if g_stats.total > 1 %}s{% endif %}
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
                                 {% if g_stats.is_complete %}
-                                <span class="badge d-inline-flex align-items-center gap-1"
-                                    style="background: #dcfce7; color: #15803d; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">
+                                <span class="badge checklist-badge-complete d-inline-flex align-items-center gap-1"
+                                    style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
                                     <i class="fa-solid fa-check"></i> Complete
                                 </span>
                                 {% elif g_stats.fulfilled > 0 %}
-                                <span class="badge"
-                                    style="background: #eff6ff; color: #2563eb; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">
+                                <span class="badge checklist-badge-partial"
+                                    style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
                                     {{ g_stats.fulfilled }}/{{ g_stats.total }} Uploaded
                                 </span>
                                 {% else %}
-                                <span class="badge"
-                                    style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">
+                                <span class="badge checklist-badge-empty"
+                                    style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
                                     0/{{ g_stats.total }} Uploaded
                                 </span>
                                 {% endif %}
 
-                                {% if can_edit and record.status != 'archived' %}
-                                <button type="button"
-                                    class="btn btn-sm btn-light border p-1 px-2 text-primary d-inline-flex align-items-center gap-1 shadow-2xs me-1"
-                                    onclick="openGroupBatchUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}');"
-                                    title="Batch upload files for {{ req.requirement_item.name }}"
-                                    style="font-size: 0.76rem; border-radius: 6px; font-weight: 600;">
-                                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                                    <span>Batch Upload</span>
-                                </button>
-                                {% endif %}
-
                                 {% if g_stats.fulfilled > 0 %}
                                 <a href="{% url 'download_category_zip' record.record_id req.req_id %}"
-                                    class="btn btn-sm btn-light border p-1 px-2 text-secondary d-inline-flex align-items-center gap-1 shadow-2xs"
+                                    download
+                                    class="p-1 px-1.5 text-primary d-inline-flex align-items-center justify-content-center border-0 bg-transparent text-decoration-none"
                                     title="Download {{ req.requirement_item.name }} files as ZIP"
-                                    style="font-size: 0.76rem; border-radius: 6px;">
-                                    <i class="fa-solid fa-file-zipper text-primary"></i>
+                                    style="font-size: 0.85rem; border: none !important; background: transparent !important; box-shadow: none !important;">
+                                    <i class="fa-solid fa-file-zipper"></i>
                                 </a>
                                 {% endif %}
 
                                 <button type="button"
-                                    class="btn btn-sm btn-light border p-1 px-2 text-secondary group-chevron-btn shadow-2xs"
+                                    class="group-chevron-btn"
                                     data-bs-toggle="collapse" data-bs-target="#groupCollapse_{{ req.req_id }}"
                                     aria-expanded="true" aria-controls="groupCollapse_{{ req.req_id }}"
-                                    style="border-radius: 6px; font-size: 0.76rem;">
-                                    <i class="fa-solid fa-chevron-down group-chevron" style="font-size: 11px; transition: transform 0.2s ease;"></i>
+                                    aria-label="Toggle {{ req.requirement_item.name }} section">
+                                    <i class="fa-solid fa-chevron-down group-chevron"></i>
                                 </button>
                             </div>
                         </div>
@@ -383,11 +1096,11 @@
                         <div class="collapse show" id="groupCollapse_{{ req.req_id }}">
                             <div class="checklist-group-body p-3 border-top d-flex flex-column gap-2">
                                 {% for sub_req in sub_list %}
-                                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs">
-                                    <div class="d-flex align-items-center min-w-0 flex-grow-1">
+                                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                                    <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                                         <!-- 📎 SUBFILE ATTACHMENT ICON -->
-                                        <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 32px; height: 32px; min-width: 32px; margin-right: 14px !important; border-radius: 8px; background: {% if sub_req.is_fulfilled %}#dcfce7; color: #15803d;{% elif sub_req.is_waived %}#f1f5f9; color: #94a3b8;{% else %}#eff6ff; color: #2563eb;{% endif %}; font-size: 13px;">
+                                        <div class="rounded-2 checklist-icon-box flex-shrink-0 {% if sub_req.is_fulfilled %}checklist-icon-fulfilled{% elif sub_req.is_waived %}checklist-icon-waived{% else %}checklist-icon-default{% endif %}"
+                                            style="width: 32px; height: 32px; min-width: 32px; margin-right: 14px !important; border-radius: 8px; font-size: 13px;">
                                             {% if sub_req.is_fulfilled %}
                                             <i class="fa-solid fa-circle-check"></i>
                                             {% elif sub_req.is_waived %}
@@ -419,7 +1132,7 @@
                                     </div>
 
                                     <!-- Actions per row -->
-                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
                                         {% if sub_req.is_fulfilled and sub_req.document %}
                                         <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}"
                                             target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none"
@@ -429,14 +1142,16 @@
                                         </a>
                                         {% if can_edit and record.status != 'archived' %}
                                         <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
-                                            onclick="openDeleteDocModal('{% url 'delete_document' record.record_id sub_req.document.document_id %}', '{{ sub_req.document.file_name|escapejs }}')"
+                                            data-url="{% url 'delete_document' record.record_id sub_req.document.document_id %}"
+                                            data-name="{{ sub_req.document.file_name }}"
+                                            onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
                                             title="Delete uploaded file">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                         {% endif %}
                                         
                                         {% elif sub_req.is_waived %}
-                                        <span class="badge" style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
+                                        <span class="badge checklist-badge-empty" style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
                                         {% if can_edit and record.status != 'archived' %}
                                         <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
                                             data-req-id="{{ sub_req.req_id }}"
@@ -469,11 +1184,11 @@
 
                     {% else %}
                     <!-- 📄 STANDALONE FILE REQUIREMENT ROW -->
-                    <div class="checklist-standalone-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs">
-                        <div class="d-flex align-items-center min-w-0 flex-grow-1">
+                    <div class="checklist-standalone-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                        <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                             <!-- 📄 STANDALONE MAIN FILE ICON -->
-                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                                style="width: 34px; height: 34px; min-width: 34px; margin-right: 14px !important; background: {% if req.is_fulfilled %}#dcfce7; color: #166534;{% elif req.is_waived %}#f1f5f9; color: #94a3b8;{% else %}#eff6ff; color: #2563eb;{% endif %}; font-size: 14px;">
+                            <div class="rounded-3 checklist-icon-box flex-shrink-0 {% if req.is_fulfilled %}checklist-icon-fulfilled{% elif req.is_waived %}checklist-icon-waived{% else %}checklist-icon-default{% endif %}"
+                                style="width: 34px; height: 34px; min-width: 34px; margin-right: 14px !important; font-size: 14px;">
                                 {% if req.is_fulfilled %}
                                 <i class="fa-solid fa-file-circle-check"></i>
                                 {% elif req.is_waived %}
@@ -501,7 +1216,7 @@
                             </div>
                         </div>
 
-                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
                             {% if req.is_fulfilled and req.document %}
                             <a href="{{ doc_url_map|dict_get:req.document.document_id }}"
                                 target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none"
@@ -511,17 +1226,19 @@
                             </a>
                             {% if can_edit and record.status != 'archived' %}
                             <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
-                                onclick="openDeleteDocModal('{% url 'delete_document' record.record_id req.document.document_id %}', '{{ req.document.file_name|escapejs }}')"
+                                data-url="{% url 'delete_document' record.record_id req.document.document_id %}"
+                                data-name="{{ req.document.file_name }}"
+                                onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
                                 title="Delete uploaded file">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                             {% endif %}
                             
                             {% elif req.is_waived %}
-                            <span class="badge" style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
+                            <span class="badge checklist-badge-empty" style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
                             {% if can_edit and record.status != 'archived' %}
                             <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
-                                data-req-id="{{ req.req_id }}"
+                                data-req-id="{{ req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' req.req_id %}"
                                 title="Undo N/A status">
                                 <i class="fa-solid fa-rotate-left"></i> <span>Require</span>
                             </button>
@@ -535,7 +1252,7 @@
                                 <span>Upload</span>
                             </button>
                             <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
-                                data-req-id="{{ req.req_id }}"
+                                data-req-id="{{ req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' req.req_id %}"
                                 title="Mark as Not Applicable">N/A</button>
                             {% else %}
                             <span class="badge" style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
@@ -588,18 +1305,11 @@
     <div class="col-lg-4 d-flex flex-column gap-4 min-w-0">
 
         <!-- Record Summary Card (Sticky on scroll, natural height) -->
-        <div class="content-card record-summary-card d-flex flex-column p-3 px-3.5 pb-3 position-sticky" style="top: 1.5rem; z-index: 10; border-radius: 16px; height: auto !important;">
-            <div class="d-flex align-items-center justify-content-between pb-2.5 mb-2 border-bottom gap-2">
-                <h6 class="m-0 d-flex align-items-center gap-2 fw-bold text-uppercase subtitle-text-adaptive"
-                    style="font-size: 0.82rem; letter-spacing: 0.05em;">
-                    <i class="fa-solid fa-circle-info text-primary flex-shrink-0"></i>
-                    <span>Record Summary</span>
-                </h6>
-                <span class="badge d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
-                    style="background: rgba(49, 85, 217, 0.1); color: #3155D9; font-weight: 600; font-size: 0.76rem; border: 1px solid rgba(49, 85, 217, 0.2);">
-                    <span class="d-inline-block rounded-circle" style="width: 6px; height: 6px; background-color: #3155D9;"></span>
-                    {{ record.get_status_display }}
-                </span>
+        <div class="content-card record-summary-card d-flex flex-column position-sticky" style="top: 1.5rem; z-index: 10; border-radius: 16px; height: auto !important; padding: 20px 22px !important;">
+            <div class="d-flex align-items-center pb-3 mb-3 border-bottom flex-nowrap">
+                <i class="fa-solid fa-circle-info text-primary flex-shrink-0 me-2" style="font-size: 15px;"></i>
+                <span class="fw-bold text-uppercase subtitle-text-adaptive"
+                    style="font-size: 0.82rem; letter-spacing: 0.05em; white-space: nowrap;">Record Summary</span>
             </div>
 
             <!-- Key-Value Pairs (Consistent: icon + label on 1st line, value below) -->
@@ -616,29 +1326,20 @@
                     </div>
                 </div>
 
-                <!-- Record Type -->
+                <!-- Category & Type -->
                 <div class="py-1 border-bottom d-flex flex-column gap-0.5">
                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                         <i class="fa-solid fa-layer-group text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                        <span>Record Type</span>
+                        <span>Category &amp; Type</span>
                     </div>
                     <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                        {% if record.record_type == 'Project' %}
-                        {{ record.get_project_scope_display }} Project
+                        {% if record.is_illegal_construction %}
+                        Violation Report &bull; {{ record.specific_type_label }}
+                        {% elif record.record_type == 'Project' %}
+                        {{ record.get_project_scope_display }} Project &bull; {{ record.specific_type_label }}
                         {% else %}
-                        Permit Record
+                        Permit &bull; {{ record.specific_type_label }}
                         {% endif %}
-                    </div>
-                </div>
-
-                <!-- Specific Type -->
-                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                        <i class="fa-solid fa-file-signature text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                        <span>Specific Type</span>
-                    </div>
-                    <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                        {{ record.specific_type_label }}
                     </div>
                 </div>
 
@@ -801,7 +1502,7 @@
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3 bg-white">
+            <div class="modal-header border-bottom px-4 py-3">
                 <div>
                     <h5 class="modal-title fw-bold mb-0 text-dark" style="font-size: 1.05rem;" id="uploadModalLabel">
                         Upload Requirement Document
@@ -849,7 +1550,7 @@
 
                     <!-- Progressive Selected File & Validity Section -->
                     <div id="singleFileSelectedContainer" class="d-none mb-3">
-                        <div class="p-3 bg-white border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs mb-2">
+                        <div class="p-3 selected-file-preview-card border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs mb-2">
                             <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
                                 <i class="fa-solid fa-file-pdf text-danger flex-shrink-0" id="singleFileIcon" style="font-size: 18px;"></i>
                                 <span class="fw-bold text-dark text-truncate" id="singleSelectedFileName" style="font-size: 0.85rem;"></span>
@@ -894,7 +1595,7 @@
                 </form>
             </div>
             
-            <div class="modal-footer border-top px-4 py-3 bg-light d-flex justify-content-end gap-2">
+            <div class="modal-footer border-top px-4 py-3 d-flex justify-content-end gap-2">
                 <button type="button" class="btn btn-sm btn-secondary px-3" style="border-radius: 8px; font-size: 0.82rem;" data-bs-dismiss="modal" onclick="clearFile()">Cancel</button>
                 <button type="button" id="singleUploadSubmitBtn" class="btn btn-sm btn-secondary px-4 fw-semibold shadow-2xs d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem;" disabled onclick="startSingleUpload()">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
@@ -907,22 +1608,22 @@
 
 <!-- MODAL B: BATCH UPLOAD MODAL -->
 <div class="modal fade" id="batchUploadModal" tabindex="-1" aria-labelledby="batchUploadModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 680px;">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden;">
             
             <!-- Header -->
-            <div class="modal-header border-bottom p-3 px-4 bg-white">
+            <div class="modal-header border-bottom p-3 px-4 bg-white d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 38px; height: 38px; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe;">
-                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 17px;"></i>
+                        style="width: 42px; height: 42px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #ffffff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 19px;"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.05rem;" id="batchUploadModalLabel">
-                            Batch Upload
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.10rem; letter-spacing: -0.01em;" id="batchUploadModalLabel">
+                            Batch Document Upload
                         </h5>
-                        <div class="text-muted" id="batchUploadSubTitle" style="font-size: 0.78rem; margin-top: 1px;">
-                            Upload multiple documents at once.
+                        <div class="text-muted" id="batchUploadSubTitle" style="font-size: 0.80rem; margin-top: 1px;">
+                            Upload multiple documents and assign each file to its checklist requirement.
                         </div>
                     </div>
                 </div>
@@ -934,46 +1635,53 @@
                 {% csrf_token %}
                 <div class="modal-body p-4">
 
-                    <!-- Upload Area / Dropzone -->
-                    <div class="border border-2 border-dashed rounded-3 p-4 text-center bg-light position-relative"
-                        id="batchDropZone" style="border-color: #cbd5e1 !important; transition: all 0.2s ease;">
-                        
-                        <div class="mb-2 d-flex justify-content-center">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center"
-                                style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb;">
-                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px;"></i>
+                    <!-- Premium Upload Area / Dropzone -->
+                    <div class="premium-dropzone" id="batchDropZone">
+                        <div class="premium-dropzone-icon-wrap">
+                            <span class="premium-dropzone-floating-badge floating-pdf">PDF</span>
+                            <span class="premium-dropzone-floating-badge floating-doc">DOCX</span>
+                            <span class="premium-dropzone-floating-badge floating-img">PNG</span>
+                            <div class="premium-dropzone-center-icon">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
                             </div>
                         </div>
 
-                        <div class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">
-                            Drag &amp; drop files here
+                        <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 1.05rem;">
+                            Drop Files Here
                         </div>
-                        <div class="text-muted small mb-2" style="font-size: 0.78rem;">or</div>
+                        <div class="text-muted small mb-2" style="font-size: 0.82rem;">
+                            or <span class="text-primary fw-semibold text-decoration-underline cursor-pointer">Browse Files</span>
+                        </div>
                         
-                        <label for="batchFileInput" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.82rem;">
-                            <i class="fa-solid fa-folder-open me-1.5"></i> Choose Files
-                        </label>
-                        
-                        <div class="mt-2.5 text-muted" style="font-size: 0.75rem;">
-                            PDF, JPG, PNG, WEBP &bull; Max 10 MB each
+                        <div>
+                            <span class="premium-dropzone-pill">
+                                <i class="fa-solid fa-file-shield text-primary" style="font-size: 11px;"></i>
+                                Supports PDF, DOC, DOCX, JPG, PNG &bull; Max 15 MB each
+                            </span>
                         </div>
 
                         <input type="file" name="files" id="batchFileInput"
                             class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                            accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;">
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" style="cursor: pointer; z-index: 5;">
                     </div>
 
-                    <!-- Selected Files List Container (Files to Upload (N)) -->
+                    <!-- Selected Files List Container -->
                     <div id="fileListContainer" class="mt-3.5" style="display: none;">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="fw-bold title-text-adaptive" style="font-size: 0.85rem;" id="selectedFilesCount">
-                                Files to Upload (0)
-                            </span>
-                            <button type="button" class="btn btn-sm text-danger p-0 border-0 text-decoration-underline"
-                                style="font-size: 0.76rem;" onclick="clearBatchFiles()">Clear selection</button>
+                        <div class="d-flex align-items-center justify-content-between mb-2.5">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold title-text-adaptive" style="font-size: 0.90rem;" id="selectedFilesCount">
+                                    Files to Upload (0)
+                                </span>
+                                <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style="font-size: 0.70rem; font-weight: 600;">
+                                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Auto-assigned
+                                </span>
+                            </div>
+                            <button type="button" class="btn btn-sm text-danger p-0 border-0 fw-semibold text-decoration-underline"
+                                style="font-size: 0.78rem;" onclick="clearBatchFiles()">
+                                <i class="fa-solid fa-rotate-left me-1"></i>Clear all
+                            </button>
                         </div>
-                        <div class="list-group rounded-3 border overflow-auto" id="selectedFilesList"
-                            style="max-height: 180px; font-size: 0.82rem;">
+                        <div class="batch-files-scroll-container" id="selectedFilesList">
                             <!-- Dynamically populated via JS -->
                         </div>
                     </div>
@@ -981,12 +1689,17 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="modal-footer border-top p-3 px-4 bg-light d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-sm btn-secondary px-3" style="border-radius: 8px; font-size: 0.82rem;" data-bs-dismiss="modal" onclick="clearBatchFiles()">Cancel</button>
-                    <button type="submit" id="batchUploadSubmitBtn" class="btn btn-sm btn-primary px-4 fw-semibold shadow-2xs d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span>Upload Files</span>
-                    </button>
+                <div class="modal-footer border-top p-3 px-4 bg-light d-flex justify-content-between align-items-center">
+                    <div class="text-muted small d-none d-sm-block" style="font-size: 0.78rem;">
+                        <i class="fa-solid fa-circle-info me-1 text-primary"></i> Files will be stored securely with versioning.
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button type="button" class="btn btn-secondary px-3.5 py-2 fw-medium" style="border-radius: 10px; font-size: 0.84rem;" data-bs-dismiss="modal" onclick="clearBatchFiles()">Cancel</button>
+                        <button type="submit" id="batchUploadSubmitBtn" class="btn btn-primary px-4 py-2 fw-semibold shadow-sm d-inline-flex align-items-center gap-2" style="border-radius: 10px; font-size: 0.84rem;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span id="batchSubmitBtnText">Upload Files</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -995,28 +1708,29 @@
 
 <!-- MODAL C: DELETE DOCUMENT CONFIRMATION MODAL -->
 <div class="modal fade" id="deleteDocModal" tabindex="-1" aria-labelledby="deleteDocModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-body p-4 text-center">
-                <div class="d-flex align-items-center justify-content-center mx-auto mb-3 rounded-circle"
-                    style="width: 52px; height: 52px; background: #fef2f2; color: #dc2626;">
-                    <i class="fa-solid fa-trash-can" style="font-size: 22px;"></i>
-                </div>
-                <h5 class="fw-bold text-dark mb-1.5" style="font-size: 1.05rem;" id="deleteDocModalLabel">Delete Document?</h5>
-                <p class="text-muted mb-4" style="font-size: 0.8rem; line-height: 1.5;">
-                    Are you sure you want to delete <strong id="deleteDocTargetName" class="text-dark"></strong>? This action cannot be undone.
-                </p>
-                <form id="deleteDocConfirmForm" method="POST" action="">
-                    {% csrf_token %}
-                    <div class="d-flex gap-2 justify-content-center">
-                        <button type="button" class="btn btn-sm btn-light border flex-fill py-1.5" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-sm btn-danger flex-fill py-1.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5">
-                            <i class="fa-solid fa-trash-can"></i>
-                            <span>Delete</span>
-                        </button>
-                    </div>
-                </form>
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+        <div class="modal-content border-0 shadow-2xl p-4 text-center position-relative custom-confirm-card" style="border-radius: 24px; background: #ffffff;">
+            <!-- Close Button -->
+            <button type="button" class="btn-close position-absolute top-0 end-0 m-3.5" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem; opacity: 0.5;"></button>
+
+            <!-- Centered Icon Badge -->
+            <div class="d-flex align-items-center justify-content-center mx-auto mb-3"
+                style="width: 56px; height: 56px; border-radius: 50%; background: #fee2e2; color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);">
+                <i class="fa-solid fa-trash-can" style="font-size: 22px;"></i>
             </div>
+            <h5 class="fw-bold mb-1.5 modal-confirm-title" style="font-size: 1.15rem; color: #0f172a; letter-spacing: -0.01em;" id="deleteDocModalLabel">Delete Document</h5>
+            <p class="mb-4 modal-confirm-desc" style="font-size: 0.84rem; color: #64748b; line-height: 1.45;">
+                You're going to delete <strong id="deleteDocTargetName" class="text-dark"></strong>. This action cannot be undone.
+            </p>
+            <form id="deleteDocConfirmForm" method="POST" action="">
+                {% csrf_token %}
+                <div class="d-flex gap-2.5 justify-content-center">
+                    <button type="button" class="btn flex-fill py-2.5 px-3 fw-semibold confirm-cancel-btn" data-bs-dismiss="modal" style="border-radius: 12px; font-size: 0.85rem; background: #f1f5f9; color: #334155; border: none;">No, Keep It.</button>
+                    <button type="submit" class="btn flex-fill py-2.5 px-3 fw-semibold confirm-action-btn d-inline-flex align-items-center justify-content-center gap-1.5" style="border-radius: 12px; font-size: 0.85rem; background: #ef4444; color: #ffffff; border: none; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
+                        <span>Yes, Delete!</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1296,39 +2010,54 @@
         const form = document.getElementById('deleteDocConfirmForm');
         const nameEl = document.getElementById('deleteDocTargetName');
         if (form) form.action = deleteUrl;
-        if (nameEl) nameEl.textContent = docName;
+        let cleanName = (docName || '')
+            .replace(/\\u002d/gi, '-')
+            .replace(/\\u002D/g, '-')
+            .replace(/\\u([0-9a-fA-F]{4})/g, (m, cc) => String.fromCharCode(parseInt(cc, 16)));
+        if (nameEl) nameEl.textContent = cleanName;
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteDocModal'));
         modal.show();
     }
+    </script>
 
-    let activeBatchGroupId = '';
-
-    // Available Document Checklist Slots for Record #{{ record.record_id }}
-    const availableSlots = [
+    <!-- Checklist slots data container -->
+    <div id="checklist-slots-data" class="d-none">
         {% for req in parent_reqs %}
             {% with sub_list=sub_reqs_by_parent|dict_get:req.requirement_item.item_id %}
             {% if sub_list %}
                 {% for sub_req in sub_list %}
-                {
-                    id: "{{ sub_req.requirement_item.item_id }}",
-                    name: "{{ sub_req.requirement_item.name|escapejs }}",
-                    groupId: "{{ req.requirement_item.item_id }}",
-                    groupName: "{{ req.requirement_item.name|escapejs }}",
-                    is_fulfilled: {{ sub_req.is_fulfilled|yesno:"true,false" }}
-                },
+                <span class="slot-item"
+                    data-id="{{ sub_req.requirement_item.item_id }}"
+                    data-name="{{ sub_req.requirement_item.name|escapejs }}"
+                    data-group-id="{{ req.requirement_item.item_id }}"
+                    data-group-name="{{ req.requirement_item.name|escapejs }}"
+                    data-fulfilled="{{ sub_req.is_fulfilled|yesno:'true,false' }}"></span>
                 {% endfor %}
             {% else %}
-                {
-                    id: "{{ req.requirement_item.item_id }}",
-                    name: "{{ req.requirement_item.name|escapejs }}",
-                    groupId: "{{ req.requirement_item.item_id }}",
-                    groupName: "{{ req.requirement_item.name|escapejs }}",
-                    is_fulfilled: {{ req.is_fulfilled|yesno:"true,false" }}
-                },
+                <span class="slot-item"
+                    data-id="{{ req.requirement_item.item_id }}"
+                    data-name="{{ req.requirement_item.name|escapejs }}"
+                    data-group-id="{{ req.requirement_item.item_id }}"
+                    data-group-name="{{ req.requirement_item.name|escapejs }}"
+                    data-fulfilled="{{ req.is_fulfilled|yesno:'true,false' }}"></span>
             {% endif %}
             {% endwith %}
         {% endfor %}
-    ];
+    </div>
+
+    <script>
+    let activeBatchGroupId = '';
+
+    // Available Document Checklist Slots
+    const availableSlots = Array.from(document.querySelectorAll('#checklist-slots-data .slot-item')).map(function(el) {
+        return {
+            id: el.dataset.id,
+            name: el.dataset.name,
+            groupId: el.dataset.groupId,
+            groupName: el.dataset.groupName,
+            is_fulfilled: el.dataset.fulfilled === 'true'
+        };
+    });
 
     function openGroupBatchUploadModal(groupId, groupName) {
         activeBatchGroupId = String(groupId || '').trim();
@@ -1422,13 +2151,30 @@
         return unClaimed ? unClaimed.id : (targetSlots.length > 0 ? targetSlots[0].id : '');
     }
 
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
 
     let selectedBatchFilesStore = [];
+
+    function getFileMeta(filename) {
+        if (!filename) return { icon: 'fa-file-lines', typeClass: 'icon-default' };
+        const ext = filename.split('.').pop().toLowerCase();
+        if (ext === 'pdf') return { icon: 'fa-file-pdf', typeClass: 'icon-pdf' };
+        if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) return { icon: 'fa-file-image', typeClass: 'icon-image' };
+        if (['doc', 'docx'].includes(ext)) return { icon: 'fa-file-word', typeClass: 'icon-word' };
+        return { icon: 'fa-file-lines', typeClass: 'icon-default' };
+    }
 
     function renderBatchFileList() {
         const list = document.getElementById('selectedFilesList');
         const container = document.getElementById('fileListContainer');
         const countText = document.getElementById('selectedFilesCount');
+        const submitBtnText = document.getElementById('batchSubmitBtnText');
         const fileInput = document.getElementById('batchFileInput');
         const dropZone = document.getElementById('batchDropZone');
 
@@ -1442,20 +2188,26 @@
         if (selectedBatchFilesStore.length > 0) {
             if (container) container.style.display = 'block';
             if (countText) countText.textContent = `Files to Upload (${selectedBatchFilesStore.length})`;
+            if (submitBtnText) submitBtnText.textContent = `Upload ${selectedBatchFilesStore.length} Document${selectedBatchFilesStore.length > 1 ? 's' : ''}`;
             
             if (dropZone) {
-                dropZone.className = "border border-2 border-dashed rounded-3 p-2.5 px-3 text-center bg-light position-relative d-flex align-items-center justify-content-between gap-2";
+                dropZone.className = "premium-dropzone-compact border border-2 border-dashed rounded-3 p-2.5 px-3.5 text-center position-relative d-flex align-items-center justify-content-between gap-2 shadow-2xs";
                 dropZone.innerHTML = `
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="fa-solid fa-cloud-arrow-up text-primary" style="font-size: 18px;"></i>
-                        <span class="fw-semibold text-dark" style="font-size: 0.82rem;">Add or drag more files</span>
+                    <div class="d-flex align-items-center gap-2.5">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; background: rgba(99, 102, 241, 0.15); color: #6366f1;">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 14px;"></i>
+                        </div>
+                        <div class="text-start">
+                            <span class="fw-semibold text-dark d-block title-text-adaptive" style="font-size: 0.82rem; line-height: 1.2;">Drag more files here</span>
+                            <span class="text-muted" style="font-size: 0.72rem;">or click Add Files to queue more</span>
+                        </div>
                     </div>
-                    <label for="batchFileInput" class="btn btn-sm btn-light border px-2.5 py-1 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 6px; font-size: 0.78rem;">
-                        <i class="fa-solid fa-plus me-1 text-primary"></i> Add Files
+                    <label for="batchFileInput" class="btn btn-sm btn-outline-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.78rem;">
+                        <i class="fa-solid fa-plus me-1"></i> Add Files
                     </label>
                     <input type="file" name="files" id="batchFileInput"
                         class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                        accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;">
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" style="cursor: pointer; z-index: 5;">
                 `;
             }
 
@@ -1471,8 +2223,8 @@
 
             selectedBatchFilesStore.forEach((itemObj, index) => {
                 const f = itemObj.file;
+                const fileMeta = getFileMeta(f.name);
                 const assignedSlot = targetSlots.find(s => String(s.id) === String(itemObj.selectedSlotId));
-                const isEditing = itemObj.isEditing || false;
                 const needsValidity = assignedSlot ? checkRequiresValidity(assignedSlot.name) : false;
                 
                 // Slots already claimed by OTHER files in this batch
@@ -1480,115 +2232,98 @@
                     .filter((other, i) => i !== index && other.selectedSlotId)
                     .map(other => String(other.selectedSlotId));
                 
-                const wrapper = document.createElement('div');
-
-                let slotOptionsHTML = `<option value="">-- Select document type --</option>`;
+                let slotOptionsHTML = `<option value="">-- Choose target checklist slot --</option>`;
                 targetSlots.forEach(slot => {
                     const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
                     if (claimedByOthers.includes(String(slot.id)) && !isSelected) {
                         return; // Remove slot from dropdown if taken by another file
                     }
-                    const occupiedLabel = slot.is_fulfilled ? ' (Replaces current file)' : '';
-                    const groupLabel = (!activeBatchGroupId && slot.parent) ? ` [${slot.parent}]` : '';
+                    const occupiedLabel = slot.is_fulfilled ? ' ⚠️ (Replaces existing file)' : '';
+                    const groupLabel = (!activeBatchGroupId && slot.groupName) ? ` [${slot.groupName}]` : '';
                     slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${slot.name}${groupLabel}${occupiedLabel}</option>`;
                 });
 
-                if (assignedSlot && !isEditing) {
-                    wrapper.className = 'list-group-item p-2.5 px-3 bg-white border rounded-3 mb-2 d-flex align-items-center justify-content-between gap-3 shadow-2xs';
-                    wrapper.style.borderColor = '#e2e8f0';
+                const wrapper = document.createElement('div');
+                wrapper.className = 'batch-file-card mb-2.5';
 
-                    let validityHTML = '';
-                    if (needsValidity) {
-                        validityHTML = `
-                            <div class="d-flex align-items-center gap-2 mt-1.5 pt-1.5 border-top" style="border-color: #f1f5f9 !important;">
-                                <span class="text-muted fw-semibold text-nowrap flex-shrink-0" style="font-size: 0.74rem;">Valid Until:</span>
-                                <input type="date" name="expiry_dates" class="form-control form-control-sm bg-white py-0.5 px-2"
-                                    value="${itemObj.expiryDate || ''}"
-                                    style="font-size: 0.78rem; border-radius: 6px; width: 145px;"
-                                    onchange="updateBatchExpiryDate(${index}, this.value)">
-                            </div>
-                        `;
-                    } else {
-                        validityHTML = `<input type="hidden" name="expiry_dates" value="">`;
-                    }
-
-                    wrapper.innerHTML = `
-                        <div class="d-flex align-items-start gap-2.5 min-w-0 flex-grow-1">
-                            <i class="fa-solid ${getFileIcon(f.name)} mt-0.5 flex-shrink-0" style="font-size: 16px;"></i>
-                            <div class="min-w-0 flex-grow-1">
-                                <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;" title="${f.name}">${f.name}</div>
-                                <div class="d-flex align-items-center gap-1.5 cursor-pointer text-success mt-0.5" 
-                                    onclick="toggleBatchSlotEdit(${index})" title="Click to change document type" style="font-size: 0.78rem; user-select: none;">
-                                    <span class="fw-semibold text-truncate">${assignedSlot.name}</span>
-                                    <i class="fa-solid fa-circle-check text-success flex-shrink-0" style="font-size: 13px;"></i>
-                                    <i class="fa-solid fa-pencil text-muted opacity-50 ms-1 flex-shrink-0" style="font-size: 10px;"></i>
-                                </div>
-                                ${validityHTML}
-                            </div>
-                            <input type="hidden" name="item_ids" value="${assignedSlot.id}">
+                let validityHTML = '';
+                if (needsValidity) {
+                    validityHTML = `
+                        <div class="d-flex align-items-center gap-2 mt-2 pt-2 border-top border-secondary-subtle">
+                            <span class="text-muted fw-semibold text-nowrap flex-shrink-0" style="font-size: 0.75rem;"><i class="fa-regular fa-calendar-days me-1 text-warning"></i> Expiration Date:</span>
+                            <input type="date" name="expiry_dates" class="form-control form-control-sm py-1 px-2.5 batch-slot-select"
+                                value="${itemObj.expiryDate || ''}"
+                                style="font-size: 0.80rem; border-radius: 8px; width: 160px;"
+                                onchange="updateBatchExpiryDate(${index}, this.value)">
                         </div>
-                        <button type="button" class="btn btn-sm btn-light border p-1 px-1.5 text-danger shadow-2xs flex-shrink-0"
-                            style="border-radius: 6px; line-height: 1;" onclick="removeBatchFile(${index})" title="Remove file">
-                            <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
-                        </button>
                     `;
                 } else {
-                    wrapper.className = 'list-group-item p-2.5 px-3 bg-white border rounded-3 mb-2 d-flex flex-column gap-1.5 shadow-2xs';
-                    wrapper.style.borderColor = '#cbd5e1';
-
-                    wrapper.innerHTML = `
-                        <div class="d-flex align-items-center justify-content-between gap-2 min-w-0">
-                            <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
-                                <i class="fa-solid ${getFileIcon(f.name)} flex-shrink-0" style="font-size: 16px;"></i>
-                                <span class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;" title="${f.name}">${f.name}</span>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-light border p-1 px-1.5 text-danger shadow-2xs flex-shrink-0"
-                                style="border-radius: 6px; line-height: 1;" onclick="removeBatchFile(${index})" title="Remove file">
-                                <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
-                            </button>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="text-muted fw-semibold flex-shrink-0 mb-0" style="font-size: 0.76rem;">
-                                Assign for:
-                            </span>
-                            <select name="item_ids" class="form-select form-select-sm batch-slot-select flex-grow-1"
-                                style="font-size: 0.8rem; border-radius: 6px;" onchange="updateBatchSlotSelection(${index}, this.value)">
-                                ${slotOptionsHTML}
-                            </select>
-                        </div>
-                        <input type="hidden" name="expiry_dates" value="">
-                    `;
+                    validityHTML = `<input type="hidden" name="expiry_dates" value="">`;
                 }
+
+                wrapper.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
+                        <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
+                            <div class="batch-file-icon ${fileMeta.typeClass} flex-shrink-0">
+                                <i class="fa-solid ${fileMeta.icon}"></i>
+                            </div>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.88rem;" title="${f.name}">${f.name}</div>
+                                <div class="d-flex align-items-center gap-2 mt-0.5">
+                                    <span class="badge px-2 py-0.5 rounded-pill" style="background: rgba(100, 116, 139, 0.12); color: #64748b; font-size: 0.70rem; font-weight: 600;">${formatBytes(f.size)}</span>
+                                    ${assignedSlot ? `<span class="badge px-2 py-0.5 rounded-pill text-primary" style="background: rgba(37, 99, 235, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-check me-1"></i>Assigned</span>` : `<span class="badge px-2 py-0.5 rounded-pill text-warning" style="background: rgba(217, 119, 6, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Unassigned</span>`}
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="batch-btn-remove flex-shrink-0" onclick="removeBatchFile(${index})" title="Remove this file">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+
+                    <!-- Slot Selector -->
+                    <div class="d-flex flex-column gap-1">
+                        <label class="text-muted fw-semibold mb-0" style="font-size: 0.75rem;">
+                            <i class="fa-solid fa-folder-tree me-1 text-primary"></i> Checklist Requirement:
+                        </label>
+                        <select name="item_ids" class="form-select form-select-sm batch-slot-select"
+                            style="border-radius: 8px; font-size: 0.82rem; height: 38px; cursor: pointer;"
+                            onchange="updateBatchSlotSelection(${index}, this.value)">
+                            ${slotOptionsHTML}
+                        </select>
+                    </div>
+                    ${validityHTML}
+                `;
                 list.appendChild(wrapper);
             });
         } else {
             if (container) container.style.display = 'none';
+            if (submitBtnText) submitBtnText.textContent = 'Upload Files';
             if (dropZone) {
-                dropZone.className = "border border-2 border-dashed rounded-3 p-4 text-center bg-light position-relative";
+                dropZone.className = "premium-dropzone";
                 dropZone.innerHTML = `
-                    <div class="mb-2 d-flex justify-content-center">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                            style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb;">
-                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px;"></i>
+                    <div class="premium-dropzone-icon-wrap">
+                        <span class="premium-dropzone-floating-badge floating-pdf">PDF</span>
+                        <span class="premium-dropzone-floating-badge floating-doc">DOCX</span>
+                        <span class="premium-dropzone-floating-badge floating-img">PNG</span>
+                        <div class="premium-dropzone-center-icon">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
                         </div>
                     </div>
-
-                    <div class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">
-                        Drag &amp; drop files here
+                    <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 1.05rem;">
+                        Drop Files Here
                     </div>
-                    <div class="text-muted small mb-2" style="font-size: 0.78rem;">or</div>
-                    
-                    <label for="batchFileInput" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-folder-open me-1.5"></i> Choose Files
-                    </label>
-                    
-                    <div class="mt-2.5 text-muted" style="font-size: 0.75rem;">
-                        PDF, JPG, PNG, WEBP &bull; Max 10 MB each
+                    <div class="text-muted small mb-2" style="font-size: 0.82rem;">
+                        or <span class="text-primary fw-semibold text-decoration-underline cursor-pointer">Browse Files</span>
                     </div>
-
+                    <div>
+                        <span class="premium-dropzone-pill">
+                            <i class="fa-solid fa-file-shield text-primary" style="font-size: 11px;"></i>
+                            Supports PDF, DOC, DOCX, JPG, PNG &bull; Max 15 MB each
+                        </span>
+                    </div>
                     <input type="file" name="files" id="batchFileInput"
                         class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                        accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;">
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" style="cursor: pointer; z-index: 5;">
                 `;
             }
             if (fileInput) fileInput.value = '';
@@ -1682,8 +2417,7 @@
         const dropZone = e.target.closest('#batchDropZone');
         if (dropZone) {
             e.preventDefault();
-            dropZone.style.borderColor = '#2563eb';
-            dropZone.style.background = '#eff6ff';
+            dropZone.classList.add('dragover');
         }
     });
 
@@ -1691,8 +2425,7 @@
         const dropZone = e.target.closest('#batchDropZone');
         if (dropZone) {
             e.preventDefault();
-            dropZone.style.borderColor = '#cbd5e1';
-            dropZone.style.background = '#f8fafc';
+            dropZone.classList.remove('dragover');
         }
     });
 
@@ -1700,8 +2433,7 @@
         const dropZone = e.target.closest('#batchDropZone');
         if (dropZone) {
             e.preventDefault();
-            dropZone.style.borderColor = '#cbd5e1';
-            dropZone.style.background = '#f8fafc';
+            dropZone.classList.remove('dragover');
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 addFilesToBatchStore(e.dataTransfer.files);
             }
@@ -1720,10 +2452,11 @@
     document.querySelectorAll('.btn-toggle-waive').forEach(button => {
         button.addEventListener('click', function () {
             const reqId = this.dataset.reqId;
+            const toggleUrl = this.dataset.toggleUrl || `/requirements/${reqId}/toggle-waive/`;
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             this.disabled = true;
 
-            fetch(`/requirements/${reqId}/toggle-waive/`, {
+            fetch(toggleUrl, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': csrfToken,
@@ -1747,14 +2480,29 @@
         });
     });
 
+    // Smooth Group Accordion Chevron 180-Degree Rotation
+    document.querySelectorAll('.checklist-group-card').forEach(function (card) {
+        const collapseEl = card.querySelector('.collapse');
+        const chevron = card.querySelector('.group-chevron');
+        if (collapseEl && chevron) {
+            collapseEl.addEventListener('show.bs.collapse', function () {
+                chevron.style.transform = 'rotate(180deg)';
+            });
+            collapseEl.addEventListener('hide.bs.collapse', function () {
+                chevron.style.transform = 'rotate(0deg)';
+            });
+        }
+    });
+
     function confirmArchiveDetail() {
         if (window.showConfirmModal) {
             showConfirmModal({
                 title: 'Move to Trash',
-                message: "Are you sure you want to move '{{ record.title|escapejs }}' to Trash? It can be restored later.",
-                confirmText: 'Move to Trash',
-                confirmClass: 'action-btn-danger',
-                icon: 'trash-2',
+                message: "Are you sure you want to move '{{ record.title|escapejs }}' to Trash? It can be restored later at any time.",
+                confirmText: 'Yes, Move to Trash',
+                cancelText: 'No, Keep It.',
+                confirmClass: 'action-btn-warning',
+                iconClass: 'fa-solid fa-box-archive',
                 onConfirm: function () {
                     window.location.href = "{% url 'archive_record' record.record_id %}";
                 }

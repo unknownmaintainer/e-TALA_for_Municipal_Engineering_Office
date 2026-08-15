@@ -344,12 +344,17 @@ class RolePermissionsAndCleanupTestCase(TestCase):
             created_by=self.staff
         )
 
-        # 2. Filter by illegal construction on records_browse
-        response = self.client.get(reverse('records_browse') + '?illegal=1')
+        # 2. Access dedicated illegal_constructions view
+        response = self.client.get(reverse('illegal_constructions'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('page_obj', response.context)
         page_objs = response.context['page_obj']
         self.assertTrue(any(r.record_id == illegal_rec.record_id for r in page_objs))
+
+        # 2b. Legacy redirect from records_browse?illegal=1 to illegal_constructions
+        legacy_res = self.client.get(reverse('records_browse') + '?illegal=1')
+        self.assertEqual(legacy_res.status_code, 302)
+        self.assertIn('/illegal-constructions/', legacy_res.url)
 
         # 3. Update regularization status to pending_permit
         update_url = reverse('update_illegal_status', kwargs={'record_id': illegal_rec.record_id})
@@ -357,6 +362,20 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertEqual(res.status_code, 302)
         illegal_rec.refresh_from_db()
         self.assertEqual(illegal_rec.illegal_compliance_status, 'pending_permit')
+
+        # 4. Convert/Regularize to official Permit Record
+        regularize_url = reverse('regularize_record', kwargs={'record_id': illegal_rec.record_id})
+        reg_res = self.client.post(regularize_url, {
+            'permit_type': 'Building Permit',
+            'permit_number': 'BP-2026-9999',
+            'applicant_name': 'Juan Dela Cruz',
+            'building_type': 'Commercial'
+        })
+        self.assertEqual(reg_res.status_code, 302)
+        illegal_rec.refresh_from_db()
+        self.assertEqual(illegal_rec.illegal_compliance_status, 'resolved')
+        self.assertEqual(illegal_rec.permit_detail.permit_number, 'BP-2026-9999')
+        self.assertEqual(illegal_rec.permit_detail.applicant_name, 'Juan Dela Cruz')
 
     def test_flag_illegal_construction_endpoint(self):
         from django.urls import reverse

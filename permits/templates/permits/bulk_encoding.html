@@ -59,10 +59,10 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold small text-dark">Record Subtype</label>
+                        <label class="form-label fw-semibold small text-dark" id="subtypeLabel">Record Subtype</label>
                         <select name="subtype" id="subtypeSelect" class="form-select rounded-3" required>
-                            {% for val, label in building_types %}
-                            <option value="{{ val }}">{{ label }}</option>
+                            {% for val, label in permit_types %}
+                            <option value="{{ val }}">{{ label }} Permit</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -159,24 +159,65 @@
 </div>
 
 <script>
+const SUBTYPE_OPTIONS = {
+    permit: [
+        {% for val, label in permit_types %}
+        { value: "{{ val }}", text: "{{ label }} Permit" },
+        {% endfor %}
+    ],
+    municipal: [
+        {% for val, label in project_types %}
+        { value: "{{ val }}", text: "{{ label }} Project" },
+        {% endfor %}
+    ],
+    barangay: [
+        {% for val, label in project_types %}
+        { value: "{{ val }}", text: "{{ label }} Project" },
+        {% endfor %}
+    ]
+};
+
 function updateSubtypes(cat) {
     const permitCol = document.getElementById('permitNumCol');
     const appCol = document.getElementById('applicantCol');
     const titleCol = document.getElementById('projectTitleCol');
     const fundingCol = document.getElementById('fundingCol');
+    const subtypeSelect = document.getElementById('subtypeSelect');
+    const subtypeLabel = document.getElementById('subtypeLabel');
 
     if (cat === 'permit') {
         permitCol.style.display = 'block';
         appCol.style.display = 'block';
         titleCol.style.display = 'none';
         fundingCol.style.display = 'none';
+        if (subtypeLabel) subtypeLabel.textContent = 'Permit Type';
     } else {
         permitCol.style.display = 'none';
         appCol.style.display = 'none';
         titleCol.style.display = 'block';
         fundingCol.style.display = 'block';
+        if (subtypeLabel) subtypeLabel.textContent = 'Project Type';
+    }
+
+    if (subtypeSelect && SUBTYPE_OPTIONS[cat]) {
+        const currentVal = subtypeSelect.value;
+        subtypeSelect.innerHTML = '';
+        SUBTYPE_OPTIONS[cat].forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.text;
+            subtypeSelect.appendChild(option);
+        });
     }
 }
+
+// Initialize on DOM load
+document.addEventListener('DOMContentLoaded', function() {
+    const categorySelect = document.getElementById('categorySelect');
+    if (categorySelect) {
+        updateSubtypes(categorySelect.value);
+    }
+});
 </script>
 
 {% endblock %}

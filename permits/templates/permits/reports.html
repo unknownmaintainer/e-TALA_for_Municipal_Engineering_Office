@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters %}
 
-{% block title %}Reports | eTala{% endblock %}
+{% block title %}Reports &amp; Analytics · eTala{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -173,7 +173,7 @@
 {% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item">Reports</span>
+<span class="breadcrumb-item active">Reports &amp; Analytics</span>
 {% endblock %}
 
 {% block content %}
@@ -194,20 +194,15 @@
 <!-- ══ PAGE HEADER ════════════════════════════════════════════════════════════ -->
 <div class="etala-page-header d-print-none">
     <div>
-        <h1 class="etala-page-title d-flex align-items-center gap-2">
-            <i class="fa-solid fa-chart-column text-primary" style="font-size: 22px;"></i>
-            <span>Engineering Analytics &amp; Reports</span>
-        </h1>
-        <p class="etala-page-subtitle">Comprehensive municipal summaries, permit issuance metrics, and infrastructure logs.</p>
+        <h1 class="etala-page-title">Reports &amp; Analytics</h1>
+        <p class="etala-page-subtitle">Summary of permit issuances, infrastructure projects, and compliance metrics.</p>
     </div>
     <div class="etala-header-actions">
-        <button type="button" onclick="triggerExport('excel')" class="etala-btn etala-btn-secondary" title="Export to Excel Spreadsheet">
-            <i class="fa-solid fa-file-excel text-success" style="font-size: 14px;"></i>
-            <span>Export Excel</span>
+        <button type="button" onclick="triggerExport('excel')" class="premium-btn-icon btn-export" title="Export to Excel Spreadsheet">
+            <i class="fa-solid fa-file-excel"></i>
         </button>
-        <button type="button" onclick="triggerExport('pdf')" class="etala-btn etala-btn-secondary" title="Export to PDF Document">
-            <i class="fa-solid fa-file-pdf text-danger" style="font-size: 14px;"></i>
-            <span>Export PDF</span>
+        <button type="button" onclick="triggerExport('pdf')" class="premium-btn-icon btn-pdf" title="Export to PDF Document">
+            <i class="fa-solid fa-file-pdf"></i>
         </button>
     </div>
 </div>
@@ -396,7 +391,7 @@
                         </thead>
                         <tbody>
                             {% for p in expiring_soon_list %}
-                            <tr onclick="window.location='{% url 'record_detail' p.record_id %}'" style="cursor: pointer;">
+                            <tr data-href="{% url 'record_detail' p.record_id %}" style="cursor: pointer;">
                                 <td class="fw-bold text-dark">{{ p.permit_number }}</td>
                                 <td class="fw-semibold text-dark">{% if p.applicant_name|is_valid_applicant %}{{ p.applicant_name }}{% else %}—{% endif %}</td>
                                 <td class="cell-muted">{{ p.barangay_name }}</td>
@@ -450,13 +445,13 @@
                         </thead>
                         <tbody>
                             {% for c in illegal_cases_list %}
-                            <tr onclick="window.location='{% url 'record_detail' c.record_id %}'" style="cursor: pointer;">
+                            <tr data-href="{% url 'record_detail' c.record_id %}" style="cursor: pointer;">
                                 <td class="fw-bold text-dark">#{{ c.record_id }}</td>
                                 <td class="cell-title">{{ c.title }}</td>
                                 <td class="cell-muted">{{ c.barangay.barangay_name }}</td>
                                 <td class="cell-muted">{{ c.created_at|date:"M d, Y" }}</td>
                                 <td>
-                                    <span class="badge" style="{{ c.illegal_status_info.bg_style }} font-size: 0.72rem; padding: 4px 9px;">
+                                    <span class="badge" style="font-size: 0.72rem; padding: 4px 9px; {% if c.illegal_status_info.bg_style %}{{ c.illegal_status_info.bg_style }}{% endif %}">
                                         {{ c.illegal_status_info.label }}
                                     </span>
                                 </td>
@@ -528,6 +523,9 @@
 <!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+{{ growth_data|json_script:"growth-data-script" }}
+{{ by_barangay|json_script:"barangay-data-script" }}
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     // 1. Records by Category Doughnut Chart
@@ -539,9 +537,9 @@ document.addEventListener("DOMContentLoaded", function() {
                 labels: ['Permits', 'Municipal Projects', 'Barangay Projects'],
                 datasets: [{
                     data: [
-                        {% if by_category.0.count %}{{ by_category.0.count }}{% else %}0{% endif %},
-                        {% if by_category.1.count %}{{ by_category.1.count }}{% else %}0{% endif %},
-                        {% if by_category.2.count %}{{ by_category.2.count }}{% else %}0{% endif %}
+                        {{ by_category.0.count|default:0 }},
+                        {{ by_category.1.count|default:0 }},
+                        {{ by_category.2.count|default:0 }}
                     ],
                     backgroundColor: ['#002855', '#C5A059', '#0d9488'],
                     borderWidth: 2,
@@ -568,8 +566,10 @@ document.addEventListener("DOMContentLoaded", function() {
     // 2. Growth Trend Chart
     const ctxGrowth = document.getElementById('growthChart');
     if (ctxGrowth) {
-        const growthMonths = [{% for g in growth_data %}"{{ g.month }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
-        const growthCounts = [{% for g in growth_data %}{{ g.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+        const rawGrowthElem = document.getElementById('growth-data-script');
+        const rawGrowth = rawGrowthElem ? JSON.parse(rawGrowthElem.textContent || '[]') : [];
+        const growthMonths = rawGrowth.map(function(g) { return g.month; });
+        const growthCounts = rawGrowth.map(function(g) { return g.count; });
         new Chart(ctxGrowth, {
             type: 'line',
             data: {
@@ -600,8 +600,12 @@ document.addEventListener("DOMContentLoaded", function() {
     // 3. Records by Barangay Bar Chart
     const ctxBarangay = document.getElementById('barangayChart');
     if (ctxBarangay) {
-        const barangayNames = [{% for b in by_barangay %}"{% if b.barangay__barangay_name %}Brgy. {{ b.barangay__barangay_name }}{% else %}Unassigned{% endif %}"{% if not forloop.last %}, {% endif %}{% endfor %}];
-        const barangayCounts = [{% for b in by_barangay %}{{ b.count }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+        const rawBarangayElem = document.getElementById('barangay-data-script');
+        const rawBarangay = rawBarangayElem ? JSON.parse(rawBarangayElem.textContent || '[]') : [];
+        const barangayNames = rawBarangay.map(function(b) {
+            return b.barangay__barangay_name ? 'Brgy. ' + b.barangay__barangay_name : 'Unassigned';
+        });
+        const barangayCounts = rawBarangay.map(function(b) { return b.count; });
         new Chart(ctxBarangay, {
             type: 'bar',
             data: {

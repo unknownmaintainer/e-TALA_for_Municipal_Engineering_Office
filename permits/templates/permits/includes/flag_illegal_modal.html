@@ -1,102 +1,127 @@
-<!-- Create Report Modal -->
+<!-- ══ LGU BUILDING OFFICIAL VIOLATION & INSPECTION REPORT MODAL ══ -->
 <div class="modal fade" id="flagIllegalModal" tabindex="-1" aria-labelledby="flagIllegalModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 680px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
-            
-            <!-- Header -->
-            <div class="modal-header border-0 px-4 pt-4 pb-0" style="background: #fff;">
-                <div class="d-flex align-items-center gap-2">
-                    <div class="d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background: #fee2e2; border-radius: 10px;">
-                        <i class="fa-solid fa-plus" style="font-size: 14px; color: #dc2626;"></i>
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+
+            <!-- Modal Header -->
+            <div
+                class="modal-header border-bottom px-4 py-3 bg-white d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 38px; height: 38px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 10px; color: #dc2626;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 16px;"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold mb-0" id="flagIllegalModalLabel" style="font-size: 1.05rem; color: #0f172a;">Create Report</h5>
-                        <p class="mb-0" style="font-size: 0.75rem; color: #94a3b8;">Report a violation or unpermitted structure</p>
+                        <h5 class="modal-title fw-bold mb-0 text-dark" id="flagIllegalModalLabel"
+                            style="font-size: 1.05rem; letter-spacing: -0.01em;">
+                            Report Unpermitted Construction / Violation
+                        </h5>
+                        <p class="mb-0 text-muted" style="font-size: 0.76rem;">
+                            Record site inspection findings and unpermitted structures
+                        </p>
                     </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.7rem;"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                    style="font-size: 0.75rem;"></button>
             </div>
 
-            <form method="POST" action="{% url 'flag_illegal_construction' %}" enctype="multipart/form-data">
+            <form method="POST" action="{% url 'flag_illegal_construction' %}" enctype="multipart/form-data"
+                id="flagIllegalForm">
                 {% csrf_token %}
-                
-                <div class="modal-body px-4 pt-3 pb-4">
-                    <div class="row g-3">
 
-                        <!-- Structure / Project -->
+                <div class="modal-body px-4 py-3.5">
+
+                    <div class="row g-3.5">
+                        <!-- Row 1: Structure / Incident Name -->
                         <div class="col-12">
-                            <label class="cr-label">Structure / Project Name <span class="text-danger">*</span></label>
-                            <input type="text" name="title" class="form-control cr-field" placeholder="e.g. 2-Storey Residential Building" maxlength="80" required>
+                            <label class="cr-label">Structure / Incident Name <span
+                                    class="text-danger fw-bold">*</span></label>
+                            <input type="text" name="title" class="form-control cr-field"
+                                placeholder="e.g. 2-Storey Commercial Building" maxlength="80" required>
                         </div>
 
-                        <!-- Location Row -->
+                        <!-- Row 2: Owner / Violator & Barangay -->
                         <div class="col-md-6">
-                            <label class="cr-label">Barangay <span class="text-danger">*</span></label>
+                            <label class="cr-label">Owner / Violator Name</label>
+                            <input type="text" name="owner_name" class="form-control cr-field"
+                                placeholder="e.g. Juan Dela Cruz (or leave blank)" maxlength="60">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="cr-label">Barangay <span class="text-danger fw-bold">*</span></label>
                             <select name="barangay" class="form-select cr-field" required>
-                                <option value="" disabled selected>Select barangay...</option>
+                                <option value="" disabled selected>— Select barangay —</option>
                                 {% for b in barangays %}
                                 <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="cr-label">Street / Landmark</label>
-                            <input type="text" name="location_address" class="form-control cr-field" placeholder="e.g. Main Street, near plaza" maxlength="60">
-                        </div>
 
-                        <!-- Violation Type & Date -->
+                        <!-- Row 3: Violation Type & Date Inspected -->
                         <div class="col-md-6">
-                            <label class="cr-label">Type of Violation <span class="text-danger">*</span></label>
+                            <label class="cr-label">Violation Type <span class="text-danger fw-bold">*</span></label>
                             <select name="violation_type" class="form-select cr-field" required>
-                                <option value="Unpermitted Construction" selected>Unpermitted Construction</option>
-                                <option value="No Building Permit">No Building Permit</option>
-                                <option value="No Occupancy Permit">No Occupancy Permit</option>
-                                <option value="Setback Violation">Setback Violation</option>
-                                <option value="Non-compliance with Plans">Non-compliance with Plans</option>
-                                <option value="Safety / Structural Hazard">Safety / Structural Hazard</option>
-                                <option value="Other">Other</option>
+                                <option value="Unpermitted Construction (Section 301)" selected>No Building Permit
+                                    (Section 301)</option>
+                                <option value="Non-compliance with Approved Plans (Section 309)">Non-compliance with
+                                    Plans / Alteration</option>
+                                <option value="Setback & Right-of-Way Encroachment (Section 708)">Setback &amp; ROW
+                                    Encroachment</option>
+                                <option value="Dangerous & Ruinous Structure (Section 214/215)">Dangerous / Structurally
+                                    Unsound Hazard</option>
+                                <option value="Illegal Occupancy (Section 309)">Illegal Occupancy (No Occupancy Permit)
+                                </option>
+                                <option value="Other Non-compliance">Other Building Code Violation</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="cr-label">Date Reported <span class="text-danger">*</span></label>
-                            <input type="date" name="date_discovered" class="form-control cr-field" value="{% now 'Y-m-d' %}" required>
+                            <label class="cr-label">Date Inspected <span class="text-danger fw-bold">*</span></label>
+                            <input type="date" name="date_discovered" class="form-control cr-field"
+                                value="{% now 'Y-m-d' %}" required>
                         </div>
 
-                        <!-- Description -->
+                        <!-- Row 4: Attach Photo / Notice -->
                         <div class="col-12">
-                            <label class="cr-label">Description</label>
-                            <textarea name="description" class="form-control cr-field char-counted" rows="2" maxlength="150" placeholder="Briefly describe the violation or structure observed..."></textarea>
-                            <div class="text-end text-muted small mt-1 char-counter-lbl" style="font-size: 0.72rem;">0 / 150 characters</div>
-                        </div>
-
-
-
-                        <!-- Photo & Remarks side by side -->
-                        <div class="col-md-6">
-                            <label class="cr-label">Supporting Photo <span style="color: #94a3b8; font-weight: 400;">(Optional)</span></label>
+                            <label class="cr-label">Attach Photo / Notice <span class="text-muted fw-normal">(JPG, PNG,
+                                    PDF &bull; Max 25MB)</span></label>
                             <div class="cr-file-box">
-                                <input type="file" name="photo" accept="image/*,.pdf" id="flagPhotoInput" class="cr-file-input">
+                                <input type="file" name="photo" accept="image/*,.pdf" id="flagPhotoInput"
+                                    class="cr-file-input">
                                 <div class="cr-file-label">
-                                    <i class="fa-solid fa-upload text-muted" style="font-size: 13px; flex-shrink: 0;"></i>
-                                    <span id="flagPhotoName" class="text-truncate" style="color: #94a3b8; font-size: 0.8rem;">Choose file...</span>
+                                    <i class="fa-solid fa-camera text-muted"
+                                        style="font-size: 14px; flex-shrink: 0;"></i>
+                                    <span id="flagPhotoName" class="text-truncate"
+                                        style="color: #94a3b8; font-size: 0.82rem;">Upload site inspection photo or
+                                        notice...</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="cr-label">Remarks <span style="color: #94a3b8; font-weight: 400;">(Optional)</span></label>
-                            <input type="text" name="remarks" class="form-control cr-field" placeholder="Any additional notes...">
-                        </div>
 
+                        <!-- Row 5: Description Findings -->
+                        <div class="col-12">
+                            <label class="cr-label">Inspection Findings &amp; Description <span
+                                    class="text-muted fw-normal">(Optional)</span></label>
+                            <textarea name="description" class="form-control cr-field char-counted" rows="3"
+                                maxlength="250"
+                                placeholder="State observations (e.g. ongoing framing without permit, location details)..."></textarea>
+                            <div class="text-end text-muted small mt-1 char-counter-lbl" style="font-size: 0.70rem;">0 /
+                                250 characters</div>
+                        </div>
                     </div>
+
                 </div>
 
-                <!-- Footer -->
-                <div class="modal-footer border-top px-4 py-3" style="background: #f8fafc; border-color: #f1f5f9 !important;">
-                    <button type="button" class="btn px-3 py-2 fw-medium" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem; color: #64748b; background: #e2e8f0; border: none;">
+                <!-- Modal Footer -->
+                <div
+                    class="modal-footer border-top px-4 py-3 bg-light d-flex align-items-center justify-content-end gap-2">
+                    <button type="button" class="btn btn-light border px-3.5 py-2 fw-semibold text-secondary"
+                        data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.84rem; height: 38px;">
                         Cancel
                     </button>
-                    <button type="submit" class="btn text-white px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2" style="border-radius: 8px; font-size: 0.82rem; background: #dc2626; border: none;">
-                        <i class="fa-solid fa-paper-plane" style="font-size: 13px;"></i> Submit Report
+                    <button type="submit"
+                        class="btn text-white px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2"
+                        style="border-radius: 8px; font-size: 0.84rem; height: 38px; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.22);">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 12px;"></i>
+                        <span>Report Violation</span>
                     </button>
                 </div>
             </form>
@@ -105,121 +130,174 @@
 </div>
 
 <style>
-/* ── Create Report Modal ── */
-.cr-label {
-    display: block;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 5px;
-}
-.cr-field {
-    border-radius: 8px !important;
-    padding: 0.5rem 0.75rem !important;
-    font-size: 0.82rem !important;
-    border: 1px solid #e2e8f0 !important;
-    background: #fff !important;
-    color: #0f172a !important;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.cr-field:focus {
-    border-color: #dc2626 !important;
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08) !important;
-}
-.cr-field::placeholder { color: #b0b8c4 !important; }
-.cr-field option {
-    background: #fff !important;
-    color: #0f172a !important;
-}
+    .cr-label {
+        display: block;
+        font-size: 0.80rem;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 5px;
+    }
 
-/* File upload */
-.cr-file-box {
-    position: relative;
-    border: 1px dashed #d1d5db;
-    border-radius: 8px;
-    background: #fafbfc;
-    height: 38px;
-    overflow: hidden;
-    transition: border-color 0.15s ease;
-}
-.cr-file-box:hover { border-color: #dc2626; background: #fef2f2; }
-.cr-file-input {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    opacity: 0; cursor: pointer; z-index: 2;
-}
-.cr-file-label {
-    display: flex; align-items: center; gap: 8px;
-    height: 100%; padding: 0 12px;
-    cursor: pointer;
-}
+    .cr-field {
+        border-radius: 8px !important;
+        padding: 8.5px 12px !important;
+        font-size: 0.86rem !important;
+        height: 40px;
+        border: 1px solid #cbd5e1 !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        transition: all 0.15s ease;
+    }
 
-/* Dark mode */
-.dark-mode .cr-label,
-[data-bs-theme="dark"] .cr-label { color: #cbd5e1; }
-.dark-mode .cr-field,
-[data-bs-theme="dark"] .cr-field {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-    color: #f1f5f9 !important;
-}
-.dark-mode .cr-field::placeholder,
-[data-bs-theme="dark"] .cr-field::placeholder { color: #64748b !important; }
-.dark-mode .cr-field option,
-[data-bs-theme="dark"] .cr-field option {
-    background: #1e293b !important;
-    color: #f1f5f9 !important;
-}
-.dark-mode .cr-file-box,
-[data-bs-theme="dark"] .cr-file-box {
-    background: #0f172a !important;
-    border-color: #334155 !important;
-}
-.dark-mode .cr-file-box:hover,
-[data-bs-theme="dark"] .cr-file-box:hover {
-    border-color: #dc2626 !important;
-    background: #1a0f0f !important;
-}
-.dark-mode #flagIllegalModal .modal-content,
-[data-bs-theme="dark"] #flagIllegalModal .modal-content {
-    background: #1e293b !important;
-}
-.dark-mode #flagIllegalModal .modal-header,
-[data-bs-theme="dark"] #flagIllegalModal .modal-header {
-    background: #1e293b !important;
-}
-.dark-mode #flagIllegalModal .modal-header h5,
-[data-bs-theme="dark"] #flagIllegalModal .modal-header h5 { color: #f1f5f9 !important; }
-.dark-mode #flagIllegalModal .modal-header p,
-[data-bs-theme="dark"] #flagIllegalModal .modal-header p { color: #64748b !important; }
-.dark-mode #flagIllegalModal .modal-footer,
-[data-bs-theme="dark"] #flagIllegalModal .modal-footer {
-    background: #0f172a !important;
-    border-color: #1e293b !important;
-}
+    textarea.cr-field {
+        height: auto !important;
+        min-height: 80px !important;
+        padding: 10px 12px !important;
+    }
+
+    .cr-field:focus {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+    }
+
+    .cr-field::placeholder {
+        color: #94a3b8 !important;
+    }
+
+    .cr-field option {
+        background: #ffffff !important;
+        color: #0f172a !important;
+    }
+
+    .cr-file-box {
+        position: relative;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        background: #f8fafc;
+        height: 40px;
+        overflow: hidden;
+        transition: all 0.15s ease;
+    }
+
+    .cr-file-box:hover {
+        border-color: #dc2626;
+        background: #fef2f2;
+    }
+
+    .cr-file-input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+    .cr-file-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 100%;
+        padding: 0 12px;
+        cursor: pointer;
+    }
+
+    /* Dark Mode */
+    .dark-mode .cr-label,
+    [data-bs-theme="dark"] .cr-label {
+        color: #cbd5e1;
+    }
+
+    .dark-mode .cr-field,
+    [data-bs-theme="dark"] .cr-field {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+        color: #f1f5f9 !important;
+    }
+
+    .dark-mode .cr-field::placeholder,
+    [data-bs-theme="dark"] .cr-field::placeholder {
+        color: #64748b !important;
+    }
+
+    .dark-mode .cr-field option,
+    [data-bs-theme="dark"] .cr-field option {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+    }
+
+    .dark-mode .cr-file-box,
+    [data-bs-theme="dark"] .cr-file-box {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+    }
+
+    .dark-mode .cr-file-box:hover,
+    [data-bs-theme="dark"] .cr-file-box:hover {
+        border-color: #dc2626 !important;
+        background: rgba(220, 38, 38, 0.1) !important;
+    }
+
+    .dark-mode #flagIllegalModal .modal-content,
+    [data-bs-theme="dark"] #flagIllegalModal .modal-content {
+        background: #1e293b !important;
+    }
+
+    .dark-mode #flagIllegalModal .modal-header,
+    [data-bs-theme="dark"] #flagIllegalModal .modal-header {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+
+    .dark-mode #flagIllegalModal .modal-header h5,
+    [data-bs-theme="dark"] #flagIllegalModal .modal-header h5 {
+        color: #f1f5f9 !important;
+    }
+
+    .dark-mode #flagIllegalModal .modal-footer,
+    [data-bs-theme="dark"] #flagIllegalModal .modal-footer {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+    }
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const m = document.getElementById('flagIllegalModal');
-    if (m && m.parentElement !== document.body) {
-        document.body.appendChild(m);
-    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const modalEl = document.getElementById('flagIllegalModal');
+        if (modalEl && modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
 
-    const photoInput = document.getElementById('flagPhotoInput');
-    const photoName = document.getElementById('flagPhotoName');
-    if (photoInput && photoName) {
-        photoInput.addEventListener('change', function() {
-            if (this.files && this.files.length > 0) {
-                photoName.textContent = this.files[0].name;
-                photoName.style.color = '#0f172a';
-                photoName.style.fontWeight = '500';
-            } else {
-                photoName.textContent = 'Choose file...';
-                photoName.style.color = '#94a3b8';
-                photoName.style.fontWeight = '';
-            }
+        const photoInput = document.getElementById('flagPhotoInput');
+        const photoName = document.getElementById('flagPhotoName');
+        if (photoInput && photoName) {
+            photoInput.addEventListener('change', function () {
+                if (this.files && this.files.length > 0) {
+                    const f = this.files[0];
+                    const sz = (f.size / (1024 * 1024)).toFixed(2);
+                    photoName.textContent = `${f.name} (${sz} MB)`;
+                    photoName.style.color = '#0f172a';
+                    photoName.style.fontWeight = '600';
+                } else {
+                    photoName.textContent = 'Upload site inspection photo or notice...';
+                    photoName.style.color = '#94a3b8';
+                    photoName.style.fontWeight = 'normal';
+                }
+            });
+        }
+
+        // Character counter for textarea
+        const charCounted = document.querySelectorAll('.char-counted');
+        charCounted.forEach(area => {
+            area.addEventListener('input', function () {
+                const counter = this.parentElement.querySelector('.char-counter-lbl');
+                if (counter) {
+                    const max = this.getAttribute('maxlength') || 250;
+                    counter.textContent = `${this.value.length} / ${max} characters`;
+                }
+            });
         });
-    }
-});
+    });
 </script>

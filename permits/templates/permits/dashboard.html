@@ -667,7 +667,6 @@
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
         display: block !important;
-        vertical-align: middle !important;
     }
 
     .dark-mode .compact-cell-title,
@@ -775,13 +774,15 @@
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
     <div class="etala-header-actions">
-        <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary" title="Create New Record">
-            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
+        <a href="{% url 'create_step1' %}" class="premium-btn btn-add" title="Create New Record">
+            <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+            <span class="btn-divider"></span>
             <span>New Record</span>
         </a>
-        <button type="button" class="etala-btn etala-btn-secondary text-decoration-none" data-bs-toggle="modal"
+        <button type="button" class="premium-btn btn-delete text-decoration-none" data-bs-toggle="modal"
             data-bs-target="#flagIllegalModal" title="Report Violation / Flag Construction">
-            <i class="fa-solid fa-triangle-exclamation text-danger" style="font-size: 13px;"></i>
+            <span class="btn-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <span class="btn-divider"></span>
             <span>Report Violation</span>
         </button>
     </div>
@@ -838,24 +839,24 @@
         <!-- Incomplete Checklists (Compact Table/Card Hybrid) -->
         <div class="content-card dashboard-fixed-card h-100">
             <div class="content-card-body p-0 d-flex flex-column h-100">
-                <div class="content-card-header card-header-sticky border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2 py-2 px-3 px-md-4 compact-checklist-header" style="overflow: visible;">
-                    <h5 class="content-card-title d-flex align-items-center gap-2 mb-0" style="font-size: 0.95rem; font-weight: 750;">
+                <div class="content-card-header card-header-sticky border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-2 py-2 px-3 compact-checklist-header">
+                    <h5 class="content-card-title d-flex align-items-center flex-nowrap gap-2 mb-0 flex-shrink-0">
                         <span>Checklists Requiring Uploads</span>
                         {% if incomplete_records > 0 %}
-                        <span class="badge compact-badge-count flex-shrink-0">{{ incomplete_records }}</span>
+                        <span class="badge compact-badge-count flex-shrink-0 align-self-center">{{ incomplete_records }}</span>
                         {% endif %}
                     </h5>
 
-                    <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
+                    <div class="compact-checklist-actions d-inline-flex align-items-center flex-nowrap gap-2 flex-shrink-0 ms-auto">
                         <!-- Scope Toggle ("My Items" vs "All Items") -->
                         <div class="scope-segmented-control flex-shrink-0" id="dashboardScopeControl">
                             <a href="javascript:void(0)" onclick="switchDashboardScope('my', event)" class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}" data-scope="my" title="Show my records">
                                 <i class="fa-solid fa-user"></i>
-                                <span>My Items</span>
+                                <span class="text-nowrap">My Items</span>
                             </a>
                             <a href="javascript:void(0)" onclick="switchDashboardScope('all', event)" class="scope-pill-btn {% if selected_scope == 'all' or not selected_scope %}active{% endif %}" data-scope="all" title="Show all office records">
                                 <i class="fa-solid fa-layer-group"></i>
-                                <span>All Items</span>
+                                <span class="text-nowrap">All Items</span>
                             </a>
                         </div>
                         <a href="{% url 'records_browse' %}" class="content-card-link text-nowrap flex-shrink-0 ms-1" style="font-size: var(--text-xs); font-weight: 600;">View All →</a>
@@ -893,7 +894,7 @@
                                         </td>
                                     </tr>
                                     {% for r in incomplete_list %}
-                                    <tr onclick="window.location='{% url 'record_detail' r.record_id %}'" class="checklist-row" data-is-mine="{% if r.created_by_id == request.user.id %}1{% else %}0{% endif %}">
+                                    <tr data-href="{% url 'record_detail' r.record_id %}" class="checklist-row" style="cursor: pointer;" data-is-mine="{% if r.created_by_id == request.user.id %}1{% else %}0{% endif %}">
                                         <td>
                                             <a href="{% url 'record_detail' r.record_id %}" class="compact-cell-title text-decoration-none" title="{% if r.record_type == 'Permit' %}{{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}{% else %}{{ r.title }}{% endif %}">
                                                 {% if r.record_type == 'Permit' %}
@@ -912,7 +913,7 @@
                                         </td>
                                         <td class="d-none d-sm-table-cell">
                                             {% if r.barangay %}
-                                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" onclick="event.stopPropagation();" class="text-decoration-none compact-cell-barangay">
+                                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" class="text-decoration-none compact-cell-barangay">
                                                 {{ r.barangay.barangay_name }}
                                             </a>
                                             {% else %}
@@ -1185,9 +1186,10 @@
     });
 
     document.addEventListener('DOMContentLoaded', function () {
-        {% if selected_scope == 'my' %}
-        switchDashboardScope('my');
-        {% endif %}
+        const selectedScope = "{{ selected_scope|default:''|escapejs }}";
+        if (selectedScope === 'my') {
+            switchDashboardScope('my');
+        }
     });
 </script>
 {% endblock %}

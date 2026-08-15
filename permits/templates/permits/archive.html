@@ -1,43 +1,86 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters %}
 
-{% block title %}Trash | eTala{% endblock %}
+{% block title %}Trash Archive · eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item">Trash</span>
+<a href="{% url 'records_browse' %}" class="breadcrumb-item">Records</a>
+<span class="breadcrumb-item active">Trash Archive</span>
 {% endblock %}
 
 {% block content %}
 
 <!-- Page Header -->
-<div class="etala-page-header">
+<div class="etala-page-header mb-3">
     <div>
-        <h1 class="etala-page-title d-flex align-items-center gap-2">
-            <i class="fa-solid fa-trash-can text-primary" style="font-size: 20px;"></i>
-            <span>Trash</span>
-        </h1>
-        <p class="etala-page-subtitle">Soft-deleted municipal records and files. Protected by Administrative permissions.</p>
+        <h1 class="etala-page-title">Trash &amp; Archive</h1>
+        <p class="etala-page-subtitle">Soft-deleted municipal engineering records and files.</p>
+    </div>
+    <div class="etala-header-actions">
+        <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 0.78rem; font-weight: 600;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
+            <span>{{ page_obj.paginator.count|default:0 }} Archived Records</span>
+        </span>
     </div>
 </div>
 
-<!-- Search Bar -->
-<div class="records-filter-toolbar d-flex align-items-center mb-3">
-    <form method="GET" action="{% url 'archive' %}" class="d-flex align-items-center flex-grow-1" style="max-width: 480px;">
-        <div class="filter-search-group d-flex align-items-center px-3 w-100" style="height: 38px; border: 1px solid var(--border-default, #cbd5e1); border-radius: 10px; background: var(--card-bg, #ffffff); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04); transition: all 0.2s ease;">
-            <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #64748b; flex-shrink: 0;"></i>
-            <input type="text" name="q" value="{{ q|default:'' }}" class="form-control border-0 p-0 flex-grow-1 search-text-input"
-                   placeholder="Search trash by name, year, barangay..."
-                   style="font-size: 0.84rem; outline: none !important; box-shadow: none !important; height: 100%; background: transparent; color: var(--text-primary, #1e293b);">
+<!-- Search + Actions Toolbar (Balanced Pill Design) -->
+<div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
+    <!-- Left: Search Pill Input -->
+    <form method="GET" action="{% url 'archive' %}" class="d-flex align-items-center flex-grow-1" style="max-width: 440px; min-width: 260px;">
+        <div class="etala-search-pill-wrapper">
+            <span class="etala-search-pill-icon">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" name="q" value="{{ q|default:'' }}" class="etala-search-pill-input search-text-input"
+                   placeholder="Search trash by name, year, barangay...">
+
+            <div id="archiveSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                style="width: 14px; height: 14px; border-width: 2px;">
+                <span class="visually-hidden">Searching...</span>
+            </div>
+
             {% if q %}
-            <a href="{% url 'archive' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-2" style="background: transparent;" title="Clear search">
-                <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+            <a href="{% url 'archive' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" style="background: transparent;" title="Clear search">
+                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
             </a>
             {% endif %}
         </div>
     </form>
+
+    <!-- Right: Quick Back Link -->
+    <div class="d-flex align-items-center gap-2 ms-auto">
+        <a href="{% url 'records_browse' %}" class="premium-btn btn-edit text-decoration-none" style="height: 42px; border-radius: 14px; font-size: 0.82rem;" title="Return to Records Archive">
+            <span class="btn-icon"><i class="fa-solid fa-folder-open"></i></span>
+            <span class="btn-divider"></span>
+            <span>All Records</span>
+        </a>
+    </div>
 </div>
 
 <style>
+    .data-table {
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+    .data-table th {
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+    }
+    .data-table td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .data-table .cell-title,
+    .data-table .cell-subtitle {
+        width: 100% !important;
+        max-width: 100% !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     /* Light mode specific rules - strictly scoped so they NEVER run in dark mode */
     html:not([data-bs-theme="dark"]):not(.dark-mode) .table-card-responsive tbody tr,
     html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr {
@@ -104,7 +147,6 @@
         color: #cbd5e1 !important;
     }
 
-
     .dark-mode .table-card-responsive tbody td[data-label]::before {
         color: #94a3b8 !important;
     }
@@ -117,16 +159,16 @@
         <table class="data-table table-card-responsive">
             <thead>
                 <tr>
-                    <th>Record Title</th>
-                    <th>Type</th>
-                    <th>Barangay</th>
-                    <th>Deleted Date</th>
-                    <th class="text-end" style="width: 50px;"></th>
+                    <th style="width: 46%;">Record Title</th>
+                    <th style="width: 20%;">Type</th>
+                    <th style="width: 16%;">Barangay</th>
+                    <th style="width: 13%;">Deleted Date</th>
+                    <th class="text-end" style="width: 5%; min-width: 44px; padding-right: 14px;"></th>
                 </tr>
             </thead>
             <tbody>
                 {% for record in page_obj %}
-                <tr onclick="window.location='{% url 'record_detail' record.record_id %}'">
+                <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
                     <td data-label="Record Title">
                         <div class="cell-title" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: {{ record.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
                             {% if record.record_type == 'Permit' %}
@@ -155,7 +197,7 @@
                     <td class="cell-muted" data-label="Deleted Date">{{ record.updated_at|date:"M d, Y" }}</td>
                     <td class="text-end pe-3 action-menu-cell" style="width: 55px;" onclick="event.stopPropagation();">
                         <div class="dropdown" onclick="event.stopPropagation();">
-                            <button class="row-action-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" data-bs-popper-config='{"strategy":"fixed"}' onclick="event.stopPropagation();" title="Actions">
+                            <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;" onclick="event.stopPropagation();">
@@ -168,13 +210,13 @@
                                 {% if request.user.role == 'admin' %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" onclick="confirmRestoreRecord('{% url 'restore_record' record.record_id %}', '{{ record.title|escapejs }}')">
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" data-url="{% url 'restore_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmRestoreRecord(this.dataset.url, this.dataset.title)">
                                         <i class="fa-solid fa-rotate-left" style="font-size: 13px; color:#10b981; flex-shrink:0;"></i>
                                         <span>Restore</span>
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" onclick="openPermanentDeleteModal('{% url 'permanent_delete_record' record.record_id %}', '{{ record.title|escapejs }}')">
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" data-url="{% url 'permanent_delete_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="openPermanentDeleteModal(this.dataset.url, this.dataset.title)">
                                         <i class="fa-solid fa-trash-can" style="font-size: 13px; color:#ef4444; flex-shrink:0;"></i>
                                         <span>Permanent Delete</span>
                                     </a>
@@ -212,7 +254,7 @@
             {% if page_obj.paginator.num_pages > 5 %}
             <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                 <span>Page:</span>
-                <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, {{ page_obj.paginator.num_pages }})">
+                <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
                 <span>/ {{ page_obj.paginator.num_pages }}</span>
             </div>
             {% endif %}
@@ -265,10 +307,11 @@ function confirmRestoreRecord(restoreUrl, recordTitle) {
     if (window.showConfirmModal) {
         showConfirmModal({
             title: 'Restore Record',
-            message: "Are you sure you want to restore '" + recordTitle + "'? It will be moved back to active records.",
-            confirmText: 'Restore Record',
-            confirmClass: 'action-btn-primary',
-            icon: 'rotate-ccw',
+            message: "Are you sure you want to restore '" + recordTitle + "'? It will be safely moved back to active records.",
+            confirmText: 'Yes, Restore!',
+            cancelText: 'No, Keep in Trash',
+            confirmClass: 'action-btn-success',
+            iconClass: 'fa-solid fa-arrow-rotate-left',
             onConfirm: function() {
                 window.location.href = restoreUrl;
             }
@@ -296,42 +339,102 @@ function openPermanentDeleteModal(actionUrl, recordTitle) {
         modal.show();
     }
 }
+
+// Live Debounced Auto-Search for Trash with Loading Spinner
+document.addEventListener('DOMContentLoaded', function () {
+    const archiveSearchInput = document.querySelector('input[name="q"]');
+    const archiveSearchSpinner = document.getElementById('archiveSearchSpinner');
+    let archiveSearchTimer;
+
+    async function updateArchiveTableAJAX(url) {
+        const tableCard = document.querySelector('.content-card');
+        if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
+        if (tableCard) {
+            tableCard.style.transition = 'opacity 0.08s ease';
+            tableCard.style.opacity = '0.6';
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            const newTableCard = doc.querySelector('.content-card');
+            if (tableCard && newTableCard) {
+                tableCard.innerHTML = newTableCard.innerHTML;
+            }
+            window.history.pushState({}, '', url);
+        } catch (err) {
+            console.error("AJAX refresh error:", err);
+            if (archiveSearchInput && archiveSearchInput.form) archiveSearchInput.form.submit();
+        } finally {
+            if (tableCard) tableCard.style.opacity = '1';
+            if (archiveSearchSpinner) archiveSearchSpinner.classList.add('d-none');
+        }
+    }
+
+    if (archiveSearchInput) {
+        if (archiveSearchInput.value) {
+            const len = archiveSearchInput.value.length;
+            archiveSearchInput.focus();
+            archiveSearchInput.setSelectionRange(len, len);
+        }
+        archiveSearchInput.addEventListener('input', function () {
+            clearTimeout(archiveSearchTimer);
+            if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
+            archiveSearchTimer = setTimeout(() => {
+                const formData = new FormData(archiveSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateArchiveTableAJAX(window.location.pathname + '?' + params.toString());
+            }, 450);
+        });
+    }
+});
 </script>
 
 <!-- ══ PERMANENT DELETE MODAL ══════════════════════════════════════════════ -->
 <div class="modal fade" id="permanentDeleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow" style="border-radius: 14px; overflow: hidden;">
-            <div class="modal-header border-bottom p-3 bg-danger text-white">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 18px;"></i>
-                    <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1rem;">Permanent Record Deletion</h5>
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden; background: #ffffff;">
+            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between" style="background: #fafbfc;">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #fee2e2; color: #ef4444;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 15px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Permanent Record Deletion</h5>
+                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Purge record and documents from archive</p>
+                    </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="permanentDeleteForm" method="POST">
                 {% csrf_token %}
                 <div class="modal-body p-4 text-dark">
-                    <div class="p-3 rounded-3 mb-3" style="background: #fef2f2; border: 1px solid #fecaca; font-size: 0.83rem; color: #991b1b;">
+                    <div class="p-3 rounded-3 mb-3" style="background: #fef2f2; border: 1px solid #fee2e2; font-size: 0.83rem; color: #991b1b; border-radius: 12px;">
                         <strong>Warning:</strong> Permanent deletion cannot be undone. This record and all associated uploaded documents will be permanently purged from the server archive.
                     </div>
                     <p class="mb-3 small text-dark">Target Record: <strong id="deleteRecordTitle" class="text-danger"></strong></p>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small">Reason for Deletion</label>
-                        <textarea name="reason" class="form-control rounded-3" rows="2" placeholder="Mandatory explanation for audit logs (e.g. Duplicate encoding, erroneous entry)" required style="font-size: 0.85rem;"></textarea>
+                        <label class="form-label fw-semibold text-dark small mb-1">Reason for Deletion <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control form-control-sm obo-input" rows="2" placeholder="Mandatory explanation for audit logs (e.g. Duplicate encoding, erroneous entry)" required></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small">Administrator Password Confirmation</label>
-                        <input type="password" name="password" class="form-control rounded-3" placeholder="Enter your admin password" required style="font-size: 0.85rem;">
+                        <label class="form-label fw-semibold text-dark small mb-1">Administrator Password Confirmation <span class="text-danger">*</span></label>
+                        <input type="password" name="password" class="form-control form-control-sm obo-input" placeholder="Enter your admin password" required>
                     </div>
-                </div>
-                <div class="modal-footer border-top p-3" style="background: #f8fafc;">
-                    <button type="button" class="btn btn-light px-3 py-1.5" data-bs-dismiss="modal" style="font-size: 0.85rem;">Cancel</button>
-                    <button type="submit" class="btn btn-danger px-4 py-1.5 fw-semibold" style="font-size: 0.85rem;">
-                        <i class="fa-solid fa-trash-can me-1"></i> Permanently Delete
-                    </button>
+
+                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
+                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">No, Keep It.</button>
+                        <button type="submit" class="etala-btn etala-btn-danger etala-btn-sm">
+                            <i class="fa-solid fa-trash-can me-1"></i> <span>Yes, Delete!</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

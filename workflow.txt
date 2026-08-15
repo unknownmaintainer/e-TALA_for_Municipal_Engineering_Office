@@ -1,0 +1,145 @@
+System Requirements & Workflow
+Engineering Records Archiving and Retrieval Management System (ERARMS)
+Municipal Engineering Office — Carigara, Leyte
+1. System Overview
+ERARMS is a web-based internal information system designed to digitize, organize, and manage engineering records of the Municipal Engineering Office of Carigara, Leyte. It replaces manual paper-based filing by providing a centralized repository for municipal projects, barangay projects, and building/permit records, complete with digital document checklists, user access controls, and audit logging.
+
+2. Functional Requirements
+Functional requirements describe what the system must do — specific behaviors, features, and operations.
+
+FR-01 — User Authentication & Session Management
+ID	Requirement
+FR-01.1	The system shall allow registered users to log in using their email address and password.
+FR-01.2	The system shall support a "Remember Me" option that extends the session duration.
+FR-01.3	The system shall lock out a user account after 5 consecutive failed login attempts and log each attempt.
+FR-01.4	The system shall log the IP address, timestamp, and result of every login attempt.
+FR-01.5	The system shall automatically redirect authenticated users to the Dashboard upon successful login.
+FR-01.6	The system shall automatically redirect unauthenticated requests to the Login page.
+FR-01.7	Logged-in users shall be able to log out, which terminates their active session.
+FR-01.8	The system shall include a Forgot Password flow for account recovery.
+FR-02 — User Role Management
+ID	Requirement
+FR-02.1	The system shall support two (2) roles: Engineering Staff and Administrator.
+FR-02.2	Engineering Staff can create and edit records they own, upload documents, and browse all records.
+FR-02.3	Administrators have full access: they can manage all records, manage users, access settings, archive records, and view audit logs.
+FR-02.4	Non-admin users cannot access the User Management or System Settings pages.
+FR-02.5	Non-admin users shall see masked project costs (e.g., ₱,,*.**, ) for records they did not create.
+FR-03 — User Account Management (Admin Only)
+ID	Requirement
+FR-03.1	Administrators shall be able to create new user accounts by providing full name, email, role, and temporary password.
+FR-03.2	The system shall auto-generate a unique username from the email prefix (with numeric suffix if taken).
+FR-03.3	Administrators shall be able to activate or deactivate any user account (except their own).
+FR-03.4	Administrators shall be able to reset the password of any user account.
+FR-03.5	New passwords must meet the minimum strength policy: at least 8 characters, one uppercase, one lowercase, one digit.
+FR-03.6	Administrators cannot deactivate their own account from the User Management page.
+FR-04 — Engineering Record Management
+ID	Requirement
+FR-04.1	The system shall support three (3) categories of engineering records: Municipal Projects, Barangay Projects, and Permits (Building, Electrical, Occupancy, Fencing, Demolition, Renovation, Sanitary, Mechanical).
+FR-04.2	Users shall be able to create a new record from a single form by selecting: Type, Sub-type, Title/Applicant Name, Barangay, and Year.
+FR-04.3	Each record shall have a unique system-generated Record ID.
+FR-04.4	Records shall store the following core fields: Title, Record Type, Project Scope (Municipal/Barangay), Barangay, Year, Status, Date Started, Date Completed, Description, and Encoder (created by).
+FR-04.5	Permit records shall additionally store: Permit Number, Permit Type, Building Type, Applicant Name, Resolution Required flag, and Remarks.
+FR-04.6	Project records shall additionally store: Project Type, Funding Source, Contractor, Project Cost (₱), and Project Status (Planning, Procurement, Ongoing, Completed, Suspended).
+FR-04.7	Authorized users shall be able to edit any field of a record after creation.
+FR-04.8	Administrators shall be able to archive a record, which removes it from the active records list but preserves it in the database.
+FR-04.9	Administrators shall be able to restore an archived record back to active status.
+FR-04.10	Record statuses shall include: Pending, Active, In Progress, Completed, Archived.
+FR-05 — Document Checklist & Uploads
+ID	Requirement
+FR-05.1	Upon creation of a new record, the system shall automatically load a document checklist based on the record type and sub-type from a pre-configured Requirement Template.
+FR-05.2	Each checklist item shall display: document name, description, fulfillment status (✓ or ☐), who fulfilled it, and when.
+FR-05.3	Users shall be able to upload a file to fulfill a specific checklist slot.
+FR-05.4	Accepted upload formats shall be: PDF, JPG, PNG, DOCX. Maximum file size: 10 MB.
+FR-05.5	Users shall be able to preview uploaded documents directly in the browser (PDF/image inline viewer).
+FR-05.6	Users shall be able to replace an uploaded document without losing the checklist fulfillment link.
+FR-05.7	Users shall be able to delete an uploaded document, which marks the checklist item as unfulfilled again.
+FR-05.8	The system shall display a completion percentage (e.g., 3/5 documents — 60%) for each record's checklist.
+FR-05.9	Document files shall be stored securely in Cloudinary and accessed only via signed, time-limited tokens (10-minute expiry).
+FR-05.10	Each document shall record: file name, file size, document type, uploader, and upload timestamp.
+FR-06 — Records Browse & Search
+ID	Requirement
+FR-06.1	The system shall provide a Records page listing all engineering records in a paginated table (20 per page).
+FR-06.2	Users shall be able to filter records using inline tab buttons: All Records, Municipal Projects, Barangay Projects, Permits.
+FR-06.3	Users shall be able to further filter by Barangay, Status, and Year using dropdown selectors.
+FR-06.4	Users shall be able to search records by Title, Applicant Name, Permit Number, or Contractor Name.
+FR-06.5	Search and filters shall work together (combined queries).
+FR-06.6	An empty state message shall be shown when no results match the filters.
+FR-07 — Dashboard
+ID	Requirement
+FR-07.1	The Dashboard shall display summary count cards: Total Records, Municipal Projects, Barangay Projects, Permit Records, Incomplete Checklists, and Archived Records.
+FR-07.2	The Dashboard shall show a Recent Records table listing the latest 10 records with their type, status, and barangay.
+FR-07.3	The Dashboard shall highlight records with incomplete checklists so users can quickly act.
+FR-07.4	The Dashboard shall display Chart.js visualizations: a bar chart (Records encoded per year) and a doughnut chart (Permit type distribution).
+FR-08 — Reports & Exports
+ID	Requirement
+FR-08.1	Users shall be able to generate a summary report filtered by category, barangay, year, and status.
+FR-08.2	Reports shall display aggregate metrics: total records, by type, by status.
+FR-08.3	Users shall be able to export the report as a CSV/Excel file download.
+FR-08.4	Users shall be able to print the report via browser print dialog.
+FR-09 — Audit Logging
+ID	Requirement
+FR-09.1	The system shall record an audit log entry for every significant action: login, logout, record creation, record edit, record archive, document upload, document delete, user creation, password reset, and settings changes.
+FR-09.2	Each log entry shall include: action description, user, target record ID (if applicable), IP address, and timestamp.
+FR-09.3	Administrators shall be able to view the audit log from the Settings page.
+FR-10 — System Settings (Admin Only)
+ID	Requirement
+FR-10.1	Administrators shall be able to update Office Information: office name, municipality, and province.
+FR-10.2	Administrators shall be able to trigger a Database Backup which downloads a JSON archive of system metadata.
+FR-10.3	Administrators shall be able to restore the system from an uploaded backup file.
+FR-10.4	The Settings page shall display the list of Requirement Templates (document checklists) configured for each record type.
+FR-10.5	The logged-in administrator shall be able to change their own password from the Settings page.
+FR-11 — User Profile
+ID	Requirement
+FR-11.1	Every user shall have a Profile page showing their username, email, full name, role, and account creation date.
+FR-11.2	Users shall be able to update their profile information (full name, email).
+FR-11.3	Users shall be able to change their own password from their profile.
+3. Non-Functional Requirements
+Non-functional requirements describe how the system should perform — quality attributes and constraints.
+
+NFR-01 — Security
+ID	Requirement
+NFR-01.1	All web pages shall be served over HTTPS in production.
+NFR-01.2	The system shall use Django's CSRF protection on all POST form submissions.
+NFR-01.3	All user inputs shall be sanitized before processing to prevent XSS and injection attacks.
+NFR-01.4	Passwords shall be stored using Django's PBKDF2 hashing algorithm (never plaintext).
+NFR-01.5	Document files shall be accessible only via time-limited signed tokens (10-minute expiry) to prevent unauthorized direct access.
+NFR-01.6	Failed login attempts (5+) shall trigger account lockout, preventing brute-force attacks.
+NFR-01.7	Role-based access control (RBAC) shall be enforced on every protected view — unauthorized access returns a 403 Forbidden response.
+NFR-01.8	Django sessions shall expire after a configurable idle period.
+NFR-02 — Performance
+ID	Requirement
+NFR-02.1	The Records list page shall load within 3 seconds for up to 500 records on a standard LAN connection.
+NFR-02.2	Database queries shall use indexed fields (record_type, barangay, status, year, title) to ensure fast filtering.
+NFR-02.3	Document uploads shall be handled asynchronously via Cloudinary to avoid blocking the main server thread.
+NFR-02.4	Pages shall render using server-side templates (Django/Jinja2) for fast initial load without JavaScript dependency.
+NFR-03 — Usability
+ID	Requirement
+NFR-03.1	All primary functions (create record, upload document, search) shall be reachable within 3–4 clicks from any screen.
+NFR-03.2	The interface shall use consistent typography, color coding, and iconography throughout all pages.
+NFR-03.3	Status badges shall use color coding: green (Active/Completed), amber (In Progress), gray (Pending/Archived).
+NFR-03.4	Form validation errors shall display inline, next to the relevant field, in plain language.
+NFR-03.5	The system shall display toast/flash notifications for all successful actions and errors.
+NFR-03.6	The sidebar shall be collapsible to maximize screen space on smaller monitors.
+NFR-03.7	The system shall not require any browser plugins or extensions to operate.
+NFR-04 — Reliability & Availability
+ID	Requirement
+NFR-04.1	The system shall target 99% uptime during office hours (Monday–Friday, 8:00 AM – 5:00 PM).
+NFR-04.2	The system shall not lose data during a page refresh, back navigation, or accidental form closure (records are saved to the database before redirect).
+NFR-04.3	The system shall handle unexpected database errors gracefully by displaying a user-friendly error page.
+NFR-05 — Maintainability
+ID	Requirement
+NFR-05.1	The system shall be built using Django 6.0 (Python) following the Model-View-Template (MVT) architecture pattern.
+NFR-05.2	All environment-specific settings (SECRET_KEY, database URL, Cloudinary credentials) shall be stored in environment variables, not in source code.
+NFR-05.3	The codebase shall include an automated test suite covering authentication, record CRUD, and document uploads.
+NFR-05.4	Database schema changes shall be managed through Django migrations.
+NFR-06 — Compatibility
+ID	Requirement
+NFR-06.1	The system shall be compatible with the latest versions of Google Chrome, Microsoft Edge, and Mozilla Firefox.
+NFR-06.2	The system shall be usable on desktop and laptop screens (minimum resolution: 1024×768).
+NFR-06.3	The system shall use Bootstrap 5.3 for responsive layout support.
+NFR-07 — Data Integrity
+ID	Requirement
+NFR-07.1	Every record shall have a non-nullable created_by field linking it to the user who encoded it.
+NFR-07.2	Deleting a Barangay or User shall be protected — the system shall refuse deletion if related records exist (Django PROTECT constraint).
+NFR-07.3	Archived records shall never be hard-deleted — they remain in the database and can be restored.
+NFR-07.4	Document files shall be version-tracked — each upload increments the version number of the document slot.

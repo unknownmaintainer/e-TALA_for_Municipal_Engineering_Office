@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}User Management — eTala{% endblock %}
+{% block title %}User Management · eTala{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -230,63 +230,65 @@
 {% endblock %}
 
 {% block breadcrumb %}
-<a href="{% url 'dashboard' %}" class="breadcrumb-item text-decoration-none" style="color: var(--gray-500);">Dashboard</a>
-<span class="breadcrumb-item">User Management</span>
+<span class="breadcrumb-item active">User Management</span>
 {% endblock %}
 
 {% block content %}
 
 <!-- ══ HEADER & ACTIONS ═══════════════════════════════════════════════════ -->
-<div class="etala-page-header">
+<div class="etala-page-header mb-3">
     <div>
-        <h1 class="etala-page-title">User Accounts &amp; Access Control</h1>
-        <p class="etala-page-subtitle">Manage municipal engineering operator accounts, credentials, and role permissions.</p>
+        <h1 class="etala-page-title">User Management</h1>
+        <p class="etala-page-subtitle">Manage engineering staff accounts, credentials, and role permissions.</p>
     </div>
     
-    <div class="etala-header-actions">
+    <div class="etala-header-actions d-flex align-items-center gap-2">
         {% if request.user.role == 'admin' %}
-        <button class="etala-btn etala-btn-primary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#addUserModal" title="Register New Operator">
-            <i class="fa-solid fa-user-plus" style="font-size: 13px;"></i>
+        <button class="premium-btn btn-add flex-shrink-0" data-bs-toggle="modal" data-bs-target="#addUserModal" title="Register New Operator">
+            <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+            <span class="btn-divider"></span>
             <span>Add User</span>
         </button>
         {% endif %}
+    </div>
+</div>
 
-        <!-- Search Input -->
-        <form method="GET" action="{% url 'users' %}" class="m-0 flex-grow-1 flex-sm-grow-0">
-            <div class="d-flex align-items-center px-3 rounded-3 border shadow-2xs" style="background: var(--card-bg, #ffffff); min-width: 200px; max-width: 320px; height: 38px; border-color: #cbd5e1;">
-                <i class="fa-solid fa-magnifying-glass me-2" style="font-size: 13px; color: #94a3b8;"></i>
-                <input type="text" name="q" class="form-control border-0 p-0 shadow-none bg-transparent" placeholder="Search user by name, role..." value="{{ q|default:'' }}" style="font-size: 0.82rem; color: var(--text-primary, #1e293b);">
-                {% if q %}
-                <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 ms-1 text-decoration-none" title="Clear">
-                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
-                </a>
-                {% endif %}
+<!-- ══ SEARCH TOOLBAR (BALANCED PILL DESIGN) ═════════════════════════════ -->
+<div class="d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
+    <!-- Left: Search Input (Integrated Pill Design) -->
+    <form method="GET" action="{% url 'users' %}" class="m-0 flex-grow-1" style="max-width: 440px; min-width: 260px;">
+        <div class="etala-search-pill-wrapper">
+            <span class="etala-search-pill-icon">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Search user by name, role..." value="{{ q|default:'' }}">
+
+            <div id="userSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                style="width: 14px; height: 14px; border-width: 2px;">
+                <span class="visually-hidden">Searching...</span>
             </div>
-        </form>
+
+            {% if q %}
+            <a href="{% url 'users' %}" class="text-muted d-flex align-items-center justify-content-center border-0 p-0" title="Clear search">
+                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+            </a>
+            {% endif %}
+        </div>
+    </form>
+
+    <!-- Right: Active Operators Counter Pill -->
+    <div class="d-flex align-items-center gap-2 ms-auto">
+        <span class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center gap-1.5" style="background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; font-size: 0.80rem; font-weight: 600;">
+            <i class="fa-solid fa-user-check" style="font-size: 11px;"></i>
+            <span>{{ stats.active|default:0 }} Active Operator{{ stats.active|pluralize }}</span>
+        </span>
     </div>
 </div>
 
-<!-- ══ INTERACTIVE USER & ROLE TABS ═════════════════════════════════════ -->
-<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-    <div class="user-tabs-container" id="userTabs" role="tablist">
-        <button class="nav-link active" id="user-accounts-tab" data-bs-toggle="pill" data-bs-target="#tab-user-accounts" type="button" role="tab" onclick="updateUserGuide('User Accounts & Access Control', 'Manage active operator accounts, credentials, and toggle account activation status.')">
-            <i class="fa-solid fa-users"></i>
-            <span>User Accounts ({{ stats.total|default:users.count }})</span>
-        </button>
-        <button class="nav-link" id="user-roles-tab" data-bs-toggle="pill" data-bs-target="#tab-user-roles" type="button" role="tab" onclick="updateUserGuide('Roles & Permissions Matrix', 'Full breakdown of authority levels and module capabilities for Administrator, Municipal Engineer, and Engineering Staff.')">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>Roles &amp; Permissions</span>
-        </button>
-    </div>
-</div>
-
-<!-- ══ TAB CONTENT ═════════════════════════════════════════════════════════ -->
-<div class="tab-content" id="userTabsContent">
-    <!-- ── TAB 1: USER ACCOUNTS TABLE ── -->
-    <div class="tab-pane fade show active" id="tab-user-accounts" role="tabpanel">
-        <div class="user-group-card shadow-2xs mb-4">
-            <!-- Rows -->
-            <div>
+<!-- ── USER ACCOUNTS TABLE ── -->
+<div class="user-group-card shadow-2xs mb-4">
+    <!-- Rows -->
+    <div>
         {% for u in users %}
         <div class="user-row-item">
             <!-- Left: Avatar -->
@@ -294,7 +296,7 @@
             <img src="{{ u.profile_picture_url }}" class="user-avatar-img" alt="{{ u.full_name|default:u.username }}"
                 onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
             {% endif %}
-            <div class="user-avatar-initials role-{{ u.role }}" style="display: {% if u.profile_picture_url %}none{% else %}inline-flex{% endif %};">
+            <div class="user-avatar-initials role-{{ u.role }}" style="{% if u.profile_picture_url %}display: none;{% else %}display: inline-flex;{% endif %}">
                 {{ u.username|slice:":2"|upper }}
             </div>
 
@@ -348,13 +350,13 @@
 
                 <!-- Action Dropdown -->
                 <div class="dropdown" onclick="event.stopPropagation();">
-                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="true" title="Actions">
+                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="true" title="Actions">
                         <i class="fa-solid fa-ellipsis-vertical text-muted" style="font-size: 13px;"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow-lg border p-1" style="border-radius: 12px; font-size: 0.82rem; min-width: 175px; z-index: 99999;" onclick="event.stopPropagation();">
                         <li>
                             <button type="button" class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2" 
-                                    onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', {% if u == request.user %}true{% else %}false{% endif %})">
+                                    onclick="openEditModal('{{ u.id }}', '{{ u.full_name|escapejs }}', '{{ u.email|escapejs }}', '{{ u.role|escapejs }}', '{{ u.id }}' === '{{ request.user.id }}')">
                                 <i class="fa-solid fa-pen-to-square text-primary" style="font-size: 12px; width: 14px;"></i>
                                 <span>Edit Profile</span>
                             </button>
@@ -381,161 +383,56 @@
 
     <!-- Pagination Footer -->
     {% if page_obj.has_other_pages %}
-    <div class="px-4 py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: #ffffff;">
-        <span class="text-muted small" style="font-size: 0.76rem;">
-            Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 border-top">
+        <span class="text-muted" style="font-size: 0.76rem;">
+            Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> operators
         </span>
-        <div class="d-flex align-items-center gap-1.5">
-            {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm btn-outline-secondary px-3" style="font-size: 0.76rem; border-radius: 6px;">Previous</a>
-            {% endif %}
-            {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm btn-outline-secondary px-3" style="font-size: 0.76rem; border-radius: 6px;">Next</a>
-            {% endif %}
-        </div>
+        <nav aria-label="Users pagination">
+            <ul class="pagination pagination-sm mb-0 gap-1">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">‹ Prev</a></li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
+                {% endif %}
+
+                {% for p in page_obj.paginator.page_range %}
+                {% if page_obj.number == p %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                <li class="page-item"><a class="page-link" href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}">{{ p }}</a></li>
+                {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Next ›</a></li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                {% endif %}
+            </ul>
+        </nav>
     </div>
     {% endif %}
 </div>
 
-    <!-- ── TAB 2: ROLES & PERMISSIONS MATRIX ── -->
-    <div class="tab-pane fade" id="tab-user-roles" role="tabpanel">
-        <div class="row g-4 mb-4">
-            <!-- Administrator Role Card -->
-            <div class="col-md-4">
-                <div class="content-card h-100 p-4" style="border-radius: 14px;">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; font-size: 0.76rem;">Administrator</span>
-                        <span class="badge bg-light text-muted border">Tier 1 Authority</span>
-                    </div>
-                    <h6 class="fw-bold text-dark mb-2">Full System Administration</h6>
-                    <p class="text-muted small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
-                        Complete access to all municipal operations, user provisioning, system security, database backups, audit trail inspection, and document template builders.
-                    </p>
-                    <ul class="list-unstyled mb-0 d-flex flex-column gap-1.5 text-secondary" style="font-size: 0.76rem;">
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Create, edit, and deactivate user accounts</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Backup &amp; restore municipal database</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> System audit trail &amp; IP access control</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Configure document requirement templates</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Municipal Engineer Role Card -->
-            <div class="col-md-4">
-                <div class="content-card h-100 p-4" style="border-radius: 14px;">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <span class="badge" style="background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; font-size: 0.76rem;">Municipal Engineer</span>
-                        <span class="badge bg-light text-muted border">Tier 2 Technical</span>
-                    </div>
-                    <h6 class="fw-bold text-dark mb-2">Executive Technical Review</h6>
-                    <p class="text-muted small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
-                        Technical validation of permits, project verification, issuing official notices for illegal structures, and generating executive reports.
-                    </p>
-                    <ul class="list-unstyled mb-0 d-flex flex-column gap-1.5 text-secondary" style="font-size: 0.76rem;">
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Export Excel and PDF municipal reports</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Flag &amp; regularize illegal construction</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> View system analytics and audit summaries</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Waive or verify checklist requirements</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Engineering Staff Role Card -->
-            <div class="col-md-4">
-                <div class="content-card h-100 p-4" style="border-radius: 14px;">
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <span class="badge" style="background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; font-size: 0.76rem;">Engineering Staff</span>
-                        <span class="badge bg-light text-muted border">Tier 3 Operational</span>
-                    </div>
-                    <h6 class="fw-bold text-dark mb-2">Encoding &amp; Document Operations</h6>
-                    <p class="text-muted small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
-                        Daily operational workflow for digitizing paper records, batch uploading applicant plans, and verifying required compliance items.
-                    </p>
-                    <ul class="list-unstyled mb-0 d-flex flex-column gap-1.5 text-secondary" style="font-size: 0.76rem;">
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Create &amp; encode new engineering records</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Batch upload and preview PDF documents</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Instant search &amp; retrieval across barangays</li>
-                        <li><i class="fa-solid fa-check text-success me-1.5"></i> Update document completion statuses</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- Permissions Matrix Table -->
-        <div class="content-card shadow-sm p-4" style="border-radius: 14px;">
-            <h6 class="fw-bold text-dark mb-3">System Permissions Matrix</h6>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="font-weight: 700;">Functional Module / Action</th>
-                            <th class="text-center" style="font-weight: 700; width: 140px;">Staff</th>
-                            <th class="text-center" style="font-weight: 700; width: 150px;">Engineer</th>
-                            <th class="text-center" style="font-weight: 700; width: 140px;">Admin</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Record Search &amp; Document Retrieval</td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                        </tr>
-                        <tr>
-                            <td>Encode Records &amp; Batch Upload Plans</td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                        </tr>
-                        <tr>
-                            <td>Flag Illegal Construction &amp; Issue Notices</td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                        </tr>
-                        <tr>
-                            <td>Export Comprehensive Analytics &amp; Reports</td>
-                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                        </tr>
-                        <tr>
-                            <td>Manage User Accounts &amp; Access Controls</td>
-                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
-                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                        </tr>
-                        <tr>
-                            <td>System Settings &amp; Checklist Templates</td>
-                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
-                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                        </tr>
-                        <tr>
-                            <td>Database Backup &amp; Disaster Recovery</td>
-                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
-                            <td class="text-center text-muted"><i class="fa-solid fa-minus"></i></td>
-                            <td class="text-center text-success"><i class="fa-solid fa-circle-check"></i></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- ══ MODALS (ADD, EDIT, RESET) ══════════════════════════════════════════ -->
 
 <!-- ══ MODALS (ADD, EDIT, RESET) ══════════════════════════════════════════ -->
 
 <!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header text-white" style="background: #064e3b; padding: 18px 24px;">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="fa-solid fa-user-plus" style="font-size: 16px;"></i>
-                    <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.05rem;">Add New User</h5>
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden; background: #ffffff;">
+            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between" style="background: #fafbfc;">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #dcfce7; color: #16a34a;">
+                        <i class="fa-solid fa-user-plus" style="font-size: 15px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Add New User</h5>
+                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Create operator or admin account</p>
+                    </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4" style="background: #ffffff;">
                 <form action="{% url 'users' %}" method="POST" autocomplete="off">
@@ -586,13 +483,18 @@
 <!-- Edit User Modal -->
 <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header text-white" style="background: #0f172a; padding: 18px 24px;">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="fa-solid fa-pen-to-square" style="font-size: 16px;"></i>
-                    <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.05rem;">Edit User Profile</h5>
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden; background: #ffffff;">
+            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between" style="background: #fafbfc;">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #e0f2fe; color: #0284c7;">
+                        <i class="fa-solid fa-pen-to-square" style="font-size: 15px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Edit User Profile</h5>
+                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Update user details and access role</p>
+                    </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4" style="background: #ffffff;">
                 <form action="{% url 'users' %}" method="POST" autocomplete="off">
@@ -633,13 +535,18 @@
 <!-- Reset Password Modal -->
 <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header text-white" style="background: #0d9488; padding: 18px 24px;">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="fa-solid fa-key" style="font-size: 16px;"></i>
-                    <h5 class="modal-title fw-bold text-white mb-0" style="font-size: 1.05rem;">Reset User Password</h5>
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden; background: #ffffff;">
+            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between" style="background: #fafbfc;">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #ccfbf1; color: #0d9488;">
+                        <i class="fa-solid fa-key" style="font-size: 15px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Reset User Password</h5>
+                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Set a new secure access credential</p>
+                    </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4" style="background: #ffffff;">
                 <form action="{% url 'users' %}" method="POST">
@@ -695,20 +602,28 @@ function updateUserGuide(title, description) {
     if (d) d.textContent = description;
 }
 
-    // Auto-switch to Roles tab if ?tab=roles or #roles is requested
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    const hash = window.location.hash;
-    if (tabParam === 'roles' || hash === '#roles') {
-        const rolesTabBtn = document.getElementById('user-roles-tab');
-        if (rolesTabBtn) {
-            if (window.bootstrap && window.bootstrap.Tab) {
-                new bootstrap.Tab(rolesTabBtn).show();
-            } else {
-                rolesTabBtn.click();
-            }
-            updateUserGuide('Roles & Permissions Matrix', 'Full breakdown of authority levels and module capabilities for Administrator, Municipal Engineer, and Engineering Staff.');
-        }
+    // Live Debounced Operator Search with Loading Spinner
+    const userSearchInput = document.querySelector('.etala-search-pill-input[name="q"]');
+    const userSearchSpinner = document.getElementById('userSearchSpinner');
+    let userSearchTimer;
+    if (userSearchInput) {
+        userSearchInput.addEventListener('input', function () {
+            clearTimeout(userSearchTimer);
+            if (userSearchSpinner) userSearchSpinner.classList.remove('d-none');
+            userSearchTimer = setTimeout(() => {
+                const query = userSearchInput.value.toLowerCase().trim();
+                const userRows = document.querySelectorAll('.user-row-item');
+                userRows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (!query || text.includes(query)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                if (userSearchSpinner) userSearchSpinner.classList.add('d-none');
+            }, 300);
+        });
     }
 });
 

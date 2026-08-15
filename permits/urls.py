@@ -36,6 +36,7 @@ urlpatterns = [
     path('municipal/', views.municipal_projects_view, name='municipal_projects'),
     path('barangay/', views.barangay_projects_view, name='barangay_projects'),
     path('permits/', views.permit_records_view, name='permit_records'),
+    path('illegal-constructions/', views.illegal_constructions_view, name='illegal_constructions'),
 
     # Engineering Records — CRUD
     path('records/', views.records_browse_view, name='records_browse'),
@@ -44,6 +45,7 @@ urlpatterns = [
     path('records/<int:record_id>/', views.record_detail_view, name='record_detail'),
     path('records/<int:record_id>/edit/', views.record_edit_view, name='edit_record'),
     path('records/<int:record_id>/illegal-status/', views.update_illegal_status_view, name='update_illegal_status'),
+    path('records/<int:record_id>/regularize/', views.regularize_record_view, name='regularize_record'),
     path('records/<int:record_id>/archive/', views.record_archive_view, name='archive_record'),
     path('records/<int:record_id>/restore/', views.record_restore_view, name='restore_record'),
     path('records/<int:record_id>/download-zip/', views.download_record_zip_view, name='download_record_zip'),
