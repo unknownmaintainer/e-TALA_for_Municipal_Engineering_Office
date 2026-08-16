@@ -4,8 +4,7 @@
 {% block title %}Trash Archive · eTala{% endblock %}
 
 {% block breadcrumb %}
-<a href="{% url 'records_browse' %}" class="breadcrumb-item">Records</a>
-<span class="breadcrumb-item active">Trash Archive</span>
+<span class="breadcrumb-item active">Trash &amp; Archive</span>
 {% endblock %}
 
 {% block content %}
@@ -70,13 +69,29 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .data-table .cell-title,
+    .data-table .cell-title {
+        width: 100% !important;
+        max-width: 100% !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+        word-break: normal !important;
+    }
     .data-table .cell-subtitle {
         width: 100% !important;
         max-width: 100% !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+    .data-table .cell-subtitle .subtitle-row {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
     }
 
     /* Light mode specific rules - strictly scoped so they NEVER run in dark mode */
@@ -150,152 +165,153 @@
     }
 </style>
 
-<!-- Table of Archived Items -->
-{% if page_obj.object_list %}
-<div class="content-card">
-    <div class="table-responsive">
-        <table class="data-table table-card-responsive">
-            <thead>
-                <tr>
-                    <th style="width: 46%;">Record Title</th>
-                    <th style="width: 20%;">Type</th>
-                    <th style="width: 16%;">Barangay</th>
-                    <th style="width: 13%;">Deleted Date</th>
-                    <th class="text-end" style="width: 5%; min-width: 44px; padding-right: 14px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for record in page_obj %}
-                <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
-                    <td data-label="Record Title">
-                        <div class="cell-title" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: {{ record.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
-                            {% if record.record_type == 'Permit' %}
-                                {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
-                            {% else %}
-                                {{ record.title }}
-                            {% endif %}
-                        </div>
-                        <div class="cell-subtitle">
-                            {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
-                            {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
-                                <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
-                            {% endif %}
-                            <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ record.created_by.full_name|default:record.created_by.username }}</div>
-                        </div>
-                    </td>
-                    <td data-label="Type">
-                        {% if record.record_type == 'Permit' %}
-                        <span class="tag tag-permit">{{ record.specific_type_label }}</span>
-                        {% else %}
-                        <span class="tag tag-project">{{ record.specific_type_label }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="cell-muted cell-barangay" data-label="Barangay" style="white-space: nowrap;">{{ record.barangay.barangay_name }}</td>
-                    <td class="cell-muted" data-label="Deleted Date">{{ record.updated_at|date:"M d, Y" }}</td>
-                    <td class="text-end pe-3 action-menu-cell" style="width: 55px;" onclick="event.stopPropagation();">
-                        <div class="dropdown" onclick="event.stopPropagation();">
-                            <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
-                                <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;" onclick="event.stopPropagation();">
-                                <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap" href="{% url 'record_detail' record.record_id %}">
-                                        <i class="fa-solid fa-eye" style="font-size: 13px; flex-shrink: 0;"></i>
-                                        <span>Inspect</span>
-                                    </a>
-                                </li>
-                                {% if request.user.role == 'admin' %}
-                                <li><hr class="dropdown-divider my-1"></li>
-                                <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" data-url="{% url 'restore_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmRestoreRecord(this.dataset.url, this.dataset.title)">
-                                        <i class="fa-solid fa-rotate-left" style="font-size: 13px; color:#10b981; flex-shrink:0;"></i>
-                                        <span>Restore</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" data-url="{% url 'permanent_delete_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="openPermanentDeleteModal(this.dataset.url, this.dataset.title)">
-                                        <i class="fa-solid fa-trash-can" style="font-size: 13px; color:#ef4444; flex-shrink:0;"></i>
-                                        <span>Permanent Delete</span>
-                                    </a>
-                                </li>
+<!-- Table / Empty State Container for Seamless AJAX Live Search -->
+<div id="archiveTableContainer">
+    {% if page_obj.object_list %}
+    <div class="content-card">
+        <div class="table-responsive">
+            <table class="data-table table-card-responsive">
+                <thead>
+                    <tr>
+                        <th style="width: 46%;">Record Title</th>
+                        <th style="width: 20%;">Type</th>
+                        <th style="width: 16%;">Barangay</th>
+                        <th style="width: 13%;">Deleted Date</th>
+                        <th class="text-end" style="width: 5%; min-width: 44px; padding-right: 14px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in page_obj %}
+                    <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
+                        <td data-label="Record Title">
+                            <div class="cell-title" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: {{ record.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
+                                {% if record.record_type == 'Permit' %}
+                                    {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
+                                {% else %}
+                                    {{ record.title }}
                                 {% endif %}
-                            </ul>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div class="d-flex align-items-center gap-3">
-            <span class="pagination-info m-0">
-                {% if page_obj.paginator.count > 0 %}
-                Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records in trash
-                {% else %}
-                Showing 0–0 of 0 records in trash
-                {% endif %}
-            </span>
-            <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
-                <span>Show:</span>
-                <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 62px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
-                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-                </select>
-            </div>
-        </div>
-        
-        <div class="d-flex align-items-center gap-2 pagination-controls">
-            {% if page_obj.paginator.num_pages > 5 %}
-            <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
-                <span>Page:</span>
-                <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
-                <span>/ {{ page_obj.paginator.num_pages }}</span>
-            </div>
-            {% endif %}
-
-            {% if page_obj.has_other_pages %}
-            <nav>
-                <ul class="pagination pagination-sm mb-0 gap-1">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
-                    {% endif %}
-
-                    {% for p in page_obj.paginator.page_range %}
-                    {% if page_obj.number == p %}
-                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
-                    {% endif %}
+                            </div>
+                            <div class="cell-subtitle">
+                                {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                    <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
+                                {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
+                                    <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
+                                {% endif %}
+                                <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ record.created_by.full_name|default:record.created_by.username }}</div>
+                            </div>
+                        </td>
+                        <td data-label="Type">
+                            {% if record.record_type == 'Permit' %}
+                            <span class="tag tag-permit">{{ record.specific_type_label }}</span>
+                            {% else %}
+                            <span class="tag tag-project">{{ record.specific_type_label }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="cell-muted cell-barangay" data-label="Barangay" style="white-space: nowrap;">{{ record.barangay.barangay_name }}</td>
+                        <td class="cell-muted" data-label="Deleted Date">{{ record.updated_at|date:"M d, Y" }}</td>
+                        <td class="text-end pe-3 action-menu-cell" style="width: 55px;" onclick="event.stopPropagation();">
+                            <div class="dropdown" onclick="event.stopPropagation();">
+                                <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
+                                    <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;" onclick="event.stopPropagation();">
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap" href="{% url 'record_detail' record.record_id %}">
+                                            <i class="fa-solid fa-eye" style="font-size: 13px; flex-shrink: 0;"></i>
+                                            <span>Inspect</span>
+                                        </a>
+                                    </li>
+                                    {% if request.user.role == 'admin' %}
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" data-url="{% url 'restore_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmRestoreRecord(this.dataset.url, this.dataset.title)">
+                                            <i class="fa-solid fa-rotate-left" style="font-size: 13px; color:#10b981; flex-shrink:0;"></i>
+                                            <span>Restore</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" data-url="{% url 'permanent_delete_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmPermanentDelete(this.dataset.url, this.dataset.title)">
+                                            <i class="fa-solid fa-trash-can" style="font-size: 13px; color:#ef4444; flex-shrink:0;"></i>
+                                            <span>Permanent Delete</span>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
                     {% endfor %}
-
-                    {% if page_obj.has_next %}
-                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
+                </tbody>
+            </table>
+        </div>
+        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <span class="pagination-info m-0">
+                    {% if page_obj.paginator.count > 0 %}
+                    Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records in trash
                     {% else %}
-                    <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                    Showing 0–0 of 0 records in trash
                     {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
+                </span>
+                <div class="per-page-select">
+                    <span>Show:</span>
+                    <select class="form-select form-select-sm" onchange="changePerPage(this.value)">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="d-flex align-items-center gap-2 pagination-controls">
+                {% if page_obj.paginator.num_pages > 5 %}
+                <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                    <span>Page:</span>
+                    <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
+                    <span>/ {{ page_obj.paginator.num_pages }}</span>
+                </div>
+                {% endif %}
+
+                {% if page_obj.has_other_pages %}
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 gap-1">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
+                        {% endif %}
+
+                        {% for p in page_obj.paginator.page_range %}
+                        {% if page_obj.number == p %}
+                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                        {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
         </div>
     </div>
-</div>
-
-{% else %}
-<div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3 mx-auto"
-         style="width:64px;height:64px;background:#f1f5f9;">
-        <i data-lucide="trash-2" style="width:28px;height:28px;color:#94a3b8;"></i>
+    {% else %}
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3 mx-auto"
+             style="width:64px;height:64px;background:#f1f5f9;">
+            <i data-lucide="trash-2" style="width:28px;height:28px;color:#94a3b8;"></i>
+        </div>
+        <h5 class="fw-bold mb-1">{% if q %}No matching archived records{% else %}Trash is empty{% endif %}</h5>
+        <p class="text-muted small">{% if q %}Try searching with a different keyword or clear the search filter.{% else %}No records found in trash.{% endif %}</p>
     </div>
-    <h5 class="fw-bold mb-1">Trash is empty</h5>
-    <p class="text-muted small">No records found in trash.</p>
+    {% endif %}
 </div>
-{% endif %}
 
 {% endblock %}
 
@@ -321,6 +337,26 @@ function confirmRestoreRecord(restoreUrl, recordTitle) {
     }
 }
 
+function confirmPermanentDelete(deleteUrl, recordTitle) {
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Delete Permanently',
+            message: "Are you sure you want to permanently delete '" + recordTitle + "'? This record and all uploaded files will be permanently purged.",
+            confirmText: 'Yes, Delete!',
+            cancelText: 'No, Keep It.',
+            confirmClass: 'action-btn-danger',
+            iconClass: 'fa-solid fa-trash-can',
+            onConfirm: function() {
+                window.location.href = deleteUrl;
+            }
+        });
+    } else {
+        if (confirm("Permanently delete '" + recordTitle + "'? This action cannot be undone.")) {
+            window.location.href = deleteUrl;
+        }
+    }
+}
+
 function changePerPage(val) {
     const url = new URL(window.location.href);
     url.searchParams.set('per_page', val);
@@ -328,17 +364,15 @@ function changePerPage(val) {
     window.location.href = url.toString();
 }
 
-function openPermanentDeleteModal(actionUrl, recordTitle) {
-    const modalElement = document.getElementById('permanentDeleteModal');
-    if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
-        document.getElementById('permanentDeleteForm').action = actionUrl;
-        document.getElementById('deleteRecordTitle').innerText = recordTitle;
-        modal.show();
+// Delegated Row Click Navigation
+document.addEventListener('click', function(e) {
+    const row = e.target.closest('tr[data-href]');
+    if (row && !e.target.closest('.action-menu-cell') && !e.target.closest('.dropdown') && !e.target.closest('button') && !e.target.closest('a')) {
+        window.location.href = row.dataset.href;
     }
-}
+});
 
-// Live Debounced Auto-Search for Trash with Loading Spinner
+// Live Debounced Auto-Search for Trash with Smooth AJAX
 document.addEventListener('DOMContentLoaded', function () {
     const archiveSearchInput = document.querySelector('input[name="q"]');
     const archiveSearchSpinner = document.getElementById('archiveSearchSpinner');
@@ -346,12 +380,12 @@ document.addEventListener('DOMContentLoaded', function () {
     let archiveSearchTimer;
 
     async function updateArchiveTableAJAX(url) {
-        const tableCard = document.querySelector('.content-card');
+        const tableContainer = document.getElementById('archiveTableContainer');
         if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
         if (archiveClearBtn) archiveClearBtn.classList.add('d-none');
-        if (tableCard) {
-            tableCard.style.transition = 'opacity 0.08s ease';
-            tableCard.style.opacity = '0.6';
+        if (tableContainer) {
+            tableContainer.style.transition = 'opacity 0.08s ease';
+            tableContainer.style.opacity = '0.5';
         }
 
         try {
@@ -362,16 +396,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
 
-            const newTableCard = doc.querySelector('.content-card');
-            if (tableCard && newTableCard) {
-                tableCard.innerHTML = newTableCard.innerHTML;
+            const newTableContainer = doc.getElementById('archiveTableContainer');
+            if (tableContainer && newTableContainer) {
+                tableContainer.innerHTML = newTableContainer.innerHTML;
+            }
+            if (window.lucide) {
+                lucide.createIcons();
             }
             window.history.pushState({}, '', url);
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (archiveSearchInput && archiveSearchInput.form) archiveSearchInput.form.submit();
         } finally {
-            if (tableCard) tableCard.style.opacity = '1';
+            if (tableContainer) tableContainer.style.opacity = '1';
             if (archiveSearchSpinner) archiveSearchSpinner.classList.add('d-none');
             if (archiveClearBtn) {
                 if (archiveSearchInput && archiveSearchInput.value.trim().length > 0) archiveClearBtn.classList.remove('d-none');
@@ -394,8 +431,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 const formData = new FormData(archiveSearchInput.form);
                 const params = new URLSearchParams(formData);
                 updateArchiveTableAJAX(window.location.pathname + '?' + params.toString());
-            }, 450);
+            }, 350);
         });
+
+        // Intercept form submit
+        if (archiveSearchInput.form) {
+            archiveSearchInput.form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(archiveSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateArchiveTableAJAX(window.location.pathname + '?' + params.toString());
+            });
+        }
     }
 
     if (archiveClearBtn && archiveSearchInput) {
@@ -412,50 +459,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
-
-<!-- ══ PERMANENT DELETE MODAL ══════════════════════════════════════════════ -->
-<div class="modal fade" id="permanentDeleteModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden; background: #ffffff;">
-            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between" style="background: #fafbfc;">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #fee2e2; color: #ef4444;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 15px;"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Permanent Record Deletion</h5>
-                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Purge record and documents from archive</p>
-                    </div>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="permanentDeleteForm" method="POST">
-                {% csrf_token %}
-                <div class="modal-body p-4 text-dark">
-                    <div class="p-3 rounded-3 mb-3" style="background: #fef2f2; border: 1px solid #fee2e2; font-size: 0.83rem; color: #991b1b; border-radius: 12px;">
-                        <strong>Warning:</strong> Permanent deletion cannot be undone. This record and all associated uploaded documents will be permanently purged from the server archive.
-                    </div>
-                    <p class="mb-3 small text-dark">Target Record: <strong id="deleteRecordTitle" class="text-danger"></strong></p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small mb-1">Reason for Deletion <span class="text-danger">*</span></label>
-                        <textarea name="reason" class="form-control form-control-sm obo-input" rows="2" placeholder="Mandatory explanation for audit logs (e.g. Duplicate encoding, erroneous entry)" required></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small mb-1">Administrator Password Confirmation <span class="text-danger">*</span></label>
-                        <input type="password" name="password" class="form-control form-control-sm obo-input" placeholder="Enter your admin password" required>
-                    </div>
-
-                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">No, Keep It.</button>
-                        <button type="submit" class="etala-btn etala-btn-danger etala-btn-sm">
-                            <i class="fa-solid fa-trash-can me-1"></i> <span>Yes, Delete!</span>
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 {% endblock %}

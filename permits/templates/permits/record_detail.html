@@ -539,30 +539,34 @@
         </p>
     </div>
 
-    <!-- Header Actions (Premium Button Upgrade) -->
-    <div class="etala-header-actions">
+    <!-- Header Actions (Standard Concise Segmented Buttons) -->
+    <div class="etala-header-actions d-flex align-items-center flex-wrap gap-2">
         {% if can_edit and record.status != 'archived' %}
         <a href="{% url 'edit_record' record.record_id %}"
             class="premium-btn btn-edit text-nowrap"
             title="Edit Record Details">
             <span class="btn-icon"><i class="fa-solid fa-pen-to-square"></i></span>
             <span class="btn-divider"></span>
-            <span>Edit Record</span>
+            <span>Edit</span>
         </a>
         {% endif %}
 
         <a href="{% url 'download_record_zip' record.record_id %}"
-            class="premium-btn-icon btn-export"
+            class="premium-btn btn-export text-nowrap"
             download
             title="Download all uploaded documents as ZIP archive">
-            <i class="fa-solid fa-file-zipper"></i>
+            <span class="btn-icon"><i class="fa-solid fa-file-zipper"></i></span>
+            <span class="btn-divider"></span>
+            <span>Export ZIP</span>
         </a>
 
         {% if can_archive and record.status != 'archived' %}
         <button type="button"
-            class="premium-btn-icon btn-delete"
+            class="premium-btn btn-delete text-nowrap"
             onclick="confirmArchiveDetail()" title="Move this record to Trash">
-            <i class="fa-solid fa-trash-can"></i>
+            <span class="btn-icon"><i class="fa-solid fa-trash-can"></i></span>
+            <span class="btn-divider"></span>
+            <span>Trash</span>
         </button>
         {% endif %}
     </div>
@@ -613,33 +617,27 @@
                     <i class="fa-solid fa-sliders"></i>
                     <span>Update Status</span>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm border p-1" style="border-radius: 10px; font-size: 0.82rem; min-width: 190px;">
+                <div class="dropdown-menu dropdown-menu-end shadow-sm border p-1" style="border-radius: 10px; font-size: 0.82rem; min-width: 190px;">
                     <form method="POST" action="{% url 'update_illegal_status' record.record_id %}">
                         {% csrf_token %}
-                        <li>
-                            <button type="submit" name="illegal_compliance_status" value="unresolved"
-                                class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'unresolved' %}fw-bold bg-light{% endif %}">
-                                <i class="fa-solid fa-circle text-danger" style="font-size: 10px;"></i>
-                                <span>Unresolved</span>
-                            </button>
-                        </li>
-                        <li>
-                            <button type="submit" name="illegal_compliance_status" value="pending_permit"
-                                class="dropdown-item py-1.5 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'pending_permit' %}fw-bold bg-light{% endif %}">
-                                <i class="fa-solid fa-circle text-warning" style="font-size: 10px;"></i>
-                                <span>Permit Filed</span>
-                            </button>
-                        </li>
-                        <li><hr class="dropdown-divider my-1"></li>
-                        <li>
-                            <button type="submit" name="illegal_compliance_status" value="remove"
-                                class="dropdown-item py-1.5 px-2.5 rounded text-danger fw-semibold d-flex align-items-center gap-2">
-                                <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
-                                <span>Remove Flag</span>
-                            </button>
-                        </li>
+                        <button type="submit" name="illegal_compliance_status" value="unresolved"
+                            class="dropdown-item py-2 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'unresolved' %}fw-bold bg-light{% endif %}">
+                            <i class="fa-solid fa-circle text-danger" style="font-size: 10px;"></i>
+                            <span>Unresolved (Stop Order)</span>
+                        </button>
+                        <button type="submit" name="illegal_compliance_status" value="pending_permit"
+                            class="dropdown-item py-2 px-2.5 rounded d-flex align-items-center gap-2 {% if record.illegal_compliance_status == 'pending_permit' %}fw-bold bg-light{% endif %}">
+                            <i class="fa-solid fa-circle text-warning" style="font-size: 10px;"></i>
+                            <span>Permit Filed</span>
+                        </button>
+                        <div class="dropdown-divider my-1"></div>
+                        <button type="submit" name="illegal_compliance_status" value="remove"
+                            class="dropdown-item py-2 px-2.5 rounded text-danger fw-semibold d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-flag-checkered" style="font-size: 12px;"></i>
+                            <span>Remove Violation Flag</span>
+                        </button>
                     </form>
-                </ul>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -692,7 +690,7 @@
                 align-items: flex-start;
                 gap: 0;
                 position: relative;
-                padding: 4px 0;
+                padding: 6px 0;
             }
             .compliance-step {
                 flex: 1;
@@ -702,7 +700,17 @@
                 text-align: center;
                 position: relative;
                 z-index: 1;
+                transition: transform 0.25s ease;
             }
+            .compliance-step:nth-child(1) { animation: stepperPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+            .compliance-step:nth-child(2) { animation: stepperPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+            .compliance-step:nth-child(3) { animation: stepperPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+
+            @keyframes stepperPopIn {
+                0% { opacity: 0; transform: translateY(6px) scale(0.94); }
+                100% { opacity: 1; transform: translateY(0) scale(1); }
+            }
+
             .compliance-step .step-dot {
                 width: 36px;
                 height: 36px;
@@ -714,20 +722,26 @@
                 font-weight: 700;
                 position: relative;
                 z-index: 2;
-                transition: all 0.3s ease;
+                transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
                 flex-shrink: 0;
+                cursor: default;
+            }
+            .compliance-step:hover .step-dot {
+                transform: translateY(-2px) scale(1.08);
             }
             .compliance-step .step-label {
                 font-size: 0.78rem;
                 font-weight: 700;
                 margin-top: 8px;
                 line-height: 1.25;
+                transition: color 0.25s ease;
             }
             .compliance-step .step-desc {
                 font-size: 0.70rem;
                 color: #64748b;
                 margin-top: 3px;
                 line-height: 1.25;
+                transition: color 0.25s ease;
             }
             .compliance-step:not(:last-child)::after {
                 content: '';
@@ -738,9 +752,10 @@
                 height: 3px;
                 background: #e2e8f0;
                 z-index: 0;
+                transition: background 0.35s ease;
             }
             .compliance-step.completed:not(:last-child)::after {
-                background: #16a34a;
+                background: linear-gradient(90deg, #16a34a, #22c55e);
             }
             .compliance-step.active:not(:last-child)::after {
                 background: #e2e8f0;
@@ -749,10 +764,29 @@
                 background: #dcfce7;
                 color: #16a34a;
                 border: 2px solid #16a34a;
+                box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+            }
+            .compliance-step.completed .step-dot i {
+                animation: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            @keyframes checkPop {
+                0% { transform: scale(0.5); opacity: 0; }
+                100% { transform: scale(1); opacity: 1; }
             }
             .compliance-step.active .step-dot {
                 border: 2px solid currentColor;
-                box-shadow: 0 0 0 4px rgba(var(--step-glow), 0.15);
+                animation: stepperPulseRing 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            @keyframes stepperPulseRing {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(var(--step-glow, 220, 38, 38), 0.45);
+                }
+                60% {
+                    box-shadow: 0 0 0 8px rgba(var(--step-glow, 220, 38, 38), 0);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(var(--step-glow, 220, 38, 38), 0);
+                }
             }
             .compliance-step.pending .step-dot {
                 background: #f1f5f9;
@@ -852,7 +886,7 @@
                     {% endif %}
                 </div>
                 <div class="step-label" {% if record.illegal_compliance_status == 'unresolved' %}style="color: #dc2626;"{% else %}style="color: #16a34a;"{% endif %}>
-                    Detection &amp; NOV
+                    Detection &amp; Notice
                 </div>
                 <div class="step-desc">
                     {% if record.date_started %}{{ record.date_started|date:"M d, Y" }}{% else %}Stop Order{% endif %}
@@ -1001,7 +1035,7 @@
                         style="border-radius: 8px; font-size: 0.82rem; white-space: nowrap;"
                         onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span>Upload Photos / NOV</span>
+                        <span>Upload Evidence Files</span>
                     </button>
                     {% endif %}
                 </div>
@@ -1047,12 +1081,12 @@
                     </div>
                     <h6 class="fw-bold title-text-adaptive mb-1" style="font-size: 0.90rem;">No Evidence Uploaded Yet</h6>
                     <p class="text-muted small mx-auto mb-3" style="max-width: 420px; font-size: 0.78rem; line-height: 1.45;">
-                        Attach field inspection photos, Notice of Violation (NOV), or Work Stop Orders.
+                        Attach field inspection photos, Notice of Violation, or Work Stop Orders.
                     </p>
                     {% if can_edit and record.status != 'archived' %}
                     <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-1.5 shadow-2xs" onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')" style="font-size: 0.78rem; font-weight: 600; border-radius: 8px; padding: 6px 16px;">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span>Upload Photos / NOV</span>
+                        <span>Upload Evidence Files</span>
                     </button>
                     {% endif %}
                 </div>
@@ -1153,10 +1187,11 @@
 
                                 {% if g_stats.fulfilled > 0 %}
                                 <a href="{% url 'download_category_zip' record.record_id req.req_id %}"
-                                    download
-                                    class="p-1 px-1.5 text-primary d-inline-flex align-items-center justify-content-center border-0 bg-transparent text-decoration-none"
-                                    title="Download {{ req.requirement_item.name }} files as ZIP"
-                                    style="font-size: 0.85rem; border: none !important; background: transparent !important; box-shadow: none !important;">
+                                    class="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center text-decoration-none shadow-none"
+                                    title="Download {{ req.requirement_item.name }} as ZIP"
+                                    aria-label="Download {{ req.requirement_item.name }} as ZIP"
+                                    onclick="event.stopPropagation();"
+                                    style="width: 28px; height: 28px; min-width: 28px; border-radius: 6px; font-size: 0.8rem; padding: 0;">
                                     <i class="fa-solid fa-file-zipper"></i>
                                 </a>
                                 {% endif %}
@@ -1358,7 +1393,7 @@
                     <div class="d-flex align-items-center justify-content-center gap-2 flex-wrap">
                         <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5" onclick="openBatchUploadModal()" style="font-size: 0.78rem; font-weight: 600; border-radius: 8px; padding: 6px 14px;">
                             <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span>Upload Field Photos / NOV</span>
+                            <span>Upload Inspection Photos &amp; Documents</span>
                         </button>
                     </div>
                 </div>
@@ -2171,7 +2206,7 @@
         }
         if (subTitle) {
             if (isIllegalReport) {
-                subTitle.textContent = 'Attach field inspection photos, Notice of Violation (NOV), or Work Stoppage Orders.';
+                subTitle.textContent = 'Attach field inspection photos, Notice of Violation, or Work Stoppage Orders.';
             } else {
                 subTitle.textContent = groupName ? `Upload documents for ${groupName}` : 'Upload multiple documents and assign each file to its requirement.';
             }

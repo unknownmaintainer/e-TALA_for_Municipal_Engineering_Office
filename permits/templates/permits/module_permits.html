@@ -19,9 +19,10 @@
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
     <div class="etala-header-actions">
-        <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary">
-            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
-            <span>New Permit Record</span>
+        <a href="{% url 'create_step1' %}" class="premium-btn btn-add" title="Encode New Permit Record">
+            <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+            <span class="btn-divider"></span>
+            <span>New Record</span>
         </a>
     </div>
     {% endif %}
@@ -87,8 +88,8 @@
             <div class="row g-3">
                 <!-- Barangay filter -->
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm" style="cursor: pointer;">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:'s' %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -98,8 +99,8 @@
 
                 <!-- Permit type filter -->
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Permit Type</label>
-                    <select name="permit_type" class="form-select form-select-sm" style="cursor: pointer;">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Type</label>
+                    <select name="permit_type" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Permit Types</option>
                         {% for val, label in permit_types %}
                         <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
@@ -109,8 +110,8 @@
 
                 <!-- Status filter -->
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Status</label>
-                    <select name="status" class="form-select form-select-sm" style="cursor: pointer;">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
+                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Status</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
@@ -119,8 +120,8 @@
                 </div>
 
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Year</label>
-                    <select name="year" class="form-select form-select-sm" style="cursor: pointer;" onchange="this.form.submit()">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
+                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -128,201 +129,183 @@
                     </select>
                 </div>
             </div>
-
-            <div class="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
-                <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 36px;" title="Apply selected filters">
-                    Apply Filters
-                </button>
-            </div>
         </div>
     </div>
 </form>
 
-<!-- ══ RECORDS CARDS GRID ═══════════════════════════════════════════════════ -->
-{% if page_obj.object_list %}
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 mb-4">
-    {% for record in page_obj %}
-    {% with stats=record.completion_stats %}
-    <div class="col">
-        <div class="content-card h-100">
-            <div class="content-card-body d-flex flex-column h-100" style="padding: 20px;">
-                <!-- Card Header: Type Badge -->
-                <div class="d-flex align-items-center mb-3">
-                    <span class="me-2" style="font-size: 1.2rem;">🏢</span>
-                    <span class="fw-bold text-uppercase text-dark" style="font-size: var(--text-xs); letter-spacing: 0.3px;">
-                        {{ record.permit_detail.permit_type|upper }} PERMIT
-                    </span>
-                </div>
-
-                <!-- Application Details -->
-                <div class="mb-3" style="font-size: var(--text-sm); color: var(--gray-600); line-height: 1.6;">
-                    {% if record.permit_detail.permit_number %}
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Permit #:</span>
-                        <span class="fw-semibold text-dark">{{ record.permit_detail.permit_number }}</span>
-                    </div>
-                    {% endif %}
-                    {% if record.permit_detail.applicant_name|is_valid_applicant %}
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted"><i class="fa-solid fa-user me-1" style="font-size: 11px;"></i>Applicant / Owner:</span>
-                        <span class="fw-semibold text-dark text-truncate" style="max-width: 150px;" title="{{ record.permit_detail.applicant_name }}">{{ record.permit_detail.applicant_name }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded By:</span>
-                        <span class="fw-semibold text-dark text-truncate" style="max-width: 150px;" title="{{ record.created_by.full_name|default:record.created_by.username }}">{{ record.created_by.full_name|default:record.created_by.username }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Filed:</span>
-                        <span class="fw-semibold text-dark">{{ record.created_at|date:"d M Y" }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted">Location:</span>
-                        <span class="fw-semibold text-dark">
-                            {% if record.barangay %}
-                            <a href="{% url 'barangay_workspace' record.barangay.barangay_id %}" class="text-decoration-none" style="color: var(--navy); font-weight: 600;">
-                                {{ record.barangay.barangay_name }}
-                            </a>
-                            {% else %}
-                            —
-                            {% endif %}
+<!-- ══ RECORDS CARDS GRID / CONTAINER ═══════════════════════════════════════ -->
+<div id="modulePermitsContainer">
+    {% if page_obj.object_list %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 mb-4">
+        {% for record in page_obj %}
+        {% with stats=record.completion_stats %}
+        <div class="col">
+            <div class="content-card h-100">
+                <div class="content-card-body d-flex flex-column h-100" style="padding: 20px;">
+                    <!-- Card Header: Type Badge -->
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="me-2" style="font-size: 1.2rem;">🏢</span>
+                        <span class="fw-bold text-uppercase text-dark" style="font-size: var(--text-xs); letter-spacing: 0.3px;">
+                            {{ record.permit_detail.permit_type|upper }} PERMIT
                         </span>
                     </div>
-                </div>
 
-                <hr class="my-2" style="border-color: var(--border-default);">
+                    <!-- Application Details -->
+                    <div class="mb-3" style="font-size: var(--text-sm); color: var(--gray-600); line-height: 1.6;">
+                        {% if record.permit_detail.permit_number %}
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Permit #:</span>
+                            <span class="fw-semibold text-dark">{{ record.permit_detail.permit_number }}</span>
+                        </div>
+                        {% endif %}
+                        {% if record.permit_detail.applicant_name|is_valid_applicant %}
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted"><i class="fa-solid fa-user me-1" style="font-size: 11px;"></i>Applicant / Owner:</span>
+                            <span class="fw-semibold text-dark text-truncate" style="max-width: 150px;" title="{{ record.permit_detail.applicant_name }}">{{ record.permit_detail.applicant_name }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded By:</span>
+                            <span class="fw-semibold text-dark text-truncate" style="max-width: 150px;" title="{{ record.created_by.full_name|default:record.created_by.username }}">{{ record.created_by.full_name|default:record.created_by.username }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Filed:</span>
+                            <span class="fw-semibold text-dark">{{ record.created_at|date:"d M Y" }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Location:</span>
+                            <span class="fw-semibold text-dark">
+                                {% if record.barangay %}
+                                <a href="{% url 'barangay_workspace' record.barangay.barangay_id %}" class="text-decoration-none" style="color: var(--navy); font-weight: 600;">
+                                    {{ record.barangay.barangay_name }}
+                                </a>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
 
-                <!-- Status Badge & Progress -->
-                <div class="mb-3 mt-2">
-                    <div class="d-flex justify-content-between align-items-center mb-1.5" style="font-size: var(--text-xs);">
-                        <span class="text-muted">Status:</span>
-                        {% if stats.is_complete %}
-                        <span class="tag tag-barangay">✓ COMPLETE</span>
-                        {% else %}
-                        <span class="tag" style="background:#fef3c7; color:#b45309;">⚠ INCOMPLETE</span>
+                    <hr class="my-2" style="border-color: var(--border-default);">
+
+                    <!-- Status Badge & Progress -->
+                    <div class="mb-3 mt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1.5" style="font-size: var(--text-xs);">
+                            <span class="text-muted">Status:</span>
+                            {% if stats.is_complete %}
+                            <span class="tag tag-barangay">✓ COMPLETE</span>
+                            {% else %}
+                            <span class="tag tag-pending">{{ stats.fulfilled }}/{{ stats.total }} UPLOADED</span>
+                            {% endif %}
+                        </div>
+                        <div class="etala-progress" style="height: 6px;">
+                            <div class="etala-progress-bar" role="progressbar"
+                                 style="width: {{ stats.percent }}%; {% if stats.is_complete %}background-color: var(--success);{% else %}background-color: var(--warning);{% endif %}"
+                                 aria-valuenow="{{ stats.percent }}" aria-valuemin="0" aria-valuemax="100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Actions -->
+                    <div class="mt-auto d-flex gap-2">
+                        <a href="{% url 'record_detail' record.record_id %}"
+                           class="action-btn action-btn-primary action-btn-sm flex-grow-1"
+                           title="Inspect full permit record details">
+                            <i class="fa-solid fa-eye"></i> View Record
+                        </a>
+                        {% if request.user.role == 'admin' %}
+                        <a href="{% url 'edit_record' record.record_id %}"
+                           class="action-btn action-btn-secondary action-btn-sm"
+                           title="Edit record details">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
                         {% endif %}
                     </div>
-
-                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size: var(--text-2xs); color: var(--gray-400);">
-                        <span>Progress:</span>
-                        <span class="fw-semibold">{{ stats.fulfilled }} of {{ stats.total }} documents</span>
-                    </div>
-
-                    <div class="progress" style="height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden;">
-                        <div class="progress-bar" style="width: {{ stats.pct }}%; {% if stats.is_complete %}background: #16a34a;{% else %}background: #f59e0b;{% endif %} height: 100%;"></div>
-                    </div>
-                </div>
-
-                <!-- Missing Documents checklist -->
-                {% if not stats.is_complete and stats.missing %}
-                <div class="mb-3 p-2 rounded" style="background: #fffbeb; border: 1px solid #fef3c7; font-size: var(--text-2xs);">
-                    <div class="fw-bold text-warning mb-1" style="color: #b45309 !important;">Missing:</div>
-                    <ul class="mb-0 ps-3 text-muted" style="list-style-type: disc;">
-                        {% for doc_item in stats.missing|slice:":2" %}
-                        <li>{{ doc_item }}</li>
-                        {% endfor %}
-                        {% if stats.missing|length > 2 %}
-                        <li>({{ stats.missing|length|add:"-2" }} more)</li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                <!-- Buttons -->
-                <div class="mt-auto d-flex gap-2">
-                    {% if stats.is_complete %}
-                    <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-secondary action-btn-xs flex-grow-1">View Details</a>
-                    <button class="action-btn action-btn-primary action-btn-xs" onclick="alert('Permit approved successfully!')">Approve</button>
-                    <button class="action-btn action-btn-danger action-btn-xs" onclick="alert('Permit rejected.')">Reject</button>
-                    {% else %}
-                    <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-primary action-btn-xs flex-grow-1">View Checklist</a>
-                    <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-secondary action-btn-xs flex-grow-1">Upload Document</a>
-                    {% endif %}
                 </div>
             </div>
         </div>
+        {% endwith %}
+        {% endfor %}
     </div>
-    {% endwith %}
-    {% endfor %}
-</div>
 
-<!-- Pagination -->
-<div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 rounded-3 border">
-    <div class="d-flex align-items-center gap-3">
-        <span class="pagination-info m-0">
-            {% if page_obj.paginator.count > 0 %}
-            Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> permits
-            {% else %}
-            Showing 0–0 of 0 permits
+    <!-- Pagination Controls -->
+    <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 mt-4">
+        <div class="d-flex align-items-center gap-3">
+            <span class="pagination-info m-0">
+                {% if page_obj.paginator.count > 0 %}
+                Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> permits
+                {% else %}
+                Showing 0–0 of 0 permits
+                {% endif %}
+            </span>
+            <div class="per-page-select">
+                <span>Show:</span>
+                <select class="form-select form-select-sm" onchange="changePerPage(this.value)">
+                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 pagination-controls">
+            {% if page_obj.paginator.num_pages > 5 %}
+            <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                <span>Page:</span>
+                <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
+                <span>/ {{ page_obj.paginator.num_pages }}</span>
+            </div>
             {% endif %}
-        </span>
-        <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
-            <span>Show:</span>
-            <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 62px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
-                <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-            </select>
+
+            {% if page_obj.has_other_pages %}
+            <nav>
+                <ul class="pagination pagination-sm mb-0 gap-1">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
+                    {% endif %}
+
+                    {% for p in page_obj.paginator.page_range %}
+                    {% if page_obj.number == p %}
+                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
         </div>
     </div>
-    
-    <div class="d-flex align-items-center gap-2 pagination-controls">
-        {% if page_obj.paginator.num_pages > 5 %}
-        <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
-            <span>Page:</span>
-            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
-            <span>/ {{ page_obj.paginator.num_pages }}</span>
+
+    {% else %}
+    <div class="content-card">
+        <div class="empty-state-unified">
+            <i class="fa-solid fa-file-lines"></i>
+            <h6>No permit records found</h6>
+            {% if q or selected_barangay or selected_permit_type or selected_status %}
+            <p>No permits match your current filters. Try clearing the filters.</p>
+            <a href="{% url 'permit_records' %}" class="action-btn action-btn-secondary action-btn-sm mt-2">Clear Filters</a>
+            {% else %}
+            <p>No permit records encoded yet. Click <strong>New Permit Record</strong> to start.</p>
+            {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+            <a href="{% url 'create_step1' %}" class="action-btn action-btn-primary mt-3">
+                <i class="fa-solid fa-plus"></i> New Permit Record
+            </a>
+            {% endif %}
+            {% endif %}
         </div>
-        {% endif %}
-
-        {% if page_obj.has_other_pages %}
-        <nav>
-            <ul class="pagination pagination-sm mb-0 gap-1">
-                {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
-                {% else %}
-                <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
-                {% endif %}
-
-                {% for p in page_obj.paginator.page_range %}
-                {% if page_obj.number == p %}
-                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
-                {% endif %}
-                {% endfor %}
-
-                {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
-                {% else %}
-                <li class="page-item disabled"><span class="page-link">Next ›</span></li>
-                {% endif %}
-            </ul>
-        </nav>
-        {% endif %}
     </div>
+    {% endif %}
 </div>
-
-{% else %}
-<div class="content-card">
-    <div class="empty-state-unified">
-        <i class="fa-solid fa-file-lines"></i>
-        <h6>No permit records found</h6>
-        {% if q or selected_barangay or selected_permit_type or selected_status %}
-        <p>No permits match your current filters. Try clearing the filters.</p>
-        <a href="{% url 'permit_records' %}" class="action-btn action-btn-secondary action-btn-sm mt-2">Clear Filters</a>
-        {% else %}
-        <p>No permit records encoded yet. Click <strong>New Permit Record</strong> to start.</p>
-        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-        <a href="{% url 'create_step1' %}" class="action-btn action-btn-primary mt-3">
-            <i class="fa-solid fa-plus"></i> New Permit Record
-        </a>
-        {% endif %}
-        {% endif %}
-    </div>
-</div>
-{% endif %}
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -332,12 +315,12 @@ document.addEventListener('DOMContentLoaded', function () {
     let permitSearchTimer;
 
     async function updateModulePermitTableAJAX(url) {
-        const tableCard = document.querySelector('.content-card');
+        const tableContainer = document.getElementById('modulePermitsContainer');
         if (modulePermitSearchSpinner) modulePermitSearchSpinner.classList.remove('d-none');
         if (modulePermitClearBtn) modulePermitClearBtn.classList.add('d-none');
-        if (tableCard) {
-            tableCard.style.transition = 'opacity 0.08s ease';
-            tableCard.style.opacity = '0.6';
+        if (tableContainer) {
+            tableContainer.style.transition = 'opacity 0.08s ease';
+            tableContainer.style.opacity = '0.5';
         }
 
         try {
@@ -348,16 +331,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
 
-            const newTableCard = doc.querySelector('.content-card');
-            if (tableCard && newTableCard) {
-                tableCard.innerHTML = newTableCard.innerHTML;
+            const newTableContainer = doc.getElementById('modulePermitsContainer');
+            if (tableContainer && newTableContainer) {
+                tableContainer.innerHTML = newTableContainer.innerHTML;
+            }
+            if (window.lucide) {
+                lucide.createIcons();
             }
             window.history.pushState({}, '', url);
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (permitSearchInput && permitSearchInput.form) permitSearchInput.form.submit();
         } finally {
-            if (tableCard) tableCard.style.opacity = '1';
+            if (tableContainer) tableContainer.style.opacity = '1';
             if (modulePermitSearchSpinner) modulePermitSearchSpinner.classList.add('d-none');
             if (modulePermitClearBtn) {
                 if (permitSearchInput && permitSearchInput.value.trim().length > 0) modulePermitClearBtn.classList.remove('d-none');
@@ -380,8 +366,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const formData = new FormData(permitSearchInput.form);
                 const params = new URLSearchParams(formData);
                 updateModulePermitTableAJAX(window.location.pathname + '?' + params.toString());
-            }, 450);
+            }, 350);
         });
+
+        if (permitSearchInput.form) {
+            permitSearchInput.form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(permitSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateModulePermitTableAJAX(window.location.pathname + '?' + params.toString());
+            });
+        }
     }
 
     if (modulePermitClearBtn && permitSearchInput) {
@@ -397,5 +392,22 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+function changePerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', 1);
+    window.location.href = url.toString();
+}
+
+function jumpToPage(page, maxPages) {
+    let p = parseInt(page);
+    let max = parseInt(maxPages);
+    if (isNaN(p) || p < 1) p = 1;
+    if (p > max) p = max;
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', p);
+    window.location.href = url.toString();
+}
 </script>
 {% endblock %}

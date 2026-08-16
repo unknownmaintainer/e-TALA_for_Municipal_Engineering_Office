@@ -37,7 +37,7 @@ from .permissions import role_required, admin_required, staff_or_admin_required,
 from .services import (
     get_office_settings, save_office_settings,
     build_record_zip_buffer, build_category_zip_buffer, build_barangay_zip_buffer,
-    sanitize_zip_name, sanitize_file_name,
+    sanitize_zip_name, sanitize_file_name, get_record_export_name,
     send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records,
     parse_decimal_safely
 )
@@ -1913,6 +1913,9 @@ def update_illegal_status_view(request, record_id):
             log_audit(request.user, "Removed Illegal Construction flag", target_record_id=record.record_id, request=request)
             messages.success(request, "Illegal construction flag removed.")
             
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
     return redirect('record_detail', record_id=record.record_id)
 
 
@@ -2619,13 +2622,26 @@ def record_restore_view(request, record_id):
 def archive_view(request):
     if request.user.role != 'admin':
         raise PermissionDenied("Only Administrators can view archived records.")
-    records = EngineeringRecord.objects.filter(status='archived').select_related('barangay', 'created_by')
+    records = EngineeringRecord.objects.filter(status='archived').select_related(
+        'barangay', 'created_by', 'permit_detail', 'project_detail'
+    )
 
     query = request.GET.get('q', '').strip()
     if query:
-        records = records.filter(
-            Q(title__icontains=query) | Q(description__icontains=query)
+        search_filter = (
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(barangay__barangay_name__icontains=query) |
+            Q(permit_detail__permit_number__icontains=query) |
+            Q(permit_detail__applicant_name__icontains=query) |
+            Q(permit_detail__permit_type__icontains=query) |
+            Q(project_detail__contractor__icontains=query) |
+            Q(created_by__full_name__icontains=query) |
+            Q(created_by__username__icontains=query)
         )
+        if query.isdigit():
+            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query))
+        records = records.filter(search_filter).distinct()
 
     per_page = get_per_page(request, 10)
     paginator = Paginator(records, per_page)
@@ -3029,7 +3045,7 @@ def reports_view(request):
             main_font = 'eTalaFont' if font_registered else 'Helvetica'
             bold_font = 'eTalaFont-Bold' if font_registered else 'Helvetica-Bold'
 
-            # Running Numbered Canvas with Header & Footer
+            # Running Numbered Canvas with Header & Footer for Portrait Letter (612 x 792 pt)
             class NumberedCanvas(canvas.Canvas):
                 def __init__(self, *args, **kwargs):
                     super(NumberedCanvas, self).__init__(*args, **kwargs)
@@ -3053,32 +3069,32 @@ def reports_view(request):
                     if self._pageNumber > 1:
                         self.setFont(bold_font, 7.5)
                         self.setFillColor(colors.HexColor("#002855"))
-                        self.drawString(36, 582, "MUNICIPAL ENGINEERING OFFICE — CARIGARA, LEYTE")
+                        self.drawString(36, 762, "MUNICIPAL ENGINEERING OFFICE — CARIGARA, LEYTE")
                         self.setFont(main_font, 7.5)
                         self.setFillColor(colors.HexColor("#64748B"))
-                        self.drawRightString(792 - 36, 582, "Engineering Records Summary Report")
+                        self.drawRightString(576, 762, "Engineering Records Summary Report")
                         self.setStrokeColor(colors.HexColor("#CBD5E1"))
                         self.setLineWidth(0.5)
-                        self.line(36, 576, 792 - 36, 576)
+                        self.line(36, 756, 576, 756)
 
                     # Running Footer
                     self.setFont(main_font, 7.5)
                     self.setFillColor(colors.HexColor("#64748B"))
-                    self.drawString(36, 22, f"Municipal Engineering Office • Carigara, Leyte | eTala Management System | Generated: {timezone.now().strftime('%Y-%m-%d %H:%M')}")
-                    self.drawRightString(792 - 36, 22, f"Page {self._pageNumber} of {page_count}")
+                    self.drawString(36, 20, f"eTala Management System • Carigara, Leyte | Official Record | {timezone.now().strftime('%b %d, %Y %I:%M %p')} PST")
+                    self.drawRightString(576, 20, f"Page {self._pageNumber} of {page_count}")
                     self.setStrokeColor(colors.HexColor("#CBD5E1"))
                     self.setLineWidth(0.5)
-                    self.line(36, 32, 792 - 36, 32)
+                    self.line(36, 28, 576, 28)
                     self.restoreState()
 
             buffer = BytesIO()
             doc = SimpleDocTemplate(
                 buffer,
-                pagesize=landscape(letter),
+                pagesize=letter,
                 rightMargin=36,
                 leftMargin=36,
                 topMargin=26,
-                bottomMargin=40
+                bottomMargin=36
             )
             
             story = []
@@ -3092,39 +3108,48 @@ def reports_view(request):
             sub_header_style = ParagraphStyle(
                 'SubHeaderStyle',
                 parent=styles['Normal'],
-                fontName=bold_font,
-                fontSize=8,
+                fontName=main_font,
+                fontSize=7.5,
                 leading=10,
                 textColor=TEXT_MUTED,
-                alignment=1
+                alignment=0
+            )
+            muni_title_style = ParagraphStyle(
+                'MuniTitleStyle',
+                parent=styles['Normal'],
+                fontName=bold_font,
+                fontSize=9.5,
+                leading=12,
+                textColor=NAVY,
+                alignment=0
             )
             office_title_style = ParagraphStyle(
                 'OfficeTitleStyle',
                 parent=styles['Heading1'],
                 fontName=bold_font,
-                fontSize=12,
-                leading=15,
+                fontSize=11,
+                leading=13.5,
                 textColor=NAVY,
-                alignment=1
+                alignment=0
             )
             report_title_style = ParagraphStyle(
                 'ReportTitleStyle',
                 parent=styles['Heading2'],
                 fontName=bold_font,
-                fontSize=9.5,
-                leading=12,
-                textColor=GOLD,
+                fontSize=10,
+                leading=13,
+                textColor=NAVY,
                 alignment=1,
-                spaceAfter=2
+                spaceAfter=4,
+                spaceBefore=4
             )
-            meta_box_style = ParagraphStyle(
-                'MetaBoxStyle',
+            meta_label_style = ParagraphStyle(
+                'MetaLabelStyle',
                 parent=styles['Normal'],
                 fontName=main_font,
                 fontSize=7.5,
-                leading=9.5,
-                textColor=TEXT_MUTED,
-                alignment=1
+                leading=10,
+                textColor=TEXT_DARK
             )
 
             # Table Typography Styles
@@ -3132,8 +3157,8 @@ def reports_view(request):
                 'HeaderCellStyle',
                 parent=styles['Normal'],
                 fontName=bold_font,
-                fontSize=7.5,
-                leading=9.5,
+                fontSize=7,
+                leading=9,
                 textColor=colors.white,
                 alignment=0
             )
@@ -3152,8 +3177,8 @@ def reports_view(request):
                 'BodyCellStyle',
                 parent=styles['Normal'],
                 fontName=main_font,
-                fontSize=7.5,
-                leading=9.5,
+                fontSize=7,
+                leading=8.5,
                 textColor=TEXT_DARK
             )
             cell_center = ParagraphStyle(
@@ -3167,38 +3192,75 @@ def reports_view(request):
                 alignment=2
             )
 
-            meta_summary_text = f"<b>Generated:</b> {gen_timestamp} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Filters:</b> {active_filter_str} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Records:</b> {records.count()}"
-
-            # Top Centered Official Municipal Logo
+            # Official Header Layout: Logo + Letterhead side-by-side
             logo_path = os.path.join(settings.BASE_DIR, 'assets', 'carigara_logo.png')
             if os.path.exists(logo_path):
-                logo_img = Image(logo_path, width=40, height=40)
-                logo_img.hAlign = 'CENTER'
-                story.append(logo_img)
-                story.append(Spacer(1, 2))
+                logo_img = Image(logo_path, width=42, height=42)
+                header_text = [
+                    Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style),
+                    Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style),
+                    Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER</b>", office_title_style),
+                ]
+                header_table = Table([[logo_img, header_text]], colWidths=[50, 490])
+                header_table.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                    ('LEFTPADDING', (1, 0), (1, -1), 6),
+                    ('TOPPADDING', (0, 0), (-1, -1), 0),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                ]))
+                story.append(header_table)
+            else:
+                story.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style))
+                story.append(Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style))
+                story.append(Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER</b>", office_title_style))
 
-            story.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style))
-            story.append(Paragraph("MUNICIPALITY OF CARIGARA &bull; OFFICE OF THE MUNICIPAL ENGINEER", office_title_style))
-            story.append(Paragraph("ENGINEERING RECORDS SUMMARY REPORT", report_title_style))
-            story.append(Paragraph(meta_summary_text, meta_box_style))
+            story.append(Spacer(1, 4))
+            story.append(HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceAfter=2, spaceBefore=2))
+            story.append(HRFlowable(width="100%", thickness=0.5, color=GOLD, spaceAfter=4, spaceBefore=0))
+            
+            # Document Title
+            story.append(Paragraph("ENGINEERING RECORDS MASTER SUMMARY REPORT", report_title_style))
+
+            # Structured 2-Column Metadata Box (Total: 540pt)
+            meta_data = [
+                [
+                    Paragraph(f"<b>Scope / Filter:</b> {active_filter_str}", meta_label_style),
+                    Paragraph(f"<b>Generated At:</b> {gen_timestamp} PST", meta_label_style),
+                ],
+                [
+                    Paragraph(f"<b>Exported By:</b> {request.user.full_name or request.user.username} ({request.user.get_role_display()})", meta_label_style),
+                    Paragraph(f"<b>Total Count:</b> <b>{records.count()} Record(s)</b>", meta_label_style),
+                ]
+            ]
+            meta_box = Table(meta_data, colWidths=[270, 270])
+            meta_box.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+                ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#E2E8F0')),
+                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ]))
+            story.append(meta_box)
             story.append(Spacer(1, 6))
 
-            # Column Widths (Total: 720pt across landscape letter with 36pt margins)
-            col_widths = [35, 135, 80, 75, 30, 55, 85, 85, 80, 45]
+            # Column Widths for Portrait Letter (Total: 540pt across 36pt margins)
+            col_widths = [26, 120, 70, 64, 30, 52, 96, 52, 30]
             table_data = [[
                 Paragraph("ID", header_center_style),
-                Paragraph("Record Title", header_cell_style),
+                Paragraph("Record Title / Ref", header_cell_style),
                 Paragraph("Type", header_cell_style),
                 Paragraph("Barangay", header_cell_style),
                 Paragraph("Year", header_center_style),
                 Paragraph("Status", header_center_style),
-                Paragraph("Applicant", header_cell_style),
-                Paragraph("Contractor", header_cell_style),
-                Paragraph("Cost / Budget (₱)", header_right_style),
-                Paragraph("Uploads", header_center_style)
+                Paragraph("Applicant / Contractor", header_cell_style),
+                Paragraph("Cost (₱)", header_right_style),
+                Paragraph("Docs", header_center_style)
             ]]
 
-            violation_rows_info = {} # row_idx -> bg_color
+            violation_rows_info = {}
             total_val = 0
             for row_idx, r in enumerate(records, 1):
                 is_violation = bool(r.is_illegal_construction)
@@ -3254,17 +3316,16 @@ def reports_view(request):
                     else:
                         specific_type = f"{r.project_scope} Project" if r.project_scope else "Project"
 
-                # Resolve Applicant and Contractor separately
-                applicant_val = "—"
-                contractor_val = "—"
+                # Resolve Applicant or Contractor
+                party_val = "—"
                 if r.record_type == 'Permit':
                     app_name = (r.permit_detail.applicant_name.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name else '').strip()
                     if app_name and app_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not app_name.startswith('[') and 'unpermitted' not in app_name.lower() and 'violation' not in app_name.lower():
-                        applicant_val = app_name
+                        party_val = app_name
                 else:
                     c_name = (r.project_detail.contractor.strip() if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.contractor else '').strip()
                     if c_name and c_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not c_name.startswith('[') and 'unpermitted' not in c_name.lower() and 'violation' not in c_name.lower():
-                        contractor_val = c_name
+                        party_val = c_name
 
                 # Resolve Cost / Budget
                 cost = 0
@@ -3282,7 +3343,7 @@ def reports_view(request):
                     else:
                         doc_para = Paragraph(f'<font color="#B91C1C">0/{c_stats["total"]}</font>', cell_center)
                 else:
-                    doc_para = Paragraph(f'<font color="#64748B">{r.documents.count()} files</font>' if is_violation else '<font color="#94A3B8">—</font>', cell_center)
+                    doc_para = Paragraph(f'<font color="#64748B">{r.documents.count()}f</font>' if is_violation else '<font color="#94A3B8">—</font>', cell_center)
 
                 barangay_name = r.barangay.barangay_name if r.barangay else "—"
                 year_val = str(r.year) if r.year else "—"
@@ -3294,20 +3355,18 @@ def reports_view(request):
                     Paragraph(barangay_name, cell_style),
                     Paragraph(year_val, cell_center),
                     Paragraph(status_html, cell_center),
-                    Paragraph(applicant_val if applicant_val != '—' else '<font color="#94A3B8">—</font>', cell_style),
-                    Paragraph(contractor_val if contractor_val != '—' else '<font color="#94A3B8">—</font>', cell_style),
+                    Paragraph(party_val if party_val != '—' else '<font color="#94A3B8">—</font>', cell_style),
                     Paragraph(f"₱ {cost:,.2f}" if cost > 0 else '<font color="#94A3B8">—</font>', cell_right),
                     doc_para
                 ])
 
-            # Total summary row
-            total_label_style = ParagraphStyle('TotalLabel', parent=cell_style, fontName=bold_font, fontSize=8, textColor=NAVY)
-            total_right_style = ParagraphStyle('TotalRight', parent=cell_right, fontName=bold_font, fontSize=8, textColor=NAVY)
+            # Total summary row (Total: 540pt)
+            total_label_style = ParagraphStyle('TotalLabel', parent=cell_style, fontName=bold_font, fontSize=7.5, textColor=NAVY)
+            total_right_style = ParagraphStyle('TotalRight', parent=cell_right, fontName=bold_font, fontSize=7.5, textColor=NAVY)
             
             table_data.append([
-                Paragraph("<b>TOTAL</b>", ParagraphStyle('TotCenter', parent=cell_center, fontName=bold_font, fontSize=8, textColor=NAVY)),
+                Paragraph("<b>TOTAL</b>", ParagraphStyle('TotCenter', parent=cell_center, fontName=bold_font, fontSize=7.5, textColor=NAVY)),
                 Paragraph(f"<b>{records.count()} Record(s)</b>", total_label_style),
-                Paragraph("", cell_style),
                 Paragraph("", cell_style),
                 Paragraph("", cell_style),
                 Paragraph("", cell_style),
@@ -3324,14 +3383,14 @@ def reports_view(request):
                 ('BACKGROUND', (0, 0), (-1, 0), NAVY),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 0), (-1, 0), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+                ('TOPPADDING', (0, 0), (-1, 0), 3.5),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 3.5),
                 ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#E2E8F0')),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EEF2F6')),
                 ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor('#94A3B8')),
                 ('LINEBELOW', (0, -1), (-1, -1), 1.5, NAVY),
-                ('TOPPADDING', (0, -1), (-1, -1), 5),
-                ('BOTTOMPADDING', (0, -1), (-1, -1), 5),
+                ('TOPPADDING', (0, -1), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, -1), (-1, -1), 4),
             ]
 
             for row_i in range(1, len(table_data) - 1):
@@ -3341,15 +3400,15 @@ def reports_view(request):
                     bg = colors.HexColor('#F8FAFC') if row_i % 2 == 0 else colors.HexColor('#FFFFFF')
                 
                 t_style_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), bg))
-                t_style_cmds.append(('TOPPADDING', (0, row_i), (-1, row_i), 3))
-                t_style_cmds.append(('BOTTOMPADDING', (0, row_i), (-1, row_i), 3))
+                t_style_cmds.append(('TOPPADDING', (0, row_i), (-1, row_i), 2.5))
+                t_style_cmds.append(('BOTTOMPADDING', (0, row_i), (-1, row_i), 2.5))
 
             t.setStyle(TableStyle(t_style_cmds))
             story.append(t)
 
-            # Official Sign-off block
-            sign_style_left = ParagraphStyle('SignLeft', parent=styles['Normal'], fontName=main_font, fontSize=8, leading=12, textColor=TEXT_DARK)
-            sign_style_right = ParagraphStyle('SignRight', parent=styles['Normal'], fontName=main_font, fontSize=8, leading=12, textColor=TEXT_DARK, alignment=2)
+            # Official Sign-off block (Total: 540pt)
+            sign_style_left = ParagraphStyle('SignLeft', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK)
+            sign_style_right = ParagraphStyle('SignRight', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=2)
             
             signatory_data = [
                 [
@@ -3357,15 +3416,15 @@ def reports_view(request):
                     Paragraph("<b>Certified Correct:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office — Carigara, Leyte", sign_style_right)
                 ]
             ]
-            sign_table = Table(signatory_data, colWidths=[360, 360])
+            sign_table = Table(signatory_data, colWidths=[270, 270])
             sign_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('TOPPADDING', (0, 0), (-1, -1), 16),
+                ('TOPPADDING', (0, 0), (-1, -1), 14),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
 
             story.append(KeepTogether([
-                Spacer(1, 14),
+                Spacer(1, 12),
                 sign_table
             ]))
 
@@ -3658,7 +3717,7 @@ def activity_logs_view(request):
     elif action_type == 'delete':
         audit_logs = audit_logs.filter(Q(action__icontains='deleted') | Q(action__icontains='removed'))
 
-    per_page = get_per_page(request, 15)
+    per_page = get_per_page(request, 10)
     audit_paginator = Paginator(audit_logs, per_page)
     log_page_obj = audit_paginator.get_page(request.GET.get('log_page'))
 
@@ -3734,9 +3793,9 @@ def export_activity_logs_view(request):
         log_audit(request.user, f"Exported {tab.capitalize()} Activity Logs to CSV", request=request)
         return response
 
-    # ── DEFAULT: Direct PDF Export via ReportLab ──
-    from reportlab.lib.pagesizes import letter, landscape
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    # ── DEFAULT: Direct PDF Export via ReportLab (Portrait Letter: 612 x 792 pt) ──
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
     from reportlab.pdfgen import canvas
@@ -3745,106 +3804,150 @@ def export_activity_logs_view(request):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=landscape(letter),
+        pagesize=letter,
         leftMargin=36,
         rightMargin=36,
-        topMargin=36,
-        bottomMargin=40
+        topMargin=26,
+        bottomMargin=36
     )
 
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Heading1'],
-        fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=16,
-        textColor=colors.HexColor('#0f172a'),
-        alignment=1
-    )
-    subtitle_style = ParagraphStyle(
-        'DocSubTitle',
+    
+    NAVY = colors.HexColor('#002855')
+    GOLD = colors.HexColor('#C5A059')
+    TEXT_DARK = colors.HexColor('#0F172A')
+    TEXT_MUTED = colors.HexColor('#475569')
+
+    sub_header_style = ParagraphStyle(
+        'SubHeaderStyle',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=9,
+        fontSize=7.5,
+        leading=10,
+        textColor=TEXT_MUTED,
+        alignment=0
+    )
+    muni_title_style = ParagraphStyle(
+        'MuniTitleStyle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9.5,
         leading=12,
-        textColor=colors.HexColor('#475569'),
-        alignment=1
+        textColor=NAVY,
+        alignment=0
+    )
+    office_title_style = ParagraphStyle(
+        'OfficeTitleStyle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=13.5,
+        textColor=NAVY,
+        alignment=0
+    )
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=10,
+        leading=13,
+        textColor=NAVY,
+        alignment=1,
+        spaceAfter=4,
+        spaceBefore=4
     )
     meta_style = ParagraphStyle(
         'MetaStyle',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=8,
-        leading=11,
-        textColor=colors.HexColor('#334155')
+        fontSize=7.5,
+        leading=10,
+        textColor=TEXT_DARK
     )
     th_style = ParagraphStyle(
         'THStyle',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=8,
-        leading=10,
+        fontSize=7.5,
+        leading=9.5,
         textColor=colors.white
     )
     td_style = ParagraphStyle(
         'TDStyle',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=7.5,
-        leading=10,
-        textColor=colors.HexColor('#1e293b')
+        fontSize=7,
+        leading=9,
+        textColor=TEXT_DARK
     )
     td_badge = ParagraphStyle(
         'TDBadge',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=7.5,
-        leading=10,
+        fontSize=7,
+        leading=9,
         textColor=colors.HexColor('#1e40af')
     )
 
     elements = []
 
-    # Header section with Logo
+    # Header section with Logo + Letterhead side-by-side
     logo_path = os.path.join(settings.BASE_DIR, 'assets', 'carigara_logo.png')
     if os.path.exists(logo_path):
         img = Image(logo_path, width=42, height=42)
         header_text = [
-            Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", subtitle_style),
-            Paragraph("MUNICIPALITY OF CARIGARA &bull; MUNICIPAL ENGINEERING OFFICE", subtitle_style),
-            Spacer(1, 2),
-            Paragraph("OFFICIAL SECURITY AUDIT &amp; ACTIVITY TRAIL REPORT", title_style)
+            Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style),
+            Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style),
+            Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER</b>", office_title_style),
         ]
-        header_table = Table([[img, header_text]], colWidths=[55, 665])
+        header_table = Table([[img, header_text]], colWidths=[50, 490])
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+            ('LEFTPADDING', (1, 0), (1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
         elements.append(header_table)
     else:
-        elements.append(Paragraph("MUNICIPALITY OF CARIGARA &bull; MUNICIPAL ENGINEERING OFFICE", subtitle_style))
-        elements.append(Paragraph("OFFICIAL SECURITY AUDIT &amp; ACTIVITY TRAIL REPORT", title_style))
+        elements.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style))
+        elements.append(Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style))
+        elements.append(Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER</b>", office_title_style))
 
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 4))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceAfter=2, spaceBefore=2))
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=GOLD, spaceAfter=4, spaceBefore=0))
 
-    # Meta banner
+    # Title & Meta Info Box (Total: 540pt)
     now_pst = timezone.now()
     tab_title = "Authentication & Login History" if (tab == 'login' and request.user.role == 'admin') else "System Activity & Record Audit Trail"
-    meta_p = Paragraph(
-        f"<b>Log Scope:</b> {tab_title} &nbsp;|&nbsp; <b>Generated By:</b> {request.user.full_name or request.user.username} ({request.user.get_role_display()}) &nbsp;|&nbsp; <b>Generated At:</b> {now_pst.strftime('%B %d, %Y %I:%M %p')} PST",
-        meta_style
-    )
-    meta_box = Table([[meta_p]], colWidths=[720])
+    doc_heading = "AUTHENTICATION &amp; LOGIN ATTEMPTS REPORT" if (tab == 'login' and request.user.role == 'admin') else "SECURITY AUDIT &amp; ACTIVITY TRAIL REPORT"
+    elements.append(Paragraph(doc_heading, title_style))
+
+    meta_data = [
+        [
+            Paragraph(f"<b>Log Scope:</b> {tab_title}", meta_style),
+            Paragraph(f"<b>Generated At:</b> {now_pst.strftime('%B %d, %Y %I:%M %p')} PST", meta_style),
+        ],
+        [
+            Paragraph(f"<b>Exported By:</b> {request.user.full_name or request.user.username} ({request.user.get_role_display()})", meta_style),
+            Paragraph(f"<b>Classification:</b> Confidential Official Record", meta_style),
+        ]
+    ]
+    meta_box = Table(meta_data, colWidths=[270, 270])
     meta_box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f1f5f9')),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('PADDING', (0, 0), (-1, -1), 6),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#E2E8F0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     elements.append(meta_box)
-    elements.append(Spacer(1, 10))
+    elements.append(Spacer(1, 6))
 
-    # Query Data
+    # Query Data (Portrait 540pt)
     if tab == 'login' and request.user.role == 'admin':
         qs = LoginAttempt.objects.all().order_by('-timestamp')
         if date_filter == 'today':
@@ -3863,9 +3966,8 @@ def export_activity_logs_view(request):
         table_data = [[
             Paragraph("#", th_style),
             Paragraph("TIMESTAMP (PST)", th_style),
-            Paragraph("EMAIL ATTEMPTED", th_style),
-            Paragraph("LOGIN STATUS", th_style),
-            Paragraph("IP ADDRESS", th_style)
+            Paragraph("EMAIL / ACCOUNT ATTEMPTED", th_style),
+            Paragraph("LOGIN STATUS", th_style)
         ]]
         for idx, item in enumerate(qs[:1000], start=1):
             status_text = "SUCCESSFUL" if item.success else "FAILED"
@@ -3875,10 +3977,9 @@ def export_activity_logs_view(request):
                 Paragraph(str(idx), td_style),
                 Paragraph(item.timestamp.strftime("%Y-%m-%d %H:%M:%S"), td_style),
                 Paragraph(item.email_attempted or "Unknown", td_style),
-                status_p,
-                Paragraph(item.ip_address or "N/A", td_style)
+                status_p
             ])
-        col_widths = [35, 130, 240, 135, 180]
+        col_widths = [30, 130, 250, 130]
     else:
         qs = AuditLog.objects.all().select_related('user').order_by('-performed_at')
         if request.user.role != 'admin':
@@ -3896,11 +3997,10 @@ def export_activity_logs_view(request):
 
         table_data = [[
             Paragraph("#", th_style),
-            Paragraph("DATE &amp; TIME", th_style),
+            Paragraph("DATE &amp; TIME (PST)", th_style),
             Paragraph("OPERATOR / STAFF", th_style),
-            Paragraph("OFFICIAL ROLE", th_style),
-            Paragraph("ACTION EXECUTED", th_style),
-            Paragraph("IP ADDRESS", th_style)
+            Paragraph("ROLE", th_style),
+            Paragraph("ACTION EXECUTED", th_style)
         ]]
         for idx, item in enumerate(qs[:1000], start=1):
             if item.user:
@@ -3914,17 +4014,17 @@ def export_activity_logs_view(request):
                 Paragraph(item.performed_at.strftime("%Y-%m-%d %H:%M:%S"), td_style),
                 Paragraph(user_str, td_badge),
                 Paragraph(role_str, td_style),
-                Paragraph(item.action, td_style),
-                Paragraph(item.ip_address or "N/A", td_style)
+                Paragraph(item.action, td_style)
             ])
-        col_widths = [30, 115, 140, 105, 230, 100]
+        col_widths = [30, 110, 120, 80, 200]
 
     log_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     log_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+        ('BACKGROUND', (0, 0), (-1, 0), NAVY),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('PADDING', (0, 0), (-1, -1), 4.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
     ]))
@@ -3949,10 +4049,26 @@ def export_activity_logs_view(request):
 
         def draw_footer(self, page_count):
             self.saveState()
+            # Running Header on page 2+
+            if self._pageNumber > 1:
+                self.setFont("Helvetica-Bold", 7.5)
+                self.setFillColor(NAVY)
+                self.drawString(36, 762, "MUNICIPAL ENGINEERING OFFICE — CARIGARA, LEYTE")
+                self.setFont("Helvetica", 7.5)
+                self.setFillColor(colors.HexColor('#64748B'))
+                self.drawRightString(576, 762, "Activity Logs Audit Report")
+                self.setStrokeColor(colors.HexColor('#CBD5E1'))
+                self.setLineWidth(0.5)
+                self.line(36, 756, 576, 756)
+
+            # Running Footer on all pages
             self.setFont("Helvetica", 7.5)
             self.setFillColor(colors.HexColor('#64748b'))
-            self.drawString(36, 20, "CONFIDENTIAL & OFFICIAL RECORD \u2022 eTala Municipal Engineering Office")
-            self.drawRightString(792 - 36, 20, f"Page {self._pageNumber} of {page_count}")
+            self.drawString(36, 20, f"eTala Management System • Carigara, Leyte | Official Audit Trail | {now_pst.strftime('%b %d, %Y %I:%M %p')} PST")
+            self.drawRightString(576, 20, f"Page {self._pageNumber} of {page_count}")
+            self.setStrokeColor(colors.HexColor('#cbd5e1'))
+            self.setLineWidth(0.5)
+            self.line(36, 28, 576, 28)
             self.restoreState()
 
     doc.build(elements, canvasmaker=NumberedCanvas)
@@ -4119,12 +4235,23 @@ def settings_view(request):
         action = request.POST.get('action')
 
         if action == 'send_expiry_alerts':
-            success, msg = send_document_expiry_alerts()
-            log_audit(request.user, f"Triggered Document Expiry Email Alerts: {msg}", request=request)
-            if success:
-                messages.success(request, f"Email notification summary sent successfully: {msg}")
-            else:
-                messages.warning(request, msg)
+            try:
+                success, msg = send_document_expiry_alerts()
+                log_audit(request.user, f"Triggered Document Expiry Email Alerts: {msg}", request=request)
+                if success:
+                    messages.success(request, f"Email notification summary sent successfully: {msg}")
+                else:
+                    messages.warning(request, msg)
+            except Exception as e:
+                err_str = str(e)
+                logger.error(f"Error triggering expiry alerts: {err_str}")
+                if "resend.com/domains" in err_str or "only send testing emails" in err_str or "550" in err_str:
+                    messages.warning(
+                        request,
+                        "Resend Testing Restriction: Resend free tier only sends test emails to your registered account email (mardionjrcordetafuerte2@gmail.com). To send to other staff, please verify a custom domain at resend.com/domains."
+                    )
+                else:
+                    messages.error(request, f"Email delivery error: {err_str}")
             return redirect(f"{reverse('settings')}?tab=maintenance")
 
         if action == 'clear_failed_logins':
@@ -4593,10 +4720,13 @@ def download_record_zip_view(request, record_id):
         return redirect('record_detail', record_id=record.record_id)
 
     buffer = build_record_zip_buffer(record, _get_document_stream)
-    clean_title = sanitize_zip_name(record.title, max_len=35)
-    filename = f"{clean_title}_Archive.zip"
-    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    export_name = get_record_export_name(record, include_location=True)
+    filename = f"{export_name}.zip"
+    val = buffer.getvalue()
+    response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Length'] = str(len(val))
+    response['X-Content-Type-Options'] = 'nosniff'
     log_audit(request.user, f"Downloaded Record ZIP Archive for '{record.title}'", target_record_id=record.record_id, request=request)
     return response
 
@@ -4616,11 +4746,14 @@ def download_category_zip_view(request, record_id, req_id):
         return redirect('record_detail', record_id=record.record_id)
 
     buffer = build_category_zip_buffer(record, parent_req, _get_document_stream)
-    clean_title = sanitize_zip_name(record.title, max_len=25)
-    clean_parent = sanitize_zip_name(parent_req.requirement_item.name, max_len=20)
-    filename = f"{clean_title}_{clean_parent}.zip"
-    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    export_name = get_record_export_name(record, include_location=True)
+    clean_parent = sanitize_zip_name(parent_req.requirement_item.name, max_len=25).replace(" ", "_")
+    filename = f"{export_name}_{clean_parent}.zip"
+    val = buffer.getvalue()
+    response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Length'] = str(len(val))
+    response['X-Content-Type-Options'] = 'nosniff'
     return response
 
 
@@ -4637,10 +4770,13 @@ def download_barangay_zip_view(request, barangay_id):
         return redirect(request.META.get('HTTP_REFERER') or 'barangays')
 
     buffer = build_barangay_zip_buffer(barangay, _get_document_stream)
-    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=25)
-    filename = f"Brgy_{clean_b_name}_Archive.zip"
-    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=25).replace(" ", "_")
+    filename = f"Brgy_{clean_b_name}_Engineering_Records.zip"
+    val = buffer.getvalue()
+    response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Length'] = str(len(val))
+    response['X-Content-Type-Options'] = 'nosniff'
     log_audit(request.user, f"Downloaded Barangay ZIP Archive for '{barangay.barangay_name}'", request=request)
     return response
 
@@ -4765,21 +4901,14 @@ def bulk_encoding_view(request):
 
 @login_required
 def permanent_delete_record_view(request, record_id):
-    """Requires administrator role, password confirmation, and mandatory reason logging for permanent record deletion."""
+    """Requires administrator role for permanent record deletion."""
     if request.user.role != 'admin':
         raise PermissionDenied("Only administrators can permanently delete records.")
 
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    if request.method == 'POST':
-        password = request.POST.get('password', '')
-        reason = sanitize_input(request.POST.get('reason', '')).strip()
-
-        if not request.user.check_password(password):
-            messages.error(request, "Incorrect administrator password. Permanent deletion cancelled.")
-            return redirect('archive')
-
+    if request.method in ['POST', 'GET']:
         record_title = record.title
-        log_audit(request.user, f"Permanently deleted record '{record_title}'. Reason: {reason or 'No reason provided'}", target_record_id=record_id, request=request)
+        log_audit(request.user, f"Permanently deleted record '{record_title}'", target_record_id=record_id, request=request)
         record.delete()
         messages.success(request, f"Record '{record_title}' has been permanently deleted from the system.")
 

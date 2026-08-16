@@ -28,9 +28,10 @@
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
     <div class="etala-header-actions">
-        <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary">
-            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i>
-            <span>New Project Record</span>
+        <a href="{% url 'create_step1' %}" class="premium-btn btn-add" title="Encode New Infrastructure Record">
+            <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+            <span class="btn-divider"></span>
+            <span>New Record</span>
         </a>
     </div>
     {% endif %}
@@ -92,12 +93,12 @@
 
     <!-- Collapsible filters panel (Dropdown select options) -->
     <div class="collapse {% if selected_barangay or selected_project_type or selected_status or selected_year %}show{% endif %}" id="advancedFiltersCollapse">
-        <div class="filter-panel-unified mt-3">
-            <div class="row g-3">
+        <div class="filter-panel-unified mt-3 py-2.5 px-3 rounded-3 border">
+            <div class="row g-2.5">
                 <!-- Barangay filter -->
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm" style="cursor: pointer;">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:'s' %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -107,8 +108,8 @@
 
                 <!-- Project type filter -->
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Project Type</label>
-                    <select name="project_type" class="form-select form-select-sm" style="cursor: pointer;">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Type</label>
+                    <select name="project_type" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Types</option>
                         {% for val, label in project_types %}
                         <option value="{{ val }}" {% if selected_project_type == val %}selected{% endif %}>{{ label }}</option>
@@ -118,8 +119,8 @@
 
                 <!-- Status filter -->
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Status</label>
-                    <select name="status" class="form-select form-select-sm" style="cursor: pointer;">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
+                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Status</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
@@ -128,8 +129,8 @@
                 </div>
 
                 <div class="col-md-3 col-6">
-                    <label class="form-label small fw-semibold text-muted mb-1">Year</label>
-                    <select name="year" class="form-select form-select-sm" style="cursor: pointer;" onchange="this.form.submit()">
+                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
+                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -137,174 +138,160 @@
                     </select>
                 </div>
             </div>
-
-            <div class="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
-                <button type="submit" class="action-btn action-btn-primary action-btn-sm" style="height: 36px;" title="Apply selected filters">
-                    Apply Filters
-                </button>
-            </div>
         </div>
     </div>
 </form>
 
-<!-- ══ RECORDS TABLE ═══════════════════════════════════════════════════════ -->
-{% if page_obj.object_list %}
-<div class="content-card">
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Project Name</th>
-                    <th>Type</th>
-                    <th>Barangay</th>
-                    <th>Year</th>
-                    <th>Status</th>
-                    <th>Documents</th>
-                    <th class="text-end">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for record in page_obj %}
-                <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
-                    <td>
-                        <div class="cell-title" title="{{ record.title }}">{{ record.title }}</div>
-                        <div class="cell-subtitle">
-                            {% if record.project_detail.contractor %}
-                                <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
-                            {% endif %}
-                            <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ record.created_by.full_name|default:record.created_by.username }}</div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="tag tag-project">
-                            {% if record.project_detail %}{{ record.project_detail.project_type }}{% else %}—{% endif %}
-                        </span>
-                    </td>
-                    <td class="cell-muted">
-                        {% if record.barangay %}
-                        <a href="{% url 'barangay_workspace' record.barangay.barangay_id %}" onclick="event.stopPropagation();" class="text-decoration-none" style="color: var(--navy); font-weight: 600;">
-                            {{ record.barangay.barangay_name }}
-                        </a>
-                        {% else %}
-                        —
-                        {% endif %}
-                    </td>
-                    <td class="cell-muted">{{ record.year|default:"—" }}</td>
-                    <td>
-                        {% if record.status == 'active' %}
-                        <span class="status-indicator status-indicator-active">Active</span>
-                        {% elif record.status == 'in_progress' %}
-                        <span class="status-indicator status-indicator-in_progress">In Progress</span>
-                        {% elif record.status == 'completed' %}
-                        <span class="status-indicator status-indicator-completed">Completed</span>
-                        {% elif record.status == 'archived' %}
-                        <span class="status-indicator status-indicator-archived">Archived</span>
-                        {% else %}
-                        <span class="status-indicator">{{ record.status|capfirst }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% with stats=record.completion_stats %}
-                        {% if stats.total > 0 %}
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="progress" style="width:60px; height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
-                                <div class="progress-bar" style="width:{{ stats.pct }}%; height:100%; border-radius:99px; {% if stats.is_complete %}background-color: #16a34a;{% elif stats.pct >= 60 %}background-color: var(--navy);{% else %}background-color: #f59e0b;{% endif %}"></div>
+<!-- ══ RECORDS TABLE / CONTAINER ═════════════════════════════════════════ -->
+<div id="moduleProjectsContainer">
+    {% if page_obj.object_list %}
+    <div class="content-card">
+        <div class="table-responsive">
+            <table class="data-table" style="width: 100%; table-layout: fixed;">
+                <thead>
+                    <tr>
+                        <th style="width: 36%; min-width: 200px;">Project Name</th>
+                        <th style="width: 16%; min-width: 120px;">Type</th>
+                        <th style="width: 14%; min-width: 110px;">Barangay</th>
+                        <th style="width: 8%; min-width: 60px;">Year</th>
+                        <th style="width: 12%; min-width: 90px;">Status</th>
+                        <th style="width: 9%; min-width: 80px;">Documents</th>
+                        <th class="text-end" style="width: 5%; min-width: 44px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in page_obj %}
+                    <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
+                        <td>
+                            <div class="cell-title" title="{{ record.title }}">{{ record.title }}</div>
+                            <div class="cell-subtitle">
+                                {% if record.project_detail.contractor %}
+                                    <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
+                                {% endif %}
+                                <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ record.created_by.full_name|default:record.created_by.username }}</div>
                             </div>
-                            <span class="cell-muted">{{ stats.fulfilled }}/{{ stats.total }}</span>
-                        </div>
-                        {% else %}
-                        <span class="cell-muted">—</span>
-                        {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td class="text-end" onclick="event.stopPropagation()">
-                        <a href="{% url 'record_detail' record.record_id %}" class="etala-btn etala-btn-secondary text-nowrap text-decoration-none d-inline-flex align-items-center gap-1.5" style="padding: 4px 10px; font-size: 0.78rem;">
-                            <span>Open</span> <i class="fa-solid fa-arrow-right" style="font-size: 11px;"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-        </table>
-    </div>
-    <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div class="d-flex align-items-center gap-3">
-            <span class="pagination-info m-0">
-                {% if page_obj.paginator.count > 0 %}
-                Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> projects
-                {% else %}
-                Showing 0–0 of 0 records
-                {% endif %}
-            </span>
-            <div class="per-page-select d-flex align-items-center gap-1.5 text-muted" style="font-size: 0.74rem;">
-                <span>Show:</span>
-                <select class="form-select form-select-sm ps-2 pe-4 py-0.5" style="width: 62px; font-size: 0.72rem; height: 26px; border-radius: 4px;" onchange="changePerPage(this.value)">
-                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-                </select>
-            </div>
-        </div>
-        
-        <div class="d-flex align-items-center gap-2 pagination-controls">
-            {% if page_obj.paginator.num_pages > 5 %}
-            <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
-                <span>Page:</span>
-                <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
-                <span>/ {{ page_obj.paginator.num_pages }}</span>
-            </div>
-            {% endif %}
-
-            {% if page_obj.has_other_pages %}
-            <nav>
-                <ul class="pagination pagination-sm mb-0 gap-1">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
-                    {% endif %}
-
-                    {% for p in page_obj.paginator.page_range %}
-                    {% if page_obj.number == p %}
-                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
-                    {% endif %}
+                        </td>
+                        <td>
+                            <span class="tag tag-project">{{ record.specific_type_label }}</span>
+                        </td>
+                        <td class="cell-muted cell-barangay">
+                            {% if record.barangay %}
+                            <a href="{% url 'barangay_workspace' record.barangay.barangay_id %}" class="text-decoration-none text-muted" onclick="event.stopPropagation();">
+                                {{ record.barangay.barangay_name }}
+                            </a>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="cell-muted">{{ record.year }}</td>
+                        <td>
+                            {% if record.status == 'approved' or record.status == 'completed' %}
+                            <span class="badge-status badge-approved">Completed</span>
+                            {% elif record.status == 'in_progress' or record.status == 'ongoing' %}
+                            <span class="badge-status badge-pending">Ongoing</span>
+                            {% else %}
+                            <span class="badge-status badge-draft">{{ record.status|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="cell-muted">{{ record.documents.count }} files</td>
+                        <td class="text-end" onclick="event.stopPropagation();">
+                            <div class="d-flex justify-content-end gap-1">
+                                <a href="{% url 'record_detail' record.record_id %}" class="action-btn action-btn-primary action-btn-xs" title="View record details">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                                {% if request.user.role == 'admin' %}
+                                <a href="{% url 'edit_record' record.record_id %}" class="action-btn action-btn-secondary action-btn-xs" title="Edit record">
+                                    <i class="fa-solid fa-pen"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
                     {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-                    {% if page_obj.has_next %}
-                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
+        <!-- Pagination Controls -->
+        <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <span class="pagination-info m-0">
+                    {% if page_obj.paginator.count > 0 %}
+                    Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> projects
                     {% else %}
-                    <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                    Showing 0–0 of 0 projects
                     {% endif %}
-                </ul>
-            </nav>
+                </span>
+                <div class="per-page-select">
+                    <span>Show:</span>
+                    <select class="form-select form-select-sm" onchange="changePerPage(this.value)">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 pagination-controls">
+                {% if page_obj.paginator.num_pages > 5 %}
+                <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                    <span>Page:</span>
+                    <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
+                    <span>/ {{ page_obj.paginator.num_pages }}</span>
+                </div>
+                {% endif %}
+
+                {% if page_obj.has_other_pages %}
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 gap-1">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
+                        {% endif %}
+
+                        {% for p in page_obj.paginator.page_range %}
+                        {% if page_obj.number == p %}
+                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                        {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="content-card">
+        <div class="empty-state-unified py-5 text-center">
+            <i class="fa-solid fa-inbox mb-2" style="font-size: 32px; color: #94a3b8;"></i>
+            <h6>No records found</h6>
+            {% if q or selected_barangay or selected_project_type or selected_status %}
+            <p>No records match your current filters. Try clearing the filters.</p>
+            <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}"
+               class="action-btn action-btn-secondary action-btn-sm mt-2">Clear Filters</a>
+            {% else %}
+            <p>There are no {{ module_title }} encoded yet.<br>Click <strong>New Record</strong> to start adding one.</p>
+            {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+            <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary mt-3 text-decoration-none d-inline-flex align-items-center gap-2">
+                <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i> <span>New Record</span>
+            </a>
+            {% endif %}
             {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>
-
-{% else %}
-<!-- Empty state -->
-<div class="content-card">
-    <div class="empty-state-unified py-5 text-center">
-        <i class="fa-solid fa-inbox mb-2" style="font-size: 32px; color: #94a3b8;"></i>
-        <h6>No records found</h6>
-        {% if q or selected_barangay or selected_project_type or selected_status %}
-        <p>No records match your current filters. Try clearing the filters.</p>
-        <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}"
-           class="action-btn action-btn-secondary action-btn-sm mt-2">Clear Filters</a>
-        {% else %}
-        <p>There are no {{ module_title }} encoded yet.<br>Click <strong>New Record</strong> to start adding one.</p>
-        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-        <a href="{% url 'create_step1' %}" class="etala-btn etala-btn-primary mt-3 text-decoration-none d-inline-flex align-items-center gap-2">
-            <i class="fa-solid fa-circle-plus" style="font-size: 14px;"></i> <span>New Record</span>
-        </a>
-        {% endif %}
-        {% endif %}
-    </div>
-</div>
-{% endif %}
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -314,12 +301,12 @@ document.addEventListener('DOMContentLoaded', function () {
     let projectSearchTimer;
 
     async function updateModuleProjTableAJAX(url) {
-        const tableCard = document.querySelector('.content-card');
+        const tableContainer = document.getElementById('moduleProjectsContainer');
         if (moduleProjSearchSpinner) moduleProjSearchSpinner.classList.remove('d-none');
         if (moduleProjClearBtn) moduleProjClearBtn.classList.add('d-none');
-        if (tableCard) {
-            tableCard.style.transition = 'opacity 0.08s ease';
-            tableCard.style.opacity = '0.6';
+        if (tableContainer) {
+            tableContainer.style.transition = 'opacity 0.08s ease';
+            tableContainer.style.opacity = '0.5';
         }
 
         try {
@@ -330,16 +317,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
 
-            const newTableCard = doc.querySelector('.content-card');
-            if (tableCard && newTableCard) {
-                tableCard.innerHTML = newTableCard.innerHTML;
+            const newTableContainer = doc.getElementById('moduleProjectsContainer');
+            if (tableContainer && newTableContainer) {
+                tableContainer.innerHTML = newTableContainer.innerHTML;
+            }
+            if (window.lucide) {
+                lucide.createIcons();
             }
             window.history.pushState({}, '', url);
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (projectSearchInput && projectSearchInput.form) projectSearchInput.form.submit();
         } finally {
-            if (tableCard) tableCard.style.opacity = '1';
+            if (tableContainer) tableContainer.style.opacity = '1';
             if (moduleProjSearchSpinner) moduleProjSearchSpinner.classList.add('d-none');
             if (moduleProjClearBtn) {
                 if (projectSearchInput && projectSearchInput.value.trim().length > 0) moduleProjClearBtn.classList.remove('d-none');
@@ -362,8 +352,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const formData = new FormData(projectSearchInput.form);
                 const params = new URLSearchParams(formData);
                 updateModuleProjTableAJAX(window.location.pathname + '?' + params.toString());
-            }, 450);
+            }, 350);
         });
+
+        if (projectSearchInput.form) {
+            projectSearchInput.form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(projectSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateModuleProjTableAJAX(window.location.pathname + '?' + params.toString());
+            });
+        }
     }
 
     if (moduleProjClearBtn && projectSearchInput) {

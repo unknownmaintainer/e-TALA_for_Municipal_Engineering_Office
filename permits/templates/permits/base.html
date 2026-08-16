@@ -18,8 +18,8 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=100">
-    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=100">
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=101">
+    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=101">
     <script>
         // Immediate check to prevent FOUC (flash of unstyled content)
         if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -27,37 +27,22 @@
         } else {
             document.documentElement.classList.remove('dark-mode');
         }
+
+        // Immediate check to persist sidebar collapsed state across page navigations
+        if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 768) {
+            document.documentElement.classList.add('sidebar-is-collapsed');
+        } else {
+            document.documentElement.classList.remove('sidebar-is-collapsed');
+        }
     </script>
     <style>
-        /* ══ PAGE TRANSITIONS & VIEW TRANSITIONS API ════════════════════════════ */
-        @view-transition {
-            navigation: auto;
-        }
-
-        ::view-transition-old(root) {
-            animation: 160ms cubic-bezier(0.4, 0, 1, 1) both etalaPageFadeOut;
-        }
-        ::view-transition-new(root) {
-            animation: 220ms cubic-bezier(0, 0, 0.2, 1) both etalaPageFadeIn;
-        }
-
-        @keyframes etalaPageFadeOut {
-            from { opacity: 1; transform: scale(1); }
-            to { opacity: 0; transform: scale(0.996); }
-        }
-
-        @keyframes etalaPageFadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Fluid content entrance */
+        /* ══ RELIABLE & ULTRA-SMOOTH PAGE TRANSITIONS ═════════════════════════ */
         .etala-content {
-            animation: etalaPageEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: etalaContentEnter 0.20s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             will-change: opacity, transform;
         }
 
-        @keyframes etalaPageEnter {
+        @keyframes etalaContentEnter {
             0% {
                 opacity: 0;
                 transform: translateY(4px);
@@ -69,9 +54,7 @@
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .etala-content,
-            ::view-transition-old(root),
-            ::view-transition-new(root) {
+            .etala-content {
                 animation: none !important;
                 transition: none !important;
             }
@@ -444,7 +427,45 @@
             overflow-x: hidden !important;
         }
 
-        /* Maximize table content width to fill columns without awkward whitespace gaps */
+        /* Maximize table content width to fill columns without awkward whitespace gaps & prevent text overflow */
+        /* Standard minimum height on table containers so action dropdowns never get clipped on short lists */
+        .table-responsive,
+        .table-card-responsive {
+            min-height: 260px;
+        }
+        .content-card:has(.table-responsive),
+        .content-card:has(.table-card-responsive),
+        .content-card:has(table),
+        .card:has(.table-responsive),
+        .card:has(table) {
+            min-height: 300px;
+        }
+
+        .data-table,
+        .table-card-responsive,
+        .compact-data-table {
+            table-layout: fixed !important;
+            width: 100% !important;
+        }
+
+        .data-table td,
+        .table-card-responsive td {
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 0 !important;
+        }
+
+        .data-table td.text-end,
+        .data-table td.action-menu-cell,
+        .data-table td.action-column,
+        .data-table td.cell-action,
+        .table-card-responsive td.text-end,
+        .table-card-responsive td.action-menu-cell {
+            overflow: visible !important;
+            text-overflow: clip !important;
+            max-width: none !important;
+        }
+
         .cell-title,
         .data-table .cell-title {
             width: 100% !important;
@@ -452,6 +473,8 @@
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+            display: block !important;
+            word-break: normal !important;
         }
 
         .cell-subtitle,
@@ -463,12 +486,12 @@
             margin-top: 3px !important;
             width: 100% !important;
             max-width: 100% !important;
+            min-width: 0 !important;
+            overflow: hidden !important;
         }
 
         .cell-subtitle .subtitle-row {
-            display: flex !important;
-            align-items: center !important;
-            gap: 5px !important;
+            display: block !important;
             font-size: 0.74rem !important;
             color: #64748b !important;
             white-space: nowrap !important;
@@ -476,6 +499,60 @@
             text-overflow: ellipsis !important;
             width: 100% !important;
             max-width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        .cell-subtitle .subtitle-row strong {
+            font-weight: 600 !important;
+        }
+
+        .mobile-record-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        .mobile-record-title {
+            font-weight: 600;
+            font-size: 0.88rem;
+            color: #0f172a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .mobile-record-meta {
+            font-size: 0.76rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .dark-mode .mobile-record-item,
+        [data-bs-theme="dark"] .mobile-record-item {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .dark-mode .mobile-record-title,
+        [data-bs-theme="dark"] .mobile-record-title {
+            color: #f8fafc;
+        }
+        .dark-mode .mobile-record-meta,
+        [data-bs-theme="dark"] .mobile-record-meta {
+            color: #94a3b8;
         }
 
         .dark-mode .cell-subtitle .subtitle-row,
@@ -498,15 +575,7 @@
         .table-card-responsive .dropdown-menu,
         .action-dropdown .dropdown-menu,
         .action-menu-cell .dropdown-menu {
-            position: absolute !important;
-            top: 100% !important;
-            bottom: auto !important;
-            right: 0 !important;
-            left: auto !important;
-            margin-top: 4px !important;
-            margin-bottom: 0 !important;
             z-index: 99999 !important;
-            transform: none !important;
         }
 
         .data-table td.text-end,
@@ -1643,31 +1712,36 @@
 
             .sidebar-divider-label {
                 color: #94a3b8 !important;
-                font-size: 0.72rem !important;
+                font-size: 0.70rem !important;
                 font-weight: 700 !important;
-                letter-spacing: 1px !important;
+                letter-spacing: 0.8px !important;
                 text-transform: uppercase !important;
+                padding: 14px 12px 6px 12px !important;
+                transition: all 0.2s ease !important;
             }
 
-            /* Smooth Scrollable Sidebar Navigation */
+            /* Smooth Scrollable Sidebar Navigation — No Visible Scrollbar */
             .sidebar-nav {
                 flex: 1 1 auto !important;
                 overflow-y: auto !important;
                 overflow-x: hidden !important;
-                padding: 0 12px 28px 12px !important;
-                scrollbar-width: thin !important;
-                scrollbar-color: rgba(255, 255, 255, 0.15) transparent !important;
+                padding: 0 12px 12px 12px !important;
+                scrollbar-width: none !important;
                 display: flex !important;
                 flex-direction: column !important;
             }
 
             .sidebar-nav::-webkit-scrollbar {
-                width: 4px !important;
+                display: none !important;
+                width: 0 !important;
             }
 
-            .sidebar-nav::-webkit-scrollbar-thumb {
-                background: rgba(255, 255, 255, 0.15) !important;
-                border-radius: 4px !important;
+            /* Blueprint Art — Always Pinned to Sidebar Bottom */
+            .sidebar-blueprint-art {
+                flex-shrink: 0 !important;
+                padding: 10px 16px 14px !important;
+                opacity: 0.28 !important;
+                pointer-events: none !important;
             }
 
             /* ── Core Stat Metric Cards (Light & Dark Mode) ── */
@@ -2107,9 +2181,12 @@
 
             .etala-sidebar.collapsed .sidebar-header,
             #sidebar.collapsed .sidebar-header {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
                 justify-content: center !important;
-                padding: 14px 0 !important;
-                gap: 0 !important;
+                padding: 12px 6px 8px !important;
+                gap: 8px !important;
             }
 
             .etala-sidebar.collapsed .sidebar-brand,
@@ -2126,32 +2203,90 @@
                 height: 38px !important;
             }
 
-            .etala-sidebar.collapsed .nav-item,
-            #sidebar.collapsed .nav-item {
+            .etala-sidebar.collapsed .sidebar-collapse-btn,
+            #sidebar.collapsed .sidebar-collapse-btn {
+                display: flex !important;
+                align-items: center !important;
                 justify-content: center !important;
-                padding: 10px 0 !important;
-                margin: 4px 10px !important;
-                transform: none !important;
+                width: 32px !important;
+                height: 28px !important;
+                border-radius: 8px !important;
+                background: rgba(255, 255, 255, 0.08) !important;
+                color: #94a3b8 !important;
+                margin: 0 auto !important;
+                transition: all 0.2s ease !important;
+            }
+            .etala-sidebar.collapsed .sidebar-collapse-btn:hover,
+            #sidebar.collapsed .sidebar-collapse-btn:hover {
+                background: rgba(255, 255, 255, 0.18) !important;
+                color: #ffffff !important;
             }
 
-            .etala-sidebar.collapsed .nav-item-content,
-            #sidebar.collapsed .nav-item-content {
+            .etala-sidebar.collapsed .sidebar-new-record-wrap,
+            #sidebar.collapsed .sidebar-new-record-wrap {
+                padding: 4px 8px !important;
+                display: flex !important;
                 justify-content: center !important;
-                width: 100% !important;
-            }
-
-            .etala-sidebar.collapsed .sidebar-footer-user,
-            #sidebar.collapsed .sidebar-footer-user {
-                justify-content: center !important;
-                padding: 10px 0 !important;
-                margin: 10px !important;
             }
 
             .etala-sidebar.collapsed .sidebar-new-record-btn,
             #sidebar.collapsed .sidebar-new-record-btn {
-                padding: 10px 0 !important;
+                width: 44px !important;
+                height: 44px !important;
+                padding: 0 !important;
+                margin: 4px auto 10px !important;
+                display: flex !important;
+                align-items: center !important;
                 justify-content: center !important;
-                margin: 10px 10px 16px !important;
+                border-radius: 12px !important;
+                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
+            }
+
+            .etala-sidebar.collapsed .nav-item,
+            #sidebar.collapsed .nav-item {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: 48px !important;
+                height: 44px !important;
+                padding: 0 !important;
+                margin: 4px auto !important;
+                border-radius: 10px !important;
+                transform: none !important;
+            }
+
+            .etala-sidebar.collapsed .nav-item.active,
+            #sidebar.collapsed .nav-item.active {
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.15) 100%) !important;
+                border-left: none !important;
+                box-shadow: 0 0 12px rgba(56, 189, 248, 0.35) !important;
+                border: 1px solid rgba(56, 189, 248, 0.4) !important;
+            }
+
+            .etala-sidebar.collapsed .nav-item-content,
+            #sidebar.collapsed .nav-item-content {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* Collapsed Divider: Elegant subtle 32px horizontal line with no awkward gap */
+            .etala-sidebar.collapsed .sidebar-divider-label,
+            #sidebar.collapsed .sidebar-divider-label,
+            html.sidebar-is-collapsed .sidebar-divider-label {
+                display: block !important;
+                width: 32px !important;
+                height: 1px !important;
+                background: rgba(255, 255, 255, 0.14) !important;
+                padding: 0 !important;
+                margin: 10px auto 8px !important;
+                font-size: 0 !important;
+                line-height: 0 !important;
+                overflow: hidden !important;
+                border: none !important;
             }
 
             /* CTA Button Shimmer & Polish */
@@ -3586,25 +3721,10 @@
         .user-row-item .dropdown-menu,
         .user-group-card .dropdown-menu,
         .data-table .dropdown-menu,
-        .action-menu-cell .dropdown-menu {
-            position: absolute !important;
-            top: 100% !important;
-            bottom: auto !important;
-            right: 0 !important;
-            left: auto !important;
-            margin-top: 0px !important;
-            transform: none !important;
-        }
-
+        .action-menu-cell .dropdown-menu,
         .barangay-card-wrapper .dropdown-menu,
         .brgy-card .dropdown-menu {
-            position: absolute !important;
-            top: -2px !important;
-            bottom: auto !important;
-            right: 28px !important;
-            left: auto !important;
-            margin-top: 0px !important;
-            transform: none !important;
+            z-index: 99999 !important;
         }
 
         .dark-mode .row-action-btn + .dropdown-menu,
@@ -4066,8 +4186,7 @@
                     </a>
 
                     <!-- Tools & System Divider -->
-                    <div class="sidebar-divider-label px-3 pt-3 pb-1 text-uppercase fw-bold"
-                        style="font-size: 0.68rem; letter-spacing: 0.8px; color: #94a3b8;">
+                    <div class="sidebar-divider-label">
                         <span class="nav-label">Tools &amp; System</span>
                     </div>
 
@@ -4132,21 +4251,20 @@
                     </a>
                     {% endif %}
                 </div>
-
-                <!-- Bottom Blueprint Graphic Watermark (Inside Scrollable Nav) -->
-                <div class="sidebar-blueprint-art px-3 pt-3 pb-3 mt-auto"
-                    style="opacity: 0.28; pointer-events: none; flex-shrink: 0;">
-                    <svg viewBox="0 0 200 70" fill="none" stroke="currentColor" stroke-width="1.2"
-                        stroke-linecap="round" stroke-linejoin="round"
-                        style="width: 100%; height: 60px; color: #ffffff;">
-                        <path d="M10 65 V25 L35 10 L60 25 V65 M10 40 H60 M35 10 V65 M20 25 H50 M20 50 H50" />
-                        <path d="M65 65 V35 L85 20 L105 35 V65 M65 50 H105 M85 20 V65" />
-                        <path
-                            d="M110 65 V15 L145 5 L180 15 V65 M110 30 H180 M110 48 H180 M145 5 V65 M125 15 H165 M125 38 H165 M125 56 H165" />
-                        <line x1="0" y1="65" x2="200" y2="65" stroke-width="2" />
-                    </svg>
-                </div>
             </nav>
+
+            <!-- Bottom Blueprint Graphic Watermark (Pinned to Sidebar Bottom) -->
+            <div class="sidebar-blueprint-art">
+                <svg viewBox="0 0 200 70" fill="none" stroke="currentColor" stroke-width="1.2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    style="width: 100%; height: 60px; color: #ffffff;">
+                    <path d="M10 65 V25 L35 10 L60 25 V65 M10 40 H60 M35 10 V65 M20 25 H50 M20 50 H50" />
+                    <path d="M65 65 V35 L85 20 L105 35 V65 M65 50 H105 M85 20 V65" />
+                    <path
+                        d="M110 65 V15 L145 5 L180 15 V65 M110 30 H180 M110 48 H180 M145 5 V65 M125 15 H165 M125 38 H165 M125 56 H165" />
+                    <line x1="0" y1="65" x2="200" y2="65" stroke-width="2" />
+                </svg>
+            </div>
         </aside>
 
         <!-- ═══════════════════════════════════════════
@@ -4514,34 +4632,47 @@
             }
         });
 
-        // Sidebar collapse/expand
+        // Sidebar collapse/expand with reliable persistence
         const sidebar = document.getElementById('sidebar');
         const collapseBtn = document.getElementById('sidebarCollapseBtn');
         const collapseIcon = document.getElementById('collapseIcon');
 
-        // Initialize sidebar (default expanded for crystal-clear readability)
-        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 1400;
-        if (sidebarCollapsed && sidebar) {
+        // Initialize sidebar from localStorage (persists across all page refreshes and navigations)
+        const isStoredCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        const isDesktop = window.innerWidth >= 768;
+
+        if (isStoredCollapsed && isDesktop && sidebar) {
             sidebar.classList.add('collapsed');
             document.documentElement.classList.add('sidebar-is-collapsed');
             if (collapseIcon) {
                 collapseIcon.className = 'fa-solid fa-angles-right';
             }
-        } else if (sidebar) {
+            if (collapseBtn) {
+                collapseBtn.setAttribute('title', 'Expand sidebar');
+            }
+        } else if (sidebar && isDesktop) {
             sidebar.classList.remove('collapsed');
             document.documentElement.classList.remove('sidebar-is-collapsed');
+            if (collapseIcon) {
+                collapseIcon.className = 'fa-solid fa-angles-left';
+            }
+            if (collapseBtn) {
+                collapseBtn.setAttribute('title', 'Collapse sidebar');
+            }
         }
 
         if (collapseBtn && sidebar) {
-            collapseBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
-                const isNowCollapsed = sidebar.classList.contains('collapsed');
+            collapseBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const isNowCollapsed = sidebar.classList.toggle('collapsed');
                 document.documentElement.classList.toggle('sidebar-is-collapsed', isNowCollapsed);
-                localStorage.setItem('sidebarCollapsed', isNowCollapsed);
+                localStorage.setItem('sidebarCollapsed', isNowCollapsed ? 'true' : 'false');
+                
                 const currentIcon = document.getElementById('collapseIcon');
                 if (currentIcon) {
                     currentIcon.className = isNowCollapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
                 }
+                collapseBtn.setAttribute('title', isNowCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
             });
         }
 
@@ -4852,6 +4983,52 @@
             color: #ffffff;
             background-color: rgba(255, 255, 255, 0.1);
         }
+
+        /* ── Universal Export / ZIP Progress Toast (Light & Dark Mode) ── */
+        .custom-app-toast.zip-download-toast {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-left: 4px solid #0284c7 !important;
+            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+        }
+        .custom-app-toast.zip-download-toast .toast-title-text {
+            color: #0f172a !important;
+        }
+        .custom-app-toast.zip-download-toast .toast-body-text {
+            color: #64748b !important;
+        }
+        .custom-app-toast.zip-download-toast .toast-status-icon {
+            background: #e0f2fe !important;
+            color: #0284c7 !important;
+        }
+        .custom-app-toast.zip-download-toast .toast-progress-bar {
+            background: #0284c7 !important;
+        }
+
+        .dark-mode .custom-app-toast.zip-download-toast,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast {
+            background: #1e293b !important;
+            border: 1px solid #334155 !important;
+            border-left: 4px solid #38bdf8 !important;
+            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
+        }
+        .dark-mode .custom-app-toast.zip-download-toast .toast-title-text,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-title-text {
+            color: #f8fafc !important;
+        }
+        .dark-mode .custom-app-toast.zip-download-toast .toast-body-text,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-body-text {
+            color: #94a3b8 !important;
+        }
+        .dark-mode .custom-app-toast.zip-download-toast .toast-status-icon,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-status-icon {
+            background: #0f172a !important;
+            color: #38bdf8 !important;
+        }
+        .dark-mode .custom-app-toast.zip-download-toast .toast-progress-bar,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-progress-bar {
+            background: #38bdf8 !important;
+        }
     </style>
 
     <script>
@@ -4872,6 +5049,11 @@
             const msgLower = (message || '').toLowerCase();
 
             if (isSuccess) {
+                // Auto-dismiss any active info/preparing toasts to prevent stacking
+                container.querySelectorAll('.toast-variant-info').forEach(t => {
+                    dismissToast(t.id);
+                });
+
                 variantClass = 'toast-variant-success';
                 iconBg = '#16a34a';
                 iconHtml = '<i class="fa-solid fa-check" style="font-size: 13px;"></i>';
@@ -4996,6 +5178,8 @@
 
             // Start countdown animation
             setTimeout(startTimer, 40);
+
+            return toastId;
         }
 
         function dismissToast(toastId) {
@@ -5011,25 +5195,60 @@
 
         window.showToastNotification = showToast;
         window.dismissToast = dismissToast;
+
+        window.downloadFileWithToast = function(url, suggestedFilename, options = {}) {
+            const title = options.title || 'Exporting File';
+            const startMsg = options.startMsg || 'Preparing your document, please wait...';
+            const successTitle = options.successTitle || '✅ Download Started!';
+            const successMsg = options.successMsg || 'File sent to your browser downloads.';
+            const btn = options.buttonElement;
+
+            let originalBtnHtml = '';
+            if (btn) {
+                btn.disabled = true;
+                originalBtnHtml = btn.innerHTML;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" style="width: 13px; height: 13px;" role="status"></span> Generating...';
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }, 2200);
+            }
+
+            if (window.showZipDownloadToast) {
+                window.showZipDownloadToast(title, startMsg, successTitle, successMsg);
+            }
+
+            // Smooth background download via invisible iframe (never reloads, never jumps, never goes blank!)
+            let downloadFrame = document.getElementById('etalaDownloadIframe');
+            if (!downloadFrame) {
+                downloadFrame = document.createElement('iframe');
+                downloadFrame.id = 'etalaDownloadIframe';
+                downloadFrame.style.display = 'none';
+                document.body.appendChild(downloadFrame);
+            }
+            downloadFrame.src = url;
+        };
     </script>
 
     <!-- Custom Modern Animated Confirmation Modal (Matching Reference Design) -->
     <div class="modal fade" id="customConfirmModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
-            <div class="modal-content border-0 shadow-2xl p-4 text-center position-relative custom-confirm-card" style="border-radius: 24px; background: #ffffff;">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 390px; margin: 1.5rem auto;">
+            <div class="modal-content border-0 shadow-2xl p-4 text-center position-relative custom-confirm-card" style="border-radius: 24px; background: #ffffff; overflow: hidden;">
                 <!-- Close Button Top Right -->
                 <button type="button" class="btn-close position-absolute top-0 end-0 m-3.5" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem; opacity: 0.5;"></button>
 
                 <!-- Centered Icon Badge -->
                 <div id="confirmModalIconWrapper"
                     class="d-flex align-items-center justify-content-center mx-auto mb-3"
-                    style="width: 56px; height: 56px; border-radius: 50%; background: #fee2e2; color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);">
+                    style="width: 56px; height: 56px; border-radius: 50%; background: #fee2e2; color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12); flex-shrink: 0;">
                     <i class="fa-solid fa-triangle-exclamation" id="confirmModalIcon" style="font-size: 22px;"></i>
                 </div>
 
-                <!-- Centered Title & Description -->
-                <h5 class="fw-bold mb-1.5 modal-confirm-title" id="confirmModalTitle" style="font-size: 1.15rem; color: #0f172a; letter-spacing: -0.01em;">Confirm Action</h5>
-                <p class="mb-4 modal-confirm-desc" id="confirmModalMessage" style="font-size: 0.84rem; color: #64748b; line-height: 1.45;">Are you sure you want to proceed?</p>
+                <!-- Centered Title & Description with Word-Break & Overflow Containment -->
+                <h5 class="fw-bold mb-2 modal-confirm-title" id="confirmModalTitle" style="font-size: 1.15rem; color: #0f172a; letter-spacing: -0.01em; word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">Confirm Action</h5>
+                <div class="modal-confirm-desc-wrapper mb-4" style="max-height: 180px; overflow-y: auto; overflow-x: hidden; padding: 0 2px;">
+                    <p class="mb-0 modal-confirm-desc" id="confirmModalMessage" style="font-size: 0.84rem; color: #64748b; line-height: 1.45; word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">Are you sure you want to proceed?</p>
+                </div>
 
                 <!-- Two Action Pill Buttons -->
                 <div class="d-flex gap-2.5 justify-content-center">
@@ -5046,6 +5265,9 @@
         .custom-confirm-card {
             box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.18), 0 8px 16px -4px rgba(15, 23, 42, 0.08) !important;
             animation: modalPopIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            max-width: 100% !important;
         }
         @keyframes modalPopIn {
             0% { transform: scale(0.94); opacity: 0; }
@@ -5058,6 +5280,22 @@
         .confirm-action-btn:hover {
             opacity: 0.92;
             transform: translateY(-1px);
+        }
+
+        .modal-confirm-title {
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            max-width: 100% !important;
+        }
+        .modal-confirm-desc-wrapper {
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            max-width: 100% !important;
+        }
+        .modal-confirm-desc {
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            max-width: 100% !important;
         }
 
         /* Dark mode for confirmation modal */
@@ -5211,13 +5449,14 @@
                 if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return false;
                 // Skip external links
                 if (anchor.hostname && anchor.hostname !== window.location.hostname) return false;
-                // Skip if target is _blank or has download attribute
-                if (anchor.target === '_blank' || anchor.hasAttribute('download')) return false;
+                // Skip if target is _blank, has download attribute, or is marked with no-transition
+                if (anchor.target === '_blank' || anchor.hasAttribute('download') || anchor.hasAttribute('data-no-transition') || anchor.classList.contains('no-transition') || anchor.classList.contains('btn-export')) return false;
+                // Skip any file export or download endpoints so the page never gets stuck in page-exit
+                if (href.includes('/export') || href.includes('/download') || href.includes('export=') || href.includes('/serve/')) return false;
                 // Skip if it's a dropdown toggle, modal trigger, or has data-bs attributes
                 if (anchor.hasAttribute('data-bs-toggle') || anchor.hasAttribute('data-bs-target')) return false;
                 // Skip if inside a dropdown menu (those are UI actions, not page navigations)
                 if (anchor.closest('.dropdown-menu')) return false;
-                // Skip if event was prevented by other handlers
                 return true;
             }
 
@@ -5238,6 +5477,11 @@
                 const content = document.querySelector('.etala-content');
                 if (content) {
                     content.classList.add('page-exit');
+                    // Safety auto-recovery: restore page in case response was a download attachment
+                    setTimeout(function () {
+                        if (content) content.classList.remove('page-exit');
+                        isTransitioning = false;
+                    }, 4000);
                     setTimeout(function () {
                         window.location.href = anchor.href;
                     }, TRANSITION_DURATION);
@@ -5749,26 +5993,29 @@
         }
     </script>
 
-    <!-- ══ UNIVERSAL ZIP DOWNLOAD PROGRESS INDICATOR TOAST ═══════════════════ -->
+    <!-- ══ UNIVERSAL ZIP & EXPORT DOWNLOAD PROGRESS INDICATOR TOAST ═══════════════════ -->
     <script>
-        function showZipDownloadToast(title, msg) {
+        function showZipDownloadToast(title, msg, completedTitle, completedMsg) {
             const container = document.getElementById('toastContainer');
             if (!container) return;
 
+            // Remove any existing zip/export toasts first so it never duplicates
+            container.querySelectorAll('.zip-download-toast').forEach(t => t.remove());
+
             const toastId = 'zip-toast-' + Date.now();
             const toastHtml = `
-            <div id="${toastId}" class="toast border-0 shadow-lg mb-2.5 fade show position-relative overflow-hidden custom-app-toast" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto; border-radius: 12px; min-width: 320px; max-width: 450px;">
+            <div id="${toastId}" class="toast border-0 shadow-lg mb-2.5 fade show position-relative overflow-hidden custom-app-toast zip-download-toast" role="alert" aria-live="assertive" aria-atomic="true" style="pointer-events: auto; border-radius: 12px; min-width: 320px; max-width: 450px;">
                 <div class="d-flex align-items-center p-3">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle me-3 flex-shrink-0" style="width: 34px; height: 34px; background: #e0f2fe; color: #0284c7;">
+                    <div class="toast-status-icon d-flex align-items-center justify-content-center rounded-circle me-3 flex-shrink-0" style="width: 34px; height: 34px; background: #e0f2fe; color: #0284c7; transition: all 0.3s ease;">
                         <div class="spinner-border spinner-border-sm" style="width: 15px; height: 15px;" role="status"></div>
                     </div>
                     <div class="flex-grow-1 min-w-0 me-2" style="font-size: 0.83rem; line-height: 1.4;">
                         <div class="fw-bold toast-msg-title toast-title-text" id="${toastId}-title">${title || 'Preparing ZIP Archive'}</div>
-                        <div class="toast-msg-body toast-body-text" id="${toastId}-msg" style="font-size: 0.78rem;">${msg || 'Compressing documents... Please wait.'}</div>
+                        <div class="toast-msg-body toast-body-text text-muted" id="${toastId}-msg" style="font-size: 0.78rem;">${msg || 'Compressing documents... Please wait.'}</div>
                     </div>
-                    <button type="button" class="btn-close ms-auto flex-shrink-0" data-bs-dismiss="toast" aria-label="Close" style="font-size: 0.72rem; opacity: 0.6;"></button>
+                    <button type="button" class="btn-close ms-auto flex-shrink-0" onclick="dismissToast('${toastId}')" aria-label="Close" style="font-size: 0.72rem; opacity: 0.6;"></button>
                 </div>
-                <div class="toast-progress-bar" id="${toastId}-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; background: #0284c7; width: 30%; transition: width 0.3s ease;"></div>
+                <div class="toast-progress-bar" id="${toastId}-bar" style="position: absolute; bottom: 0; left: 0; height: 3px; background: #0284c7; width: 30%; transition: width 0.35s ease, background 0.3s ease;"></div>
             </div>
             `;
 
@@ -5777,7 +6024,7 @@
             const titleEl = document.getElementById(`${toastId}-title`);
             const msgEl = document.getElementById(`${toastId}-msg`);
             const barEl = document.getElementById(`${toastId}-bar`);
-            const iconWrapper = toastEl ? toastEl.querySelector('.rounded-circle') : null;
+            const iconWrapper = toastEl ? toastEl.querySelector('.toast-status-icon') : null;
 
             let progress = 30;
             const interval = setInterval(function() {
@@ -5787,7 +6034,7 @@
                 } else {
                     clearInterval(interval);
                 }
-            }, 350);
+            }, 300);
 
             setTimeout(function() {
                 clearInterval(interval);
@@ -5800,17 +6047,17 @@
                     iconWrapper.style.color = '#16a34a';
                     iconWrapper.innerHTML = '<i class="fa-solid fa-circle-check" style="font-size: 16px;"></i>';
                 }
-                if (titleEl) titleEl.innerText = '✅ Download Started!';
-                if (msgEl) msgEl.innerText = 'ZIP archive sent to your browser downloads.';
+                if (titleEl) titleEl.innerText = completedTitle || '✅ Download Started!';
+                if (msgEl) msgEl.innerText = completedMsg || 'File sent to your browser downloads.';
 
                 setTimeout(function() {
                     if (toastEl) {
-                        toastEl.classList.remove('show');
-                        setTimeout(() => toastEl.remove(), 300);
+                        dismissToast(toastId);
                     }
                 }, 3500);
-            }, 2000);
+            }, 1800);
         }
+        window.showZipDownloadToast = showZipDownloadToast;
 
         // ══ PAGE TRANSITION NANO PROGRESS BAR CONTROLLER ════════════════════
         const topProgressBar = document.getElementById('etalaTopProgressBar');
@@ -5834,24 +6081,41 @@
 
         window.addEventListener('pageshow', function() {
             finishPageProgress();
+            document.body.classList.remove('page-is-exiting');
         });
 
         document.addEventListener('DOMContentLoaded', function() {
             finishPageProgress();
+            document.body.classList.remove('page-is-exiting');
 
             document.addEventListener('click', function(e) {
-                const btn = e.target.closest('a[href*="download-zip"], a[href*="download_zip"], .zip-download-btn');
-                if (btn) {
-                    showZipDownloadToast('Preparing ZIP Archive', 'Compressing documents into a structured ZIP file...');
+                const zipBtn = e.target.closest('a[href*="download-zip"], a[href*="download_zip"], a[href*="download_category_zip"], a[href*="download_record_zip"], a[href*="download_barangay_zip"], .zip-download-btn');
+                if (zipBtn && !zipBtn.hasAttribute('onclick')) {
+                    if (window.showZipDownloadToast) {
+                        window.showZipDownloadToast(
+                            'Preparing ZIP Archive',
+                            'Compressing documents into a structured ZIP file...',
+                            '✅ ZIP Archive Ready!',
+                            'ZIP archive sent to your browser downloads.'
+                        );
+                    }
                 }
 
-                // Smooth page navigation progress indicator
+                // Smooth page navigation progress indicator (Skip downloads & exports)
                 const link = e.target.closest('a[href]');
                 if (link && !e.defaultPrevented && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
                     const href = link.getAttribute('href');
                     const target = link.getAttribute('target');
-                    if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:') && !href.startsWith('tel:') && target !== '_blank' && !link.hasAttribute('download') && !link.classList.contains('no-progress')) {
+                    const isDownloadOrExport = href && (href.includes('/export') || href.includes('/download') || href.includes('export=') || href.includes('/serve/'));
+                    if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:') && !href.startsWith('tel:') && target !== '_blank' && !link.hasAttribute('download') && !link.classList.contains('no-progress') && !isDownloadOrExport) {
                         startPageProgress();
+                        document.body.classList.add('page-is-exiting');
+
+                        // Instant active highlight feedback for sidebar navigation items
+                        if (link.classList.contains('nav-item')) {
+                            document.querySelectorAll('#sidebar .nav-item').forEach(n => n.classList.remove('active'));
+                            link.classList.add('active');
+                        }
                     }
                 }
 
@@ -5861,6 +6125,7 @@
                     const href = row.getAttribute('data-href');
                     if (href) {
                         startPageProgress();
+                        document.body.classList.add('page-is-exiting');
                         window.location.href = href;
                     }
                 }
