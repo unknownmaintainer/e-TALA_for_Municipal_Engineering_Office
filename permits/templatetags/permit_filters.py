@@ -84,7 +84,14 @@ def parse_notes(text):
     for line in lines:
         if ':' in line:
             parts = line.split(':', 1)
-            parsed.append({'label': parts[0].strip(), 'value': parts[1].strip()})
+            lbl = parts[0].strip()
+            val = parts[1].strip()
+            # Clean up robotic labels to simple municipal terms
+            if lbl.lower() == 'violation category':
+                lbl = 'Violation Type'
+            elif lbl.lower() == 'inspection findings':
+                lbl = 'Inspection Notes'
+            parsed.append({'label': lbl, 'value': val})
         else:
             if parsed:
                 parsed[-1]['value'] += '\n' + line

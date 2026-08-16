@@ -36,13 +36,14 @@ def recent_notifications(request):
                 'performed_at': latest_failed.timestamp,
             })
 
-    # 2. Expiry tracking for documents (limit 5 items max)
+    # 2. Expiry tracking for documents (newest uploaded alerts appear at the top)
     today_date = timezone.now().date()
     thirty_days_later = today_date + datetime.timedelta(days=30)
     
     alert_docs = Document.objects.filter(
-        expiry_date__isnull=False
-    ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item').order_by('expiry_date')[:5]
+        expiry_date__isnull=False,
+        expiry_date__lte=thirty_days_later
+    ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item').order_by('-uploaded_at', '-document_id')[:8]
     
     for doc in alert_docs:
         doc_label = doc.requirement_item.name if doc.requirement_item else doc.document_type
@@ -55,7 +56,7 @@ def recent_notifications(request):
                 'time': f'Expired on {doc.expiry_date.strftime("%b %d, %Y")}',
                 'user': None,
                 'username': None,
-                'performed_at': None,
+                'performed_at': doc.uploaded_at,
             })
         elif doc.expiry_date <= thirty_days_later:
             alerts.append({
@@ -66,7 +67,7 @@ def recent_notifications(request):
                 'time': f'Expires on {doc.expiry_date.strftime("%b %d, %Y")}',
                 'user': None,
                 'username': None,
-                'performed_at': None,
+                'performed_at': doc.uploaded_at,
             })
 
     result = {
@@ -74,6 +75,6 @@ def recent_notifications(request):
         'notifications_count': len(alerts),
         'has_urgent_alerts': len(alerts) > 0,
     }
-    # Cache for 30 seconds
-    cache.set(cache_key, result, timeout=30)
+    # Cache for 10 seconds for real-time responsiveness
+    cache.set(cache_key, result, timeout=10)
     return result

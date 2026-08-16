@@ -199,10 +199,17 @@
                             {% endif %}
                         </div>
                         <div class="etala-progress" style="height: 6px;">
+                            {% if stats.is_complete %}
                             <div class="etala-progress-bar" role="progressbar"
-                                 style="width: {{ stats.percent }}%; {% if stats.is_complete %}background-color: var(--success);{% else %}background-color: var(--warning);{% endif %}"
+                                 style="background-color: var(--success);"
                                  aria-valuenow="{{ stats.percent }}" aria-valuemin="0" aria-valuemax="100">
                             </div>
+                            {% else %}
+                            <div class="etala-progress-bar" role="progressbar"
+                                 style="background-color: var(--warning);"
+                                 aria-valuenow="{{ stats.percent }}" aria-valuemin="0" aria-valuemax="100">
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -309,6 +316,13 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    function applyProgressBars() {
+        document.querySelectorAll('.etala-progress-bar[aria-valuenow]').forEach(function(bar) {
+            bar.style.width = (bar.getAttribute('aria-valuenow') || '0') + '%';
+        });
+    }
+    applyProgressBars();
+
     const permitSearchInput = document.querySelector('.etala-search-pill-input[name="q"]');
     const modulePermitSearchSpinner = document.getElementById('modulePermitSearchSpinner');
     const modulePermitClearBtn = document.getElementById('modulePermitClearBtn');
@@ -334,6 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const newTableContainer = doc.getElementById('modulePermitsContainer');
             if (tableContainer && newTableContainer) {
                 tableContainer.innerHTML = newTableContainer.innerHTML;
+                applyProgressBars();
             }
             if (window.lucide) {
                 lucide.createIcons();

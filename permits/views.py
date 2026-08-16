@@ -818,9 +818,18 @@ def barangay_workspace_view(request, barangay_id):
         filtered_records = filtered_records.filter(record_type='Project')
 
     if query:
-        filtered_records = filtered_records.filter(
-            Q(title__icontains=query) | Q(description__icontains=query)
+        search_filter = (
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(permit_detail__applicant_name__icontains=query) |
+            Q(permit_detail__permit_number__icontains=query) |
+            Q(permit_detail__permit_type__icontains=query) |
+            Q(project_detail__contractor__icontains=query) |
+            Q(project_detail__project_type__icontains=query)
         )
+        if query.isdigit():
+            search_filter |= Q(year=int(query))
+        filtered_records = filtered_records.filter(search_filter).distinct()
     if status_filter:
         filtered_records = filtered_records.filter(status=status_filter)
 
@@ -1028,8 +1037,7 @@ def illegal_constructions_view(request):
             Q(description__icontains=query) |
             Q(barangay__barangay_name__icontains=query) |
             Q(permit_detail__applicant_name__icontains=query) |
-            Q(created_by__full_name__icontains=query) |
-            Q(created_by__username__icontains=query)
+            Q(permit_detail__permit_number__icontains=query)
         )
         if query.isdigit():
             search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))
@@ -1335,8 +1343,10 @@ def municipal_projects_view(request):
     if query:
         search_filter = (
             Q(title__icontains=query) |
+            Q(description__icontains=query) |
             Q(barangay__barangay_name__icontains=query) |
-            Q(project_detail__contractor__icontains=query)
+            Q(project_detail__contractor__icontains=query) |
+            Q(project_detail__project_type__icontains=query)
         )
         if query.isdigit():
             search_filter |= Q(year=int(query))
@@ -1408,8 +1418,10 @@ def barangay_projects_view(request):
     if query:
         search_filter = (
             Q(title__icontains=query) |
+            Q(description__icontains=query) |
             Q(barangay__barangay_name__icontains=query) |
-            Q(project_detail__contractor__icontains=query)
+            Q(project_detail__contractor__icontains=query) |
+            Q(project_detail__project_type__icontains=query)
         )
         if query.isdigit():
             search_filter |= Q(year=int(query))
@@ -1481,8 +1493,10 @@ def permit_records_view(request):
     if query:
         search_filter = (
             Q(title__icontains=query) |
+            Q(description__icontains=query) |
             Q(permit_detail__applicant_name__icontains=query) |
             Q(permit_detail__permit_number__icontains=query) |
+            Q(permit_detail__permit_type__icontains=query) |
             Q(barangay__barangay_name__icontains=query)
         )
         if query.isdigit():
@@ -1698,12 +1712,12 @@ def record_detail_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
 
     # Auto-populate checklist requirements if missing
-    # Skip for pure violation reports (no permit_detail = just an incident report, no checklist needed)
-    is_pure_violation = record.is_illegal_construction
+    # Skip for pure unresolved violation reports (incident report only, no permit applied yet)
+    is_pure_violation = record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'
     try:
         _ = record.permit_detail
-    except PermitDetail.DoesNotExist:
-        if record.record_type == 'Permit':
+    except (PermitDetail.DoesNotExist, AttributeError):
+        if record.record_type == 'Permit' and record.is_illegal_construction:
             is_pure_violation = True
     
     if not record.requirements.exists() and not is_pure_violation:
@@ -1952,6 +1966,17 @@ def regularize_record_view(request, record_id):
         record.illegal_compliance_status = 'resolved'
         record.save()
 
+        # Auto-populate checklist slots for the regularized permit type
+        if not record.requirements.exists():
+            template = RequirementTemplate.objects.filter(record_type='Permit', subtype=permit_type, is_active=True).first()
+            if not template:
+                template = RequirementTemplate.objects.filter(record_type='Permit', subtype='Building', is_active=True).first()
+            if template:
+                RecordRequirement.objects.bulk_create([
+                    RecordRequirement(record=record, requirement_item=item)
+                    for item in template.active_items
+                ])
+
         log_audit(
             request.user,
             f"Regularized incident case into {permit_type} (Permit #{permit_detail.permit_number or 'N/A'})",
@@ -2014,10 +2039,9 @@ def flag_illegal_construction_view(request):
         if action_taken:
             desc_parts.append(f"Enforcement Action: {action_taken}")
         if description:
-            desc_parts.append(f"Inspection Findings: {description}")
-        if remarks:
-            desc_parts.append(f"Remarks: {remarks}")
-        full_description = '\n'.join(desc_parts) if desc_parts else title
+            desc_parts.append(f"Inspection Notes: {description}")
+        import html
+        full_description = html.unescape('\n'.join(desc_parts)) if desc_parts else title
         
         record = EngineeringRecord.objects.create(
             record_type='Permit',
@@ -2635,9 +2659,7 @@ def archive_view(request):
             Q(permit_detail__permit_number__icontains=query) |
             Q(permit_detail__applicant_name__icontains=query) |
             Q(permit_detail__permit_type__icontains=query) |
-            Q(project_detail__contractor__icontains=query) |
-            Q(created_by__full_name__icontains=query) |
-            Q(created_by__username__icontains=query)
+            Q(project_detail__contractor__icontains=query)
         )
         if query.isdigit():
             search_filter |= Q(year=int(query)) | Q(created_at__year=int(query))
@@ -3747,6 +3769,14 @@ def activity_logs_view(request):
         login_paginator = Paginator(login_attempts, per_page)
         login_page_obj = login_paginator.get_page(request.GET.get('login_page'))
 
+    # Determine active tab
+    active_log_tab = request.GET.get('tab', '').strip()
+    if not active_log_tab:
+        if request.GET.get('login_page') or (request.GET.get('status') and request.GET.get('status') != 'all'):
+            active_log_tab = 'login'
+        else:
+            active_log_tab = 'audit'
+
     # Fetch currently blocked IP addresses
     blocked_ips = []
     if request.user.role == 'admin':
@@ -3761,6 +3791,7 @@ def activity_logs_view(request):
         'date_filter': date_filter,
         'action_type': action_type,
         'blocked_ips': blocked_ips,
+        'active_log_tab': active_log_tab,
         'active_tab': 'activity_logs',
     }
     return render(request, 'permits/activity_logs.html', context)

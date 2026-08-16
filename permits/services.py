@@ -597,13 +597,7 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
             Q(permit_detail__building_type__icontains=query) |
             Q(project_detail__project_type__icontains=query) |
             Q(project_detail__contractor__icontains=query) |
-            Q(project_detail__funding_source__icontains=query) |
-            Q(record_type__icontains=query) |
-            Q(project_scope__icontains=query) |
-            Q(illegal_compliance_status__icontains=query) |
-            Q(status__icontains=query) |
-            Q(created_by__full_name__icontains=query) |
-            Q(created_by__username__icontains=query)
+            Q(project_detail__funding_source__icontains=query)
         )
         if query.isdigit():
             search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))

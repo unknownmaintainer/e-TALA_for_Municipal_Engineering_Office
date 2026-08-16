@@ -12,6 +12,10 @@
 
 {% block extra_css %}
 <style>
+    .row-highlight-unresolved { background-color: rgba(254, 226, 226, 0.3) !important; }
+    .row-highlight-pending { background-color: rgba(254, 243, 199, 0.3) !important; }
+    .row-highlight-resolved { background-color: rgba(220, 252, 231, 0.3) !important; }
+
     .data-table {
         width: 100% !important;
         table-layout: fixed !important;
@@ -199,30 +203,38 @@
                     <table class="data-table" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="width: 38%; min-width: 240px;">Title</th>
+                                <th style="width: 37%; min-width: 230px;">Title</th>
                                 <th style="width: 22%; min-width: 140px;">Type</th>
-                                <th style="width: 8%; min-width: 55px;">Year</th>
-                                <th style="width: 14%; min-width: 110px;">Status</th>
+                                <th style="width: 8%; min-width: 72px;">Year</th>
+                                <th style="width: 15%; min-width: 110px;">Status</th>
                                 <th style="width: 12%; min-width: 80px;">Uploads</th>
                                 <th class="text-end" style="width: 6%; min-width: 44px; padding-right: 14px;"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for r in page_obj %}
-                            <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer; {% if r.is_illegal_construction and r.illegal_compliance_status == 'unresolved' %}background-color: rgba(254, 226, 226, 0.3);{% elif r.is_illegal_construction and r.illegal_compliance_status == 'pending_permit' %}background-color: rgba(254, 243, 199, 0.3);{% elif r.is_illegal_construction and r.illegal_compliance_status == 'resolved' %}background-color: rgba(220, 252, 231, 0.3);{% endif %}">
+                            <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer;">
                                 <td>
-                                    <div class="cell-title"
-                                        {% if r.is_illegal_construction and r.illegal_status_info %}style="color: {{ r.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}
+                                    <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap"
                                         title="{% if r.record_type == 'Permit' %}{{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}{% else %}{{ r.title }}{% endif %}">
-                                        {% if r.record_type == 'Permit' %}
-                                        {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
-                                        {% else %}
-                                        {{ r.title }}
+                                        <span>
+                                            {% if r.record_type == 'Permit' %}
+                                            {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
+                                            {% else %}
+                                            {{ r.title }}
+                                            {% endif %}
+                                        </span>
+                                        {% if r.is_illegal_construction %}
+                                            {% if r.illegal_compliance_status == 'resolved' %}
+                                            <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Regularized Enforcement Case"><i class="fa-solid fa-shield-halved me-1"></i>Regularized</span>
+                                            {% else %}
+                                            <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Active Violation Incident"><i class="fa-solid fa-triangle-exclamation me-1"></i>Violation</span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                     <div class="cell-subtitle">
                                         {% if r.record_type == 'Permit' and r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
-                                        <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                        <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if r.is_illegal_construction and r.illegal_compliance_status != 'resolved' %}Property Owner{% else %}Applicant{% endif %}: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
                                         {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
                                         <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>
                                         {% endif %}
@@ -230,9 +242,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    {% if r.is_illegal_construction %}
-                                    <span class="tag" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 600;">{{ r.specific_type_label }}</span>
-                                    {% elif r.record_type == 'Permit' %}
+                                    {% if r.record_type == 'Permit' %}
                                     <span class="tag tag-permit">{{ r.specific_type_label }}</span>
                                     {% elif r.project_scope == 'Municipal' %}
                                     <span class="tag tag-municipal">{{ r.specific_type_label }}</span>
@@ -240,22 +250,18 @@
                                     <span class="tag tag-barangay">{{ r.specific_type_label }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="cell-muted">{{ r.year|default:"—" }}</td>
-                                <td>
-                                    {% if r.is_illegal_construction and r.illegal_status_info %}
-                                    <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">
-                                        {{ r.illegal_status_info.short_label }}
-                                    </span>
-                                    {% elif r.status == 'active' %}
-                                    <span class="status-indicator status-indicator-active">Active</span>
-                                    {% elif r.status == 'in_progress' %}
-                                    <span class="status-indicator status-indicator-in_progress">In Progress</span>
+                                <td class="cell-muted cell-year">{{ r.year|default:"—" }}</td>
+                                <td class="cell-status">
+                                    {% if r.record_type == 'Project' and r.status == 'in_progress' %}
+                                    <span class="status-text-standard">Ongoing</span>
                                     {% elif r.status == 'completed' %}
-                                    <span class="status-indicator status-indicator-completed">Completed</span>
+                                    <span class="status-text-standard">Completed</span>
+                                    {% elif r.status == 'in_progress' %}
+                                    <span class="status-text-standard">In Review</span>
                                     {% elif r.status == 'archived' %}
-                                    <span class="status-indicator status-indicator-archived">Archived</span>
+                                    <span class="text-muted">Archived</span>
                                     {% else %}
-                                    <span class="status-indicator">{{ r.get_status_display }}</span>
+                                    <span class="status-text-standard">Active</span>
                                     {% endif %}
                                 </td>
                                 <td>

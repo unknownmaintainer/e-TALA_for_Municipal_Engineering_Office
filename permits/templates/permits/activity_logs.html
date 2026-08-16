@@ -42,15 +42,16 @@
         
         <!-- Toolbar: Sub-Tabs & Filters (Matching Records & Illegal Constructions) -->
         <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
+            <input type="hidden" name="tab" id="activeLogTabInput" value="{{ active_log_tab|default:'audit' }}">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3 d-print-none">
                 <!-- Left: Scope Segmented Control (Audit Trail / Login History) -->
                 <div class="scope-segmented-control flex-shrink-0" style="height: 38px; border-radius: 12px; padding: 2.5px;">
-                    <button class="scope-pill-btn active" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button" title="Audit Trail" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
+                    <button class="scope-pill-btn {% if active_log_tab != 'login' %}active{% endif %}" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button" title="Audit Trail" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
                         <i class="fa-solid fa-list-check" style="font-size: 13px;"></i>
                         <span>Audit Trail</span>
                     </button>
                     {% if request.user.role == 'admin' %}
-                    <button class="scope-pill-btn" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button" title="Login History" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
+                    <button class="scope-pill-btn {% if active_log_tab == 'login' %}active{% endif %}" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button" title="Login History" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
                         <i class="fa-solid fa-shield-halved" style="font-size: 13px;"></i>
                         <span>Login History</span>
                     </button>
@@ -64,7 +65,7 @@
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </button>
                         <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                            placeholder="Search action or staff..." value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.82rem;">
+                            placeholder="{% if active_log_tab == 'login' %}Search email, IP address...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.82rem;">
 
                         <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
                             style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
@@ -72,7 +73,7 @@
                         </div>
 
                         {% if query %}
-                        <a href="{% url 'activity_logs' %}" id="logClearSearchBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon" style="background: transparent;" title="Clear search">
+                        <a href="?tab={{ active_log_tab|default:'audit' }}" id="logClearSearchBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon" style="background: transparent;" title="Clear search">
                             <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                         </a>
                         {% endif %}
@@ -98,7 +99,7 @@
                         {% elif date_filter == '30days' %}Past 30 Days
                         {% else %}{{ date_filter|title }}{% endif %}
                     </strong></span>
-                    <a href="?{% if query %}q={{ query }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}date_range=all" class="clear-chip-btn">&times;</a>
+                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}date_range=all" class="clear-chip-btn">&times;</a>
                 </div>
                 {% endif %}
                 {% if action_type and action_type != 'all' %}
@@ -110,7 +111,7 @@
                         {% elif action_type == 'delete' %}Record Deleted
                         {% else %}{{ action_type|title }}{% endif %}
                     </strong></span>
-                    <a href="?{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}action_type=all" class="clear-chip-btn">&times;</a>
+                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}action_type=all" class="clear-chip-btn">&times;</a>
                 </div>
                 {% endif %}
                 {% if status_filter and status_filter != 'all' %}
@@ -120,10 +121,10 @@
                         {% elif status_filter == 'failed' %}Failed Attempts
                         {% else %}{{ status_filter|title }}{% endif %}
                     </strong></span>
-                    <a href="?{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}status=all" class="clear-chip-btn">&times;</a>
+                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}status=all" class="clear-chip-btn">&times;</a>
                 </div>
                 {% endif %}
-                <a href="{% url 'activity_logs' %}" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: 0.72rem; padding: 2px 6px;">
+                <a href="?tab={{ active_log_tab|default:'audit' }}" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: 0.72rem; padding: 2px 6px;">
                     Reset All
                 </a>
             </div>
@@ -142,7 +143,7 @@
                                 <option value="30days" {% if date_filter == '30days' %}selected{% endif %}>Past 30 Days</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6" id="filterColActionType">
+                        <div class="col-12 col-sm-6" id="filterColActionType" style="{% if active_log_tab == 'login' %}display: none;{% else %}display: block;{% endif %}">
                             <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Action Type</label>
                             <select name="action_type" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;">
                                 <option value="all" {% if action_type == 'all' or not action_type %}selected{% endif %}>All Actions</option>
@@ -152,7 +153,7 @@
                                 <option value="delete" {% if action_type == 'delete' %}selected{% endif %}>Record Deleted</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6" id="filterColLoginStatus" style="display: none;">
+                        <div class="col-12 col-sm-6" id="filterColLoginStatus" style="{% if active_log_tab == 'login' %}display: block;{% else %}display: none;{% endif %}">
                             <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Login Status</label>
                             <select name="status" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;">
                                 <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>All Attempts</option>
@@ -166,7 +167,7 @@
         </form>
 
         <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
-        <div id="log-tab-content-audit" class="tab-pane-custom">
+        <div id="log-tab-content-audit" class="tab-pane-custom" style="{% if active_log_tab == 'login' %}display: none; opacity: 0;{% else %}display: block; opacity: 1;{% endif %}">
             {% if log_page_obj %}
                 <div class="table-responsive table-responsive-cards mb-4">
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
@@ -325,7 +326,7 @@
 
         <!-- ══ SUB-TAB 2: LOGIN HISTORY ══ -->
         {% if request.user.role == 'admin' %}
-        <div id="log-tab-content-login" class="tab-pane-custom" style="display:none;">
+        <div id="log-tab-content-login" class="tab-pane-custom" style="{% if active_log_tab == 'login' %}display: block; opacity: 1;{% else %}display: none; opacity: 0;{% endif %}">
 
             {% if login_page_obj %}
                 <div class="table-responsive table-responsive-cards mb-4">
@@ -343,9 +344,15 @@
                             <tr>
                                 <td data-label="Staff / Account" style="vertical-align: middle;">
                                     <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-                                        <div style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: {% if attempt.success %}#e0f2fe; color: #0284c7; border: 1px solid #bae6fd;{% else %}#fee2e2; color: #dc2626; border: 1px solid #fecaca;{% endif %} display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
+                                        {% if attempt.success %}
+                                        <div style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
                                             {{ attempt.email_attempted|slice:":1"|upper }}
                                         </div>
+                                        {% else %}
+                                        <div style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
+                                            {{ attempt.email_attempted|slice:":1"|upper }}
+                                        </div>
+                                        {% endif %}
                                         <div style="min-width: 0; flex: 1;">
                                             <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
                                                 {{ attempt.email_attempted }}
@@ -640,25 +647,28 @@
 
     function updateSettingsExportUrl() {
         const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
-        const urlParams = new URLSearchParams(window.location.search);
-        const query = urlParams.get('q') || '';
-        const dateRange = urlParams.get('date_range') || '';
-        const actionType = urlParams.get('action_type') || '';
+    function updateSettingsExportUrl() {
+        const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
+        const query = document.querySelector('input[name="q"]')?.value || '';
+        const dateRange = document.querySelector('select[name="date_range"]')?.value || 'all';
+        const actionType = document.querySelector('select[name="action_type"]')?.value || 'all';
+        const statusVal = document.querySelector('select[name="status"]')?.value || 'all';
         const exportBtn = document.getElementById('exportPdfHeaderBtn');
         if (exportBtn && exportBtn.tagName === 'A') {
-            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + activeSubTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType);
+            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + activeTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
         }
     }
 
     function exportActivityLogsPdf(btn) {
-        const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
+        const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
         const query = document.querySelector('input[name="q"]')?.value || '';
         const dateRange = document.querySelector('select[name="date_range"]')?.value || 'all';
         const actionType = document.querySelector('select[name="action_type"]')?.value || 'all';
-        const exportUrl = "{% url 'export_activity_logs' %}?tab=" + activeSubTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType);
+        const statusVal = document.querySelector('select[name="status"]')?.value || 'all';
+        const exportUrl = "{% url 'export_activity_logs' %}?tab=" + activeTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
         
         if (window.downloadFileWithToast) {
-            window.downloadFileWithToast(exportUrl, `eTala_${activeSubTab}_Activity_Logs.pdf`, {
+            window.downloadFileWithToast(exportUrl, `eTala_${activeTab}_Activity_Logs.pdf`, {
                 title: 'Exporting Activity Logs',
                 startMsg: 'Generating official Activity Logs PDF report...',
                 successTitle: '✅ Activity Logs Ready!',
@@ -678,109 +688,95 @@
     }
 
     function switchLogTab(tabName, isInitial = false) {
-        saveLogTabState(tabName);
-        updateSettingsExportUrl();
+        const tabInput = document.getElementById('activeLogTabInput');
+        if (tabInput) tabInput.value = tabName;
+        localStorage.setItem('active_settings_log_tab', tabName);
         
+        // Update URL param without refreshing
+        if (!isInitial) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tabName);
+            window.history.replaceState({}, '', url.toString());
+        }
+
         const tabAudit = document.getElementById('log-tab-content-audit');
         const tabLogin = document.getElementById('log-tab-content-login');
         const btnAudit = document.getElementById('log-tab-btn-audit');
         const btnLogin = document.getElementById('log-tab-btn-login');
         const colAction = document.getElementById('filterColActionType');
         const colLogin = document.getElementById('filterColLoginStatus');
+        const searchInput = document.getElementById('liveSearchInput');
 
         if (tabName === 'audit') {
             if (btnAudit) btnAudit.classList.add('active');
             if (btnLogin) btnLogin.classList.remove('active');
             if (colAction) colAction.style.display = 'block';
             if (colLogin) colLogin.style.display = 'none';
+            if (searchInput) searchInput.placeholder = 'Search action or staff...';
             
-            if (isInitial) {
-                if (tabLogin) {
-                    tabLogin.style.display = 'none';
-                    tabLogin.style.opacity = '0';
-                }
-                if (tabAudit) {
-                    tabAudit.style.display = 'block';
-                    tabAudit.style.opacity = '1';
-                }
-            } else {
-                if (tabLogin) {
-                    tabLogin.style.opacity = '0';
-                    setTimeout(() => {
-                        tabLogin.style.display = 'none';
-                        if (tabAudit) {
-                            tabAudit.style.display = 'block';
-                            tabAudit.offsetHeight; // force reflow
-                            tabAudit.style.opacity = '1';
-                        }
-                    }, 150);
-                } else if (tabAudit) {
-                    tabAudit.style.display = 'block';
-                    tabAudit.style.opacity = '1';
-                }
+            if (tabAudit) {
+                tabAudit.style.display = 'block';
+                tabAudit.style.opacity = '1';
+            }
+            if (tabLogin) {
+                tabLogin.style.display = 'none';
+                tabLogin.style.opacity = '0';
             }
         } else {
             if (btnAudit) btnAudit.classList.remove('active');
             if (btnLogin) btnLogin.classList.add('active');
             if (colAction) colAction.style.display = 'none';
             if (colLogin) colLogin.style.display = 'block';
+            if (searchInput) searchInput.placeholder = 'Search email, IP address...';
             
-            if (isInitial) {
-                if (tabAudit) {
-                    tabAudit.style.display = 'none';
-                    tabAudit.style.opacity = '0';
-                }
-                if (tabLogin) {
-                    tabLogin.style.display = 'block';
-                    tabLogin.style.opacity = '1';
-                }
-            } else {
-                if (tabAudit) {
-                    tabAudit.style.opacity = '0';
-                    setTimeout(() => {
-                        tabAudit.style.display = 'none';
-                        if (tabLogin) {
-                            tabLogin.style.display = 'block';
-                            tabLogin.offsetHeight; // force reflow
-                            tabLogin.style.opacity = '1';
-                        }
-                    }, 150);
-                } else if (tabLogin) {
-                    tabLogin.style.display = 'block';
-                    tabLogin.style.opacity = '1';
-                }
+            if (tabAudit) {
+                tabAudit.style.display = 'none';
+                tabAudit.style.opacity = '0';
+            }
+            if (tabLogin) {
+                tabLogin.style.display = 'block';
+                tabLogin.style.opacity = '1';
             }
         }
+        updateSettingsExportUrl();
     }
 
     function changePerPage(val) {
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set('per_page', val);
+        const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
+        urlParams.set('tab', activeTab);
         window.location.search = urlParams.toString();
     }
 
     function jumpToPage(pageVal, maxPage, pageParamName) {
         const pageNum = parseInt(pageVal);
         if (isNaN(pageNum) || pageNum < 1 || pageNum > maxPage) {
-            alert("Please enter a valid page number between 1 and " + maxPage);
+            if (window.showToast) {
+                showToast('warning', 'Invalid Page', `Please enter a valid page number between 1 and ${maxPage}.`);
+            } else {
+                alert("Please enter a valid page number between 1 and " + maxPage);
+            }
             return;
         }
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set(pageParamName, pageNum);
+        const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
+        urlParams.set('tab', activeTab);
         window.location.search = urlParams.toString();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
-        // ALWAYS default to Audit Trail ('audit') unless URL explicitly contains pagination/filters for Login History
-        if (urlParams.has('login_page') || urlParams.has('status')) {
+        const tabParam = urlParams.get('tab');
+        if (tabParam === 'login' || urlParams.has('login_page') || (urlParams.has('status') && urlParams.get('status') !== 'all')) {
             switchLogTab('login', true);
         } else {
             switchLogTab('audit', true);
-            localStorage.setItem('active_settings_log_tab', 'audit');
         }
         updateSettingsExportUrl();
     });
+
     function confirmIPAction(formId, title, message, confirmText, confirmClass, icon) {
         if (window.showConfirmModal) {
             showConfirmModal({
@@ -789,7 +785,7 @@
                 confirmText: confirmText,
                 confirmClass: confirmClass,
                 icon: icon,
-               });
+            });
         } else {
             if (confirm(message)) {
                 document.getElementById(formId).submit();
@@ -826,6 +822,13 @@
                     tableCard.innerHTML = newTableCard.innerHTML;
                 }
                 window.history.pushState({}, '', url);
+                
+                // Re-sync active tab from form input
+                const currentTab = document.getElementById('activeLogTabInput')?.value || 'audit';
+                switchLogTab(currentTab, true);
+                
+                // Re-bind listeners for new DOM elements
+                bindFilterEvents();
             } catch (err) {
                 console.error("AJAX refresh error:", err);
                 if (logSearchInput && logSearchInput.form) logSearchInput.form.submit();
@@ -836,6 +839,22 @@
                     if (logSearchInput && logSearchInput.value.trim().length > 0) logClearBtn.classList.remove('d-none');
                     else logClearBtn.classList.add('d-none');
                 }
+            }
+        }
+
+        function bindFilterEvents() {
+            document.querySelectorAll('.filter-dropdown-ajax').forEach(function(select) {
+                select.removeEventListener('change', onFilterChange);
+                select.addEventListener('change', onFilterChange);
+            });
+        }
+
+        function onFilterChange() {
+            const searchInput = document.querySelector('input[name="q"]');
+            if (searchInput && searchInput.form) {
+                const formData = new FormData(searchInput.form);
+                const params = new URLSearchParams(formData);
+                updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
             }
         }
 
@@ -857,16 +876,7 @@
             });
         }
 
-        // Auto-submit on filter dropdown change (No Apply button needed!)
-        document.querySelectorAll('.filter-dropdown-ajax').forEach(function(select) {
-            select.addEventListener('change', function() {
-                if (logSearchInput && logSearchInput.form) {
-                    const formData = new FormData(logSearchInput.form);
-                    const params = new URLSearchParams(formData);
-                    updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
-                }
-            });
-        });
+        bindFilterEvents();
 
         // Event delegation for active filter chips & reset all
         document.addEventListener('click', function(e) {

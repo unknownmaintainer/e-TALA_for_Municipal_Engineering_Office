@@ -148,11 +148,11 @@
         <table class="data-table table-card-responsive" style="width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="width: 40%; min-width: 220px;">Record Title & Reference</th>
+                    <th style="width: 38%; min-width: 220px;">Record Title & Reference</th>
                     <th style="width: 18%; min-width: 130px;">Category / Type</th>
                     <th style="width: 16%; min-width: 120px;">Barangay</th>
-                    <th style="width: 8%; min-width: 60px;">Year</th>
-                    <th style="width: 12%; min-width: 90px;">Status</th>
+                    <th style="width: 8%; min-width: 72px;">Year</th>
+                    <th style="width: 14%; min-width: 90px;">Status</th>
                     <th class="text-end" style="width: 6%; min-width: 50px;">Action</th>
                 </tr>
             </thead>
@@ -175,7 +175,7 @@
                         </div>
                         <div class="cell-subtitle">
                             {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
+                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' %}Property Owner{% else %}Applicant{% endif %}: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
                             {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
                                 <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
                             {% endif %}
@@ -198,22 +198,22 @@
                     </td>
 
                     <!-- Year -->
-                    <td class="cell-muted" data-label="Year">
+                    <td class="cell-muted cell-year" data-label="Year">
                         {{ record.year|default:"—" }}
                     </td>
 
                     <!-- Status -->
                     <td data-label="Status">
-                        {% if record.is_illegal_construction %}
-                            <span class="badge bg-danger text-white" style="font-size: 0.72rem; padding: 4px 8px;">
-                                {{ record.illegal_status_info.short_label }}
-                            </span>
-                        {% elif record.status == 'active' or record.status == 'completed' %}
-                            <span class="tag tag-workspace px-2.5 py-1 fw-bold" style="background:#e6f4ea; color:#137333; font-size: 0.7rem;">Active</span>
+                        {% if record.record_type == 'Project' and record.status == 'in_progress' %}
+                        <span class="status-text-standard">Ongoing</span>
+                        {% elif record.status == 'completed' %}
+                        <span class="status-text-standard">Completed</span>
                         {% elif record.status == 'in_progress' %}
-                            <span class="tag px-2.5 py-1 fw-bold" style="background:#e0f2fe; color:#0369a1; font-size: 0.7rem;">In Progress</span>
+                        <span class="status-text-standard">In Review</span>
+                        {% elif record.status == 'archived' %}
+                        <span class="text-muted">Archived</span>
                         {% else %}
-                            <span class="tag px-2.5 py-1 fw-bold" style="background:#f1f5f9; color:#475569; font-size: 0.7rem;">{{ record.get_status_display }}</span>
+                        <span class="status-text-standard">Active</span>
                         {% endif %}
                     </td>
 

@@ -1,5 +1,5 @@
 {% extends 'permits/base.html' %}
-{% load static %}
+{% load static humanize %}
 
 {% block title %}User Management · eTala{% endblock %}
 
@@ -351,9 +351,15 @@
             <img src="{{ u.profile_picture_url }}" class="user-avatar-img" alt="{{ u.full_name|default:u.username }}"
                 onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';">
             {% endif %}
-            <div class="user-avatar-initials role-{{ u.role }}" style="{% if u.profile_picture_url %}display: none;{% else %}display: inline-flex;{% endif %}">
+            {% if u.profile_picture_url %}
+            <div class="user-avatar-initials role-{{ u.role }}" style="display: none;">
                 {{ u.username|slice:":2"|upper }}
             </div>
+            {% else %}
+            <div class="user-avatar-initials role-{{ u.role }}" style="display: inline-flex;">
+                {{ u.username|slice:":2"|upper }}
+            </div>
+            {% endif %}
 
             <!-- Center: User Name, Role, Email -->
             <div class="flex-grow-1 min-w-0">
@@ -437,36 +443,67 @@
     </div>
 
     <!-- Pagination Footer -->
-    {% if page_obj.has_other_pages %}
     <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 border-top">
-        <span class="text-muted" style="font-size: 0.76rem;">
-            Showing <strong>{{ page_obj.start_index }}</strong> to <strong>{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> operators
-        </span>
-        <nav aria-label="Users pagination">
-            <ul class="pagination pagination-sm mb-0 gap-1">
-                {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">‹ Prev</a></li>
+        <div class="d-flex align-items-center gap-3">
+            <span class="pagination-info m-0" style="font-size: 0.76rem;">
+                {% if page_obj.paginator.count > 0 %}
+                Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count|intcomma }}</strong> operators
                 {% else %}
-                <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
+                Showing 0–0 of 0 operators
+                {% endif %}
+            </span>
+            <div class="per-page-select">
+                <span>Show:</span>
+                <select class="form-select form-select-sm" onchange="changePerPage(this.value)">
+                    <option value="10" {% if per_page == 10 or per_page == '10' %}selected{% endif %}>10</option>
+                    <option value="20" {% if per_page == 20 or per_page == '20' %}selected{% endif %}>20</option>
+                    <option value="50" {% if per_page == 50 or per_page == '50' %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 or per_page == '100' %}selected{% endif %}>100</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 pagination-controls">
+            {% if page_obj.paginator.num_pages > 5 %}
+            <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                <span>Page:</span>
+                <input type="number" class="form-control form-control-sm text-center px-1 py-0.5"
+                    style="width: 54px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1"
+                    max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}"
+                    onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
+                <span>/ {{ page_obj.paginator.num_pages|intcomma }}</span>
+            </div>
+            {% endif %}
+
+            <div class="pagination-btns d-flex align-items-center gap-1">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}" class="page-btn page-btn-prev">
+                    &lsaquo; Prev
+                </a>
+                {% else %}
+                <span class="page-btn page-btn-disabled">&lsaquo; Prev</span>
                 {% endif %}
 
                 {% for p in page_obj.paginator.page_range %}
-                {% if page_obj.number == p %}
-                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                <li class="page-item"><a class="page-link" href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}">{{ p }}</a></li>
-                {% endif %}
+                    {% if page_obj.number == p %}
+                    <span class="page-btn page-btn-active">{{ p }}</span>
+                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
+                    <a href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}" class="page-btn">
+                        {{ p }}
+                    </a>
+                    {% endif %}
                 {% endfor %}
 
                 {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Next ›</a></li>
+                <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}" class="page-btn page-btn-next">
+                    Next &rsaquo;
+                </a>
                 {% else %}
-                <li class="page-item disabled"><span class="page-link">Next ›</span></li>
+                <span class="page-btn page-btn-disabled">Next &rsaquo;</span>
                 {% endif %}
-            </ul>
-        </nav>
+            </div>
+        </div>
     </div>
-    {% endif %}
 </div>
 
 <!-- Add User Modal -->
@@ -485,11 +522,10 @@
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form action="{% url 'users' %}" method="POST" autocomplete="off">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="add_user">
-
+            <form action="{% url 'users' %}" method="POST" autocomplete="off">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_user">
+                <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-dark small mb-1">Full Name <span class="text-danger">*</span></label>
                         <input type="text" name="full_name" class="form-control form-control-sm obo-input" placeholder="e.g., Engr. Juan Dela Cruz" required>
@@ -518,15 +554,14 @@
                             </button>
                         </div>
                     </div>
-
-                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
-                            <i class="fa-solid fa-plus"></i> <span>Create Account</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer px-4 py-3 border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
+                    <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
+                        <i class="fa-solid fa-plus"></i> <span>Create Account</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -547,12 +582,11 @@
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form action="{% url 'users' %}" method="POST" autocomplete="off">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="edit_user">
-                    <input type="hidden" name="user_id" id="edit_user_id">
-
+            <form action="{% url 'users' %}" method="POST" autocomplete="off">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_user">
+                <input type="hidden" name="user_id" id="edit_user_id">
+                <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="form-label fw-semibold text-dark small mb-1">Full Name <span class="text-danger">*</span></label>
                         <input type="text" name="full_name" id="edit_full_name" class="form-control form-control-sm obo-input" required>
@@ -570,15 +604,14 @@
                             <option value="staff">Engineering Staff</option>
                         </select>
                     </div>
-
-                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
-                            <i class="fa-solid fa-floppy-disk"></i> <span>Save Changes</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer px-4 py-3 border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
+                    <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
+                        <i class="fa-solid fa-floppy-disk"></i> <span>Save Changes</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -599,12 +632,11 @@
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form action="{% url 'users' %}" method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="reset_password">
-                    <input type="hidden" name="user_id" id="reset_user_id">
-
+            <form action="{% url 'users' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reset_password">
+                <input type="hidden" name="user_id" id="reset_user_id">
+                <div class="modal-body p-4">
                     <p class="text-muted small mb-3">
                         Enter a new password for <strong id="reset_user_name" class="text-dark"></strong>.
                     </p>
@@ -613,15 +645,14 @@
                         <label class="form-label fw-semibold text-dark small mb-1">New Password <span class="text-danger">*</span></label>
                         <input type="password" name="new_password" class="form-control form-control-sm obo-input" placeholder="Enter new password (min 8 chars)" required>
                     </div>
-
-                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
-                            <i class="fa-solid fa-key"></i> <span>Reset Password</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer px-4 py-3 border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
+                    <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
+                        <i class="fa-solid fa-key"></i> <span>Reset Password</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -728,6 +759,22 @@ function togglePassVisibility(inputId) {
     if (input) {
         input.type = (input.type === 'password') ? 'text' : 'password';
     }
+}
+
+function changePerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function jumpToPage(pageNum, maxPages) {
+    let p = parseInt(pageNum);
+    if (isNaN(p) || p < 1) p = 1;
+    if (p > maxPages) p = maxPages;
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', p);
+    window.location.href = url.toString();
 }
 </script>
 {% endblock %}

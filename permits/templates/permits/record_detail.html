@@ -493,25 +493,48 @@
     <div class="min-w-0 flex-grow-1">
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
             {% if record.is_illegal_construction %}
-            <span class="badge badge-record-hero badge-hero-violation d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <span>Violation Incident Report</span>
-            </span>
+                {% if record.illegal_compliance_status == 'resolved' %}
+                <span class="badge badge-record-hero badge-hero-permit d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
+                    <i class="fa-solid fa-certificate text-success"></i>
+                    <span>Regularized Permit</span>
+                </span>
+                <span class="badge badge-record-hero badge-hero-status d-inline-flex align-items-center px-2.5 py-1 rounded-pill">
+                    {{ record.get_status_display }}
+                </span>
+                {% elif record.illegal_compliance_status == 'pending_permit' %}
+                <span class="badge badge-record-hero d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2" style="background: rgba(217, 119, 6, 0.12); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.25);">
+                    <i class="fa-solid fa-file-pen"></i>
+                    <span>Permit Application Filed</span>
+                </span>
+                <span class="badge badge-record-hero badge-hero-status d-inline-flex align-items-center px-2.5 py-1 rounded-pill" style="color: #d97706;">
+                    Under Review
+                </span>
+                {% else %}
+                <span class="badge badge-record-hero badge-hero-violation d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Building Violation</span>
+                </span>
+                <span class="badge badge-record-hero badge-hero-status d-inline-flex align-items-center px-2.5 py-1 rounded-pill" style="color: #dc2626; border-color: rgba(220, 38, 38, 0.3);">
+                    Notice Issued
+                </span>
+                {% endif %}
             {% elif record.record_type == 'Project' %}
             <span class="badge badge-record-hero badge-hero-project d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
                 <i class="fa-solid fa-diagram-project"></i>
                 <span>{{ record.get_project_scope_display }} Project</span>
+            </span>
+            <span class="badge badge-record-hero badge-hero-status d-inline-flex align-items-center px-2.5 py-1 rounded-pill">
+                {{ record.get_status_display }}
             </span>
             {% else %}
             <span class="badge badge-record-hero badge-hero-permit d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
                 <i class="fa-solid fa-file-shield"></i>
                 <span>Permit Record</span>
             </span>
-            {% endif %}
-
             <span class="badge badge-record-hero badge-hero-status d-inline-flex align-items-center px-2.5 py-1 rounded-pill">
                 {{ record.get_status_display }}
             </span>
+            {% endif %}
         </div>
 
         <h1 class="etala-page-title mb-1.5" style="font-size: 1.30rem; font-weight: 750; letter-spacing: -0.015em; color: var(--gray-900); word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
@@ -574,40 +597,51 @@
 
 <!-- ══ 2. ILLEGAL CONSTRUCTION COMPLIANCE TRACKER (Visual Stepper) ════════════ -->
 {% if record.is_illegal_construction %}
-<div class="mb-4 content-card illegal-banner-card overflow-hidden" style="border-radius: 14px !important; padding: 0 !important;">
+<div class="mb-3 content-card illegal-banner-card overflow-hidden" style="border-radius: 12px !important; padding: 0 !important;">
 
     <!-- Stepper Header -->
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 illegal-banner-header status-{{ record.illegal_compliance_status|default:'unresolved' }}"
-        style="padding: 18px 24px !important; min-height: 72px;">
-        <div class="d-flex align-items-center gap-3">
-            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
-                style="{% if record.illegal_compliance_status == 'resolved' %}background: rgba(22, 163, 74, 0.15); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.3);{% elif record.illegal_compliance_status == 'pending_permit' %}background: rgba(217, 119, 6, 0.15); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.3);{% else %}background: rgba(220, 38, 38, 0.15); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3);{% endif %} width: 42px; height: 42px; font-size: 18px;">
-                {% if record.illegal_compliance_status == 'resolved' %}
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 illegal-banner-header status-{{ record.illegal_compliance_status|default:'unresolved' }}"
+        style="padding: 10px 18px !important; min-height: 48px;">
+        <div class="d-flex align-items-center gap-2.5">
+            {% if record.illegal_compliance_status == 'resolved' %}
+            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
+                style="background: rgba(22, 163, 74, 0.15); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.3); width: 32px; height: 32px; font-size: 14px;">
                 <i class="fa-solid fa-certificate"></i>
-                {% elif record.illegal_compliance_status == 'pending_permit' %}
-                <i class="fa-solid fa-file-pen"></i>
-                {% else %}
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                {% endif %}
             </div>
+            {% elif record.illegal_compliance_status == 'pending_permit' %}
+            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
+                style="background: rgba(217, 119, 6, 0.15); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.3); width: 32px; height: 32px; font-size: 14px;">
+                <i class="fa-solid fa-file-pen"></i>
+            </div>
+            {% else %}
+            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
+                style="background: rgba(220, 38, 38, 0.15); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); width: 32px; height: 32px; font-size: 14px;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            {% endif %}
             <div>
-                <h6 class="fw-bold mb-0 status-header-title" style="font-size: 0.95rem; letter-spacing: -0.01em;">{{ record.illegal_status_info.label }}</h6>
-                <div class="status-header-sub" style="font-size: 0.78rem; margin-top: 2px;">
-                    Flagged as unpermitted construction{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.
+                <h6 class="fw-bold mb-0 status-header-title" style="font-size: 0.88rem; letter-spacing: -0.01em;">{{ record.illegal_status_info.label }}</h6>
+                <div class="status-header-sub" style="font-size: 0.74rem; margin-top: 1px;">
+                    Reported construction without permit{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.
                 </div>
             </div>
         </div>
 
         {% if can_edit %}
         <div class="d-flex align-items-center gap-2.5 flex-shrink-0 ms-auto flex-nowrap">
-            {% if record.illegal_compliance_status != 'resolved' %}
+            {% if record.illegal_compliance_status == 'resolved' %}
+            <span class="d-inline-flex align-items-center gap-1.5 px-3 py-1.5 rounded-2 fw-semibold"
+                style="background: rgba(22, 163, 74, 0.12); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.25); font-size: 0.78rem;">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Case Resolved</span>
+            </span>
+            {% else %}
             <button type="button" class="btn btn-sm fw-semibold d-inline-flex align-items-center gap-1.5 btn-success text-white shadow-2xs text-nowrap"
                 data-bs-toggle="modal" data-bs-target="#regularizeDetailModal"
                 style="border-radius: 8px; font-size: 0.82rem; padding: 7px 15px; white-space: nowrap;">
                 <i class="fa-solid fa-certificate"></i>
                 <span>Regularize &amp; Issue Permit</span>
             </button>
-            {% endif %}
 
             <div class="dropdown">
                 <button
@@ -639,6 +673,7 @@
                     </form>
                 </div>
             </div>
+            {% endif %}
         </div>
         {% endif %}
     </div>
@@ -886,10 +921,10 @@
                     {% endif %}
                 </div>
                 <div class="step-label" {% if record.illegal_compliance_status == 'unresolved' %}style="color: #dc2626;"{% else %}style="color: #16a34a;"{% endif %}>
-                    Detection &amp; Notice
+                    Inspection &amp; Notice
                 </div>
                 <div class="step-desc">
-                    {% if record.date_started %}{{ record.date_started|date:"M d, Y" }}{% else %}Stop Order{% endif %}
+                    {% if record.date_started %}{{ record.date_started|date:"M d, Y" }}{% else %}Notice Issued{% endif %}
                 </div>
             </div>
 
@@ -976,13 +1011,13 @@
                     <div class="row g-2.5 mb-3">
                         <div class="col-md-6">
                             <label class="cr-label">Permit Number <span class="text-danger">*</span></label>
-                            <input type="text" name="permit_number" class="form-control cr-field" value="{% if permit_detail and permit_detail.permit_number and permit_detail.permit_number != 'm' %}{{ permit_detail.permit_number }}{% endif %}" placeholder="e.g. BP-2026-0042" required>
+                            <input type="text" name="permit_number" class="form-control cr-field" placeholder="e.g. BP-2026-0042" required autocomplete="off">
                         </div>
                         <div class="col-md-6">
                             <label class="cr-label">Building Type</label>
                             <select name="building_type" class="form-select cr-field">
                                 {% for bt_val, bt_lbl in building_types %}
-                                <option value="{{ bt_val }}" {% if bt_val == permit_detail.building_type or bt_val == 'Residential' %}selected{% endif %}>{{ bt_lbl }}</option>
+                                <option value="{{ bt_val }}" {% if bt_val == 'Residential' %}selected{% endif %}>{{ bt_lbl }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -990,7 +1025,7 @@
 
                     <div class="mb-1">
                         <label class="cr-label">Applicant / Owner Name <span class="text-danger">*</span></label>
-                        <input type="text" name="applicant_name" class="form-control cr-field" value="{% if permit_detail.applicant_name|is_valid_applicant %}{{ permit_detail.applicant_name }}{% endif %}" placeholder="e.g. Juan Dela Cruz" required>
+                        <input type="text" name="applicant_name" class="form-control cr-field" placeholder="e.g. Juan Dela Cruz" required autocomplete="off">
                     </div>
                 </div>
 
@@ -1187,12 +1222,12 @@
 
                                 {% if g_stats.fulfilled > 0 %}
                                 <a href="{% url 'download_category_zip' record.record_id req.req_id %}"
-                                    class="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center text-decoration-none shadow-none"
-                                    title="Download {{ req.requirement_item.name }} as ZIP"
+                                    class="zip-download-btn"
+                                    title="Download all {{ req.requirement_item.name }} files as a ZIP archive"
                                     aria-label="Download {{ req.requirement_item.name }} as ZIP"
-                                    onclick="event.stopPropagation();"
-                                    style="width: 28px; height: 28px; min-width: 28px; border-radius: 6px; font-size: 0.8rem; padding: 0;">
+                                    onclick="event.stopPropagation();">
                                     <i class="fa-solid fa-file-zipper"></i>
+                                    <span class="d-none d-sm-inline ms-1">ZIP</span>
                                 </a>
                                 {% endif %}
 
@@ -1208,19 +1243,19 @@
 
                         <!-- Child Items List -->
                         <div class="collapse show" id="groupCollapse_{{ req.req_id }}">
-                            <div class="checklist-group-body p-3 border-top d-flex flex-column gap-2">
+                            <div class="checklist-group-body border-top d-flex flex-column">
                                 {% for sub_req in sub_list %}
-                                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                                <div class="checklist-sub-item d-flex align-items-center justify-content-between flex-nowrap gap-3">
                                     <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                                         <!-- 📎 SUBFILE ATTACHMENT ICON -->
                                         <div class="rounded-2 checklist-icon-box flex-shrink-0 {% if sub_req.is_fulfilled %}checklist-icon-fulfilled{% elif sub_req.is_waived %}checklist-icon-waived{% else %}checklist-icon-default{% endif %}"
-                                            style="width: 32px; height: 32px; min-width: 32px; margin-right: 14px !important; border-radius: 8px; font-size: 13px;">
+                                            style="width: 32px; height: 32px; min-width: 32px; margin-right: 12px !important; border-radius: 8px; font-size: 13px;">
                                             {% if sub_req.is_fulfilled %}
                                             <i class="fa-solid fa-circle-check"></i>
                                             {% elif sub_req.is_waived %}
-                                            <i class="fa-solid fa-circle-minus"></i>
+                                            <i class="fa-solid fa-ban"></i>
                                             {% else %}
-                                            <i class="fa-solid fa-paperclip"></i>
+                                            <i class="fa-solid fa-file-lines"></i>
                                             {% endif %}
                                         </div>
                                         <div class="min-w-0 flex-grow-1">
@@ -1228,18 +1263,18 @@
                                             <div class="text-truncate" style="font-size: 0.76rem; margin-top: 2px;">
                                                 {% if sub_req.is_fulfilled and sub_req.document %}
                                                 <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}"
-                                                    target="_blank" class="text-decoration-none fw-medium text-success d-inline-flex align-items-center gap-1.5"
+                                                    target="_blank" class="text-decoration-none fw-semibold text-success d-inline-flex align-items-center gap-1.5"
                                                     title="Click to view file">
                                                     <i class="fa-solid fa-file-pdf text-danger"></i>
-                                                    <span class="text-truncate">{{ sub_req.document.file_name }}</span>
+                                                    <span class="text-truncate" style="max-width: 280px;">{{ sub_req.document.file_name }}</span>
                                                 </a>
                                                 {% if sub_req.document.expiry_date %}
                                                 <span class="text-muted ms-1">&bull; Exp: {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
                                                 {% endif %}
                                                 {% elif sub_req.is_waived %}
-                                                <span class="text-muted">Not Applicable (N/A)</span>
+                                                <span class="text-muted"><i class="fa-solid fa-ban me-1 text-secondary" style="font-size: 10px;"></i>Not Applicable (Waived)</span>
                                                 {% else %}
-                                                <span class="text-muted">Not uploaded yet</span>
+                                                <span class="text-muted"><i class="fa-regular fa-clock me-1 text-secondary" style="font-size: 10px;"></i>Pending upload</span>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -1249,13 +1284,15 @@
                                     <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
                                         {% if sub_req.is_fulfilled and sub_req.document %}
                                         <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}"
-                                            target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none"
+                                            target="_blank" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-dark d-inline-flex align-items-center gap-1.5 text-decoration-none"
+                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
                                             title="View Document">
-                                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 11px;"></i>
+                                            <i class="fa-solid fa-arrow-up-right-from-square text-primary" style="font-size: 11px;"></i>
                                             <span>View</span>
                                         </a>
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
+                                        <button type="button" class="btn btn-sm btn-light border text-danger px-2 py-1.5 d-inline-flex align-items-center justify-content-center"
+                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px; width: 32px;"
                                             data-url="{% url 'delete_document' record.record_id sub_req.document.document_id %}"
                                             data-name="{{ sub_req.document.file_name }}"
                                             onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
@@ -1267,22 +1304,25 @@
                                         {% elif sub_req.is_waived %}
                                         <span class="badge checklist-badge-empty" style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
-                                            data-req-id="{{ sub_req.req_id }}"
+                                        <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
+                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
+                                            data-req-id="{{ sub_req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' sub_req.req_id %}"
                                             title="Undo N/A status">
-                                            <i class="fa-solid fa-rotate-left"></i> <span>Require</span>
+                                            <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> <span>Require</span>
                                         </button>
                                         {% endif %}
                                         
                                         {% else %}
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="etala-btn etala-btn-primary etala-btn-xs"
+                                        <button type="button" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-2xs"
+                                            style="border-radius: 7px; font-size: 0.80rem; height: 32px;"
                                             onclick="openUploadModal('{{ sub_req.requirement_item.item_id }}', '{{ sub_req.requirement_item.name|escapejs }}')">
-                                            <i class="fa-solid fa-arrow-up-from-bracket" style="font-size: 11px;"></i>
+                                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
                                             <span>Upload</span>
                                         </button>
-                                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
-                                            data-req-id="{{ sub_req.req_id }}"
+                                        <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
+                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
+                                            data-req-id="{{ sub_req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' sub_req.req_id %}"
                                             title="Mark as Not Applicable">N/A</button>
                                         {% else %}
                                         <span class="badge" style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
@@ -1298,15 +1338,15 @@
 
                     {% else %}
                     <!-- 📄 STANDALONE FILE REQUIREMENT ROW -->
-                    <div class="checklist-standalone-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                    <div class="checklist-standalone-item d-flex align-items-center justify-content-between flex-nowrap gap-3">
                         <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                             <!-- 📄 STANDALONE MAIN FILE ICON -->
                             <div class="rounded-3 checklist-icon-box flex-shrink-0 {% if req.is_fulfilled %}checklist-icon-fulfilled{% elif req.is_waived %}checklist-icon-waived{% else %}checklist-icon-default{% endif %}"
-                                style="width: 34px; height: 34px; min-width: 34px; margin-right: 14px !important; font-size: 14px;">
+                                style="width: 34px; height: 34px; min-width: 34px; margin-right: 12px !important; font-size: 14px;">
                                 {% if req.is_fulfilled %}
                                 <i class="fa-solid fa-file-circle-check"></i>
                                 {% elif req.is_waived %}
-                                <i class="fa-solid fa-file-circle-minus"></i>
+                                <i class="fa-solid fa-ban"></i>
                                 {% else %}
                                 <i class="fa-solid fa-file-lines"></i>
                                 {% endif %}
@@ -1316,15 +1356,15 @@
                                 <div class="text-truncate" style="font-size: 0.76rem; margin-top: 2px;">
                                     {% if req.is_fulfilled and req.document %}
                                     <a href="{{ doc_url_map|dict_get:req.document.document_id }}"
-                                        target="_blank" class="text-decoration-none fw-medium text-success d-inline-flex align-items-center gap-1.5"
+                                        target="_blank" class="text-decoration-none fw-semibold text-success d-inline-flex align-items-center gap-1.5"
                                         title="Click to view file">
                                         <i class="fa-solid fa-file-pdf text-danger"></i>
-                                        <span class="text-truncate">{{ req.document.file_name }}</span>
+                                        <span class="text-truncate" style="max-width: 280px;">{{ req.document.file_name }}</span>
                                     </a>
                                     {% elif req.is_waived %}
-                                    <span class="text-muted">Not Applicable (N/A)</span>
+                                    <span class="text-muted"><i class="fa-solid fa-ban me-1 text-secondary" style="font-size: 10px;"></i>Not Applicable (Waived)</span>
                                     {% else %}
-                                    <span class="text-muted">Not uploaded yet</span>
+                                    <span class="text-muted"><i class="fa-regular fa-clock me-1 text-secondary" style="font-size: 10px;"></i>Pending upload</span>
                                     {% endif %}
                                 </div>
                             </div>
@@ -1333,13 +1373,15 @@
                         <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
                             {% if req.is_fulfilled and req.document %}
                             <a href="{{ doc_url_map|dict_get:req.document.document_id }}"
-                                target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none"
+                                target="_blank" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-dark d-inline-flex align-items-center gap-1.5 text-decoration-none"
+                                style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
                                 title="View Document">
-                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 11px;"></i>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-primary" style="font-size: 11px;"></i>
                                 <span>View</span>
                             </a>
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
+                            <button type="button" class="btn btn-sm btn-light border text-danger px-2 py-1.5 d-inline-flex align-items-center justify-content-center"
+                                style="border-radius: 7px; font-size: 0.78rem; height: 32px; width: 32px;"
                                 data-url="{% url 'delete_document' record.record_id req.document.document_id %}"
                                 data-name="{{ req.document.file_name }}"
                                 onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
@@ -1351,21 +1393,24 @@
                             {% elif req.is_waived %}
                             <span class="badge checklist-badge-empty" style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
+                            <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
+                                style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
                                 data-req-id="{{ req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' req.req_id %}"
                                 title="Undo N/A status">
-                                <i class="fa-solid fa-rotate-left"></i> <span>Require</span>
+                                <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> <span>Require</span>
                             </button>
                             {% endif %}
                             
                             {% else %}
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="etala-btn etala-btn-primary etala-btn-xs"
+                            <button type="button" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-2xs"
+                                style="border-radius: 7px; font-size: 0.80rem; height: 32px;"
                                 onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')">
-                                <i class="fa-solid fa-arrow-up-from-bracket" style="font-size: 11px;"></i>
+                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
                                 <span>Upload</span>
                             </button>
-                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs btn-toggle-waive"
+                            <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
+                                style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
                                 data-req-id="{{ req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' req.req_id %}"
                                 title="Mark as Not Applicable">N/A</button>
                             {% else %}
@@ -1386,9 +1431,9 @@
                         style="background: #fee2e2; color: #dc2626; width: 52px; height: 52px;">
                         <i class="fa-solid fa-triangle-exclamation" style="font-size: 22px;"></i>
                     </div>
-                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.92rem;">Violation Report — No Applicant Checklist</h6>
+                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.92rem;">Building Violation — Awaiting Regularization Application</h6>
                     <p class="text-muted small mx-auto mb-3" style="max-width: 480px; font-size: 0.8rem; line-height: 1.5;">
-                        This record is an active illegal construction / violation report. Standard applicant permit checklists do not apply until the property owner files for regularization.
+                        This record is an active building violation under enforcement. Standard applicant permit checklists apply once the property owner files for regularization.
                     </p>
                     <div class="d-flex align-items-center justify-content-center gap-2 flex-wrap">
                         <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5" onclick="openBatchUploadModal()" style="font-size: 0.78rem; font-weight: 600; border-radius: 8px; padding: 6px 14px;">
@@ -1409,6 +1454,68 @@
                 </div>
                 {% endif %}
                 {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if record.illegal_compliance_status != 'unresolved' and attachments %}
+        <!-- 📜 INCIDENT EVIDENCE & VIOLATION NOTICES (Preserved History after Permit Filing / Regularization) -->
+        <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-3" style="padding: 16px 22px !important;">
+                <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 {% if record.is_illegal_construction %}checklist-icon-danger{% else %}checklist-icon-default{% endif %}"
+                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important;">
+                        <i class="fa-solid {% if record.is_illegal_construction %}fa-file-shield{% else %}fa-paperclip{% endif %}" style="font-size: 15px;"></i>
+                    </div>
+                    <div class="min-w-0 flex-grow-1">
+                        <h6 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em;">
+                            {% if record.is_illegal_construction %}Incident &amp; Violation Evidence History{% else %}Supporting &amp; Additional Documents{% endif %}
+                        </h6>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
+                    {% if can_edit and record.status != 'archived' %}
+                    <button type="button"
+                        class="btn btn-sm btn-outline-secondary fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        style="border-radius: 8px; font-size: 0.78rem; white-space: nowrap;"
+                        onclick="openGroupBatchUploadModal('', '{% if record.is_illegal_construction %}Incident Evidence Documents{% else %}Additional Documents{% endif %}')">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Upload Files</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="content-card-body p-3.5 d-flex flex-column gap-2">
+                {% for doc in attachments %}
+                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                    <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+                        <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                            style="width: 32px; height: 32px; min-width: 32px; margin-right: 14px !important; border-radius: 8px; background: rgba(37, 99, 235, 0.12); color: #2563eb; font-size: 14px;">
+                            <i class="fa-solid fa-file-lines"></i>
+                        </div>
+                        <div class="min-w-0 flex-grow-1">
+                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem;">{{ doc.file_name }}</div>
+                            <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">Uploaded on {{ doc.uploaded_at|date:"M d, Y • h:i A" }}</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
+                        <a href="{{ doc_url_map|dict_get:doc.document_id }}" target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none" style="font-size: 0.76rem;">
+                            <i class="fa-solid fa-arrow-up-right-from-square me-1" style="font-size: 11px;"></i>View
+                        </a>
+                        {% if can_edit and record.status != 'archived' %}
+                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
+                            data-url="{% url 'delete_document' record.record_id doc.document_id %}"
+                            data-name="{{ doc.file_name }}"
+                            onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
+                            title="Delete uploaded file">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
         {% endif %}
@@ -1447,8 +1554,12 @@
                         <span>Category &amp; Type</span>
                     </div>
                     <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                        {% if record.is_illegal_construction %}
-                        Violation Report &bull; {{ record.specific_type_label }}
+                        {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
+                        Regularized Permit &bull; {{ record.specific_type_label }}
+                        {% elif record.is_illegal_construction and record.illegal_compliance_status == 'pending_permit' %}
+                        Pending Compliance &bull; {{ record.specific_type_label }}
+                        {% elif record.is_illegal_construction %}
+                        Building Violation &bull; {{ record.specific_type_label }}
                         {% elif record.record_type == 'Project' %}
                         {{ record.get_project_scope_display }} Project &bull; {{ record.specific_type_label }}
                         {% else %}
@@ -1457,12 +1568,12 @@
                     </div>
                 </div>
 
-                <!-- Applicant / Owner / Alleged Violator -->
+                <!-- Applicant / Property Owner -->
                 {% if permit_detail and permit_detail.applicant_name|is_valid_applicant %}
                 <div class="py-1 border-bottom d-flex flex-column gap-0.5">
                     <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                         <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                        <span>{% if record.is_illegal_construction %}Alleged Violator / Owner{% else %}Applicant / Owner{% endif %}</span>
+                        <span>{% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' %}Property Owner{% else %}Applicant / Owner{% endif %}</span>
                     </div>
                     <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
                         {{ permit_detail.applicant_name }}
@@ -1482,21 +1593,48 @@
                     </div>
                 </div>
                 {% elif record.is_illegal_construction %}
-                <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                        <i class="fa-solid fa-shield-halved text-danger opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                        <span>Permit Status</span>
+                    {% if record.illegal_compliance_status == 'resolved' %}
+                    {% if permit_detail and permit_detail.permit_number %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-id-card text-success opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Issued Permit No.</span>
+                        </div>
+                        <div class="fw-bold text-success font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            {{ permit_detail.permit_number }}
+                        </div>
                     </div>
-                    <div class="fw-bold text-danger text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                        {% if record.illegal_compliance_status == 'resolved' %}
-                            Regularized (Permit: {{ permit_detail.permit_number|default:'Issued' }})
-                        {% elif record.illegal_compliance_status == 'pending_permit' %}
+                    {% endif %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-circle-check text-success opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Compliance Status</span>
+                        </div>
+                        <div class="fw-bold text-success text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            Regularized (Case Closed)
+                        </div>
+                    </div>
+                    {% elif record.illegal_compliance_status == 'pending_permit' %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-clock text-warning opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Compliance Status</span>
+                        </div>
+                        <div class="fw-bold text-warning text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
                             Permit Application In Process
-                        {% else %}
-                            Unpermitted (No Permit Issued)
-                        {% endif %}
+                        </div>
                     </div>
-                </div>
+                    {% else %}
+                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                            <i class="fa-solid fa-shield-halved text-danger opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                            <span>Compliance Status</span>
+                        </div>
+                        <div class="fw-bold text-danger text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                            Unpermitted (Stop Order Active)
+                        </div>
+                    </div>
+                    {% endif %}
                 {% endif %}
 
                 <!-- Building Type -->
@@ -1613,7 +1751,17 @@
                     </div>
                     {% endif %}
                     <div class="fw-bold title-text-adaptive text-break" style="font-size: 0.88rem; line-height: 1.35;">
-                        {{ item.value }}
+                        {% if item.label|lower == 'enforcement action' %}
+                            {% if record.illegal_compliance_status == 'resolved' %}
+                            <span class="text-success fw-semibold">Case Closed (Permit Issued)</span>
+                            {% elif record.illegal_compliance_status == 'pending_permit' %}
+                            <span class="text-warning fw-semibold">Permit Application Under Review</span>
+                            {% else %}
+                            <span class="text-danger fw-semibold">Notice of Violation Issued</span>
+                            {% endif %}
+                        {% else %}
+                            {{ item.value }}
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -1839,25 +1987,26 @@
 <!-- MODAL C: DELETE DOCUMENT CONFIRMATION MODAL -->
 <div class="modal fade" id="deleteDocModal" tabindex="-1" aria-labelledby="deleteDocModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
-        <div class="modal-content border-0 shadow-2xl p-4 text-center position-relative custom-confirm-card" style="border-radius: 24px; background: #ffffff;">
+        <div class="modal-content border-0 shadow-2xl p-4 text-center position-relative custom-confirm-card" style="border-radius: 20px; background: #ffffff;">
             <!-- Close Button -->
-            <button type="button" class="btn-close position-absolute top-0 end-0 m-3.5" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem; opacity: 0.5;"></button>
+            <button type="button" class="btn-close position-absolute" data-bs-dismiss="modal" aria-label="Close" style="top: 18px; right: 18px; font-size: 0.75rem; opacity: 0.6; z-index: 10;"></button>
 
             <!-- Centered Icon Badge -->
             <div class="d-flex align-items-center justify-content-center mx-auto mb-3"
-                style="width: 56px; height: 56px; border-radius: 50%; background: #fee2e2; color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);">
-                <i class="fa-solid fa-trash-can" style="font-size: 22px;"></i>
+                style="width: 52px; height: 52px; border-radius: 50%; background: #fee2e2; color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);">
+                <i class="fa-solid fa-trash-can" style="font-size: 20px;"></i>
             </div>
-            <h5 class="fw-bold mb-1.5 modal-confirm-title" style="font-size: 1.15rem; color: #0f172a; letter-spacing: -0.01em;" id="deleteDocModalLabel">Delete Document</h5>
-            <p class="mb-4 modal-confirm-desc" style="font-size: 0.84rem; color: #64748b; line-height: 1.45;">
-                You're going to delete <strong id="deleteDocTargetName" class="text-dark"></strong>. This action cannot be undone.
+            <h5 class="fw-bold mb-1.5 modal-confirm-title" style="font-size: 1.12rem; color: #0f172a; letter-spacing: -0.01em;" id="deleteDocModalLabel">Delete Document</h5>
+            <p class="mb-4 modal-confirm-desc" style="font-size: 0.83rem; color: #64748b; line-height: 1.45;">
+                Are you sure you want to delete <strong id="deleteDocTargetName" class="text-dark"></strong>? This action cannot be undone.
             </p>
             <form id="deleteDocConfirmForm" method="POST" action="">
                 {% csrf_token %}
-                <div class="d-flex gap-2.5 justify-content-center">
-                    <button type="button" class="btn flex-fill py-2.5 px-3 fw-semibold confirm-cancel-btn" data-bs-dismiss="modal" style="border-radius: 12px; font-size: 0.85rem; background: #f1f5f9; color: #334155; border: none;">No, Keep It.</button>
-                    <button type="submit" class="btn flex-fill py-2.5 px-3 fw-semibold confirm-action-btn d-inline-flex align-items-center justify-content-center gap-1.5" style="border-radius: 12px; font-size: 0.85rem; background: #ef4444; color: #ffffff; border: none; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
-                        <span>Yes, Delete!</span>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn flex-fill py-2 px-3 fw-semibold confirm-cancel-btn" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.84rem; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">Cancel</button>
+                    <button type="submit" class="btn flex-fill py-2 px-3 fw-semibold confirm-action-btn d-inline-flex align-items-center justify-content-center gap-1.5" style="border-radius: 8px; font-size: 0.84rem; background: #ef4444; color: #ffffff; border: none; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);">
+                        <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
+                        <span>Delete Document</span>
                     </button>
                 </div>
             </form>
@@ -2151,7 +2300,7 @@
     </script>
 
     <!-- Checklist slots data container -->
-    <div id="checklist-slots-data" class="d-none">
+    <div id="checklist-slots-data" style="display: none;" data-is-illegal-unresolved="{% if record.is_illegal_construction and record.illegal_compliance_status == 'unresolved' %}true{% else %}false{% endif %}">
         {% for req in parent_reqs %}
             {% with sub_list=sub_reqs_by_parent|dict_get:req.requirement_item.item_id %}
             {% if sub_list %}
@@ -2189,7 +2338,7 @@
         };
     });
 
-    const isIllegalReport = {% if record.is_illegal_construction and record.illegal_compliance_status == 'unresolved' %}true{% else %}false{% endif %};
+    const isIllegalReport = (document.getElementById('checklist-slots-data')?.dataset.isIllegalUnresolved === 'true');
 
     function openGroupBatchUploadModal(groupId, groupName) {
         activeBatchGroupId = String(groupId || '').trim();
@@ -2641,13 +2790,21 @@
                 if (data.success) {
                     window.location.reload();
                 } else {
-                    alert('Error: ' + (data.error || 'Unable to update requirement status'));
+                    if (window.showToast) {
+                        showToast('error', 'Status Update Failed', data.error || 'Unable to update requirement status.');
+                    } else {
+                        alert(data.error || 'Unable to update requirement status');
+                    }
                     this.disabled = false;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Network error updating requirement status');
+                if (window.showToast) {
+                    showToast('error', 'Network Error', 'An error occurred while communicating with the server.');
+                } else {
+                    alert('Network error updating requirement status');
+                }
                 this.disabled = false;
             });
         });

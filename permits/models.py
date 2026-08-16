@@ -174,18 +174,23 @@ class EngineeringRecord(models.Model):
     def specific_type_label(self):
         """Returns a human-readable specific type, e.g., 'Fencing Permit' or 'Road & Bridge Project'."""
         if self.record_type == 'Permit':
-            # Violation reports have no permit_detail
+            # Violation reports / illegal constructions
             if self.is_illegal_construction:
                 try:
                     pd = self.permit_detail
                     if pd and pd.permit_type:
                         pt = pd.get_permit_type_display() or pd.permit_type
+                        if pt.lower().startswith('violation') or 'violation' in pt.lower():
+                            return "Violation Report"
                         return pt if pt.lower().endswith('permit') else f"{pt} Permit"
                 except PermitDetail.DoesNotExist:
                     return "Violation Report"
+                return "Violation Report"
             if hasattr(self, 'permit_detail') and self.permit_detail and self.permit_detail.permit_type:
                 pt = self.permit_detail.get_permit_type_display() or self.permit_detail.permit_type
                 if pt:
+                    if pt.lower().startswith('violation') or 'violation' in pt.lower():
+                        return "Violation Report"
                     return pt if pt.lower().endswith('permit') else f"{pt} Permit"
             return "Permit"
         else: # Project
@@ -206,7 +211,7 @@ class EngineeringRecord(models.Model):
             return {
                 'status': 'unresolved',
                 'label': 'Illegal Construction — Unresolved',
-                'short_label': 'Illegal Construction',
+                'short_label': 'Unresolved',
                 'badge_class': 'bg-danger text-white',
                 'bg_style': 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;',
                 'color': '#b91c1c'
@@ -232,7 +237,7 @@ class EngineeringRecord(models.Model):
         return {
             'status': st,
             'label': 'Illegal Construction',
-            'short_label': 'Illegal Construction',
+            'short_label': 'Unresolved',
             'badge_class': 'bg-secondary text-white',
             'bg_style': 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;',
             'color': '#475569'

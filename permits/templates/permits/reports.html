@@ -465,7 +465,7 @@
                                 <td class="fw-bold text-dark">{{ p.permit_number }}</td>
                                 <td class="fw-semibold text-dark text-truncate" title="{{ p.applicant_name }}">{% if p.applicant_name|is_valid_applicant %}{{ p.applicant_name }}{% else %}—{% endif %}</td>
                                 <td class="cell-muted text-truncate">{{ p.barangay_name }}</td>
-                                <td>{{ p.expiry_date|date:"M d, Y" }}</td>
+                                <td class="cell-date">{{ p.expiry_date|date:"M d, Y" }}</td>
                                 <td>
                                     {% if p.is_expired %}
                                     <span class="status-badge-expired">{{ p.days_left }} days overdue</span>
@@ -496,7 +496,7 @@
                         <h6 class="fw-bold text-dark m-0" style="font-size: 0.95rem;">
                             Illegal Construction Cases
                         </h6>
-                        <span class="text-muted small" style="font-size: 0.75rem;">Active violation reports requiring municipal compliance</span>
+                        <span class="text-muted small" style="font-size: 0.75rem;">Active building violations requiring municipal compliance</span>
                     </div>
                     <div class="d-flex gap-2">
                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1.5 rounded-pill fw-bold">{{ active_illegal_cases }} Active</span>
@@ -522,9 +522,9 @@
                                 <td class="fw-bold text-dark">#{{ c.record_id }}</td>
                                 <td class="cell-title">{{ c.title }}</td>
                                 <td class="cell-muted">{{ c.barangay.barangay_name }}</td>
-                                <td class="cell-muted">{{ c.created_at|date:"M d, Y" }}</td>
+                                <td class="cell-muted cell-date">{{ c.created_at|date:"M d, Y" }}</td>
                                 <td>
-                                    <span class="badge" style="font-size: 0.72rem; padding: 4px 9px; {% if c.illegal_status_info.bg_style %}{{ c.illegal_status_info.bg_style }}{% endif %}">
+                                    <span class="badge {{ c.illegal_status_info.badge_class }}" style="font-size: 0.72rem; padding: 4px 9px;">
                                         {{ c.illegal_status_info.label }}
                                     </span>
                                 </td>
@@ -604,6 +604,7 @@
 
 {{ growth_data|json_script:"growth-data-script" }}
 {{ by_barangay|json_script:"barangay-data-script" }}
+{{ by_category|json_script:"category-data-script" }}
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
@@ -614,16 +615,19 @@ document.addEventListener("DOMContentLoaded", function() {
     // 1. Records by Category Doughnut Chart
     const ctxCategory = document.getElementById('categoryChart');
     if (ctxCategory) {
+        const rawCategoryElem = document.getElementById('category-data-script');
+        const rawCategory = rawCategoryElem ? JSON.parse(rawCategoryElem.textContent || '[]') : [];
+        const categoryCounts = [
+            rawCategory[0] && typeof rawCategory[0].count !== 'undefined' ? rawCategory[0].count : 0,
+            rawCategory[1] && typeof rawCategory[1].count !== 'undefined' ? rawCategory[1].count : 0,
+            rawCategory[2] && typeof rawCategory[2].count !== 'undefined' ? rawCategory[2].count : 0
+        ];
         new Chart(ctxCategory, {
             type: 'doughnut',
             data: {
                 labels: ['Permits', 'Municipal Projects', 'Barangay Projects'],
                 datasets: [{
-                    data: [
-                        {{ by_category.0.count|default:0 }},
-                        {{ by_category.1.count|default:0 }},
-                        {{ by_category.2.count|default:0 }}
-                    ],
+                    data: categoryCounts,
                     backgroundColor: ['#0284c7', '#f59e0b', '#0d9488'],
                     borderWidth: 2,
                     borderColor: isDark ? '#1e293b' : '#ffffff'

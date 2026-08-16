@@ -248,7 +248,7 @@
                             </div>
 
                             <div class="col-12" id="editFundingOtherWrapper"
-                                style="{% if project_detail and project_detail.funding_source == 'Others' %}display: block;{% else %}display: none;{% endif %}">
+                                {% if project_detail and project_detail.funding_source == 'Others' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                                 <label class="form-label text-muted small fw-semibold mb-1.5">Specify Other Funding Source</label>
                                 <input type="text" name="funding_source_other" class="form-control"
                                     value="{{ project_detail.funding_source_other|default:'' }}"
@@ -282,11 +282,11 @@
                             <!-- Description -->
                             <div class="col-12">
                                 <label class="form-label text-muted small fw-semibold mb-1.5">Description / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
-                                <textarea name="description" class="form-control char-counted" rows="3" maxlength="150"
-                                    placeholder="Enter concise record description or location details..."
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 10px 13px; min-height: 90px;">{{ record.description }}</textarea>
+                                <textarea name="description" class="form-control char-counted" rows="4" maxlength="500"
+                                    placeholder="Enter record description or inspection findings..."
+                                    style="border-radius: 8px; font-size: 0.86rem; padding: 10px 13px; min-height: 100px;">{{ record.description }}</textarea>
                                 <div class="text-end text-muted small mt-1 char-counter-lbl"
-                                    style="font-size: 0.72rem;">0 / 150 characters</div>
+                                    style="font-size: 0.72rem;">0 / 500 characters</div>
                             </div>
                         </div>
                     </div>
@@ -339,8 +339,12 @@
                             <span>Category &amp; Type</span>
                         </div>
                         <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {% if record.is_illegal_construction %}
-                            Violation Report &bull; {{ record.specific_type_label }}
+                            {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
+                            Regularized Permit &bull; {{ record.specific_type_label }}
+                            {% elif record.is_illegal_construction and record.illegal_compliance_status == 'pending_permit' %}
+                            Pending Compliance &bull; {{ record.specific_type_label }}
+                            {% elif record.is_illegal_construction %}
+                            Building Violation &bull; {{ record.specific_type_label }}
                             {% elif record.record_type == 'Project' %}
                             {{ record.get_project_scope_display }} Project &bull; {{ record.specific_type_label }}
                             {% else %}

@@ -17,6 +17,10 @@
         padding-right: 24px !important;
     }
 
+    .row-highlight-unresolved { background-color: rgba(254, 226, 226, 0.3) !important; }
+    .row-highlight-pending { background-color: rgba(254, 243, 199, 0.3) !important; }
+    .row-highlight-resolved { background-color: rgba(220, 252, 231, 0.3) !important; }
+
     .data-table {
         width: 100% !important;
         table-layout: fixed !important;
@@ -253,10 +257,10 @@
             <table class="data-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th style="width: 28%; min-width: 175px;">Title</th>
+                        <th style="width: 27%; min-width: 175px;">Title</th>
                         <th style="width: 18%; min-width: 135px;">Type</th>
-                        <th style="width: 14%; min-width: 110px;">Barangay</th>
-                        <th style="width: 7%; min-width: 65px;">Year</th>
+                        <th style="width: 14%; min-width: 105px;">Barangay</th>
+                        <th style="width: 8%; min-width: 72px;">Year</th>
                         <th style="width: 16%; min-width: 120px;">Status</th>
                         <th style="width: 11%; min-width: 85px;">Uploads</th>
                         <th class="text-end" style="width: 6%; min-width: 48px; padding-right: 14px;"></th>
@@ -265,25 +269,26 @@
                 <tbody>
                     {% if page_obj %}
                     {% for r in page_obj %}
-                    <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer; {% if r.illegal_compliance_status == 'unresolved' %}background-color: rgba(254, 226, 226, 0.3);{% elif r.illegal_compliance_status == 'pending_permit' %}background-color: rgba(254, 243, 199, 0.3);{% elif r.illegal_compliance_status == 'resolved' %}background-color: rgba(220, 252, 231, 0.3);{% endif %}">
+                    <tr data-href="{% url 'record_detail' r.record_id %}" class="{% if r.illegal_compliance_status == 'unresolved' %}row-highlight-unresolved{% elif r.illegal_compliance_status == 'pending_permit' %}row-highlight-pending{% elif r.illegal_compliance_status == 'resolved' %}row-highlight-resolved{% endif %}" style="cursor: pointer;">
                         <td>
-                            <div class="cell-title"
-                                {% if r.illegal_status_info %}style="color: {{ r.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}
+                            <div class="cell-title illegal-title-{{ r.illegal_compliance_status|default:'unresolved' }}"
                                 title="{{ r.title }}">
                                 {{ r.title }}
                             </div>
                             <div class="cell-subtitle">
                                 {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
-                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if r.illegal_compliance_status == 'resolved' %}Applicant{% else %}Owner/Violator{% endif %}: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if r.illegal_compliance_status == 'resolved' %}Applicant{% else %}Property Owner{% endif %}: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
                                 {% endif %}
                                 <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
                             </div>
                         </td>
                         <td>
                             {% if r.illegal_compliance_status == 'resolved' %}
-                            <span class="tag" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; font-weight: 600;">{{ r.specific_type_label }}</span>
+                            <span class="type-text-resolved">{{ r.specific_type_label }}</span>
+                            {% elif r.illegal_compliance_status == 'pending_permit' %}
+                            <span class="type-text-pending">{{ r.specific_type_label }}</span>
                             {% else %}
-                            <span class="tag" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: 600;">Violation Report</span>
+                            <span class="type-text-unresolved">Building Violation</span>
                             {% endif %}
                         </td>
                         <td class="cell-barangay" style="white-space: nowrap;">
@@ -298,14 +303,14 @@
                             <span class="text-muted">—</span>
                             {% endif %}
                         </td>
-                        <td class="cell-muted">{{ r.year|default:"—" }}</td>
-                        <td>
-                            {% if r.illegal_status_info %}
-                            <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">
-                                {{ r.illegal_status_info.short_label }}
-                            </span>
+                        <td class="cell-muted cell-year">{{ r.year|default:"—" }}</td>
+                        <td class="cell-status">
+                            {% if r.illegal_compliance_status == 'resolved' %}
+                            <span class="status-text-resolved">Regularized</span>
+                            {% elif r.illegal_compliance_status == 'pending_permit' %}
+                            <span class="status-text-pending">Permit Filed</span>
                             {% else %}
-                            <span class="badge bg-danger text-white" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 6px;">Illegal Construction</span>
+                            <span class="status-text-unresolved">Unresolved</span>
                             {% endif %}
                         </td>
                         <td>
@@ -412,7 +417,7 @@
                 <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item text-decoration-none">
                     <div class="mobile-record-header">
                         <div class="mobile-record-title-row">
-                            <span class="mobile-record-title" {% if r.illegal_status_info %}style="color: {{ r.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
+                            <span class="mobile-record-title illegal-title-{{ r.illegal_compliance_status|default:'unresolved' }}">
                                 {{ r.title }}
                             </span>
                             <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.7rem;">
@@ -691,9 +696,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 const recordId = button.getAttribute('data-record-id');
                 const applicant = button.getAttribute('data-applicant') || '';
                 const form = document.getElementById('regularizeForm');
-                if (form) form.action = `/records/${recordId}/regularize/`;
+                if (form) {
+                    form.action = `/records/${recordId}/regularize/`;
+                    const permNumInput = form.querySelector('input[name="permit_number"]');
+                    if (permNumInput) permNumInput.value = '';
+                }
                 const appInput = document.getElementById('regApplicantInput');
-                if (appInput) appInput.value = applicant;
+                if (appInput) appInput.value = applicant || '';
             }
         });
     }

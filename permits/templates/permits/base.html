@@ -36,6 +36,19 @@
         }
     </script>
     <style>
+        .notification-icon-wrapper {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .notif-security, .notif-default { background: #fee2e2 !important; color: #ef4444 !important; }
+        .notif-fsic { background: #fef3c7 !important; color: #d97706 !important; }
+        .notif-electrical { background: #f3e8ff !important; color: #9333ea !important; }
+        .notif-record { background: #dcfce7 !important; color: #16a34a !important; }
+
         /* ══ RELIABLE & ULTRA-SMOOTH PAGE TRANSITIONS ═════════════════════════ */
         .etala-content {
             animation: etalaContentEnter 0.20s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -60,28 +73,54 @@
             }
         }
 
-        /* Top Nano-Progress Bar */
+        /* Top Nano-Progress Bar (Ultra-Smooth Glowing Progress Sweep) */
         .etala-top-progress-bar {
             position: fixed;
             top: 0;
             left: 0;
-            height: 3px;
+            height: 3.5px;
             width: 0%;
-            background: linear-gradient(90deg, #1d4ed8 0%, #0284c7 50%, #0d9488 100%);
-            z-index: 999999;
+            background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 30%, #38bdf8 70%, #06b6d4 100%);
+            z-index: 9999999;
             opacity: 0;
             pointer-events: none;
-            transition: width 0.35s cubic-bezier(0.1, 0.85, 0.25, 1), opacity 0.2s ease;
-            box-shadow: 0 0 10px rgba(2, 132, 199, 0.7);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), 0 0 4px rgba(37, 99, 235, 0.9);
+            border-radius: 0 2px 2px 0;
         }
-        .etala-top-progress-bar.loading {
+        .etala-top-progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 80px;
+            height: 100%;
+            box-shadow: 0 0 14px 4px rgba(56, 189, 248, 0.9), 0 0 6px 2px rgba(37, 99, 235, 0.9);
+            border-radius: 50%;
+            opacity: 0.95;
+        }
+        .etala-top-progress-bar.loading-start {
             opacity: 1;
-            width: 72%;
+            width: 35%;
+            transition: width 0.22s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.12s ease;
+        }
+        .etala-top-progress-bar.loading-mid {
+            opacity: 1;
+            width: 78%;
+            transition: width 0.35s cubic-bezier(0.2, 0.8, 0.25, 1);
+        }
+        .etala-top-progress-bar.loading-creep {
+            opacity: 1;
+            width: 92%;
+            transition: width 0.8s cubic-bezier(0.1, 0.8, 0.3, 1);
         }
         .etala-top-progress-bar.complete {
-            width: 100%;
-            opacity: 0;
-            transition: width 0.15s ease, opacity 0.25s ease 0.12s;
+            width: 100% !important;
+            opacity: 1 !important;
+            transition: width 0.2s cubic-bezier(0.2, 0.9, 0.3, 1);
+        }
+        .etala-top-progress-bar.fade-out {
+            opacity: 0 !important;
+            transition: opacity 0.25s ease;
         }
 
         /* ─── UNIFIED SINGLE SLIM SCROLLBAR (ZERO REDUNDANCY) ─── */
@@ -455,15 +494,28 @@
             max-width: 0 !important;
         }
 
+        .data-table td.cell-year,
+        .data-table td.cell-date,
+        .data-table td.cell-uploads,
+        .data-table td.cell-status,
+        .data-table td.cell-badge,
+        .data-table td.cell-barangay,
         .data-table td.text-end,
         .data-table td.action-menu-cell,
         .data-table td.action-column,
         .data-table td.cell-action,
+        .table-card-responsive td.cell-year,
+        .table-card-responsive td.cell-date,
+        .table-card-responsive td.cell-uploads,
+        .table-card-responsive td.cell-status,
+        .table-card-responsive td.cell-badge,
+        .table-card-responsive td.cell-barangay,
         .table-card-responsive td.text-end,
         .table-card-responsive td.action-menu-cell {
             overflow: visible !important;
             text-overflow: clip !important;
             max-width: none !important;
+            white-space: nowrap !important;
         }
 
         .cell-title,
@@ -493,7 +545,7 @@
         .cell-subtitle .subtitle-row {
             display: block !important;
             font-size: 0.74rem !important;
-            color: #64748b !important;
+            color: #475569 !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
@@ -504,6 +556,7 @@
 
         .cell-subtitle .subtitle-row strong {
             font-weight: 600 !important;
+            color: #0f172a !important;
         }
 
         .mobile-record-item {
@@ -558,6 +611,11 @@
         .dark-mode .cell-subtitle .subtitle-row,
         [data-bs-theme="dark"] .cell-subtitle .subtitle-row {
             color: #94a3b8 !important;
+        }
+
+        .dark-mode .cell-subtitle .subtitle-row strong,
+        [data-bs-theme="dark"] .cell-subtitle .subtitle-row strong {
+            color: #f8fafc !important;
         }
 
         /* Ensure 3-Dot Action Dropdown Menu anchors directly below the 3-dot button smoothly */
@@ -2956,16 +3014,13 @@
             color: #38bdf8 !important;
         }
 
-        .dark-mode .tag-project {
-            background-color: rgba(30, 64, 175, 0.2) !important;
-            color: #60a5fa !important;
-            border-color: rgba(59, 130, 246, 0.3) !important;
-        }
-
-        .dark-mode .tag-permit {
-            background-color: rgba(17, 94, 89, 0.2) !important;
-            color: #2dd4bf !important;
-            border-color: rgba(20, 184, 166, 0.3) !important;
+        .dark-mode .tag-project,
+        .dark-mode .tag-permit,
+        .dark-mode .tag-municipal,
+        .dark-mode .tag-barangay {
+            background: transparent !important;
+            color: #cbd5e1 !important;
+            border: none !important;
         }
 
         .dark-mode .mobile-record-item:hover {
@@ -4371,8 +4426,7 @@
                                         data-notification-id="{{ n.action|slugify }}">
 
                                         <!-- Left Pastel Icon Circle (Fixed size on left) -->
-                                        <div class="notification-icon-wrapper flex-shrink-0 {% if n.type == 'security' %}notif-security{% elif 'FSIC' in n.action %}notif-fsic{% elif 'Electrical' in n.action %}notif-electrical{% elif 'Other' in n.action or 'Record' in n.action %}notif-record{% else %}notif-default{% endif %}"
-                                            style="{% if n.type == 'security' %}background: #fee2e2; color: #ef4444;{% elif 'FSIC' in n.action %}background: #fef3c7; color: #d97706;{% elif 'Electrical' in n.action %}background: #f3e8ff; color: #9333ea;{% elif 'Other' in n.action or 'Record' in n.action %}background: #dcfce7; color: #16a34a;{% else %}background: #fee2e2; color: #ef4444;{% endif %}">
+                                        <div class="notification-icon-wrapper flex-shrink-0 {% if n.type == 'security' %}notif-security{% elif 'FSIC' in n.action %}notif-fsic{% elif 'Electrical' in n.action %}notif-electrical{% elif 'Other' in n.action or 'Record' in n.action %}notif-record{% else %}notif-default{% endif %}">
                                             {% if n.type == 'security' %}
                                             <i class="fa-solid fa-exclamation"
                                                 style="font-size: 14px; font-weight: 900;"></i>
@@ -5235,7 +5289,7 @@
         <div class="modal-dialog modal-dialog-centered" style="max-width: 390px; margin: 1.5rem auto;">
             <div class="modal-content border-0 shadow-2xl p-4 text-center position-relative custom-confirm-card" style="border-radius: 24px; background: #ffffff; overflow: hidden;">
                 <!-- Close Button Top Right -->
-                <button type="button" class="btn-close position-absolute top-0 end-0 m-3.5" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem; opacity: 0.5;"></button>
+                <button type="button" class="btn-close position-absolute" data-bs-dismiss="modal" aria-label="Close" style="top: 18px; right: 18px; font-size: 0.75rem; opacity: 0.6; z-index: 10;"></button>
 
                 <!-- Centered Icon Badge -->
                 <div id="confirmModalIconWrapper"
@@ -5333,38 +5387,46 @@
             const messageLower = message.toLowerCase();
             const classLower = (options.confirmClass || '').toLowerCase();
 
-            // Intelligent Intent Detection for Appropriate Color Coding
-            const isRestore = titleLower.includes('restore') || messageLower.includes('restore');
-            const isArchive = titleLower.includes('trash') || titleLower.includes('archive') || messageLower.includes('trash');
-            const isDelete = titleLower.includes('delete') || titleLower.includes('remove') || titleLower.includes('purge');
-            const isSecurity = titleLower.includes('block') || titleLower.includes('ban') || titleLower.includes('deactivate');
+            // ─── STRICT STANDARD MODAL COLOR CODING ──────────────────────────────────
+            // 🔴 RED: Crucial/Destructive (Move to Trash, Delete, Remove, Purge)
+            // 🟢 GREEN: Positive/Recovery (Restore, Recover, Reactivate)
+            // 🟠 AMBER: Warning/Security (Deactivate, Lock, Block, Reset)
+            // 🔵 BLUE: Information/Process (Update, Confirm, Backup)
 
-            let confirmBg = '#ef4444';
+            const isRestore = titleLower.includes('restore') || titleLower.includes('recover') || messageLower.includes('restore') || classLower.includes('success');
+            const isTrashOrDelete = titleLower.includes('trash') || titleLower.includes('delete') || titleLower.includes('remove') || titleLower.includes('purge') || titleLower.includes('destroy') || messageLower.includes('trash') || messageLower.includes('delete') || classLower.includes('danger') || classLower.includes('trash');
+            const isSecurity = titleLower.includes('deactivat') || titleLower.includes('block') || titleLower.includes('lock') || classLower.includes('warning');
+
+            let confirmBg = '#dc2626';
             let iconClass = 'fa-solid fa-trash-can';
             let bgIcon = '#fee2e2';
             let defaultConfirmText = 'Yes, Delete!';
             let defaultCancelText = 'No, Keep It.';
 
-            if (isRestore || classLower.includes('success')) {
+            if (isRestore) {
+                // 🟢 RESTORE / RECOVERY
                 confirmBg = '#16a34a';
                 iconClass = 'fa-solid fa-arrow-rotate-left';
                 bgIcon = '#dcfce7';
                 defaultConfirmText = 'Yes, Restore!';
                 defaultCancelText = 'No, Keep in Trash';
-            } else if (isArchive) {
-                confirmBg = '#d97706'; // Amber warm action for Trash/Archive
-                iconClass = 'fa-solid fa-box-archive';
-                bgIcon = '#fef3c7';
-                defaultConfirmText = 'Yes, Move to Trash';
+            } else if (isTrashOrDelete) {
+                // 🔴 MOVE TO TRASH / DELETION (CRUCIAL)
+                confirmBg = '#dc2626';
+                iconClass = titleLower.includes('trash') ? 'fa-solid fa-box-archive' : 'fa-solid fa-trash-can';
+                bgIcon = '#fee2e2';
+                defaultConfirmText = titleLower.includes('trash') ? 'Yes, Move to Trash' : 'Yes, Delete!';
                 defaultCancelText = 'No, Keep It.';
             } else if (isSecurity) {
-                confirmBg = '#ea580c';
-                iconClass = 'fa-solid fa-ban';
-                bgIcon = '#ffedd5';
+                // 🟠 WARNING / SECURITY ACTION
+                confirmBg = '#d97706';
+                iconClass = 'fa-solid fa-triangle-exclamation';
+                bgIcon = '#fef3c7';
                 defaultConfirmText = 'Yes, Proceed';
                 defaultCancelText = 'Cancel';
-            } else if (classLower.includes('primary') || classLower.includes('info')) {
-                confirmBg = '#2563eb';
+            } else {
+                // 🔵 DEFAULT / INFORMATION
+                confirmBg = '#0284c7';
                 iconClass = 'fa-solid fa-circle-question';
                 bgIcon = '#e0f2fe';
                 defaultConfirmText = 'Yes, Proceed';
@@ -5415,15 +5477,19 @@
         window.showToast = showToast;
     </script>
     {% if messages %}
+    <script id="django-messages-data" type="application/json">
+        [
+            {% for msg in messages %}
+            {"tag": "{{ msg.tags|default:'info'|escapejs }}", "message": "{{ msg.message|escapejs }}"}{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const djangoMessages = [
-                {% for msg in messages %}
-                { tag: "{{ msg.tags|default:'info'|escapejs }}", message: "{{ msg.message|escapejs }}" }{% if not forloop.last %},{% endif %}
-                {% endfor %}
-            ];
+            const msgEl = document.getElementById('django-messages-data');
+            const djangoMessages = msgEl ? JSON.parse(msgEl.textContent || '[]') : [];
             djangoMessages.forEach(function(m) {
-                if (m.message) {
+                if (m && m.message) {
                     showToast(m.tag, '', m.message);
                 }
             });
@@ -5510,6 +5576,10 @@
                 const content = document.querySelector('.etala-content');
                 if (content) {
                     content.classList.remove('page-exit');
+                }
+                // Automatically re-query freshest data if loaded from browser history cache
+                if (e.persisted || (window.performance && window.performance.getEntriesByType && window.performance.getEntriesByType('navigation')[0]?.type === 'back_forward')) {
+                    window.location.reload();
                 }
             });
 
@@ -6059,24 +6129,57 @@
         }
         window.showZipDownloadToast = showZipDownloadToast;
 
-        // ══ PAGE TRANSITION NANO PROGRESS BAR CONTROLLER ════════════════════
+        // ══ PAGE TRANSITION ULTRA-SMOOTH NANO PROGRESS BAR ══════════════════
         const topProgressBar = document.getElementById('etalaTopProgressBar');
+        let progressTimers = [];
+
+        function clearProgressTimers() {
+            progressTimers.forEach(t => clearTimeout(t));
+            progressTimers = [];
+        }
 
         function startPageProgress() {
-            if (topProgressBar) {
-                topProgressBar.classList.remove('complete');
-                topProgressBar.classList.add('loading');
-            }
+            if (!topProgressBar) return;
+            clearProgressTimers();
+            topProgressBar.classList.remove('complete', 'fade-out', 'loading-mid', 'loading-creep');
+            topProgressBar.style.width = '0%';
+            
+            // Phase 1: Fast initial burst to 35%
+            requestAnimationFrame(() => {
+                topProgressBar.classList.add('loading-start');
+            });
+
+            // Phase 2: Smooth climb to 78%
+            progressTimers.push(setTimeout(() => {
+                if (!topProgressBar.classList.contains('complete')) {
+                    topProgressBar.classList.add('loading-mid');
+                }
+            }, 180));
+
+            // Phase 3: Steady creep to 92% if still loading
+            progressTimers.push(setTimeout(() => {
+                if (!topProgressBar.classList.contains('complete')) {
+                    topProgressBar.classList.add('loading-creep');
+                }
+            }, 450));
         }
 
         function finishPageProgress() {
-            if (topProgressBar) {
-                topProgressBar.classList.remove('loading');
-                topProgressBar.classList.add('complete');
-                setTimeout(() => {
-                    topProgressBar.classList.remove('complete');
-                }, 400);
-            }
+            if (!topProgressBar) return;
+            clearProgressTimers();
+            
+            // Sweep all the way across to 100%
+            topProgressBar.classList.remove('loading-start', 'loading-mid', 'loading-creep');
+            topProgressBar.classList.add('complete');
+            
+            // Fade out smoothly after reaching 100%
+            progressTimers.push(setTimeout(() => {
+                topProgressBar.classList.add('fade-out');
+                progressTimers.push(setTimeout(() => {
+                    topProgressBar.classList.remove('complete', 'fade-out');
+                    topProgressBar.style.width = '0%';
+                }, 280));
+            }, 180));
         }
 
         window.addEventListener('pageshow', function() {
@@ -6128,6 +6231,61 @@
                         document.body.classList.add('page-is-exiting');
                         window.location.href = href;
                     }
+                }
+            });
+
+            // ══ SMART AUTO-DROPUP FOR ALL BOTTOM TABLE ROWS ══════════════════
+            // Automatically flips dropdown upwards for last table rows or when near bottom of card/viewport
+            document.addEventListener('show.bs.dropdown', function (e) {
+                const btn = e.target.closest('.row-action-btn, [data-bs-toggle="dropdown"]');
+                if (!btn) return;
+                const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell');
+                if (!parentDropdown) return;
+
+                const row = btn.closest('tr');
+                const tbody = btn.closest('tbody');
+                const tableCard = btn.closest('.content-card, #recordsTableCard, .card, .content-card-table');
+                
+                const rect = btn.getBoundingClientRect();
+                const spaceBelowViewport = window.innerHeight - rect.bottom;
+                
+                // Calculate space below inside the table container
+                let spaceBelowCard = 999;
+                if (tableCard) {
+                    const cardRect = tableCard.getBoundingClientRect();
+                    spaceBelowCard = cardRect.bottom - rect.bottom;
+                }
+                
+                // Check if row is among the last 2 rows in the table
+                let isLastRows = false;
+                if (row && tbody) {
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    const rowIndex = rows.indexOf(row);
+                    if (rows.length >= 2 && rowIndex >= rows.length - 2) {
+                        isLastRows = true;
+                    }
+                }
+
+                if (isLastRows || spaceBelowCard < 185 || spaceBelowViewport < 220) {
+                    parentDropdown.classList.add('dropup');
+                    const dropContainer = btn.closest('.dropdown');
+                    if (dropContainer) dropContainer.classList.add('dropup');
+                } else {
+                    parentDropdown.classList.remove('dropup');
+                    const dropContainer = btn.closest('.dropdown');
+                    if (dropContainer) dropContainer.classList.remove('dropup');
+                }
+            });
+
+            document.addEventListener('hidden.bs.dropdown', function (e) {
+                const btn = e.target.closest('.row-action-btn, [data-bs-toggle="dropdown"]');
+                if (btn) {
+                    const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell');
+                    if (parentDropdown) {
+                        parentDropdown.classList.remove('dropup');
+                    }
+                    const dropContainer = btn.closest('.dropdown');
+                    if (dropContainer) dropContainer.classList.remove('dropup');
                 }
             });
 

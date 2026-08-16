@@ -184,7 +184,7 @@
                     {% for record in page_obj %}
                     <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
                         <td data-label="Record Title">
-                            <div class="cell-title" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: {{ record.illegal_status_info.color }} !important; font-weight: 700;"{% endif %}>
+                            <div class="cell-title {% if record.is_illegal_construction %}illegal-title-{{ record.illegal_compliance_status|default:'unresolved' }}{% endif %}">
                                 {% if record.record_type == 'Permit' %}
                                     {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
                                 {% else %}
@@ -193,7 +193,7 @@
                             </div>
                             <div class="cell-subtitle">
                                 {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                    <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Applicant: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
+                                    <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' %}Property Owner{% else %}Applicant{% endif %}: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
                                 {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
                                     <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
                                 {% endif %}
@@ -208,7 +208,7 @@
                             {% endif %}
                         </td>
                         <td class="cell-muted cell-barangay" data-label="Barangay" style="white-space: nowrap;">{{ record.barangay.barangay_name }}</td>
-                        <td class="cell-muted" data-label="Deleted Date">{{ record.updated_at|date:"M d, Y" }}</td>
+                        <td class="cell-muted cell-date" data-label="Deleted Date">{{ record.updated_at|date:"M d, Y" }}</td>
                         <td class="text-end pe-3 action-menu-cell" style="width: 55px;" onclick="event.stopPropagation();">
                             <div class="dropdown" onclick="event.stopPropagation();">
                                 <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
@@ -341,7 +341,7 @@ function confirmPermanentDelete(deleteUrl, recordTitle) {
     if (window.showConfirmModal) {
         showConfirmModal({
             title: 'Delete Permanently',
-            message: "Are you sure you want to permanently delete '" + recordTitle + "'? This record and all uploaded files will be permanently purged.",
+            message: "Are you sure you want to permanently delete '" + recordTitle + "'? This record and all uploaded files will be permanently deleted.",
             confirmText: 'Yes, Delete!',
             cancelText: 'No, Keep It.',
             confirmClass: 'action-btn-danger',
