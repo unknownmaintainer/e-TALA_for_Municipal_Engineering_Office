@@ -43,15 +43,8 @@ class Command(BaseCommand):
                 user = CustomUser.objects.filter(username=ud['username']).first()
 
             if user:
-                user.email = ud['email']
-                user.username = ud['username']
-                user.full_name = ud['full_name']
-                user.role = ud['role']
-                user.is_staff = ud['is_staff']
-                user.is_superuser = ud['is_superuser']
-                user.set_password(ud['password'])
-                user.save()
-                self.stdout.write(self.style.SUCCESS(f"Updated user: {user.username} ({user.email})"))
+                # Do NOT overwrite existing password or user-customized profile
+                self.stdout.write(self.style.NOTICE(f"User already exists, preserving data: {user.username} ({user.email})"))
             else:
                 user = CustomUser.objects.create_user(
                     username=ud['username'],
@@ -62,4 +55,8 @@ class Command(BaseCommand):
                     is_superuser=ud['is_superuser'],
                     full_name=ud['full_name']
                 )
-                self.stdout.write(self.style.SUCCESS(f"Created user: {user.username} ({user.email})"))
+                if 'designation' in ud:
+                    user.designation = ud['designation']
+                    user.save(update_fields=['designation'])
+                self.stdout.write(self.style.SUCCESS(f"Created default user: {user.username} ({user.email})"))
+

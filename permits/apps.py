@@ -13,21 +13,16 @@ class PermitsConfig(AppConfig):
             def clean_legacy_requirement_names(sender, **kwargs):
                 from permits.models import RequirementItem
                 import re
-                for item in RequirementItem.objects.filter(name__contains='('):
-                    clean_name = re.sub(r'\s*\([a-z]\.\d+\)', '', item.name).strip()
-                    if clean_name != item.name:
-                        item.name = clean_name
-                        item.save(update_fields=['name'])
+                try:
+                    for item in RequirementItem.objects.filter(name__contains='('):
+                        clean_name = re.sub(r'\s*\([a-z]\.\d+\)', '', item.name).strip()
+                        if clean_name != item.name:
+                            item.name = clean_name
+                            item.save(update_fields=['name'])
+                except Exception:
+                    pass
 
             post_migrate.connect(clean_legacy_requirement_names, sender=self)
-
-            # Also run a lightweight check on server startup
-            from permits.models import RequirementItem
-            import re
-            for item in RequirementItem.objects.filter(name__contains='('):
-                clean_name = re.sub(r'\s*\([a-z]\.\d+\)', '', item.name).strip()
-                if clean_name != item.name:
-                    item.name = clean_name
-                    item.save(update_fields=['name'])
         except Exception:
             pass
+

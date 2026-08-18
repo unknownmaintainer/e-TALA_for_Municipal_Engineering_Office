@@ -234,13 +234,15 @@ def forgot_password_view(request):
             return render(request, 'permits/forgot_password.html')
 
         User = get_user_model()
-        user = User.objects.filter(email__iexact=email).first()
-
+        user = User.objects.filter(
+            Q(email__iexact=email) | Q(username__iexact=email)
+        ).first()
 
         # Check if user exists in database
-        if not user:
-            messages.error(request, "No account found with this email address.")
+        if not user or not user.email:
+            messages.error(request, "No account found with this email or username.")
             return render(request, 'permits/forgot_password.html')
+
 
         # User exists: generate secure signed token (valid for 1 hour)
         try:
@@ -255,7 +257,8 @@ def forgot_password_view(request):
                 reverse('reset_password') + f'?token={token}'
             )
 
-            # Send email via Django's configured email backend (Resend / Gmail SMTP / Console)
+            # Asynchronous background email sending for instant UI response
+            import threading
             from django.core.mail import send_mail
             from django.conf import settings
             from django.template.loader import render_to_string
@@ -268,27 +271,31 @@ def forgot_password_view(request):
             })
             plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 1 hour.'
 
-            try:
-                send_mail(
-                    subject=subject,
-                    message=plain_message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    html_message=html_message,
-                    fail_silently=False,
-                )
-                logger.info(f"Password reset email sent to {email}")
-            except Exception as mail_exc:
-                logger.warning(f"SMTP delivery note for {email}: {mail_exc}")
-                # Log generated reset link to terminal for local admin/development testing
-                print("\n" + "=" * 72)
-                print(f"🔑 [eTala Password Reset Link for {email}]:")
-                print(f"👉 {reset_url}")
-                print("=" * 72 + "\n")
+            def _async_send():
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        html_message=html_message,
+                        fail_silently=False,
+                    )
+                    logger.info(f"Password reset email sent to {email}")
+                except Exception as mail_exc:
+                    logger.warning(f"SMTP delivery note for {email}: {mail_exc}")
+                    # Log generated reset link to terminal for local admin/development testing
+                    print("\n" + "=" * 72)
+                    print(f"🔑 [eTala Password Reset Link for {email}]:")
+                    print(f"👉 {reset_url}")
+                    print("=" * 72 + "\n")
+
+            threading.Thread(target=_async_send, daemon=True).start()
 
             log_audit(user, "Password reset requested", request=request)
             messages.success(request, "Password reset link sent! Check your inbox.")
             return redirect('login')
+
 
         except Exception as exc:
             logger.error(f"Unexpected error in password reset for {email}: {exc}")
