@@ -29,10 +29,10 @@ def validate_document_file(file):
     if hasattr(file, 'content_type') and file.content_type and file.content_type.lower() not in allowed_mime_types:
         raise ValidationError("Invalid file content type. Only PDF document files and scanned images are allowed.")
 
-    # Size validation
-    max_size = 10 * 1024 * 1024  # 10MB in bytes
+    # Size validation (Supports up to 50MB for heavy multi-sheet blueprints, geotechnical reports, and structural calculations)
+    max_size = 50 * 1024 * 1024  # 50MB in bytes
     if file.size > max_size:
-        raise ValidationError("File exceeds 10MB. Please compress and re-upload.")
+        raise ValidationError("File exceeds 50MB limit. Please compress and re-upload.")
 
     # Virus scan validation
     virus_scan_file(file)
@@ -46,16 +46,17 @@ def sanitize_input(value):
     return escape(stripped)
 
 
-def validate_password_strength(password):
-    """Validate that password meets complexity requirements (length >= 8, uppercase, lowercase, digit)."""
-    if not password or len(password) < 8:
-        return False, "Password must be at least 8 characters long."
-    if not any(c.isupper() for c in password):
-        return False, "Password must contain at least one uppercase letter."
-    if not any(c.islower() for c in password):
-        return False, "Password must contain at least one lowercase letter."
-    if not any(c.isdigit() for c in password):
-        return False, "Password must contain at least one number."
+def validate_password_strength(password, min_length=6, require_complexity=False):
+    """Validate password requirements (default: minimum 6 characters for flexible temporary passwords)."""
+    if not password or len(password) < min_length:
+        return False, f"Password must be at least {min_length} characters long."
+    if require_complexity:
+        if not any(c.isupper() for c in password):
+            return False, "Password must contain at least one uppercase letter."
+        if not any(c.islower() for c in password):
+            return False, "Password must contain at least one lowercase letter."
+        if not any(c.isdigit() for c in password):
+            return False, "Password must contain at least one number."
     return True, None
 
 

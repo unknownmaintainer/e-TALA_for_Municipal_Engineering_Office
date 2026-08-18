@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters %}
 
-{% block title %}Trash Archive · eTala{% endblock %}
+{% block title %}Trash & Archive | eTala{% endblock %}
 
 {% block breadcrumb %}
 <span class="breadcrumb-item active">Trash &amp; Archive</span>
@@ -12,8 +12,8 @@
 <!-- Page Header -->
 <div class="etala-page-header mb-3">
     <div>
-        <h1 class="etala-page-title">Trash &amp; Archive</h1>
-        <p class="etala-page-subtitle">Soft-deleted municipal engineering records and files.</p>
+        <h1 class="etala-page-title">{% if request.user.role == 'staff' %}My Trash{% else %}Trash &amp; Archive{% endif %}</h1>
+        <p class="etala-page-subtitle">{% if request.user.role == 'staff' %}Your deleted engineering records and draft entries.{% else %}Soft-deleted municipal engineering records and files.{% endif %}</p>
     </div>
     <div class="etala-header-actions">
         <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 0.78rem; font-weight: 600;">
@@ -124,16 +124,22 @@
     /* Dark Mode Overrides - Bulletproof Crisp White Text */
     .dark-mode .table-card-responsive tbody tr,
     .dark-mode .data-table tbody tr,
+    [data-bs-theme="dark"] .table-card-responsive tbody tr,
+    [data-bs-theme="dark"] .data-table tbody tr {
+        background-color: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode .table-card-responsive tbody tr:hover,
+    .dark-mode .data-table tbody tr:hover,
+    [data-bs-theme="dark"] .table-card-responsive tbody tr:hover,
+    [data-bs-theme="dark"] .data-table tbody tr:hover {
+        background-color: #26354a !important;
+    }
     .dark-mode .table-card-responsive tbody td,
     .dark-mode .data-table tbody td,
-    .dark-mode .cell-title,
-    [data-bs-theme="dark"] .table-card-responsive tbody tr,
-    [data-bs-theme="dark"] .data-table tbody tr,
     [data-bs-theme="dark"] .table-card-responsive tbody td,
-    [data-bs-theme="dark"] .data-table tbody td,
-    [data-bs-theme="dark"] .cell-title {
-        background-color: #1e293b !important;
-        background: #1e293b !important;
+    [data-bs-theme="dark"] .data-table tbody td {
+        background-color: transparent !important;
         border-color: #334155 !important;
         color: #ffffff !important;
     }
@@ -141,10 +147,14 @@
     [data-bs-theme="dark"] .data-table .cell-title,
     .dark-mode .cell-title,
     [data-bs-theme="dark"] .cell-title {
+        background: transparent !important;
+        background-color: transparent !important;
         color: #ffffff !important;
     }
     .dark-mode .data-table .cell-subtitle,
     [data-bs-theme="dark"] .data-table .cell-subtitle {
+        background: transparent !important;
+        background-color: transparent !important;
         color: #cbd5e1 !important;
     }
     .dark-mode .data-table .cell-subtitle strong,
@@ -158,10 +168,6 @@
     .dark-mode .data-table td.cell-muted,
     [data-bs-theme="dark"] .data-table td.cell-muted {
         color: #cbd5e1 !important;
-    }
-
-    .dark-mode .table-card-responsive tbody td[data-label]::before {
-        color: #94a3b8 !important;
     }
 </style>
 
@@ -184,20 +190,41 @@
                     {% for record in page_obj %}
                     <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
                         <td data-label="Record Title">
-                            <div class="cell-title {% if record.is_illegal_construction %}illegal-title-{{ record.illegal_compliance_status|default:'unresolved' }}{% endif %}">
-                                {% if record.record_type == 'Permit' %}
-                                    {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
-                                {% else %}
-                                    {{ record.title }}
+                            <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
+                                <span>
+                                    {% if record.record_type == 'Permit' %}
+                                        {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                            {{ record.permit_detail.applicant_name }}
+                                        {% elif record.title and record.title != 'Permit' %}
+                                            {{ record.title }}
+                                        {% else %}
+                                            {{ record.specific_type_label }}
+                                        {% endif %}
+                                    {% else %}
+                                        {{ record.title }}
+                                    {% endif %}
+                                </span>
+                                {% if record.is_illegal_construction %}
+                                    {% if record.illegal_compliance_status == 'resolved' %}
+                                    <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Regularized Enforcement Case"><i class="fa-solid fa-shield-halved me-1"></i>Regularized</span>
+                                    {% else %}
+                                    <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Active Violation Incident"><i class="fa-solid fa-triangle-exclamation me-1"></i>Violation</span>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                             <div class="cell-subtitle">
-                                {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                    <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' %}Property Owner{% else %}Applicant{% endif %}: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
+                                {% if record.record_type == 'Permit' %}
+                                    {% if record.permit_detail and record.permit_detail.permit_number %}
+                                    <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ record.permit_detail.permit_number }}</strong></div>
+                                    {% else %}
+                                    <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1" style="font-size: 11px;"></i>Pending Permit Issuance</div>
+                                    {% endif %}
                                 {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
                                     <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
                                 {% endif %}
+                                {% if request.user.role == 'admin' %}
                                 <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ record.created_by.full_name|default:record.created_by.username }}</div>
+                                {% endif %}
                             </div>
                         </td>
                         <td data-label="Type">
@@ -221,7 +248,7 @@
                                             <span>Inspect</span>
                                         </a>
                                     </li>
-                                    {% if request.user.role == 'admin' %}
+                                    {% if request.user.role == 'admin' or record.created_by == request.user %}
                                     <li><hr class="dropdown-divider my-1"></li>
                                     <li>
                                         <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" data-url="{% url 'restore_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmRestoreRecord(this.dataset.url, this.dataset.title)">
@@ -229,6 +256,8 @@
                                             <span>Restore</span>
                                         </a>
                                     </li>
+                                    {% endif %}
+                                    {% if request.user.role == 'admin' %}
                                     <li>
                                         <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" data-url="{% url 'permanent_delete_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmPermanentDelete(this.dataset.url, this.dataset.title)">
                                             <i class="fa-solid fa-trash-can" style="font-size: 13px; color:#ef4444; flex-shrink:0;"></i>
@@ -302,13 +331,19 @@
         </div>
     </div>
     {% else %}
-    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3 mx-auto"
-             style="width:64px;height:64px;background:#f1f5f9;">
-            <i data-lucide="trash-2" style="width:28px;height:28px;color:#94a3b8;"></i>
+    <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 380px;">
+        <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle"
+             style="width:64px;height:64px;background:rgba(100, 116, 139, 0.12); color:#64748b;">
+            <i class="fa-solid {% if q %}fa-magnifying-glass{% else %}fa-trash-can{% endif %}" style="font-size:26px;"></i>
         </div>
-        <h5 class="fw-bold mb-1">{% if q %}No matching archived records{% else %}Trash is empty{% endif %}</h5>
-        <p class="text-muted small">{% if q %}Try searching with a different keyword or clear the search filter.{% else %}No records found in trash.{% endif %}</p>
+        <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size:1.05rem;">{% if q %}No matching archived records{% else %}Trash is empty{% endif %}</h5>
+        <p class="text-muted small mb-4" style="font-size:0.84rem; max-width:420px; line-height:1.5;">{% if q %}Try searching with a different keyword or clear the search filter.{% else %}No deleted records found in trash.{% endif %}</p>
+        {% if q %}
+        <a href="{% url 'archive' %}" class="premium-btn btn-view text-decoration-none" style="border-radius:8px; font-size:0.82rem; padding:6px 16px;">
+            <i class="fa-solid fa-rotate-left me-1.5" style="font-size:11px;"></i>
+            <span>Clear search filter</span>
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 </div>

@@ -3,7 +3,7 @@
 {% load humanize %}
 {% load permit_filters %}
 
-{% block title %}Illegal Constructions · eTala{% endblock %}
+{% block title %}Illegal Constructions | eTala{% endblock %}
 
 {% block breadcrumb %}
 <span class="breadcrumb-item active">Illegal Constructions</span>
@@ -20,6 +20,32 @@
     .row-highlight-unresolved { background-color: rgba(254, 226, 226, 0.3) !important; }
     .row-highlight-pending { background-color: rgba(254, 243, 199, 0.3) !important; }
     .row-highlight-resolved { background-color: rgba(220, 252, 231, 0.3) !important; }
+
+    .dark-mode .row-highlight-unresolved,
+    [data-bs-theme="dark"] .row-highlight-unresolved {
+        background-color: rgba(239, 68, 68, 0.12) !important;
+    }
+    .dark-mode .row-highlight-pending,
+    [data-bs-theme="dark"] .row-highlight-pending {
+        background-color: rgba(245, 158, 11, 0.12) !important;
+    }
+    .dark-mode .row-highlight-resolved,
+    [data-bs-theme="dark"] .row-highlight-resolved {
+        background-color: rgba(34, 197, 94, 0.12) !important;
+    }
+
+    .dark-mode .row-highlight-unresolved:hover,
+    [data-bs-theme="dark"] .row-highlight-unresolved:hover {
+        background-color: rgba(239, 68, 68, 0.2) !important;
+    }
+    .dark-mode .row-highlight-pending:hover,
+    [data-bs-theme="dark"] .row-highlight-pending:hover {
+        background-color: rgba(245, 158, 11, 0.2) !important;
+    }
+    .dark-mode .row-highlight-resolved:hover,
+    [data-bs-theme="dark"] .row-highlight-resolved:hover {
+        background-color: rgba(34, 197, 94, 0.2) !important;
+    }
 
     .data-table {
         width: 100% !important;
@@ -67,12 +93,18 @@
     .data-table .tag-permit,
     .data-table .tag-municipal,
     .data-table .tag-project,
-    .data-table .tag-barangay,
-    .data-table .barangay-table-link {
+    .data-table .tag-barangay {
         display: inline-block;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .data-table .barangay-table-link {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
         max-width: 100%;
     }
 
@@ -252,22 +284,22 @@
 <div class="content-card" id="recordsTableCard"
     style="height: auto !important; min-height: 220px !important; overflow: visible !important;">
     <div class="card-body p-0" style="overflow: visible !important;">
+        {% if page_obj %}
         <!-- Desktop Table View -->
         <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important;">
-            <table class="data-table" style="width: 100%; table-layout: fixed;">
+            <table class="data-table" style="width: 100%; min-width: 680px; table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th style="width: 27%; min-width: 175px;">Title</th>
-                        <th style="width: 18%; min-width: 135px;">Type</th>
-                        <th style="width: 14%; min-width: 105px;">Barangay</th>
-                        <th style="width: 8%; min-width: 72px;">Year</th>
-                        <th style="width: 16%; min-width: 120px;">Status</th>
-                        <th style="width: 11%; min-width: 85px;">Uploads</th>
-                        <th class="text-end" style="width: 6%; min-width: 48px; padding-right: 14px;"></th>
+                        <th style="width: 29%; min-width: 185px;">Title</th>
+                        <th style="width: 16%; min-width: 120px;">Type</th>
+                        <th style="width: 17%; min-width: 135px;">Barangay</th>
+                        <th style="width: 8%; min-width: 65px;">Year</th>
+                        <th style="width: 14%; min-width: 100px;">Status</th>
+                        <th style="width: 11%; min-width: 75px;">Uploads</th>
+                        <th class="text-end" style="width: 5%; min-width: 44px; padding-right: 14px;"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% if page_obj %}
                     {% for r in page_obj %}
                     <tr data-href="{% url 'record_detail' r.record_id %}" class="{% if r.illegal_compliance_status == 'unresolved' %}row-highlight-unresolved{% elif r.illegal_compliance_status == 'pending_permit' %}row-highlight-pending{% elif r.illegal_compliance_status == 'resolved' %}row-highlight-resolved{% endif %}" style="cursor: pointer;">
                         <td>
@@ -314,27 +346,15 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% with stats=r.completion_stats %}
-                            {% if stats.total > 0 %}
-                                {% if stats.is_complete %}
-                                <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="All {{ stats.total }} documents uploaded">
-                                    ✓ {{ stats.fulfilled }}/{{ stats.total }}
-                                </span>
-                                {% elif stats.fulfilled > 0 %}
-                                <span class="badge" style="background: #fef3c7; color: #b45309; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded.">
-                                    {{ stats.fulfilled }}/{{ stats.total }}
-                                </span>
-                                {% else %}
-                                <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="No documents uploaded">
-                                    0/{{ stats.total }}
-                                </span>
-                                {% endif %}
+                            {% if r.documents.count > 0 %}
+                            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="{{ r.documents.count }} attached document{{ r.documents.count|pluralize }}">
+                                <i class="fa-solid fa-paperclip me-1" style="font-size: 10px;"></i>{{ r.documents.count }} file{{ r.documents.count|pluralize }}
+                            </span>
                             {% else %}
-                                <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px;">
-                                    {{ r.documents.count }} files
-                                </span>
+                            <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px;" title="No documents uploaded">
+                                0 files
+                            </span>
                             {% endif %}
-                            {% endwith %}
                         </td>
                         <td class="text-end pe-3 action-menu-cell" style="width: 55px;"
                             onclick="event.stopPropagation();">
@@ -385,70 +405,50 @@
                         </td>
                     </tr>
                     {% endfor %}
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="p-4 text-center">
-                            <div class="empty-state-card text-center mx-auto">
-                                <div class="empty-state-icon-wrapper mb-3">
-                                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 26px; color: #94a3b8;"></i>
-                                </div>
-                                <h3 class="fw-bold mb-2 text-dark" style="font-size: 0.95rem; text-wrap: balance;">No matching incident reports found</h3>
-                                <p class="text-muted small mx-auto mb-3" style="max-width: 480px; line-height: 1.55; text-wrap: balance; font-size: 0.82rem;">
-                                    We couldn't find any illegal construction incident records matching your search or filters. Try adjusting your query or resetting filters.
-                                </p>
-                                <a href="{% url 'illegal_constructions' %}"
-                                    class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2 px-3 py-1.5"
-                                    style="text-decoration:none; border-radius: 8px;">
-                                    <i class="fa-solid fa-rotate-left" style="font-size: 12px;"></i> Clear all filters
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endif %}
                 </tbody>
             </table>
         </div>
 
         <!-- Mobile Card List View -->
-        <div class="d-block d-md-none">
-            {% if page_obj %}
-            <div class="d-flex flex-column gap-0">
+        <div class="d-block d-md-none p-2.5">
+            <div class="d-flex flex-column gap-2.5">
                 {% for r in page_obj %}
-                <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item text-decoration-none">
-                    <div class="mobile-record-header">
-                        <div class="mobile-record-title-row">
-                            <span class="mobile-record-title illegal-title-{{ r.illegal_compliance_status|default:'unresolved' }}">
+                <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item text-decoration-none d-flex flex-column gap-2 p-3 rounded-3 border {% if r.illegal_compliance_status == 'unresolved' %}row-highlight-unresolved{% elif r.illegal_compliance_status == 'pending_permit' %}row-highlight-pending{% elif r.illegal_compliance_status == 'resolved' %}row-highlight-resolved{% endif %}">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div class="min-w-0 flex-grow-1">
+                            <span class="fw-bold text-dark d-block text-truncate illegal-title-{{ r.illegal_compliance_status|default:'unresolved' }}" style="font-size: 0.88rem;" title="{{ r.title }}">
                                 {{ r.title }}
                             </span>
-                            <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.7rem;">
-                                {{ r.illegal_status_info.short_label }}
-                            </span>
+                            {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                            <div class="text-muted text-truncate mt-0.5" style="font-size: 0.76rem;">
+                                <i class="fa-solid fa-user me-1 text-muted"></i>{% if r.illegal_compliance_status == 'resolved' %}Applicant{% else %}Owner{% endif %}: <strong class="text-dark">{{ r.permit_detail.applicant_name }}</strong>
+                            </div>
+                            {% endif %}
                         </div>
+                        <span class="badge {{ r.illegal_status_info.badge_class }} flex-shrink-0" style="font-size: 0.72rem;">
+                            {{ r.illegal_status_info.short_label }}
+                        </span>
                     </div>
-                    <div class="mobile-record-meta">
-                        <span class="mobile-meta-item"><i class="fa-solid fa-location-dot"></i> {{ r.barangay.barangay_name|default:"—" }}</span>
-                        <span class="mobile-meta-item"><i class="fa-solid fa-calendar"></i> {{ r.year|default:"—" }}</span>
-                        <span class="mobile-meta-item"><i class="fa-solid fa-file"></i> {{ r.documents.count }} files</span>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 text-muted pt-1.5 border-top" style="font-size: 0.76rem;">
+                        <span><i class="fa-solid fa-location-dot me-1 text-secondary"></i>{{ r.barangay.barangay_name|default:"—" }}</span>
+                        <span><i class="fa-solid fa-calendar me-1 text-secondary"></i>{{ r.year|default:"—" }}</span>
+                        <span>
+                            {% if r.documents.count > 0 %}
+                            <span class="text-primary fw-medium"><i class="fa-solid fa-paperclip me-1"></i>{{ r.documents.count }} file{{ r.documents.count|pluralize }}</span>
+                            {% else %}
+                            <span><i class="fa-solid fa-paperclip me-1 text-muted"></i>0 files</span>
+                            {% endif %}
+                        </span>
                     </div>
                 </a>
                 {% endfor %}
             </div>
-            {% else %}
-            <div class="empty-state-card p-4">
-                <p class="text-muted small mb-0">No matching incident reports found.</p>
-            </div>
-            {% endif %}
         </div>
-    </div>
 
         <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex align-items-center gap-3">
                 <span class="pagination-info m-0">
-                    {% if page_obj.paginator.count > 0 %}
                     Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count|intcomma }}</strong> records
-                    {% else %}
-                    Showing 0–0 of 0 records
-                    {% endif %}
                 </span>
                 <div class="per-page-select">
                     <span>Show:</span>
@@ -463,7 +463,6 @@
 
             <div class="d-flex align-items-center gap-2 pagination-controls">
                 {% if page_obj.paginator.num_pages > 5 %}
-                <!-- Page Jump Input (Scalable for 100k+ records / 10,000+ pages) -->
                 <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                     <span>Page:</span>
                     <input type="number" class="form-control form-control-sm text-center px-1 py-0.5"
@@ -517,6 +516,47 @@
                 {% endif %}
             </div>
         </div>
+
+        {% else %}
+        <!-- Standardized Full Unified Empty State -->
+        <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 380px;">
+            <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle"
+                style="width: 64px; height: 64px; background: rgba(220, 38, 38, 0.12); color: #dc2626;">
+                {% if q or selected_status or selected_barangay or selected_year %}
+                <i class="fa-solid fa-magnifying-glass" style="font-size: 26px;"></i>
+                {% else %}
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 26px;"></i>
+                {% endif %}
+            </div>
+            <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size: 1.05rem;">
+                {% if q or selected_status or selected_barangay or selected_year %}
+                No matching incident reports found
+                {% else %}
+                No illegal constructions reported
+                {% endif %}
+            </h5>
+            <p class="text-muted small mb-4" style="font-size: 0.84rem; max-width: 440px; line-height: 1.55;">
+                {% if q or selected_status or selected_barangay or selected_year %}
+                We couldn't find any incident records matching your search or filters. Try adjusting your query or resetting filters.
+                {% else %}
+                No active violations or unpermitted constructions are currently registered.
+                {% endif %}
+            </p>
+            {% if q or selected_status or selected_barangay or selected_year %}
+            <a href="{% url 'illegal_constructions' %}"
+                class="premium-btn btn-view text-decoration-none" style="border-radius: 8px; font-size: 0.82rem; padding: 6px 16px;">
+                <i class="fa-solid fa-rotate-left me-1.5" style="font-size: 11px;"></i>
+                <span>Clear all filters</span>
+            </a>
+            {% elif request.user.role == 'staff' or request.user.role == 'admin' %}
+            <button type="button" class="premium-btn btn-delete text-decoration-none" data-bs-toggle="modal" data-bs-target="#flagIllegalModal">
+                <span class="btn-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <span class="btn-divider"></span>
+                <span>Report Violation</span>
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -933,7 +973,7 @@ function confirmArchiveRecord(url, title) {
             message: "Are you sure you want to move '" + title + "' to Trash? It can be restored later at any time.",
             confirmText: 'Yes, Move to Trash',
             cancelText: 'No, Keep It.',
-            confirmClass: 'action-btn-warning',
+            confirmClass: 'action-btn-danger',
             iconClass: 'fa-solid fa-box-archive',
             onConfirm: function () {
                 window.location.href = url;

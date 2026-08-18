@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static humanize %}
 
-{% block title %}Checklists &amp; Settings · eTala{% endblock %}
+{% block title %}Checklists & Settings | eTala{% endblock %}
 
 {% block breadcrumb %}
 <span class="breadcrumb-item active">Checklists &amp; Settings</span>
@@ -440,13 +440,13 @@
         </div>
 
         <!-- Scope Segmented Control (2 Clean Tabs) -->
-        <div class="scope-segmented-control flex-shrink-0" style="height: 38px; border-radius: 12px; padding: 2.5px;">
-            <button class="scope-pill-btn active" id="tabBtnTemplates" onclick="switchSettingsTab('templates')" type="button" title="Document Checklists" style="font-size: 0.80rem; padding: 0 16px; border: none; background: transparent;">
-                <i class="fa-solid fa-list-check" style="font-size: 13px;"></i>
+        <div class="scope-segmented-control flex-shrink-0" style="height: 38px;">
+            <button class="scope-pill-btn active" id="tabBtnTemplates" onclick="switchSettingsTab('templates')" type="button" title="Document Checklists">
+                <i class="fa-solid fa-list-check"></i>
                 <span>Document Checklists ({{ templates|length }})</span>
             </button>
-            <button class="scope-pill-btn" id="tabBtnMaintenance" onclick="switchSettingsTab('maintenance')" type="button" title="System Maintenance" style="font-size: 0.80rem; padding: 0 16px; border: none; background: transparent;">
-                <i class="fa-solid fa-server" style="font-size: 13px;"></i>
+            <button class="scope-pill-btn" id="tabBtnMaintenance" onclick="switchSettingsTab('maintenance')" type="button" title="System Maintenance">
+                <i class="fa-solid fa-server"></i>
                 <span>Data &amp; Maintenance</span>
             </button>
         </div>
@@ -477,16 +477,16 @@
             <div class="settings-subtoolbar d-flex align-items-center justify-content-between flex-wrap gap-2.5">
                 <div class="d-flex align-items-center gap-1.5 flex-wrap" id="templateFilterPills">
                     <button type="button" class="settings-filter-pill active" onclick="filterCategory('ALL', this)">
-                        All Checklists ({{ templates|length }})
+                        All Checklists <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.70rem;">{{ templates|length }}</span>
                     </button>
                     <button type="button" class="settings-filter-pill" onclick="filterCategory('Permit', this)">
-                        Permits
+                        Permits <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.70rem;">{{ permit_count }}</span>
                     </button>
                     <button type="button" class="settings-filter-pill" onclick="filterCategory('Municipal', this)">
-                        Municipal Projects
+                        Municipal Projects <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.70rem;">{{ municipal_count }}</span>
                     </button>
                     <button type="button" class="settings-filter-pill" onclick="filterCategory('Barangay', this)">
-                        Barangay Projects
+                        Barangay Projects <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.70rem;">{{ barangay_count }}</span>
                     </button>
                 </div>
 
@@ -498,16 +498,16 @@
                 </div>
             </div>
 
-            <!-- Registry Table (5 Clean Balanced Columns) -->
+            <!-- Registry Table (Clean, Intuitive & 1-Click Interactive) -->
             <div class="table-responsive">
                 <table class="data-table m-0" id="templatesTable">
                     <thead>
                         <tr>
-                            <th style="width: 36%;">Checklist Name</th>
-                            <th style="width: 20%;">Category / Scope</th>
-                            <th style="width: 20%;">Required Documents</th>
+                            <th style="width: 40%;">Checklist Name &amp; Scope</th>
+                            <th style="width: 20%;">Category</th>
+                            <th style="width: 18%;">Required Files</th>
                             <th style="width: 12%; text-align: center;">Status</th>
-                            <th style="width: 12%; text-align: center;">Action</th>
+                            <th style="width: 10%; text-align: center;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -536,7 +536,7 @@
                                 ]
                             }
                         </script>
-                        <tr data-type="{{ t.record_type }}" data-scope="{{ t.scope|default:'' }}" data-template-id="{{ t.template_id }}">
+                        <tr data-type="{{ t.record_type }}" data-scope="{{ t.scope|default:'' }}" data-template-id="{{ t.template_id }}" onclick="openManageModal('{{ t.template_id }}')" style="cursor: pointer;" title="Click anywhere to edit checklist requirements">
                             <td class="search-target">
                                 <div class="d-flex align-items-center gap-2.5">
                                     {% if t.record_type == 'Permit' %}
@@ -549,19 +549,24 @@
                                     </div>
                                     {% endif %}
                                     <div>
-                                        <div class="fw-bold text-dark mb-0" style="font-size: 0.90rem;">
-                                            {{ t.subtype }} {% if t.record_type == 'Permit' %}Permit Checklist{% else %}Project Checklist{% endif %}
+                                        <div class="fw-bold title-text-adaptive mb-0 d-flex align-items-center gap-1.5 flex-wrap" style="font-size: 0.90rem;">
+                                            <span>{{ t.subtype }} {% if t.record_type == 'Permit' %}Permit Checklist{% else %}Project Checklist{% endif %}</span>
+                                            {% if t.scope == 'Barangay' %}
+                                            <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-1.5 py-0.5" style="font-size: 0.68rem; font-weight: 600; border-radius: 4px;">Barangay Scope</span>
+                                            {% elif t.scope == 'Municipal' %}
+                                            <span class="badge bg-teal-subtle text-teal border border-teal-subtle px-1.5 py-0.5" style="font-size: 0.68rem; font-weight: 600; border-radius: 4px;">Municipal Scope</span>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </td>
                             <td>
                                 {% if t.record_type == 'Permit' %}
-                                <span class="tag tag-permit">Permit Application</span>
+                                <span class="text-secondary fw-medium" style="font-size: 0.84rem;">Permit Application</span>
                                 {% elif t.scope == 'Barangay' %}
-                                <span class="tag" style="background: rgba(147, 51, 234, 0.08); color: #9333ea; border: 1px solid rgba(147, 51, 234, 0.2);">Barangay Project</span>
+                                <span class="text-secondary fw-medium" style="font-size: 0.84rem;">Barangay Project</span>
                                 {% else %}
-                                <span class="tag tag-municipal">Municipal Project</span>
+                                <span class="text-secondary fw-medium" style="font-size: 0.84rem;">Municipal Project</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -569,15 +574,21 @@
                                     <i class="fa-solid fa-list-check me-1"></i>{{ t.active_items.count }} required files
                                 </span>
                             </td>
-                            <td style="text-align: center; white-space: nowrap;">
-                                {% if t.is_active %}
-                                <span class="status-indicator status-indicator-active" style="display: inline-flex; vertical-align: middle;">Active</span>
-                                {% else %}
-                                <span class="status-indicator" style="display: inline-flex; vertical-align: middle;">Inactive</span>
-                                {% endif %}
+                            <td style="text-align: center; white-space: nowrap;" onclick="event.stopPropagation();">
+                                <form method="POST" action="{% url 'settings' %}" class="m-0 d-inline-block">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="toggle_template_status">
+                                    <input type="hidden" name="template_id" value="{{ t.template_id }}">
+                                    <label class="form-check form-switch m-0 d-inline-flex align-items-center cursor-pointer" title="Click to toggle active status">
+                                        <input class="form-check-input mt-0" type="checkbox" role="switch" {% if t.is_active %}checked{% endif %} onchange="this.form.submit()" style="cursor: pointer; width: 34px; height: 18px;">
+                                        <span class="ms-1.5 small fw-semibold {% if t.is_active %}text-success{% else %}text-muted{% endif %}" style="font-size: 0.74rem;">
+                                            {% if t.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                    </label>
+                                </form>
                             </td>
-                            <td style="text-align: center; white-space: nowrap;">
-                                <button type="button" class="manage-template-btn" onclick="openManageModal('{{ t.template_id }}')">
+                            <td style="text-align: center; white-space: nowrap;" onclick="event.stopPropagation();">
+                                <button type="button" class="manage-template-btn" onclick="openManageModal('{{ t.template_id }}')" title="Edit Checklist">
                                     <i class="fa-solid fa-pen-to-square" style="font-size: 11px;"></i>
                                     <span>Manage</span>
                                 </button>
@@ -1055,9 +1066,32 @@
         });
     }
 
+    function handleBackupDownloadSubmit(form) {
+        recordBackupTimestamp();
+        const badgeEl = document.getElementById('lastBackupBadgeText');
+        const now = new Date();
+        const formatted = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        if (badgeEl) badgeEl.textContent = formatted;
+        if (window.showToast) {
+            window.showToast('info', 'Database Backup', 'Preparing and downloading eTala JSON snapshot...');
+        }
+    }
+
+    function handleSendAlertsSubmit(form) {
+        const btn = document.getElementById('sendAlertsSubmitBtn');
+        if (btn) {
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true" style="width: 12px; height: 12px;"></span><span>Scanning & Sending...</span>';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.75';
+        }
+        if (window.showToast) {
+            window.showToast('info', 'Expiry Notifications', 'Scanning records and sending alert emails...');
+        }
+    }
+
     function handleBackupFileSelect(input) {
         const label = document.getElementById('backupFileChosenLabel');
-        const dropzone = input.closest('form').querySelector('.custom-file-dropzone');
+        const dropzone = input.closest('.operation-card')?.querySelector('.custom-file-dropzone') || document.querySelector('.custom-file-dropzone');
         if (input.files && input.files[0]) {
             const file = input.files[0];
             const sizeKb = (file.size / 1024).toFixed(1);
@@ -1096,27 +1130,11 @@
                 confirmClass: 'action-btn-danger',
                 icon: 'rotate-left',
                 onConfirm: function() {
-                    if (window.showZipDownloadToast) {
-                        window.showZipDownloadToast(
-                            'Synchronizing Database',
-                            'Restoring database tables from JSON backup file...',
-                            '✅ Database Restored',
-                            'Tables synchronized with backup archive.'
-                        );
-                    }
                     form.submit();
                 }
             });
         } else {
             if (confirm(`Are you sure you want to restore database records from "${fileName}"?`)) {
-                if (window.showZipDownloadToast) {
-                    window.showZipDownloadToast(
-                        'Synchronizing Database',
-                        'Restoring database tables from JSON backup file...',
-                        '✅ Database Restored',
-                        'Tables synchronized with backup archive.'
-                    );
-                }
                 form.submit();
             }
         }
@@ -1163,7 +1181,7 @@
         container.innerHTML = '';
 
         if (!currentTemplateData || !currentTemplateData.items || currentTemplateData.items.length === 0) {
-            container.innerHTML = '<div class="text-center py-4 text-muted small rounded-3 border" style="background: var(--gray-50, #f8fafc);">No required documents added yet. Type a document name above and click "Add".</div>';
+            container.innerHTML = '<div class="text-center py-4 text-muted small rounded-3 border" style="background: var(--gray-50, #f8fafc);"><i class="fa-solid fa-folder-open d-block mb-1.5 fs-4 opacity-50"></i>No required documents added yet. Type a document name above and click "Add".</div>';
             return;
         }
 
@@ -1174,15 +1192,19 @@
             const children = items.filter(c => c.parent_id === p.id);
             
             const pBox = document.createElement('div');
-            pBox.className = 'req-item-card mb-2';
+            pBox.className = 'req-item-card mb-2 p-2.5 rounded-3 border';
+            pBox.style.background = 'var(--card-bg, #ffffff)';
             
+            const reqBadge = p.is_required 
+                ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5" style="font-size: 0.68rem; font-weight: 600; border-radius: 4px; flex-shrink: 0;">Required</span>' 
+                : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-0.5" style="font-size: 0.68rem; font-weight: 500; border-radius: 4px; flex-shrink: 0;">Optional</span>';
+
             let html = `
                 <div class="d-flex align-items-center justify-content-between gap-2">
                     <div class="d-flex align-items-center gap-2.5 min-w-0">
                         <i class="${p.is_group ? 'fa-solid fa-folder text-warning' : 'fa-solid fa-file-lines text-primary'}" style="font-size: 14px; flex-shrink: 0;"></i>
-                        <span class="req-title text-truncate">${escapeHtml(p.name)}</span>
-                        ${p.is_group ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-0.5" style="font-size: 0.68rem; flex-shrink: 0;">Group Folder</span>' : ''}
-                        ${p.is_required && !p.is_group ? '<span class="text-danger fw-bold" title="Required" style="flex-shrink: 0;">*</span>' : ''}
+                        <span class="req-title text-truncate fw-semibold title-text-adaptive" style="font-size: 0.85rem;">${escapeHtml(p.name)}</span>
+                        ${p.is_group ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-0.5" style="font-size: 0.68rem; flex-shrink: 0;">Group Folder</span>' : reqBadge}
                     </div>
                     <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
                         <button type="button" class="btn btn-sm btn-light border req-action-btn" onclick="editItem('${p.id}')" title="Edit document" style="width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;">
@@ -1202,12 +1224,16 @@
             if (children.length > 0) {
                 html += `<div class="mt-2 ms-3 d-flex flex-column gap-1.5 pt-2 border-top">`;
                 children.forEach(c => {
+                    const cReqBadge = c.is_required 
+                        ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-1.5 py-0.2" style="font-size: 0.64rem; font-weight: 600; border-radius: 3px; flex-shrink: 0;">Required</span>' 
+                        : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-1.5 py-0.2" style="font-size: 0.64rem; font-weight: 500; border-radius: 3px; flex-shrink: 0;">Optional</span>';
+
                     html += `
-                        <div class="req-item-child d-flex align-items-center justify-content-between gap-2">
+                        <div class="req-item-child d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: var(--gray-50, #f8fafc);">
                             <div class="d-flex align-items-center gap-2 min-w-0">
                                 <i class="fa-regular fa-file-lines text-muted" style="font-size: 12px; flex-shrink: 0;"></i>
-                                <span class="req-title text-truncate" style="font-size: 0.82rem;">${escapeHtml(c.name)}</span>
-                                ${c.is_required ? '<span class="text-danger fw-bold" title="Required" style="flex-shrink: 0;">*</span>' : ''}
+                                <span class="req-title text-truncate fw-medium title-text-adaptive" style="font-size: 0.80rem;">${escapeHtml(c.name)}</span>
+                                ${cReqBadge}
                             </div>
                             <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
                                 <button type="button" class="btn btn-sm btn-light border req-action-btn" onclick="editItem('${c.id}')" title="Edit" style="width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px;">
@@ -1326,6 +1352,33 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    function handleBackupFileSelect(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const label = document.getElementById('backupFileChosenLabel');
+            if (label) {
+                label.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                label.classList.remove('text-muted');
+                label.classList.add('text-dark', 'fw-semibold');
+            }
+        }
+    }
+
+    function confirmDbRestore() {
+        const input = document.getElementById('dbBackupFileInput');
+        if (!input || !input.files || input.files.length === 0) {
+            if (window.showToast) {
+                showToast('warning', 'No File Selected', 'Please select a .JSON database backup file first.');
+            } else {
+                alert('Please select a .JSON database backup file first.');
+            }
+            return;
+        }
+        if (confirm('WARNING: Restoring will merge and update database records from this backup file. Are you sure you want to proceed?')) {
+            document.getElementById('dbRestoreForm').submit();
+        }
     }
 </script>
 {% endblock %}

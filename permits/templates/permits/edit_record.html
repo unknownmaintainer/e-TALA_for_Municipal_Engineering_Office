@@ -2,7 +2,9 @@
 {% load static permit_filters %}
 {% load humanize %}
 
-{% block title %}Edit · {{ record.title }} · eTala{% endblock %}
+{% block title %}Edit: {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% else %}{{ record.title }}{% endif %} | eTala{% endblock %}
+
+{% block back_fallback_url %}{% url 'record_detail' record.record_id %}{% endblock %}
 
 {% block breadcrumb %}
 {% if record.is_illegal_construction %}
@@ -59,11 +61,10 @@
                 <div class="content-card-body d-flex flex-column justify-content-between flex-grow-1" style="padding: 24px 28px !important;">
                     <div>
                         <div class="mb-4 border-bottom pb-3.5 d-flex align-items-center justify-content-between">
-                            <h6 class="section-heading mb-0 d-flex align-items-center gap-2.5 fw-bold title-text-adaptive"
-                                style="font-size: 1rem; letter-spacing: 0.01em;">
-                                <i class="fa-solid fa-pen-to-square"
-                                    style="color: var(--primary-brand); font-size: 16px;"></i>
-                                <span>Edit Record Details</span>
+                            <h6 class="fw-bold mb-0 text-uppercase d-flex align-items-center gap-2"
+                                style="font-size:0.74rem; letter-spacing:1px; color: var(--primary-brand, #002855);">
+                                <i class="fa-solid fa-circle-info" style="font-size: 13px; vertical-align: -1px;"></i>
+                                <span>Record Information</span>
                             </h6>
                         </div>
 
@@ -72,23 +73,23 @@
                             <!-- ── 1. VIOLATION INCIDENT FIELDS ────────────────────── -->
                             {% if record.is_illegal_construction %}
                             <div class="col-12">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Structure / Incident Name <span class="text-danger fw-bold">*</span></label>
-                                <input type="text" name="title" class="form-control" value="{{ record.title }}" maxlength="80" required
-                                    placeholder="e.g. Unpermitted Commercial Structure" style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Structure / Incident Name <span class="text-danger fw-bold">*</span></label>
+                                <input type="text" name="title" class="form-control rounded-3" value="{{ record.title }}" maxlength="80" required
+                                    placeholder="e.g. Unpermitted Commercial Structure" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Owner / Violator Name</label>
-                                <input type="text" name="applicant_name" class="form-control"
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Owner / Violator Name</label>
+                                <input type="text" name="applicant_name" class="form-control rounded-3"
                                     value="{{ permit_detail.applicant_name|default:'' }}"
                                     placeholder="e.g. Juan Dela Cruz" maxlength="60"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Barangay <span class="text-danger">*</span></label>
-                                <select name="barangay" class="form-select" required
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger fw-bold">*</span></label>
+                                <select name="barangay" class="form-select rounded-3" required
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select barangay —</option>
                                     {% for b in barangays %}
                                     <option value="{{ b.barangay_id }}" {% if record.barangay and record.barangay.barangay_id == b.barangay_id %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -97,9 +98,9 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Compliance Status</label>
-                                <select name="illegal_compliance_status" class="form-select"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Compliance Status</label>
+                                <select name="illegal_compliance_status" class="form-select rounded-3"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="unresolved" {% if record.illegal_compliance_status == 'unresolved' %}selected{% endif %}>Unresolved (Active Violation)</option>
                                     <option value="pending_permit" {% if record.illegal_compliance_status == 'pending_permit' %}selected{% endif %}>Permit Filed (Under Review)</option>
                                     <option value="resolved" {% if record.illegal_compliance_status == 'resolved' %}selected{% endif %}>Regularized (Permit Issued)</option>
@@ -107,10 +108,10 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Date Discovered / Inspected</label>
-                                <input type="date" name="date_started" class="form-control"
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Date Discovered / Inspected</label>
+                                <input type="date" name="date_started" class="form-control rounded-3"
                                     value="{{ record.date_started|date:'Y-m-d'|default:'' }}"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <!-- ── 2. PERMIT APPLICATION FIELDS ────────────────────── -->
@@ -118,17 +119,17 @@
                             <input type="hidden" name="title" value="{{ record.title }}">
 
                             <div class="col-12">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Applicant / Property Owner <span class="text-danger fw-bold">*</span></label>
-                                <input type="text" name="applicant_name" class="form-control"
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Applicant / Property Owner <span class="text-danger fw-bold">*</span></label>
+                                <input type="text" name="applicant_name" class="form-control rounded-3"
                                     value="{{ permit_detail.applicant_name|default:'' }}"
                                     placeholder="e.g. Juan D. Dela Cruz" maxlength="60" required
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Barangay <span class="text-danger">*</span></label>
-                                <select name="barangay" class="form-select" required
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger fw-bold">*</span></label>
+                                <select name="barangay" class="form-select rounded-3" required
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select barangay —</option>
                                     {% for b in barangays %}
                                     <option value="{{ b.barangay_id }}" {% if record.barangay and record.barangay.barangay_id == b.barangay_id %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -137,10 +138,10 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Permit Type</label>
-                                <select name="permit_type" class="form-select"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="">— Select type —</option>
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Permit Type</label>
+                                <select name="permit_type" class="form-select rounded-3"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    <option value="">— Select permit type —</option>
                                     {% for val, label in permit_types %}
                                     <option value="{{ val }}" {% if permit_detail and permit_detail.permit_type == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -148,10 +149,10 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Building Type</label>
-                                <select name="building_type" class="form-select"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="">— Select type —</option>
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Building Type</label>
+                                <select name="building_type" class="form-select rounded-3"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    <option value="">— Select building type —</option>
                                     {% for val, label in building_types %}
                                     <option value="{{ val }}" {% if permit_detail and permit_detail.building_type == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -159,23 +160,23 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Building Permit Number</label>
-                                <input type="text" name="permit_number" class="form-control"
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Permit Number</label>
+                                <input type="text" name="permit_number" class="form-control rounded-3"
                                     value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Date Issued</label>
-                                <input type="date" name="date_issued" class="form-control"
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Date Issued</label>
+                                <input type="date" name="date_issued" class="form-control rounded-3"
                                     value="{{ permit_detail.date_issued|date:'Y-m-d'|default:record.date_started|date:'Y-m-d' }}"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Record Status <span class="text-danger">*</span></label>
-                                <select name="status" class="form-select" required
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Record Status <span class="text-danger fw-bold">*</span></label>
+                                <select name="status" class="form-select rounded-3" required
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     {% for val, label in status_choices %}
                                     <option value="{{ val }}" {% if record.status == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -185,31 +186,31 @@
                             <!-- ── 3. PROJECT FIELDS ───────────────────────────────── -->
                             {% elif record.record_type == 'Project' %}
                             <div class="col-12">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Project Title / Name <span class="text-danger fw-bold">*</span></label>
-                                <input type="text" name="title" class="form-control" value="{{ record.title }}" maxlength="80" required
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Project Name <span class="text-danger fw-bold">*</span></label>
+                                <input type="text" name="title" class="form-control rounded-3" value="{{ record.title }}" maxlength="80" required
                                     placeholder="e.g. Concreting of Barangay Road"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-12">
-                                <div class="d-flex align-items-center justify-content-between mb-1.5">
-                                    <label class="form-label text-muted small fw-semibold mb-0">Contractor / Entity <span class="text-danger fw-bold">*</span></label>
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Contractor / Implementing Entity <span class="text-danger fw-bold">*</span></label>
                                     <button type="button" class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1 text-primary fw-semibold"
                                         onclick="setEditByAdmin()" style="font-size: 0.74rem;" title="Autofill By Administration">
                                         <i class="fa-solid fa-building-flag" style="font-size: 10px;"></i>
                                         <span>By Admin</span>
                                     </button>
                                 </div>
-                                <input type="text" name="contractor" id="editContractorInput" class="form-control"
+                                <input type="text" name="contractor" id="editContractorInput" class="form-control rounded-3"
                                     value="{{ project_detail.contractor|default:'' }}"
                                     placeholder="e.g. ABC Construction or By Administration" required
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Barangay <span class="text-danger">*</span></label>
-                                <select name="barangay" class="form-select" required
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger fw-bold">*</span></label>
+                                <select name="barangay" class="form-select rounded-3" required
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select barangay —</option>
                                     {% for b in barangays %}
                                     <option value="{{ b.barangay_id }}" {% if record.barangay and record.barangay.barangay_id == b.barangay_id %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -218,10 +219,10 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Project Category / Type</label>
-                                <select name="project_type" class="form-select"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="">— Select type —</option>
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Project Category / Type</label>
+                                <select name="project_type" class="form-select rounded-3"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    <option value="">— Select project type —</option>
                                     {% for val, label in project_types %}
                                     <option value="{{ val }}" {% if project_detail and project_detail.project_type == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -229,17 +230,17 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Project Budget / Cost (₱)</label>
-                                <input type="number" name="project_cost" class="form-control"
-                                    value="{{ project_detail.project_cost|default:'' }}" placeholder="0.00" step="0.01"
-                                    min="0" style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Project Budget / Cost (₱)</label>
+                                <input type="number" name="project_cost" class="form-control rounded-3"
+                                    value="{{ project_detail.project_cost|default:'' }}" placeholder="₱ 0.00" step="0.01"
+                                    min="0" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Funding Source</label>
-                                <select name="funding_source" id="editFundingSourceSelect" class="form-select"
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Funding Source</label>
+                                <select name="funding_source" id="editFundingSourceSelect" class="form-select rounded-3"
                                     onchange="toggleEditFundingOther(this.value)"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="">— Select funding source —</option>
                                     {% for val, label in funding_sources %}
                                     <option value="{{ val }}" {% if project_detail and project_detail.funding_source == val %}selected{% endif %}>{{ label }}</option>
@@ -247,19 +248,11 @@
                                 </select>
                             </div>
 
-                            <div class="col-12" id="editFundingOtherWrapper"
-                                {% if project_detail and project_detail.funding_source == 'Others' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Specify Other Funding Source</label>
-                                <input type="text" name="funding_source_other" class="form-control"
-                                    value="{{ project_detail.funding_source_other|default:'' }}"
-                                    placeholder="Specify other funding source..."
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            </div>
-
+                            <!-- Row 5: Project Status | Date Completed -->
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Project Phase / Status</label>
-                                <select name="project_status" class="form-select"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Project Status</label>
+                                <select name="project_status" class="form-select rounded-3"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="">— Select status —</option>
                                     {% for val, label in project_statuses %}
                                     <option value="{{ val }}" {% if project_detail and project_detail.project_status == val %}selected{% endif %}>{{ label }}</option>
@@ -268,10 +261,19 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Date Completed</label>
-                                <input type="date" name="date_completed" class="form-control"
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Date Completed</label>
+                                <input type="date" name="date_completed" class="form-control rounded-3"
                                     value="{{ record.date_completed|date:'Y-m-d'|default:'' }}"
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                            </div>
+
+                            <div class="col-12" id="editFundingOtherWrapper"
+                                {% if project_detail and project_detail.funding_source == 'Others' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Specify Other Funding Source</label>
+                                <input type="text" name="funding_source_other" class="form-control rounded-3"
+                                    value="{{ project_detail.funding_source_other|default:'' }}"
+                                    placeholder="Specify other funding source..."
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
                             {% endif %}
 
@@ -281,12 +283,12 @@
 
                             <!-- Description -->
                             <div class="col-12">
-                                <label class="form-label text-muted small fw-semibold mb-1.5">Description / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
-                                <textarea name="description" class="form-control char-counted" rows="4" maxlength="500"
-                                    placeholder="Enter record description or inspection findings..."
-                                    style="border-radius: 8px; font-size: 0.86rem; padding: 10px 13px; min-height: 100px;">{{ record.description }}</textarea>
+                                <label class="form-label fw-semibold" style="font-size:0.83rem; color: #334155;">Description / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
+                                <textarea name="description" class="form-control rounded-3 char-counted" rows="3" maxlength="250"
+                                    placeholder="Optional description or remarks..."
+                                    style="font-size: 0.86rem; padding: 10px 13px; min-height: 90px;">{{ record.description }}</textarea>
                                 <div class="text-end text-muted small mt-1 char-counter-lbl"
-                                    style="font-size: 0.72rem;">0 / 500 characters</div>
+                                    style="font-size: 0.72rem;">0 / 250 characters</div>
                             </div>
                         </div>
                     </div>

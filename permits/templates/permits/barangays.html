@@ -1,37 +1,56 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 
-{% block title %}Barangays · eTala{% endblock %}
+{% block title %}Barangays | eTala{% endblock %}
 
 {% block extra_css %}
 <!-- Leaflet Map CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    .leaflet-container, .leaflet-popup, .leaflet-control-layers, .leaflet-tooltip, .custom-brgy-popup, .brgy-map-tooltip {
+    .leaflet-container,
+    .leaflet-popup,
+    .leaflet-control-layers,
+    .leaflet-tooltip,
+    .custom-brgy-popup,
+    .brgy-map-tooltip {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     }
+
     .custom-map-marker:hover {
         transform: scale(1.2);
     }
-    .brgy-card-empty { background: #f8fafc; border: 1px solid #e2e8f0; }
-    .brgy-card-active { background: #ffffff; border: 1px solid #e2e8f0; }
+
+    .brgy-card-empty {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .brgy-card-active {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+    }
+
     .workspace-link-btn {
         color: #64748b !important;
     }
+
     .workspace-link-btn:hover {
         color: #0d9488 !important;
     }
+
     .brgy-card:hover .workspace-link-btn {
         color: #0d9488 !important;
     }
+
     .brgy-card:hover .brgy-card-arrow {
         color: #0284c7 !important;
         transform: translateX(3px);
     }
+
     .dark-mode .brgy-card:hover .brgy-card-arrow {
         color: #38bdf8 !important;
     }
-    
+
     /* ── Map Tooltip & Control Overrides (Light & Dark Mode) ── */
     .brgy-map-tooltip {
         background: #002855 !important;
@@ -45,16 +64,18 @@
         opacity: 1 !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
+
     .brgy-map-tooltip::before {
         border-top-color: #002855 !important;
     }
-    
+
     .dark-mode .brgy-map-tooltip {
         background: #1e293b !important;
         color: #f8fafc !important;
         border-color: #334155 !important;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
     }
+
     .dark-mode .brgy-map-tooltip::before {
         border-top-color: #1e293b !important;
     }
@@ -130,11 +151,13 @@
         box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
         transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     }
+
     .brgy-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 24px rgba(2, 132, 199, 0.12);
         border-color: #0284c7;
     }
+
     .brgy-card:hover .brgy-card-arrow {
         transform: translateX(4px);
         color: #0284c7 !important;
@@ -146,7 +169,13 @@
     }
 
     /* Dark Mode Comprehensive Transitions & Visual Overrides */
-    .brgy-card, #searchBoxWrapper, #sortDropdownBtn, #sortDropdownPanel, .content-card, .brgy-map-card-header, #barangaySearchInput {
+    .brgy-card,
+    #searchBoxWrapper,
+    #sortDropdownBtn,
+    #sortDropdownPanel,
+    .content-card,
+    .brgy-map-card-header,
+    #barangaySearchInput {
         transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
     }
 
@@ -155,13 +184,100 @@
         border-color: #334155 !important;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
     }
+
     .dark-mode .brgy-card:hover {
         border-color: #38bdf8 !important;
         box-shadow: 0 8px 24px rgba(56, 189, 248, 0.18) !important;
     }
+
     .dark-mode .brgy-title-text {
         color: #f8fafc !important;
     }
+
+    /* Card Dropdown Menu Positioning & Dark Mode Parity */
+    .barangay-card-wrapper:has(.dropdown-menu.show),
+    .barangay-card-wrapper:focus-within {
+        z-index: 1050 !important;
+        position: relative !important;
+    }
+    .brgy-card:has(.dropdown-menu.show) {
+        z-index: 1050 !important;
+        overflow: visible !important;
+    }
+    .brgy-card .dropdown-menu {
+        position: absolute !important;
+        right: 0 !important;
+        top: 100% !important;
+        left: auto !important;
+        transform: none !important;
+        margin-top: 4px !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+        z-index: 999999 !important;
+    }
+
+    .dark-mode .brgy-card .dropdown-menu,
+    [data-bs-theme="dark"] .brgy-card .dropdown-menu {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .dark-mode .brgy-card .dropdown-item,
+    [data-bs-theme="dark"] .brgy-card .dropdown-item {
+        color: #f8fafc !important;
+    }
+
+    .dark-mode .brgy-card .dropdown-item:hover,
+    [data-bs-theme="dark"] .brgy-card .dropdown-item:hover {
+        background: #334155 !important;
+    }
+
+    /* Clean Soft-Tint Borderless ZIP Button in Card */
+    .zip-download-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        height: 24px !important;
+        padding: 0 8px !important;
+        font-size: 0.70rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.02em !important;
+        color: #0284c7 !important;
+        background: rgba(2, 132, 199, 0.08) !important;
+        border: none !important;
+        border-radius: 6px !important;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        text-decoration: none !important;
+    }
+    .zip-download-btn:hover {
+        background: #0284c7 !important;
+        color: #ffffff !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.28) !important;
+    }
+    .zip-download-btn:active {
+        transform: translateY(0) scale(0.97) !important;
+    }
+    .dark-mode .zip-download-btn,
+    [data-bs-theme="dark"] .zip-download-btn {
+        background: rgba(56, 189, 248, 0.12) !important;
+        border: none !important;
+        color: #38bdf8 !important;
+    }
+    .dark-mode .zip-download-btn:hover,
+    [data-bs-theme="dark"] .zip-download-btn:hover {
+        background: #0284c7 !important;
+        color: #ffffff !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 10px rgba(2, 132, 199, 0.45) !important;
+    }
+
     .dark-mode #searchBoxWrapper,
     .dark-mode #sortDropdownBtn,
     .dark-mode #mapLayerSelect {
@@ -169,44 +285,71 @@
         border-color: #334155 !important;
         color: #f8fafc !important;
     }
+
     .dark-mode #barangaySearchInput {
         color: #f8fafc !important;
     }
+
     .dark-mode #sortDropdownPanel {
         background: #1e293b !important;
         border-color: #334155 !important;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
     }
+
     .dark-mode .dropdown-item-custom {
         color: #f8fafc !important;
     }
+
     .dark-mode .dropdown-item-custom:hover {
         background: #334155 !important;
     }
+
     .dark-mode #resultCountText {
         color: #94a3b8 !important;
     }
+
     .dark-mode .brgy-map-card-header {
         background: #1e293b !important;
         border-color: #334155 !important;
     }
+
     .dark-mode .badge-empty-records {
         background: #334155 !important;
         color: #cbd5e1 !important;
         border-color: #475569 !important;
     }
+
     .dark-mode .badge-has-records {
         background: rgba(22, 101, 52, 0.35) !important;
         color: #4ade80 !important;
         border-color: rgba(34, 197, 94, 0.4) !important;
     }
 
-    /* Map Responsive Height */
-    #carigaraMap {
+    /* Map Responsive Height & Dark Mode Flash Prevention */
+    #carigaraMap,
+    .leaflet-container {
         height: 360px !important;
         min-height: 300px !important;
         border-bottom-left-radius: 12px;
         border-bottom-right-radius: 12px;
+        background: #f8fafc;
+        transition: background-color 0.2s ease;
+    }
+
+    .dark-mode #carigaraMap,
+    .dark-mode .leaflet-container,
+    .dark-mode .leaflet-pane,
+    .dark-mode .leaflet-tile-pane,
+    .dark-mode .leaflet-layer,
+    .dark-mode .leaflet-tile-container,
+    [data-bs-theme="dark"] #carigaraMap,
+    [data-bs-theme="dark"] .leaflet-container,
+    [data-bs-theme="dark"] .leaflet-pane,
+    [data-bs-theme="dark"] .leaflet-tile-pane,
+    [data-bs-theme="dark"] .leaflet-layer,
+    [data-bs-theme="dark"] .leaflet-tile-container {
+        background: #0f172a !important;
+        background-color: #0f172a !important;
     }
 
     /* Ensure map tiles remain 100% natural, clear, and un-darkened/un-inverted */
@@ -321,6 +464,7 @@
             opacity: 0;
             transform: translateY(18px) scale(0.985);
         }
+
         100% {
             opacity: 1;
             transform: translateY(0) scale(1);
@@ -345,6 +489,7 @@
         background: #ffffff !important;
         box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
     }
+
     .dark-mode #mapColumn .content-card,
     [data-bs-theme="dark"] #mapColumn .content-card {
         border-color: #334155 !important;
@@ -405,10 +550,18 @@
 
     .dark-mode .map-layer-select-custom,
     [data-bs-theme="dark"] .map-layer-select-custom {
+        color-scheme: dark !important;
         background-color: #0f172a !important;
         border-color: #334155 !important;
         color: #f1f5f9 !important;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E") !important;
+    }
+
+    .dark-mode .map-layer-select-custom option,
+    [data-bs-theme="dark"] .map-layer-select-custom option {
+        color-scheme: dark !important;
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
     }
 
     .dark-mode .map-layer-select-custom:focus,
@@ -484,7 +637,7 @@
             height: 100% !important;
             z-index: 100 !important;
         }
-        
+
         .split-row-active #mapColumn .map-sticky-wrapper,
         .split-row-active #mapColumn .content-card,
         .split-row-active #mapColumn .content-card-body {
@@ -494,17 +647,17 @@
             overflow: hidden !important;
             border-radius: 12px !important;
         }
-        
+
         .split-row-active #mapColumn .brgy-map-card-header {
             flex-shrink: 0 !important;
         }
-        
+
         .split-row-active #mapColumn #carigaraMap {
             flex: 1 !important;
             height: 100% !important;
             min-height: 0 !important;
         }
-        
+
         /* Right Cards Pane is the ONLY element that scrolls! */
         .split-cards-pane {
             height: calc(100vh - 128px) !important;
@@ -514,14 +667,16 @@
             padding-bottom: 20px !important;
             scrollbar-width: thin;
         }
-        
+
         .split-cards-pane::-webkit-scrollbar {
             width: 6px;
         }
+
         .split-cards-pane::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 4px;
         }
+
         .dark-mode .split-cards-pane::-webkit-scrollbar-thumb {
             background: #334155;
         }
@@ -574,36 +729,38 @@
 <div class="etala-page-header mb-2 py-0.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <h1 class="etala-page-title mb-0" style="font-size: 1.35rem; line-height: 1.2;">Barangay Workspaces</h1>
-        <p class="etala-page-subtitle mb-0" style="font-size: 0.78rem; line-height: 1.3;">Geographic records archiving across all {{ total_barangays_count|default:49 }} Carigara barangays.</p>
+        <p class="etala-page-subtitle mb-0" style="font-size: 0.78rem; line-height: 1.3;">Geographic records archiving across Carigara barangays.</p>
     </div>
-    
-    <div class="etala-header-actions d-flex align-items-center gap-2 flex-wrap">
-        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-        <button type="button" class="premium-btn btn-add" data-bs-toggle="modal" data-bs-target="#addBarangayModal" title="Register New Barangay" style="height: 38px; border-radius: 12px; font-size: 0.80rem;">
+    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="premium-btn btn-add text-nowrap" data-bs-toggle="modal" data-bs-target="#addBarangayModal" title="Register a new barangay">
             <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
             <span class="btn-divider"></span>
             <span>Add Barangay</span>
         </button>
-        {% endif %}
     </div>
+    {% endif %}
 </div>
 
 <!-- ══ ULTRA-CLEAN & INTUITIVE DIRECTORY TOOLBAR (TIGHT & SPACE-EFFICIENT) ═══ -->
 <div class="d-flex align-items-center justify-content-between gap-2.5 mb-2 flex-wrap">
-    <!-- Left: Instant Search -->
-    <div class="position-relative flex-grow-1" style="max-width: 480px; min-width: 230px;">
-        <div class="etala-search-pill-wrapper" id="searchBoxWrapper" style="height: 38px; border-radius: 12px;">
+    <!-- Left: Compact Instant Search -->
+    <div class="position-relative" style="flex: 0 0 260px; width: 260px; max-width: 100%;">
+        <div class="etala-search-pill-wrapper" id="searchBoxWrapper" style="height: 34px; border-radius: 10px; padding: 0 10px; gap: 6px;">
             <span class="etala-search-pill-icon" id="searchIcon">
-                <i class="fa-solid fa-magnifying-glass" style="font-size: 13px;"></i>
+                <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
             </span>
-            <input type="text" id="barangaySearchInput" value="{{ q|default:'' }}" class="etala-search-pill-input search-text-input"
-                   placeholder="Search 49 Carigara barangays..." autocomplete="off" style="font-size: 0.82rem;">
+            <input type="text" id="barangaySearchInput" value="{{ q|default:'' }}"
+                class="etala-search-pill-input search-text-input" placeholder="Search 49 Carigara barangays..."
+                autocomplete="off" style="font-size: 0.78rem;">
             <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
+                style="width: 12px; height: 12px; margin-right: 4px; flex-shrink: 0;">
                 <span class="visually-hidden">Searching...</span>
             </div>
-            <button type="button" id="clearSearchBtn" class="btn border-0 p-0 {% if not q %}d-none{% endif %} text-muted clear-search-icon" style="background: transparent;" title="Clear search">
-                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+            <button type="button" id="clearSearchBtn"
+                class="btn border-0 p-0 {% if not q %}d-none{% endif %} text-muted clear-search-icon"
+                style="background: transparent;" title="Clear search">
+                <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
             </button>
         </div>
     </div>
@@ -611,35 +768,35 @@
     <!-- Right: 2 Intuitive View Tabs + Show Map Button -->
     <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
         <!-- 2 Practical Choices: Alphabetical vs Most Records -->
-        <div class="scope-segmented-control flex-shrink-0" style="height: 38px; border-radius: 12px; padding: 2.5px;">
+        <div class="scope-segmented-control flex-shrink-0" style="height: 34px;">
             <a href="javascript:void(0)" onclick="selectSortOption('a-z')"
-               class="scope-pill-btn {% if sort != 'most_records' %}active{% endif %}"
-               title="View in alphabetical order (A to Z)" style="font-size: 0.78rem; padding: 0 10px;">
-                <i class="fa-solid fa-arrow-down-a-z" style="font-size: 12px;"></i>
+                class="scope-pill-btn {% if sort != 'most_records' %}active{% endif %}"
+                title="View in alphabetical order (A to Z)">
+                <i class="fa-solid fa-arrow-down-a-z"></i>
                 <span>Alphabetical</span>
             </a>
             <a href="javascript:void(0)" onclick="selectSortOption('most_records')"
-               class="scope-pill-btn {% if sort == 'most_records' %}active{% endif %}"
-               title="View barangays with active records first" style="font-size: 0.78rem; padding: 0 10px;">
-                <i class="fa-solid fa-layer-group" style="font-size: 12px;"></i>
+                class="scope-pill-btn {% if sort == 'most_records' %}active{% endif %}"
+                title="View barangays with active records first">
+                <i class="fa-solid fa-layer-group"></i>
                 <span>Most Records</span>
             </a>
         </div>
 
         <!-- Show Map Toggle Button -->
-        <button type="button" id="toggleMapBtn" class="premium-btn btn-view text-nowrap" title="Toggle GIS Map View" style="height: 38px; border-radius: 12px; font-size: 0.80rem;">
-            <span class="btn-icon"><i class="fa-solid fa-map-location-dot" id="toggleMapIcon"></i></span>
+        <button type="button" id="toggleMapBtn" class="premium-btn btn-view text-nowrap" title="Toggle GIS Map View"
+            style="height: 34px; border-radius: 10px; font-size: 0.78rem; padding: 0 12px;">
+            <span class="btn-icon"><i class="fa-solid fa-map-location-dot" id="toggleMapIcon" style="font-size: 12px;"></i></span>
             <span class="btn-divider"></span>
             <span id="toggleMapLabel">Show Map</span>
         </button>
     </div>
 </div>
 
-
 <!-- ══ RESULT COUNT ROW (COMPACT) ═════════════════════════════════════════════ -->
 <div class="d-flex align-items-center justify-content-between mb-2 px-1">
-    <div class="text-muted small font-medium" style="font-size: 0.76rem; color: #64748B;">
-        <span id="resultCountText">Showing {{ shown_barangays_count|default:barangays|length }} of {{ total_barangays_count|default:49 }} barangays</span>
+    <div class="text-muted small font-medium" style="font-size: 0.74rem; color: var(--gray-500, #64748B);">
+        <span id="resultCountText">Showing {{ shown_barangays_count|default:barangays|length }} of 49 barangays</span>
     </div>
 </div>
 
@@ -650,44 +807,51 @@
         <div class="map-sticky-wrapper">
             <div class="content-card overflow-hidden" style="border-radius: 12px; border: 1px solid #cbd5e1;">
                 <div class="content-card-body p-0 d-flex flex-column h-100">
-                    <div class="brgy-map-card-header d-flex align-items-center justify-content-between flex-nowrap gap-1 px-2.5 py-1.5" style="min-height: 40px; box-sizing: border-box;">
+                    <div class="brgy-map-card-header d-flex align-items-center justify-content-between flex-nowrap gap-1 px-2.5 py-1.5"
+                        style="min-height: 40px; box-sizing: border-box;">
                         <!-- Left: Map Title -->
                         <div class="d-flex align-items-center gap-1.5 flex-shrink-0 min-w-0">
-                            <i class="fa-solid fa-map-location-dot text-primary" style="font-size: 13px; color: #0284c7 !important;"></i>
-                            <span class="fw-bold text-dark text-truncate" style="font-size: 0.82rem; letter-spacing: -0.01em;">Barangay Map</span>
+                            <i class="fa-solid fa-map-location-dot text-primary"
+                                style="font-size: 13px; color: #0284c7 !important;"></i>
+                            <span class="fw-bold text-dark text-truncate"
+                                style="font-size: 0.82rem; letter-spacing: -0.01em;">Barangay Map</span>
                         </div>
 
                         <!-- Right: Balanced Side-by-Side Toolbar -->
                         <div class="d-flex align-items-center flex-nowrap gap-1.5 ms-auto flex-shrink-0">
-                            <!-- Clean Map Type Selector -->
-                            <select id="mapLayerSelect" class="map-layer-select-custom" onchange="switchMapLayer(this.value)" title="Map Layer">
-                                <option value="google_terrain" selected>3D Terrain</option>
+                            <!-- Clean Map Type Selector (Only 100% Reliable Working Layers) -->
+                            <select id="mapLayerSelect" class="map-layer-select-custom"
+                                onchange="switchMapLayer(this.value)" title="Map Layer">
+                                <option value="google_streets" selected>Street</option>
                                 <option value="google_hybrid">Satellite</option>
-                                <option value="google_streets">Street</option>
-                                <option value="cyclosm">Topographic</option>
+                                <option value="google_terrain">Terrain</option>
                             </select>
-                            
+
                             <!-- Heatmap Switch Pill -->
                             <label class="map-heatmap-pill m-0" for="heatmapToggle" title="Toggle Heatmap">
                                 <div class="form-check form-switch mb-0 p-0 m-0 d-flex align-items-center">
-                                    <input class="form-check-input m-0" type="checkbox" id="heatmapToggle" onchange="toggleHeatmap(this.checked)" style="cursor: pointer; height: 13px; width: 23px; float: none;">
+                                    <input class="form-check-input m-0" type="checkbox" id="heatmapToggle"
+                                        onchange="toggleHeatmap(this.checked)"
+                                        style="cursor: pointer; height: 13px; width: 23px; float: none;">
                                 </div>
-                                <span class="heatmap-label" style="font-size: 0.72rem; font-weight: 600; user-select: none;">Heatmap</span>
+                                <span class="heatmap-label"
+                                    style="font-size: 0.72rem; font-weight: 600; user-select: none;">Heatmap</span>
                             </label>
                         </div>
                     </div>
-                    
+
                     <div id="carigaraMap"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    
+
     <!-- Cards Column -->
     <div class="col-12" id="cardsColumn">
         <!-- Dynamic client-side empty state -->
-        <div class="content-card d-none mb-4 p-4 text-center" id="noBarangaysState" style="border-radius: 12px; border: 1px solid #E3E5E8;">
+        <div class="content-card d-none mb-4 p-4 text-center" id="noBarangaysState"
+            style="border-radius: 12px; border: 1px solid #E3E5E8;">
             <div class="empty-state-unified py-4">
                 <i class="fa-solid fa-folder-open text-muted mb-2" style="font-size: 28px;"></i>
                 <h6 class="fw-bold text-dark">No barangays found</h6>
@@ -697,91 +861,110 @@
 
         <!-- Barangay Cards Responsive Grid (auto-fill minmax 240px, gap 14px) -->
         {% if barangays %}
-        <div id="barangayGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px;">
+        <div id="barangayGrid"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px;">
             {% for b in barangays %}
-            <div class="barangay-card-wrapper" 
-                 data-name="{{ b.barangay_name|lower }}" 
-                 data-id="{{ b.barangay_id }}" 
-                 data-lat="{{ b.latitude|default:'' }}"
-                 data-lng="{{ b.longitude|default:'' }}"
-                 data-total="{{ b.total_records }}"
-                 data-index="{{ forloop.counter0 }}">
-                    <div class="brgy-card p-3.5 {% if b.total_records == 0 %}brgy-card-empty{% else %}brgy-card-active{% endif %}" id="brgy-card-{{ b.barangay_id }}" data-href="{% url 'barangay_workspace' b.barangay_id %}"
-                         style="cursor: pointer; transition: all 0.2s ease; border-radius: 12px; min-height: 90px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="barangay-card-wrapper" data-name="{{ b.barangay_name|lower }}" data-id="{{ b.barangay_id }}"
+                data-lat="{{ b.latitude|default:'' }}" data-lng="{{ b.longitude|default:'' }}"
+                data-total="{{ b.total_records }}" data-index="{{ forloop.counter0 }}">
+                <div class="brgy-card p-3.5 {% if b.total_records == 0 %}brgy-card-empty{% else %}brgy-card-active{% endif %}"
+                    id="brgy-card-{{ b.barangay_id }}" data-href="{% url 'barangay_workspace' b.barangay_id %}"
+                    onclick="if (!event.target.closest('button, .dropdown, .dropdown-menu, .zip-download-btn')) { window.location.href='{% url 'barangay_workspace' b.barangay_id %}'; }"
+                    style="cursor: pointer; transition: all 0.2s ease; border-radius: 12px; min-height: 90px; display: flex; flex-direction: column; justify-content: space-between;">
 
-                        <!-- TOP ROW: Folder Icon + Barangay Name + Clean Options -->
-                        <div class="d-flex align-items-center justify-content-between gap-2">
-                            <a href="{% url 'barangay_workspace' b.barangay_id %}" class="d-flex align-items-center gap-2 min-w-0 flex-grow-1 text-decoration-none brgy-title-link">
-                                <i class="fa-solid fa-folder-closed" style="font-size: 16px; color: #0284c7; flex-shrink: 0;"></i>
-                                <span class="fw-semibold text-dark brgy-title-text" style="font-size: 0.88rem; line-height: 1.25; word-break: normal;" title="{{ b.barangay_name }}">
-                                    {{ b.barangay_name }}
-                                </span>
-                            </a>
+                    <!-- TOP ROW: Folder Icon + Barangay Name + Clean Options -->
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                        <a href="{% url 'barangay_workspace' b.barangay_id %}"
+                            class="d-flex align-items-center gap-2 min-w-0 flex-grow-1 text-decoration-none brgy-title-link">
+                            <i class="fa-solid fa-folder-closed"
+                                style="font-size: 16px; color: #0284c7; flex-shrink: 0;"></i>
+                            <span class="fw-semibold text-dark brgy-title-text"
+                                style="font-size: 0.88rem; line-height: 1.25; word-break: normal;"
+                                title="{{ b.barangay_name }}">
+                                {{ b.barangay_name }}
+                            </span>
+                        </a>
 
-                            <!-- Options / Chevron -->
-                            {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-                            <div class="flex-shrink-0" onclick="event.stopPropagation();">
-                                <div class="dropdown d-inline-block position-relative" onclick="event.stopPropagation();">
-                                    <button type="button" class="row-action-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" style="padding: 3px 6px; line-height: 1; border: none; background: transparent; color: #94a3b8; border-radius: 6px;">
-                                        <i class="fa-solid fa-ellipsis-vertical" style="font-size: 12px;"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg py-1" style="min-width: 140px; font-size: 0.8rem; border-radius: 8px; z-index: 99999; background: #ffffff;" onclick="event.stopPropagation();">
-                                        <li>
-                                            <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-dark" 
-                                                    data-id="{{ b.barangay_id }}"
-                                                    data-name="{{ b.barangay_name|escapejs }}"
-                                                    data-lat="{{ b.latitude|default:'' }}"
-                                                    data-lng="{{ b.longitude|default:'' }}"
-                                                    onclick="openEditBarangayModal(this.dataset.id, this.dataset.name, this.dataset.lat, this.dataset.lng)">
-                                                <i class="fa-solid fa-pen" style="font-size: 11px; color: #1E3A8A;"></i> Edit
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-danger" 
-                                                    data-id="{{ b.barangay_id }}"
-                                                    data-name="{{ b.barangay_name|escapejs }}"
-                                                    data-count="{{ b.total_records }}"
-                                                    onclick="confirmDeleteBarangay(this.dataset.id, this.dataset.name, this.dataset.count)">
-                                                <i class="fa-solid fa-trash-can" style="font-size: 11px; color: #ef4444;"></i> Delete
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </div>
+                        <!-- Options / Chevron -->
+                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                        <div class="flex-shrink-0" onclick="event.stopPropagation();">
+                            <div class="dropdown d-inline-block position-relative" onclick="event.stopPropagation();">
+                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
+                                    data-bs-display="static" aria-expanded="false"
+                                    data-bs-auto-close="true" onclick="event.stopPropagation();"
+                                    style="padding: 3px 6px; line-height: 1; border: none; background: transparent; color: #94a3b8; border-radius: 6px;">
+                                    <i class="fa-solid fa-ellipsis-vertical" style="font-size: 12px;"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-lg py-1"
+                                    style="min-width: 135px; font-size: 0.8rem; border-radius: 8px; z-index: 99999;"
+                                    onclick="event.stopPropagation();">
+                                    <li>
+                                        <button type="button"
+                                            class="dropdown-item d-flex align-items-center gap-2 py-1.5"
+                                            data-id="{{ b.barangay_id }}" data-name="{{ b.barangay_name|escapejs }}"
+                                            data-lat="{{ b.latitude|default:'' }}"
+                                            data-lng="{{ b.longitude|default:'' }}"
+                                            onclick="openEditBarangayModal(this.dataset.id, this.dataset.name, this.dataset.lat, this.dataset.lng)">
+                                            <i class="fa-solid fa-pen" style="font-size: 11px; color: #0284c7;"></i>
+                                            <span>Edit</span>
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button"
+                                            class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-danger"
+                                            data-id="{{ b.barangay_id }}" data-name="{{ b.barangay_name|escapejs }}"
+                                            data-count="{{ b.total_records }}"
+                                            onclick="confirmDeleteBarangay(this.dataset.id, this.dataset.name, this.dataset.count)">
+                                            <i class="fa-solid fa-trash-can"
+                                                style="font-size: 11px; color: #ef4444;"></i>
+                                            <span>Delete</span>
+                                        </button>
+                                    </li>
+                                </ul>
                             </div>
-                            {% else %}
-                            <a href="{% url 'barangay_workspace' b.barangay_id %}" class="text-muted">
-                                <i class="fa-solid fa-chevron-right text-muted" style="font-size: 11px; color: #94A3B8;"></i>
-                            </a>
-                            {% endif %}
                         </div>
-
-                        <!-- BOTTOM ROW: Records Pill Badge -->
-                        <div class="d-flex align-items-center justify-content-between mt-2 pt-1">
-                            {% if b.total_records > 0 %}
-                            <div class="d-flex align-items-center gap-1.5">
-                                <a href="{% url 'barangay_workspace' b.barangay_id %}" class="badge badge-has-records text-decoration-none" style="font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
-                                    <i class="fa-solid fa-file-lines" style="font-size: 9px;"></i>
-                                    {{ b.total_records }} record{{ b.total_records|pluralize }}
-                                </a>
-                                <a href="{% url 'download_barangay_zip' b.barangay_id %}" download class="zip-download-btn text-decoration-none" title="Download ZIP Archive for {{ b.barangay_name }}">
-                                    <i class="fa-solid fa-file-zipper"></i>
-                                    <span class="d-none d-sm-inline ms-1">ZIP</span>
-                                </a>
-                            </div>
-                            {% else %}
-                            <a href="{% url 'barangay_workspace' b.barangay_id %}" class="badge badge-empty-records text-decoration-none" style="font-size: 0.72rem; font-weight: 500; padding: 4px 10px; border-radius: 12px; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; display: inline-flex; align-items: center; gap: 4px;">
-                                <i class="fa-solid fa-file" style="font-size: 9px; opacity: 0.7;"></i>
-                                0 records
-                            </a>
-                            {% endif %}
-                        </div>
+                        {% else %}
+                        <a href="{% url 'barangay_workspace' b.barangay_id %}" class="text-muted">
+                            <i class="fa-solid fa-chevron-right text-muted"
+                                style="font-size: 11px; color: #94A3B8;"></i>
+                        </a>
+                        {% endif %}
                     </div>
+
+                    <!-- BOTTOM ROW: Records Pill Badge -->
+                    <div class="d-flex align-items-center justify-content-between mt-2 pt-1">
+                        {% if b.total_records > 0 %}
+                        <div class="d-flex align-items-center gap-1.5">
+                            <a href="{% url 'barangay_workspace' b.barangay_id %}"
+                                class="badge badge-has-records text-decoration-none"
+                                style="font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-file-lines" style="font-size: 9px;"></i>
+                                {{ b.total_records }} record{{ b.total_records|pluralize }}
+                            </a>
+                            <a href="{% url 'download_barangay_zip' b.barangay_id %}" download
+                                class="zip-download-btn text-decoration-none"
+                                title="Download ZIP Archive for {{ b.barangay_name }}">
+                                <i class="fa-solid fa-file-zipper"></i>
+                                <span class="d-none d-sm-inline ms-1">ZIP</span>
+                            </a>
+                        </div>
+                        {% else %}
+                        <a href="{% url 'barangay_workspace' b.barangay_id %}"
+                            class="badge badge-empty-records text-decoration-none"
+                            style="font-size: 0.72rem; font-weight: 500; padding: 4px 10px; border-radius: 12px; background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-file" style="font-size: 9px; opacity: 0.7;"></i>
+                            0 records
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
         <!-- Server-side fallback empty state -->
-        <div class="content-card p-4 text-center" id="serverEmptyState" style="border-radius: 12px; border: 1px solid #E3E5E8;">
+        <div class="content-card p-4 text-center" id="serverEmptyState"
+            style="border-radius: 12px; border: 1px solid #E3E5E8;">
             <div class="empty-state-unified py-4">
                 <i class="fa-solid fa-folder-open text-muted mb-2" style="font-size: 28px;"></i>
                 <h6 class="fw-bold text-dark">No barangays found</h6>
@@ -796,106 +979,113 @@
 
 <!-- ══ MODALS (RENDERING IN CONTENT BLOCK TO ENSURE DOM INJECTION) ══ -->
 
-<!-- ══ MODALS (RENDERING IN CONTENT BLOCK TO ENSURE DOM INJECTION) ══ -->
-
-<!-- Add Barangay Modal -->
+<!-- Add Barangay Modal (Ultra-Compact, Fits All Viewports) -->
 <div class="modal fade" id="addBarangayModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #e0f2fe; color: #0284c7;">
-                        <i class="fa-solid fa-circle-plus" style="font-size: 16px;"></i>
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 460px; margin: 0.75rem auto;">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 16px; overflow: hidden; background: var(--bg-surface, #ffffff);">
+            <div class="modal-header border-bottom px-3.5 py-2.5 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                        style="width: 32px; height: 32px; background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+                        <i class="fa-solid fa-circle-plus" style="font-size: 15px;"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Add New Barangay</h5>
-                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Register a municipality territory</p>
+                        <h5 class="modal-title fw-bold title-text-adaptive mb-0" style="font-size: 0.96rem;">Add New Barangay</h5>
+                        <p class="text-muted mb-0" style="font-size: 0.72rem;">Carigara, Leyte territory</p>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form action="{% url 'barangays' %}" method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="add_barangay">
+            <form action="{% url 'barangays' %}" method="POST" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_barangay">
+                <input type="hidden" name="latitude" id="add_latitude" value="11.29800">
+                <input type="hidden" name="longitude" id="add_longitude" value="124.68900">
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small mb-1">Barangay Name <span class="text-danger">*</span></label>
-                        <input type="text" name="barangay_name" maxlength="50" class="form-control form-control-sm obo-input" placeholder="e.g. Bagong Lipunan" required>
+                <div class="modal-body p-3.5">
+                    <div class="mb-2.5">
+                        <label class="form-label fw-semibold title-text-adaptive small mb-1" style="font-size: 0.80rem;">
+                            Barangay Name <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="barangay_name" maxlength="50"
+                            class="form-control form-control-sm obo-input" placeholder="e.g. Bagong Lipunan" required autofocus
+                            style="font-size: 0.84rem;">
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small mb-1"><i class="fa-solid fa-location-dot me-1 text-primary"></i>Coordinates (Optional)</label>
-                        <div class="row g-2 mb-1">
-                            <div class="col-6">
-                                <input type="number" step="any" name="latitude" id="add_latitude" class="form-control form-control-sm obo-input" placeholder="Latitude (auto)">
-                            </div>
-                            <div class="col-6">
-                                <input type="number" step="any" name="longitude" id="add_longitude" class="form-control form-control-sm obo-input" placeholder="Longitude (auto)">
-                            </div>
+                    <div>
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label fw-semibold title-text-adaptive small mb-0" style="font-size: 0.80rem;">
+                                <i class="fa-solid fa-location-dot me-1 text-danger"></i>Location Pin
+                            </label>
+                            <span class="text-muted" style="font-size: 0.70rem;">Click map to place pin</span>
                         </div>
-                        <p class="text-muted mb-0" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-info me-1"></i>Leaving blank will automatically pin to Carigara center.</p>
+                        <div id="add_map_picker" style="height: 150px; width: 100%; border-radius: 10px; border: 1px solid var(--border-color, #cbd5e1); background: #e2e8f0; overflow: hidden;"></div>
                     </div>
+                </div>
 
-                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
-                            <i class="fa-solid fa-plus"></i> <span>Add Barangay</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+                <div class="modal-footer px-3.5 py-2.5 border-top d-flex justify-content-between align-items-center">
+                    <button type="button" class="etala-btn etala-btn-secondary" data-bs-dismiss="modal" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">Cancel</button>
+                    <button type="submit" class="etala-btn etala-btn-primary" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">
+                        <i class="fa-solid fa-plus me-1"></i> <span>Add Barangay</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<!-- Edit Barangay Modal -->
+<!-- Edit Barangay Modal (Ultra-Compact, Fits All Viewports) -->
 <div class="modal fade" id="editBarangayModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #e0f2fe; color: #0284c7;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 460px; margin: 0.75rem auto;">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 16px; overflow: hidden; background: var(--bg-surface, #ffffff);">
+            <div class="modal-header border-bottom px-3.5 py-2.5 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                        style="width: 32px; height: 32px; background: rgba(2, 132, 199, 0.12); color: #0284c7;">
                         <i class="fa-solid fa-pen-to-square" style="font-size: 15px;"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Edit Barangay</h5>
-                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Update barangay name or geographic pin</p>
+                        <h5 class="modal-title fw-bold title-text-adaptive mb-0" style="font-size: 0.96rem;">Edit Barangay</h5>
+                        <p class="text-muted mb-0" style="font-size: 0.72rem;">Update territory name or location pin</p>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
-                <form action="{% url 'barangays' %}" method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="edit_barangay">
-                    <input type="hidden" name="barangay_id" id="edit_barangay_id">
+            <form action="{% url 'barangays' %}" method="POST" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_barangay">
+                <input type="hidden" name="barangay_id" id="edit_barangay_id">
+                <input type="hidden" name="latitude" id="edit_latitude">
+                <input type="hidden" name="longitude" id="edit_longitude">
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small mb-1">Barangay Name <span class="text-danger">*</span></label>
-                        <input type="text" name="barangay_name" id="edit_barangay_name" maxlength="50" class="form-control form-control-sm obo-input" placeholder="Enter barangay name" required>
+                <div class="modal-body p-3.5">
+                    <div class="mb-2.5">
+                        <label class="form-label fw-semibold title-text-adaptive small mb-1" style="font-size: 0.80rem;">
+                            Barangay Name <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="barangay_name" id="edit_barangay_name" maxlength="50"
+                            class="form-control form-control-sm obo-input" placeholder="Enter barangay name" required
+                            style="font-size: 0.84rem;">
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold text-dark small mb-1"><i class="fa-solid fa-location-dot me-1 text-primary"></i>Coordinates (Optional)</label>
-                        <div class="row g-2 mb-1">
-                            <div class="col-6">
-                                <input type="number" step="any" name="latitude" id="edit_latitude" class="form-control form-control-sm obo-input" placeholder="Latitude">
-                            </div>
-                            <div class="col-6">
-                                <input type="number" step="any" name="longitude" id="edit_longitude" class="form-control form-control-sm obo-input" placeholder="Longitude">
-                            </div>
+                    <div>
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label fw-semibold title-text-adaptive small mb-0" style="font-size: 0.80rem;">
+                                <i class="fa-solid fa-location-dot me-1 text-danger"></i>Location Pin
+                            </label>
+                            <span class="text-muted" style="font-size: 0.70rem;">Click map or drag marker</span>
                         </div>
+                        <div id="edit_map_picker" style="height: 150px; width: 100%; border-radius: 10px; border: 1px solid var(--border-color, #cbd5e1); background: #e2e8f0; overflow: hidden;"></div>
                     </div>
+                </div>
 
-                    <div class="modal-footer px-0 pb-0 pt-3 border-top d-flex justify-content-between mt-4">
-                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-sm" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
-                            <i class="fa-solid fa-floppy-disk"></i> <span>Save Changes</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+                <div class="modal-footer px-3.5 py-2.5 border-top d-flex justify-content-between align-items-center">
+                    <button type="button" class="etala-btn etala-btn-secondary" data-bs-dismiss="modal" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">Cancel</button>
+                    <button type="submit" class="etala-btn etala-btn-primary" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> <span>Save Changes</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -914,769 +1104,862 @@
 <!-- Leaflet Map JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-let editBarangayModalObj;
+    let editBarangayModalObj;
+    let addPickerMap = null;
+    let addPickerMarker = null;
+    let editPickerMap = null;
+    let editPickerMarker = null;
 
-function openEditBarangayModal(id, name, lat, lng) {
-    document.getElementById('edit_barangay_id').value = id;
-    document.getElementById('edit_barangay_name').value = name;
-    document.getElementById('edit_latitude').value = lat || '';
-    document.getElementById('edit_longitude').value = lng || '';
-    if (!editBarangayModalObj) {
-        editBarangayModalObj = new bootstrap.Modal(document.getElementById('editBarangayModal'));
-    }
-    editBarangayModalObj.show();
-}
+    function initPickerMap(mapContainerId, latInputId, lngInputId, initialLat, initialLng) {
+        const defaultLat = (initialLat && !isNaN(initialLat)) ? parseFloat(initialLat) : 11.2980;
+        const defaultLng = (initialLng && !isNaN(initialLng)) ? parseFloat(initialLng) : 124.6890;
 
-function confirmDeleteBarangay(id, name, totalRecords) {
-    if (totalRecords > 0) {
-        if (window.showToast) {
-            showToast('warning', 'Action Prevented', "Cannot delete '" + name + "' because it contains active engineering records. Please reassign or delete the records first.");
+        if (mapContainerId === 'add_map_picker') {
+            if (addPickerMap) { addPickerMap.remove(); addPickerMap = null; }
         } else {
-            alert("Cannot delete '" + name + "' because it contains active engineering records. Please reassign or delete the records first.");
+            if (editPickerMap) { editPickerMap.remove(); editPickerMap = null; }
         }
-        return;
+
+        const mapInstance = L.map(mapContainerId, {
+            zoomControl: true,
+            attributionControl: false
+        }).setView([defaultLat, defaultLng], 14);
+
+        L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        }).addTo(mapInstance);
+
+        const customIcon = L.divIcon({
+            className: 'custom-picker-pin',
+            html: '<div style="background:#dc2626;width:24px;height:24px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;"><i class="fa-solid fa-location-dot"></i></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 24]
+        });
+
+        const markerInstance = L.marker([defaultLat, defaultLng], {
+            draggable: true,
+            icon: customIcon
+        }).addTo(mapInstance);
+
+        function updateInputs(lat, lng) {
+            const latEl = document.getElementById(latInputId);
+            const lngEl = document.getElementById(lngInputId);
+            if (latEl) latEl.value = Number(lat).toFixed(5);
+            if (lngEl) lngEl.value = Number(lng).toFixed(5);
+        }
+
+        if (initialLat && initialLng) {
+            updateInputs(defaultLat, defaultLng);
+        }
+
+        markerInstance.on('dragend', function (e) {
+            const pos = e.target.getLatLng();
+            updateInputs(pos.lat, pos.lng);
+        });
+
+        mapInstance.on('click', function (e) {
+            markerInstance.setLatLng(e.latlng);
+            updateInputs(e.latlng.lat, e.latlng.lng);
+        });
+
+        const syncFromInputs = () => {
+            const latVal = parseFloat(document.getElementById(latInputId).value);
+            const lngVal = parseFloat(document.getElementById(lngInputId).value);
+            if (!isNaN(latVal) && !isNaN(lngVal)) {
+                markerInstance.setLatLng([latVal, lngVal]);
+                mapInstance.panTo([latVal, lngVal]);
+            }
+        };
+        const latInput = document.getElementById(latInputId);
+        const lngInput = document.getElementById(lngInputId);
+        if (latInput) latInput.addEventListener('input', syncFromInputs);
+        if (lngInput) lngInput.addEventListener('input', syncFromInputs);
+
+        setTimeout(() => {
+            if (mapInstance) {
+                mapInstance.invalidateSize();
+                mapInstance.setView([defaultLat, defaultLng], 14);
+            }
+        }, 150);
+        setTimeout(() => {
+            if (mapInstance) {
+                mapInstance.invalidateSize();
+                mapInstance.setView([defaultLat, defaultLng], 14);
+            }
+        }, 350);
+
+        if (mapContainerId === 'add_map_picker') {
+            addPickerMap = mapInstance;
+            addPickerMarker = markerInstance;
+        } else {
+            editPickerMap = mapInstance;
+            editPickerMarker = markerInstance;
+        }
     }
-    if (window.showConfirmModal) {
-        showConfirmModal({
-            title: 'Delete Barangay',
-            message: "Are you sure you want to delete Barangay '" + name + "'? This action cannot be undone.",
-            confirmText: 'Delete Barangay',
-            confirmClass: 'action-btn-danger',
-            icon: 'trash-2',
-            onConfirm: function() {
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const addModalEl = document.getElementById('addBarangayModal');
+        if (addModalEl) {
+            addModalEl.addEventListener('shown.bs.modal', function () {
+                initPickerMap('add_map_picker', 'add_latitude', 'add_longitude', 11.2980, 124.6890);
+            });
+        }
+    });
+
+    function openEditBarangayModal(id, name, lat, lng) {
+        document.getElementById('edit_barangay_id').value = id;
+        document.getElementById('edit_barangay_name').value = name;
+        document.getElementById('edit_latitude').value = lat || '';
+        document.getElementById('edit_longitude').value = lng || '';
+
+        const editModalEl = document.getElementById('editBarangayModal');
+        if (!editBarangayModalObj) {
+            editBarangayModalObj = new bootstrap.Modal(editModalEl);
+        }
+        
+        const onShown = function () {
+            initPickerMap('edit_map_picker', 'edit_latitude', 'edit_longitude', lat ? parseFloat(lat) : 11.2980, lng ? parseFloat(lng) : 124.6890);
+            editModalEl.removeEventListener('shown.bs.modal', onShown);
+        };
+        editModalEl.addEventListener('shown.bs.modal', onShown);
+        editBarangayModalObj.show();
+    }
+
+    function confirmDeleteBarangay(id, name, totalRecords) {
+        if (totalRecords > 0) {
+            if (window.showToast) {
+                showToast('warning', 'Action Prevented', "Cannot delete '" + name + "' because it contains active engineering records. Please reassign or delete the records first.");
+            } else {
+                alert("Cannot delete '" + name + "' because it contains active engineering records. Please reassign or delete the records first.");
+            }
+            return;
+        }
+        if (window.showConfirmModal) {
+            showConfirmModal({
+                title: 'Delete Barangay',
+                message: "Are you sure you want to delete Barangay '" + name + "'? This action cannot be undone.",
+                confirmText: 'Delete Barangay',
+                confirmClass: 'action-btn-danger',
+                icon: 'trash-2',
+                onConfirm: function () {
+                    document.getElementById('delete_barangay_id').value = id;
+                    document.getElementById('deleteBarangayForm').submit();
+                }
+            });
+        } else {
+            if (confirm("Are you sure you want to delete Barangay '" + name + "'? This action cannot be undone.")) {
                 document.getElementById('delete_barangay_id').value = id;
                 document.getElementById('deleteBarangayForm').submit();
             }
+        }
+    }
+
+
+    window.selectSortOption = function (sortVal) {
+        const grid = document.getElementById('barangayGrid');
+        if (!grid) return;
+        const cardsArray = Array.from(document.querySelectorAll('.barangay-card-wrapper'));
+
+        if (sortVal === 'most_records') {
+            cardsArray.sort((a, b) => {
+                const countA = parseInt(a.getAttribute('data-total') || '0', 10);
+                const countB = parseInt(b.getAttribute('data-total') || '0', 10);
+                if (countB !== countA) return countB - countA;
+                const nameA = (a.getAttribute('data-name') || '').toLowerCase();
+                const nameB = (b.getAttribute('data-name') || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+        } else {
+            cardsArray.sort((a, b) => {
+                const nameA = (a.getAttribute('data-name') || '').toLowerCase();
+                const nameB = (b.getAttribute('data-name') || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+        }
+
+        // Re-append in sorted order without reloading
+        cardsArray.forEach(card => grid.appendChild(card));
+
+        // Update active UI tab pill
+        document.querySelectorAll('.scope-segmented-control .scope-pill-btn').forEach(btn => {
+            btn.classList.remove('active');
         });
-    } else {
-        if (confirm("Are you sure you want to delete Barangay '" + name + "'? This action cannot be undone.")) {
-            document.getElementById('delete_barangay_id').value = id;
-            document.getElementById('deleteBarangayForm').submit();
+        const activeBtn = document.querySelector(`.scope-segmented-control a[onclick*="'${sortVal}'"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+
+        // Update URL state smoothly without reload
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort', sortVal);
+            window.history.replaceState({}, '', url.toString());
+        } catch (e) {}
+    };
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const addModal = document.getElementById('addBarangayModal');
+        const editModal = document.getElementById('editBarangayModal');
+        if (addModal) document.body.appendChild(addModal);
+        if (editModal) {
+            document.body.appendChild(editModal);
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                editBarangayModalObj = new bootstrap.Modal(editModal);
+            }
         }
-    }
-}
 
+        // Card click navigation & map sync delegation
+        document.addEventListener('click', function (e) {
+            const card = e.target.closest('.brgy-card');
+            if (!card) return;
+            // Ignore 3-dots dropdown menu and ZIP download button clicks
+            if (e.target.closest('button') || e.target.closest('.dropdown') || e.target.closest('.dropdown-menu') || e.target.closest('.zip-download-btn')) {
+                return;
+            }
+            const contentRow = document.getElementById('barangayContentRow');
+            const isMapActive = contentRow && contentRow.classList.contains('split-row-active');
+            const wrapper = card.closest('.barangay-card-wrapper');
+            const id = wrapper ? wrapper.getAttribute('data-id') : null;
+            const href = card.getAttribute('data-href');
 
-function selectSortOption(sortVal) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('sort', sortVal);
-    if (localStorage.getItem('etala_show_map') === 'true') {
-        url.searchParams.set('map', '1');
-    }
-    window.location.href = url.toString();
-}
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    const addModal = document.getElementById('addBarangayModal');
-    const editModal = document.getElementById('editBarangayModal');
-    if (addModal) document.body.appendChild(addModal);
-    if (editModal) document.body.appendChild(editModal);
-
-    editBarangayModalObj = new bootstrap.Modal(editModal);
-
-    // Card click navigation delegation
-    document.addEventListener('click', function(e) {
-        const card = e.target.closest('.brgy-card');
-        if (!card) return;
-        if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.dropdown') || e.target.closest('.dropdown-menu')) {
-            return;
-        }
-        const href = card.getAttribute('data-href');
-        if (href) {
-            window.location.href = href;
-        }
-    });
-
-
-    const searchInput = document.getElementById('barangaySearchInput');
-    const searchWrapper = document.getElementById('searchBoxWrapper');
-    const clearBtn = document.getElementById('clearSearchBtn');
-    const searchIcon = document.getElementById('searchIcon');
-    const sortBtn = document.getElementById('sortDropdownBtn');
-    const sortPanel = document.getElementById('sortDropdownPanel');
-    const clientEmptyState = document.getElementById('noBarangaysState');
-    const cards = document.querySelectorAll('.barangay-card-wrapper');
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // CUSTOM SORT DROPDOWN TOGGLE & OUTSIDE CLICK DISMISSAL
-    // ═════════════════════════════════════════════════════════════════════════
-    if (sortBtn && sortPanel) {
-        sortBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            sortPanel.classList.toggle('d-none');
-            const icon = sortBtn.querySelector('.fa-chevron-down');
-            if (icon) {
-                icon.style.transform = sortPanel.classList.contains('d-none') ? 'rotate(0deg)' : 'rotate(180deg)';
+            // If map is open and user clicked the card body (not the title link directly), highlight pin
+            if (isMapActive && id && !e.target.closest('.brgy-title-link')) {
+                highlightBarangay(id, null, true);
+            } else if (href) {
+                // Otherwise always navigate smoothly to the barangay workspace
+                window.location.href = href;
             }
         });
 
-        document.addEventListener('click', function(e) {
-            if (!sortPanel.contains(e.target) && !sortBtn.contains(e.target)) {
-                sortPanel.classList.add('d-none');
+
+        const searchInput = document.getElementById('barangaySearchInput');
+        const searchWrapper = document.getElementById('searchBoxWrapper');
+        const clearBtn = document.getElementById('clearSearchBtn');
+        const searchIcon = document.getElementById('searchIcon');
+        const sortBtn = document.getElementById('sortDropdownBtn');
+        const sortPanel = document.getElementById('sortDropdownPanel');
+        const clientEmptyState = document.getElementById('noBarangaysState');
+        const cards = document.querySelectorAll('.barangay-card-wrapper');
+
+        // ═════════════════════════════════════════════════════════════════════════
+        // CUSTOM SORT DROPDOWN TOGGLE & OUTSIDE CLICK DISMISSAL
+        // ═════════════════════════════════════════════════════════════════════════
+        if (sortBtn && sortPanel) {
+            sortBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                sortPanel.classList.toggle('d-none');
                 const icon = sortBtn.querySelector('.fa-chevron-down');
-                if (icon) icon.style.transform = 'rotate(0deg)';
-            }
-        });
-    }
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // INSTANT LIVE SEARCH & DYNAMIC RESULT COUNTER
-    // ═════════════════════════════════════════════════════════════════════════
-    function filterBarangayCards() {
-        const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
-        let visibleCount = 0;
-        
-        cards.forEach(card => {
-            const name = (card.getAttribute('data-name') || '').toLowerCase();
-            if (!query || name.includes(query)) {
-                card.style.display = '';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
-        });
-
-        // Show/hide empty state
-        if (clientEmptyState) {
-            if (visibleCount === 0) {
-                clientEmptyState.classList.remove('d-none');
-            } else {
-                clientEmptyState.classList.add('d-none');
-            }
-        }
-
-        // Show/hide clear button
-        if (clearBtn) {
-            if (query.length > 0) {
-                clearBtn.classList.remove('d-none');
-            } else {
-                clearBtn.classList.add('d-none');
-            }
-        }
-
-        // Update result count text
-        const resultCountEl = document.getElementById('resultCountText');
-        const totalCount = cards.length;
-        if (resultCountEl) {
-            resultCountEl.textContent = `Showing ${visibleCount} of ${totalCount} barangays`;
-        }
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener('input', filterBarangayCards);
-        searchInput.addEventListener('keyup', function(e) {
-            if (e.key === 'Escape') {
-                searchInput.value = '';
-                filterBarangayCards();
-            }
-        });
-    }
-
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (searchInput) {
-                searchInput.value = '';
-                searchInput.focus();
-            }
-            filterBarangayCards();
-        });
-    }
-
-    // Run once on initial page load
-    filterBarangayCards();
-
-    // Listen to keyboard shortcut '/'
-    document.addEventListener('keydown', function(e) {
-        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
-            return;
-        }
-        if (e.key === '/') {
-            e.preventDefault();
-            if (searchInput) {
-                searchInput.focus();
-                searchInput.select();
-            }
-        }
-    });
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // MAP CONFIGURATION
-    // ═════════════════════════════════════════════════════════════════════════
-    
-    const centerLat = 11.2952;
-    const centerLng = 124.6853;
-    let map = null;
-    let mapInitialized = false;
-    const markersMap = new Map();
-    let heatmapLayer = null;
-    let heatmapEnabled = false;
-
-    // Track currently active highlighted marker & boundary polygon on map
-    let currentActiveMarker = null;
-    let currentBoundaryPolygon = null;
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // UNIFIED HOVER HIGHLIGHT LOGIC (POINTED BARANGAY NAME BADGE MARKER)
-    // ═════════════════════════════════════════════════════════════════════════
-    
-    window.highlightBarangay = function(activeId, coords) {
-        // Remove previous active marker pin from map if different
-        if (currentActiveMarker && currentActiveMarker._activeId !== activeId) {
-            map.removeLayer(currentActiveMarker);
-            currentActiveMarker = null;
-        }
-
-        // Add target active marker with glowing red pin icon dynamically on hover/select
-        const activeMarker = markersMap.get(activeId);
-        
-        if (activeMarker && map && mapInitialized) {
-            currentActiveMarker = activeMarker;
-            activeMarker._activeId = activeId;
-
-            const activeIcon = L.divIcon({
-                html: createCleanPinHtml(true),
-                className: 'custom-clean-pin-icon-active',
-                iconSize: [48, 62],
-                iconAnchor: [24, 60]
+                if (icon) {
+                    icon.style.transform = sortPanel.classList.contains('d-none') ? 'rotate(0deg)' : 'rotate(180deg)';
+                }
             });
-            activeMarker.setIcon(activeIcon);
-            activeMarker.addTo(map);
 
-            const targetCoords = coords || activeMarker.getLatLng();
-            map.flyTo(targetCoords, 13.2, {
-                animate: true,
-                duration: 0.5,
-                easeLinearity: 0.25
+            document.addEventListener('click', function (e) {
+                if (!sortPanel.contains(e.target) && !sortBtn.contains(e.target)) {
+                    sortPanel.classList.add('d-none');
+                    const icon = sortBtn.querySelector('.fa-chevron-down');
+                    if (icon) icon.style.transform = 'rotate(0deg)';
+                }
             });
         }
 
-        // Highlight card border
-        cards.forEach(card => {
-            const id = card.getAttribute('data-id');
-            const cardEl = document.getElementById(`brgy-card-${id}`);
-            if (cardEl) {
-                if (id === String(activeId)) {
-                    const isDark = document.body.classList.contains('dark-mode');
-                    cardEl.style.borderColor = isDark ? '#38bdf8' : '#0284c7';
-                    cardEl.style.boxShadow = isDark ? '0 4px 18px rgba(56, 189, 248, 0.25)' : '0 4px 18px rgba(2, 132, 199, 0.15)';
+        // ═════════════════════════════════════════════════════════════════════════
+        // INSTANT LIVE SEARCH & DYNAMIC RESULT COUNTER
+        // ═════════════════════════════════════════════════════════════════════════
+        function filterBarangayCards() {
+            const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const name = (card.getAttribute('data-name') || '').toLowerCase();
+                if (!query || name.includes(query)) {
+                    card.style.display = '';
+                    visibleCount++;
                 } else {
-                    cardEl.style.borderColor = '';
-                    cardEl.style.boxShadow = '';
+                    card.style.display = 'none';
+                }
+            });
+
+            // Show/hide empty state
+            if (clientEmptyState) {
+                if (visibleCount === 0) {
+                    clientEmptyState.classList.remove('d-none');
+                } else {
+                    clientEmptyState.classList.add('d-none');
                 }
             }
-        });
-    };
 
-    window.resetBarangayHighlight = function() {
-        if (currentActiveMarker) {
-            map.removeLayer(currentActiveMarker);
-            currentActiveMarker = null;
-        }
-        if (currentBoundaryPolygon) {
-            map.removeLayer(currentBoundaryPolygon);
-            currentBoundaryPolygon = null;
-        }
-        if (map && mapInitialized) {
-            map.closePopup();
-            map.setView([centerLat, centerLng], 12.5);
-        }
-        cards.forEach(card => {
-            const id = card.getAttribute('data-id');
-            const cardEl = document.getElementById(`brgy-card-${id}`);
-            if (cardEl) {
-                cardEl.style.borderColor = '';
-                cardEl.style.boxShadow = '';
+            // Show/hide clear button
+            if (clearBtn) {
+                if (query.length > 0) {
+                    clearBtn.classList.remove('d-none');
+                } else {
+                    clearBtn.classList.add('d-none');
+                }
             }
-        });
-    };
 
-    window.jumpToBarangayMap = function(id) {
-        if (!id) {
-            resetBarangayHighlight();
-            return;
+            // Update result count text
+            const resultCountEl = document.getElementById('resultCountText');
+            const totalCount = cards.length;
+            if (resultCountEl) {
+                resultCountEl.textContent = `Showing ${visibleCount} of ${totalCount} barangays`;
+            }
         }
-        const card = document.querySelector(`.barangay-card-wrapper[data-id="${id}"]`);
-        if (card) {
-            const name = card.getAttribute('data-name');
-            const index = parseInt(card.getAttribute('data-index'));
-            const coords = getCoordinates(name, index);
-            highlightBarangay(id, coords);
-        }
-    };
 
-    window.toggleHeatmap = function(checked) {
-        heatmapEnabled = checked;
-        if (!map || !mapInitialized) return;
-        
-        if (checked) {
-            heatmapLayer.addTo(map);
+        if (searchInput) {
+            searchInput.addEventListener('input', filterBarangayCards);
+            searchInput.addEventListener('keyup', function (e) {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    filterBarangayCards();
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.focus();
+                }
+                filterBarangayCards();
+            });
+        }
+
+        // Run once on initial page load
+        filterBarangayCards();
+
+        // ═════════════════════════════════════════════════════════════════════════
+        // MAP CONFIGURATION & VARIABLES
+        // ═════════════════════════════════════════════════════════════════════════
+        const centerLat = 11.2952;
+        const centerLng = 124.6853;
+        let map = null;
+        let mapInitialized = false;
+        const markersMap = new Map();
+        let heatmapLayer = null;
+        let heatmapEnabled = false;
+        let currentActiveMarker = null;
+        let currentBoundaryPolygon = null;
+
+        // 3D Location Pin HTML generator (Red 3D Pin)
+        function createCleanPinHtml(isActive) {
+            if (isActive) {
+                return `
+                <div class="pin-3d-container active" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 48px; height: 64px; cursor: pointer;">
+                    <div style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 28px; height: 8px; background: radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%); border-radius: 50%;"></div>
+                    <div style="position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); filter: drop-shadow(0 6px 14px rgba(225, 29, 72, 0.55));">
+                        <svg viewBox="0 0 32 38" width="44" height="52">
+                            <defs>
+                                <linearGradient id="pinActiveRedGrad" x1="15%" y1="0%" x2="85%" y2="100%">
+                                    <stop offset="0%" stop-color="#ff4d4d"/>
+                                    <stop offset="45%" stop-color="#e11d48"/>
+                                    <stop offset="100%" stop-color="#9f1239"/>
+                                </linearGradient>
+                                <radialGradient id="pin3dHighlight" cx="32%" cy="28%" r="45%">
+                                    <stop offset="0%" stop-color="rgba(255,255,255,0.9)"/>
+                                    <stop offset="40%" stop-color="rgba(255,255,255,0.25)"/>
+                                    <stop offset="100%" stop-color="transparent"/>
+                                </radialGradient>
+                            </defs>
+                            <path d="M 16 2 C 8.82 2 3 7.82 3 15 C 3 24 14.2 33.8 15.35 34.8 C 15.7 35.1 16.3 35.1 16.65 34.8 C 17.8 33.8 29 24 29 15 C 29 7.82 23.18 2 16 2 Z" fill="url(#pinActiveRedGrad)"/>
+                            <path d="M 16 3 C 9.37 3 4 8.37 4 15 C 4 23 14.5 32 16 33.4 C 17.5 32 28 23 28 15 C 28 8.37 22.63 3 16 3 Z" fill="url(#pin3dHighlight)"/>
+                            <circle cx="16" cy="14" r="5.8" fill="#ffffff"/>
+                            <circle cx="16" cy="14" r="3.2" fill="#9f1239"/>
+                        </svg>
+                    </div>
+                </div>
+                `;
+            }
+            return `
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 24px; height: 32px; cursor: pointer;">
+                <svg viewBox="0 0 32 38" width="22" height="26">
+                    <path d="M 16 2 C 8.82 2 3 7.82 3 15 C 3 24 14.2 33.8 15.35 34.8 C 15.7 35.1 16.3 35.1 16.65 34.8 C 17.8 33.8 29 24 29 15 C 29 7.82 23.18 2 16 2 Z" fill="#e11d48"/>
+                    <circle cx="16" cy="14" r="4.5" fill="#ffffff"/>
+                    <circle cx="16" cy="14" r="2.5" fill="#9f1239"/>
+                </svg>
+            </div>
+            `;
+        }
+
+        window.highlightBarangay = function (activeId, coords, isClick = false) {
+            // Remove previous active marker pin from map
+            if (currentActiveMarker && currentActiveMarker._activeId !== String(activeId)) {
+                if (map) map.removeLayer(currentActiveMarker);
+                currentActiveMarker = null;
+            }
+
+            const activeMarker = markersMap.get(String(activeId));
+
+            if (activeMarker && map && mapInitialized) {
+                currentActiveMarker = activeMarker;
+                activeMarker._activeId = String(activeId);
+
+                const activeIcon = L.divIcon({
+                    html: createCleanPinHtml(true),
+                    className: 'custom-clean-pin-icon-active',
+                    iconSize: [48, 62],
+                    iconAnchor: [24, 60]
+                });
+                activeMarker.setIcon(activeIcon);
+                activeMarker.addTo(map);
+
+                const targetCoords = coords || activeMarker.getLatLng();
+                map.flyTo(targetCoords, 14.2, {
+                    animate: true,
+                    duration: 0.5,
+                    easeLinearity: 0.25
+                });
+            }
+
+            // Highlight card border & scroll into view if clicked on map
+            cards.forEach(card => {
+                const id = card.getAttribute('data-id');
+                const cardEl = document.getElementById(`brgy-card-${id}`);
+                if (cardEl) {
+                    if (id === String(activeId)) {
+                        const isDark = document.body.classList.contains('dark-mode');
+                        cardEl.style.borderColor = isDark ? '#f43f5e' : '#e11d48';
+                        cardEl.style.boxShadow = isDark ? '0 4px 18px rgba(244, 63, 94, 0.25)' : '0 4px 18px rgba(225, 29, 72, 0.15)';
+                        if (isClick) {
+                            cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    } else {
+                        cardEl.style.borderColor = '';
+                        cardEl.style.boxShadow = '';
+                    }
+                }
+            });
+        };
+
+        window.resetBarangayHighlight = function () {
             if (currentActiveMarker) {
                 map.removeLayer(currentActiveMarker);
                 currentActiveMarker = null;
             }
-        } else {
-            if (map.hasLayer(heatmapLayer)) map.removeLayer(heatmapLayer);
-        }
-    };
-    
-    const exactBarangayCoordinates = {
-        "Bagong Lipunan": [11.2965, 124.6872],
-        "Balilit": [11.2850, 124.6540],
-        "Barayong": [11.2682, 124.6722],
-        "Barugohay Central": [11.2915, 124.6980],
-        "Barugohay Norte": [11.2975, 124.6945],
-        "Barugohay Sur": [11.2860, 124.7010],
-        "Baybay (Poblacion)": [11.3005, 124.6850],
-        "Binibihan": [11.2725, 124.6930],
-        "Bislig": [11.2895, 124.6690],
-        "Caghalo": [11.2940, 124.7115],
-        "Camansi": [11.2488, 124.7159],
-        "Canal": [11.2978, 124.6866],
-        "Candigahub": [11.2501, 124.7007],
-        "Canfabi": [11.2503, 124.7083],
-        "Canlampay": [11.2649, 124.6848],
-        "Cogon": [11.2777, 124.7265],
-        "Cutay": [11.2649, 124.6987],
-        "East Visoria": [11.2974, 124.6846],
-        "Ecoville": [11.2960, 124.7000],
-        "Guindapunan East": [11.2980, 124.7004],
-        "Guindapunan West": [11.2972, 124.6948],
-        "Hiluctogan": [11.2471, 124.6877],
-        "Jugaban (Poblacion)": [11.3000, 124.6880],
-        "Libo": [11.2780, 124.6510],
-        "Lower Hiraan": [11.2786, 124.6792],
-        "Lower Sogod": [11.2580, 124.6935],
-        "Macalpi": [11.2690, 124.6590],
-        "Manloy": [11.2850, 124.6636],
-        "Nauguisan": [11.2955, 124.6637],
-        "Paglaum": [11.2745, 124.7088],
-        "Pangna": [11.2798, 124.7101],
-        "Parag-um": [11.2680, 124.7170],
-        "Parena (Parina)": [11.2965, 124.7121],
-        "Piloro": [11.2365, 124.7205],
-        "Ponong (Poblacion)": [11.3002, 124.6920],
-        "Rizal (Tagak East)": [11.2867, 124.7172],
-        "Sagkahan": [11.2980, 124.6980],
-        "San Isidro": [11.2790, 124.6430],
-        "San Juan": [11.2965, 124.6710],
-        "San Mateo (Poblacion)": [11.2885, 124.7280],
-        "Santa Fe": [11.2835, 124.7040],
-        "Sawang (Poblacion)": [11.2995, 124.6950],
-        "Tagak": [11.2855, 124.7225],
-        "Tangnan": [11.2910, 124.6750],
-        "Tigbao": [11.2885, 124.7250],
-        "Tinaguban": [11.2382, 124.7018],
-        "Upper Hiraan": [11.2467, 124.6703],
-        "Upper Sogod": [11.2536, 124.6931],
-        "Uyawan": [11.2841, 124.6844],
-        "West Visoria": [11.2965, 124.6801]
-    };
-    
-    const getCoordinates = (name, index, dbLat, dbLng) => {
-        let lat = null;
-        let lng = null;
-
-        // 1. Priority: Check exact dictionary match
-        if (exactBarangayCoordinates[name]) {
-            [lat, lng] = exactBarangayCoordinates[name];
-        } 
-        // 2. Check database lat/lng if valid
-        else if (dbLat && dbLng && !isNaN(parseFloat(dbLat)) && !isNaN(parseFloat(dbLng))) {
-            lat = parseFloat(dbLat);
-            lng = parseFloat(dbLng);
-        } 
-        // 3. Fallback land offset
-        else {
-            const angle = (index * 137.5) * (Math.PI / 180);
-            const radius = 0.003 + (index * 0.0003);
-            lat = centerLat + (Math.sin(angle) * radius * 0.4);
-            lng = centerLng + (Math.cos(angle) * radius * 0.6);
-        }
-
-        // ABSOLUTE LAND SAFETY CLAMP: Force latitude below 11.3008° N (strictly south of Carigara Bay coastline)
-        lat = Math.min(11.3008, Math.max(11.2380, lat));
-        lng = Math.min(124.7300, Math.max(124.6400, lng));
-        return [lat, lng];
-    };
-    
-    // 3D Realistic Glossy Spherical Location Pin (Large & Bold)
-    const createCleanPinHtml = (isHighlighted = false) => {
-        if (isHighlighted) {
-            return `
-                <div class="pin-3d-container active">
-                    <div class="pin-3d-ground-shadow"></div>
-                    <div class="pin-3d-body">
-                        <svg viewBox="0 0 32 38" width="48" height="57">
-                            <defs>
-                                <linearGradient id="pin3dRedGrad" x1="15%" y1="0%" x2="85%" y2="100%">
-                                    <stop offset="0%" stop-color="#ff4747"/>
-                                    <stop offset="45%" stop-color="#e11d48"/>
-                                    <stop offset="100%" stop-color="#881337"/>
-                                </linearGradient>
-                                <radialGradient id="pin3dHighlight" cx="32%" cy="28%" r="45%">
-                                    <stop offset="0%" stop-color="rgba(255,255,255,0.85)"/>
-                                    <stop offset="40%" stop-color="rgba(255,255,255,0.2)"/>
-                                    <stop offset="100%" stop-color="transparent"/>
-                                </radialGradient>
-                            </defs>
-                            <!-- Perfectly proportioned 3D teardrop needle pin -->
-                            <path d="M 16 2 C 8.82 2 3 7.82 3 15 C 3 24 14.2 33.8 15.35 34.8 C 15.7 35.1 16.3 35.1 16.65 34.8 C 17.8 33.8 29 24 29 15 C 29 7.82 23.18 2 16 2 Z" 
-                                  fill="url(#pin3dRedGrad)"/>
-                            <!-- 3D Specular Curvature Overlay -->
-                            <path d="M 16 3 C 9.37 3 4 8.37 4 15 C 4 23 14.5 32 16 33.4 C 17.5 32 28 23 28 15 C 28 8.37 22.63 3 16 3 Z" 
-                                  fill="url(#pin3dHighlight)"/>
-                            <!-- Outer White Ring -->
-                            <circle cx="16" cy="14" r="6.2" fill="#ffffff"/>
-                            <!-- Inner Red Gem Core -->
-                            <circle cx="16" cy="14" r="3.6" fill="#9f1239"/>
-                        </svg>
-                    </div>
-                </div>
-            `;
-        }
-        return `
-            <div class="pin-3d-container">
-                <div class="pin-3d-ground-shadow small"></div>
-                <div class="pin-3d-body small">
-                    <svg viewBox="0 0 32 38" width="24" height="28">
-                        <defs>
-                            <linearGradient id="pin3dBlueGrad" x1="15%" y1="0%" x2="85%" y2="100%">
-                                <stop offset="0%" stop-color="#38bdf8"/>
-                                <stop offset="45%" stop-color="#0284c7"/>
-                                <stop offset="100%" stop-color="#0369a1"/>
-                            </linearGradient>
-                        </defs>
-                        <path d="M 16 2 C 8.82 2 3 7.82 3 15 C 3 24 14.2 33.8 15.35 34.8 C 15.7 35.1 16.3 35.1 16.65 34.8 C 17.8 33.8 29 24 29 15 C 29 7.82 23.18 2 16 2 Z" 
-                              fill="url(#pin3dBlueGrad)"/>
-                        <circle cx="16" cy="14" r="5.4" fill="#ffffff"/>
-                        <circle cx="16" cy="14" r="3.0" fill="#0369a1"/>
-                    </svg>
-                </div>
-            </div>
-        `;
-    };
-
-    let activeTileLayer = null;
-    const tileLayers = {};
-
-    window.switchMapLayer = function(layerKey) {
-        if (!map || !tileLayers[layerKey]) return;
-        if (activeTileLayer) map.removeLayer(activeTileLayer);
-        activeTileLayer = tileLayers[layerKey];
-        activeTileLayer.addTo(map);
-    };
-
-    let is3DMode = false;
-    window.toggle3DPerspective = function() {
-        is3DMode = !is3DMode;
-        const stage = document.querySelector('.map-3d-stage');
-        const btn = document.getElementById('btn3DTilt');
-        if (stage) {
-            stage.classList.toggle('map-3d-active', is3DMode);
-        }
-        if (btn) {
-            btn.classList.toggle('active', is3DMode);
-        }
-        if (map) {
-            setTimeout(() => map.invalidateSize(), 300);
-        }
-    };
-    
-    function initMap() {
-        if (mapInitialized) return;
-        
-        heatmapLayer = L.layerGroup();
-        
-        map = L.map('carigaraMap', {
-            zoomControl: true,
-            attributionControl: false,
-            scrollWheelZoom: false,
-            preferCanvas: true
-        }).setView([centerLat, centerLng], 12.5);
-        
-        // Define High-Detail 3D Shaded Relief, Satellite and Vector Tile Layers
-        tileLayers['google_terrain'] = L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Maps 3D Terrain'
-        });
-
-        tileLayers['google_hybrid'] = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Maps Satellite'
-        });
-
-        tileLayers['google_streets'] = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Maps'
-        });
-
-        tileLayers['cyclosm'] = L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
-            maxZoom: 20,
-            attribution: '&copy; CyclOSM & OpenStreetMap'
-        });
-
-        // Set Google 3D Terrain as DEFAULT basemap
-        activeTileLayer = tileLayers['google_terrain'];
-        activeTileLayer.addTo(map);
-
-        // Reset highlight if user clicks on map background
-        map.on('click', function() {
-            resetBarangayHighlight();
-        });
-        
-        // Initialize compact glowing pin markers (Uncluttered View)
-        cards.forEach(card => {
-            const name = card.getAttribute('data-name');
-            const id = card.getAttribute('data-id');
-            const dbLat = card.getAttribute('data-lat');
-            const dbLng = card.getAttribute('data-lng');
-            const total = card.getAttribute('data-total');
-            const index = parseInt(card.getAttribute('data-index'));
-            
-            const coords = getCoordinates(name, index, dbLat, dbLng);
-            
-            const cleanPinIcon = L.divIcon({
-                html: createCleanPinHtml(false),
-                className: 'custom-clean-pin-icon',
-                iconSize: [20, 26],
-                iconAnchor: [10, 24]
+            if (currentBoundaryPolygon) {
+                map.removeLayer(currentBoundaryPolygon);
+                currentBoundaryPolygon = null;
+            }
+            if (map && mapInitialized) {
+                map.setView([centerLat, centerLng], 12.5);
+            }
+            cards.forEach(card => {
+                const id = card.getAttribute('data-id');
+                const cardEl = document.getElementById(`brgy-card-${id}`);
+                if (cardEl) {
+                    cardEl.style.borderColor = '';
+                    cardEl.style.boxShadow = '';
+                }
             });
-            
-            const marker = L.marker(coords, { icon: cleanPinIcon });
-            // Note: Marker is added dynamically on card hover/selection to prevent blue pin clutter
-            
-            const popupMarkup = `
-                <div style="padding: 4px 6px; text-align: left; min-width: 170px; font-family: 'Inter', sans-serif;">
-                    <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">Brgy. ${name}</div>
-                    <div style="font-size: 11px; color: #0284c7; font-weight: 600; margin-bottom: 8px;">
-                        <i class="fa-solid fa-file-lines me-1"></i> ${total} Record${total == 1 ? '' : 's'}
-                    </div>
-                    <a href="/barangays/${id}/workspace/" class="btn btn-sm text-white w-100 py-1" style="background: #002855; font-size: 11px; font-weight: 600; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
-                        <span>Open Workspace</span>
-                        <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
-                    </a>
-                </div>
-            `;
-            marker.bindPopup(popupMarkup);
-            
-            // Populate heatmap layer
-            const numericTotal = parseInt(total);
-            if (numericTotal > 0) {
-                const circleRadius = Math.max(120, Math.min(600, numericTotal * 65));
-                const circleColor = numericTotal > 8 ? '#dc2626' : (numericTotal > 3 ? '#ea580c' : '#0d9488');
-                const circle = L.circle(coords, {
-                    radius: circleRadius,
-                    fillColor: circleColor,
-                    color: 'transparent',
-                    fillOpacity: 0.45
-                }).bindPopup(`<strong>Brgy. ${name}</strong><br>${numericTotal} records total`);
-                heatmapLayer.addLayer(circle);
+        };
+
+        window.jumpToBarangayMap = function (id) {
+            if (!id) {
+                resetBarangayHighlight();
+                return;
             }
-            
-            // Sync map marker hover with highlights
-            marker.on('mouseover', function() {
-                highlightBarangay(id);
-            });
-            
-            markersMap.set(id, marker);
-            
-            // Sync card hover and click to show pin dynamically
-            const cardContainer = card.querySelector('.brgy-card');
-            if (cardContainer) {
-                cardContainer.style.cursor = 'pointer';
-                cardContainer.addEventListener('mouseenter', () => {
-                    highlightBarangay(id, coords);
-                });
-                
-                cardContainer.addEventListener('click', (e) => {
-                    // Prevent map pin jump if clicking dropdown or action buttons
-                    if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.dropdown') || e.target.closest('.dropdown-menu')) {
-                        return;
-                    }
-                    if (map && mapInitialized) {
-                        highlightBarangay(id, coords);
-                    }
-                });
-
+            const card = document.querySelector(`.barangay-card-wrapper[data-id="${id}"]`);
+            if (card) {
+                const name = card.getAttribute('data-name');
+                const index = parseInt(card.getAttribute('data-index'));
+                const coords = getCoordinates(name, index);
+                highlightBarangay(id, coords);
             }
-        });
-        
-        // If heatmap view is enabled initially, add heatmap layer
-        if (heatmapEnabled) {
-            heatmapLayer.addTo(map);
-        }
-        
-        mapInitialized = true;
-    }
+        };
 
-    // ═════════════════════════════════════════════════════════════════════════
-    // TOGGLE MAP ACTION & PERSISTENT MAP STATE
-    // ═════════════════════════════════════════════════════════════════════════
-    
-    const toggleMapBtn = document.getElementById('toggleMapBtn');
-    const mapColumn = document.getElementById('mapColumn');
-    const cardsColumn = document.getElementById('cardsColumn');
-    
-    window.openMapPane = function() {
-        if (!mapColumn || !cardsColumn) return;
-        mapColumn.classList.remove('d-none');
-        cardsColumn.classList.remove('col-12');
-        cardsColumn.classList.add('col-lg-5', 'split-cards-pane');
-        
-        const contentRow = document.getElementById('barangayContentRow');
-        if (contentRow) contentRow.classList.add('split-row-active');
-        document.body.classList.add('split-map-active');
-        
-        const mapLabel = document.getElementById('toggleMapLabel');
-        const mapIcon = document.getElementById('toggleMapIcon');
-        if (mapLabel) mapLabel.textContent = 'Hide Map';
-        if (mapIcon) {
-            mapIcon.className = 'fa-solid fa-map-pin';
-        }
-        
-        localStorage.setItem('etala_show_map', 'true');
-        
-        if (!mapInitialized) {
-            initMap();
-        } else if (map) {
-            setTimeout(() => map.invalidateSize(), 200);
-        }
-    };
+        window.toggleHeatmap = function (checked) {
+            heatmapEnabled = checked;
+            if (!map || !mapInitialized) return;
 
-    window.closeMapPane = function() {
-        if (!mapColumn || !cardsColumn) return;
-        mapColumn.classList.add('d-none');
-        cardsColumn.classList.remove('col-lg-5', 'split-cards-pane');
-        cardsColumn.classList.add('col-12');
-        
-        const contentRow = document.getElementById('barangayContentRow');
-        if (contentRow) contentRow.classList.remove('split-row-active');
-        document.body.classList.remove('split-map-active');
-        
-        const mapLabel = document.getElementById('toggleMapLabel');
-        const mapIcon = document.getElementById('toggleMapIcon');
-        if (mapLabel) mapLabel.textContent = 'Show Map';
-        if (mapIcon) {
-            mapIcon.className = 'fa-solid fa-map-location-dot';
-        }
-        
-        localStorage.setItem('etala_show_map', 'false');
-    };
-
-    if (toggleMapBtn) {
-        toggleMapBtn.addEventListener('click', function() {
-            const isMapHidden = mapColumn.classList.contains('d-none');
-            if (isMapHidden) {
-                window.openMapPane();
-            } else {
-                window.closeMapPane();
-            }
-        });
-    }
-
-    // Auto-restore map view if user previously turned it on (or via URL query param)
-    const urlParams = new URLSearchParams(window.location.search);
-    const savedMapPref = localStorage.getItem('etala_show_map');
-    if (urlParams.get('map') === '1' || savedMapPref === 'true') {
-        window.openMapPane();
-    }
-
-
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // LIVE FILTERING SEARCH LOGIC
-    // ═════════════════════════════════════════════════════════════════════════
-
-    const countBadge = document.getElementById('barangayCountBadge');
-    const searchSpinner = document.getElementById('searchSpinner');
-
-    if (searchInput && searchInput.value.trim().length > 0) {
-        if (clearBtn) clearBtn.classList.remove('d-none');
-    }
-
-    function performLiveSearch() {
-        if (searchSpinner) searchSpinner.classList.add('d-none');
-        const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
-        const currentCards = document.querySelectorAll('.barangay-card-wrapper');
-        let visibleCount = 0;
-
-        if (clearBtn) {
-            if (query.length > 0) clearBtn.classList.remove('d-none');
-            else clearBtn.classList.add('d-none');
-        }
-
-        currentCards.forEach(card => {
-            const name = (card.getAttribute('data-name') || '').toLowerCase().trim();
-            const id = card.getAttribute('data-id');
-
-            if (!query || name.includes(query)) {
-                card.style.display = '';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-                const marker = markersMap.get(id);
-                if (marker && currentActiveMarker === marker) {
-                    if (map) map.removeLayer(marker);
+            if (checked) {
+                heatmapLayer.addTo(map);
+                if (currentActiveMarker) {
+                    map.removeLayer(currentActiveMarker);
                     currentActiveMarker = null;
                 }
-            }
-        });
-
-        const countText = document.getElementById('resultCountText');
-        if (countText) {
-            countText.innerText = `Showing ${visibleCount} of ${currentCards.length} barangays`;
-        }
-
-        const barangayGrid = document.getElementById('barangayGrid');
-        if (clientEmptyState) {
-            if (visibleCount === 0 && currentCards.length > 0) {
-                clientEmptyState.classList.remove('d-none');
-                if (barangayGrid) barangayGrid.classList.add('d-none');
             } else {
-                clientEmptyState.classList.add('d-none');
-                if (barangayGrid) barangayGrid.classList.remove('d-none');
+                if (map.hasLayer(heatmapLayer)) map.removeLayer(heatmapLayer);
+            }
+        };
+
+        const exactBarangayCoordinates = {
+            "Bagong Lipunan": [11.2955, 124.6880],
+            "Balilit": [11.2810, 124.6930],
+            "Balucanad": [11.2670, 124.6430],
+            "Barayong": [11.2682, 124.6722],
+            "Barugohay Central": [11.2885, 124.7050],
+            "Barugohay Norte": [11.2965, 124.7080],
+            "Barugohay Sur": [11.2820, 124.7035],
+            "Baybay (Poblacion)": [11.3005, 124.6850],
+            "Binibihan": [11.2725, 124.6910],
+            "Bislig": [11.2895, 124.6630],
+            "Caghalo": [11.2940, 124.7160],
+            "Camansi": [11.2488, 124.7159],
+            "Canal": [11.2978, 124.6866],
+            "Candigahub": [11.2501, 124.7007],
+            "Canfabi": [11.2503, 124.7083],
+            "Canlampay": [11.2649, 124.6848],
+            "Canomantag": [11.3015, 124.7125],
+            "Cogon": [11.2777, 124.7265],
+            "Cutay": [11.2640, 124.6960],
+            "East Visoria": [11.2974, 124.6846],
+            "Ecoville": [11.2920, 124.7040],
+            "Guindapunan East": [11.2980, 124.7025],
+            "Guindapunan West": [11.2972, 124.6980],
+            "Hiluctogan": [11.2471, 124.6877],
+            "Jugaban (Poblacion)": [11.2995, 124.6885],
+            "Libo": [11.2780, 124.6510],
+            "Lower Hiraan": [11.2786, 124.6792],
+            "Lower Sogod": [11.2580, 124.6935],
+            "Macalpi": [11.2690, 124.6550],
+            "Manloy": [11.2580, 124.6580],
+            "Nauguisan": [11.2955, 124.6637],
+            "Paglaum": [11.2745, 124.7088],
+            "Pangna": [11.2798, 124.7101],
+            "Parag-um": [11.2680, 124.7170],
+            "Parena (Parina)": [11.2965, 124.7210],
+            "Piloro": [11.2365, 124.7205],
+            "Ponong (Poblacion)": [11.2990, 124.6915],
+            "Rizal (Tagak East)": [11.2867, 124.7172],
+            "Sagkahan": [11.2800, 124.7120],
+            "San Isidro": [11.2790, 124.6430],
+            "San Juan": [11.2965, 124.6710],
+            "San Mateo (Poblacion)": [11.2970, 124.6900],
+            "Santa Fe": [11.2835, 124.7040],
+            "Sawang (Poblacion)": [11.2985, 124.6945],
+            "Tagak": [11.2855, 124.7225],
+            "Tangnan": [11.2910, 124.6750],
+            "Tigbao": [11.2885, 124.7250],
+            "Tinaguban": [11.2382, 124.7018],
+            "Upper Hiraan": [11.2467, 124.6703],
+            "Upper Sogod": [11.2510, 124.6930],
+            "Uyawan": [11.2841, 124.6810],
+            "West Visoria": [11.2965, 124.6801]
+        };
+
+        const getCoordinates = (name, index, dbLat, dbLng) => {
+            let lat = null;
+            let lng = null;
+
+            // 1. TOP PRIORITY: Check database lat/lng FIRST if valid
+            if (dbLat && dbLng && !isNaN(parseFloat(dbLat)) && !isNaN(parseFloat(dbLng)) && parseFloat(dbLat) !== 0 && parseFloat(dbLng) !== 0) {
+                lat = parseFloat(dbLat);
+                lng = parseFloat(dbLng);
+            }
+            // 2. Fallback: Check exact dictionary match
+            else {
+                const normalizedName = (name || '').trim();
+                const matchedKey = Object.keys(exactBarangayCoordinates).find(k => k.toLowerCase() === normalizedName.toLowerCase());
+                if (matchedKey) {
+                    [lat, lng] = exactBarangayCoordinates[matchedKey];
+                } else {
+                    const angle = (index * 137.5) * (Math.PI / 180);
+                    const radius = 0.003 + (index * 0.0003);
+                    lat = centerLat + (Math.sin(angle) * radius * 0.4);
+                    lng = centerLng + (Math.cos(angle) * radius * 0.6);
+                }
+            }
+
+            return [lat, lng];
+        };
+
+        let activeTileLayer = null;
+        const tileLayers = {};
+
+        window.switchMapLayer = function (layerKey) {
+            if (!map || !tileLayers[layerKey]) return;
+            if (activeTileLayer && map.hasLayer(activeTileLayer)) {
+                map.removeLayer(activeTileLayer);
+            }
+            activeTileLayer = tileLayers[layerKey];
+            activeTileLayer.addTo(map);
+            if (activeTileLayer.bringToBack) {
+                activeTileLayer.bringToBack();
+            }
+        };
+
+        let is3DMode = false;
+        window.toggle3DPerspective = function () {
+            is3DMode = !is3DMode;
+            const stage = document.querySelector('.map-3d-stage');
+            const btn = document.getElementById('btn3DTilt');
+            if (stage) {
+                stage.classList.toggle('map-3d-active', is3DMode);
+            }
+            if (btn) {
+                btn.classList.toggle('active', is3DMode);
+            }
+            if (map) {
+                setTimeout(() => map.invalidateSize(), 300);
+            }
+        };
+
+        function initMap() {
+            if (mapInitialized) return;
+
+            heatmapLayer = L.layerGroup();
+
+            map = L.map('carigaraMap', {
+                zoomControl: true,
+                attributionControl: false,
+                scrollWheelZoom: false,
+                preferCanvas: true
+            }).setView([centerLat, centerLng], 12.5);
+
+            // Define High-Detail Street, Satellite and Terrain Layers
+            tileLayers['google_streets'] = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google Maps'
+            });
+
+            tileLayers['google_hybrid'] = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google Maps Satellite'
+            });
+
+            tileLayers['google_terrain'] = L.tileLayer('https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google Maps Terrain'
+            });
+
+            // Set current selected layer from dropdown
+            const layerSelector = document.getElementById('mapLayerSelect');
+            const defaultLayerKey = layerSelector ? layerSelector.value : 'google_streets';
+            activeTileLayer = tileLayers[defaultLayerKey] || tileLayers['google_streets'];
+            activeTileLayer.addTo(map);
+
+            // Reset highlight if user clicks on map background
+            map.on('click', function () {
+                resetBarangayHighlight();
+            });
+
+            // Initialize compact pin markers on map for all barangays
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name');
+                const id = card.getAttribute('data-id');
+                const dbLat = card.getAttribute('data-lat');
+                const dbLng = card.getAttribute('data-lng');
+                const total = card.getAttribute('data-total');
+                const index = parseInt(card.getAttribute('data-index'));
+
+                const coords = getCoordinates(name, index, dbLat, dbLng);
+
+                const cleanPinIcon = L.divIcon({
+                    html: createCleanPinHtml(false),
+                    className: 'custom-clean-pin-icon',
+                    iconSize: [20, 26],
+                    iconAnchor: [10, 24]
+                });
+
+                const marker = L.marker(coords, { icon: cleanPinIcon, title: `Brgy. ${name}` });
+                // Marker is placed on-demand during card hover/click to keep map clean and uncluttered
+                marker.on('click', function () {
+                    window.location.href = '/barangays/' + id + '/';
+                });
+
+                // Populate heatmap layer
+                const numericTotal = parseInt(total);
+                if (numericTotal > 0) {
+                    const circleRadius = Math.max(120, Math.min(600, numericTotal * 65));
+                    const circleColor = numericTotal > 8 ? '#dc2626' : (numericTotal > 3 ? '#ea580c' : '#0d9488');
+                    const circle = L.circle(coords, {
+                        radius: circleRadius,
+                        fillColor: circleColor,
+                        color: 'transparent',
+                        fillOpacity: 0.45
+                    }).bindPopup(`<strong>Brgy. ${name}</strong><br>${numericTotal} records total`);
+                    heatmapLayer.addLayer(circle);
+                }
+
+                // Sync card hover and click to show pin dynamically
+                const cardContainer = card.querySelector('.brgy-card');
+                if (cardContainer) {
+                    cardContainer.addEventListener('mouseenter', function () {
+                        if (mapInitialized && !mapColumn.classList.contains('d-none')) {
+                            highlightBarangay(id, coords);
+                        }
+                    });
+                }
+
+                markersMap.set(String(id), marker);
+            });
+
+            // If heatmap view is enabled initially, add heatmap layer
+            if (heatmapEnabled) {
+                heatmapLayer.addTo(map);
+            }
+
+            mapInitialized = true;
+        }
+
+        // ═════════════════════════════════════════════════════════════════════════
+        // TOGGLE MAP ACTION & PERSISTENT MAP STATE
+        // ═════════════════════════════════════════════════════════════════════════
+
+        const toggleMapBtn = document.getElementById('toggleMapBtn');
+        const mapColumn = document.getElementById('mapColumn');
+        const cardsColumn = document.getElementById('cardsColumn');
+
+        window.openMapPane = function () {
+            if (!mapColumn || !cardsColumn) return;
+            mapColumn.classList.remove('d-none');
+            cardsColumn.classList.remove('col-12');
+            cardsColumn.classList.add('col-lg-5', 'split-cards-pane');
+
+            const contentRow = document.getElementById('barangayContentRow');
+            if (contentRow) contentRow.classList.add('split-row-active');
+            document.body.classList.add('split-map-active');
+
+            const mapLabel = document.getElementById('toggleMapLabel');
+            const mapIcon = document.getElementById('toggleMapIcon');
+            if (mapLabel) mapLabel.textContent = 'Hide Map';
+            if (mapIcon) {
+                mapIcon.className = 'fa-solid fa-map-pin';
+            }
+
+            localStorage.setItem('etala_show_map', 'true');
+
+            if (!mapInitialized) {
+                initMap();
+            } else if (map) {
+                setTimeout(() => map.invalidateSize(), 200);
+            }
+        };
+
+        window.closeMapPane = function () {
+            if (!mapColumn || !cardsColumn) return;
+            mapColumn.classList.add('d-none');
+            cardsColumn.classList.remove('col-lg-5', 'split-cards-pane');
+            cardsColumn.classList.add('col-12');
+
+            const contentRow = document.getElementById('barangayContentRow');
+            if (contentRow) contentRow.classList.remove('split-row-active');
+            document.body.classList.remove('split-map-active');
+
+            const mapLabel = document.getElementById('toggleMapLabel');
+            const mapIcon = document.getElementById('toggleMapIcon');
+            if (mapLabel) mapLabel.textContent = 'Show Map';
+            if (mapIcon) {
+                mapIcon.className = 'fa-solid fa-map-location-dot';
+            }
+
+            localStorage.setItem('etala_show_map', 'false');
+        };
+
+        if (toggleMapBtn) {
+            toggleMapBtn.addEventListener('click', function () {
+                const isMapHidden = mapColumn.classList.contains('d-none');
+                if (isMapHidden) {
+                    window.openMapPane();
+                } else {
+                    window.closeMapPane();
+                }
+            });
+        }
+
+        // Auto-restore map view if user previously turned it on (or via URL query param)
+        const urlParams = new URLSearchParams(window.location.search);
+        const savedMapPref = localStorage.getItem('etala_show_map');
+        if (urlParams.get('map') === '1' || savedMapPref === 'true') {
+            window.openMapPane();
+        }
+
+
+
+        // ═════════════════════════════════════════════════════════════════════════
+        // LIVE FILTERING SEARCH LOGIC
+        // ═════════════════════════════════════════════════════════════════════════
+
+        const countBadge = document.getElementById('barangayCountBadge');
+        const searchSpinner = document.getElementById('searchSpinner');
+
+        if (searchInput && searchInput.value.trim().length > 0) {
+            if (clearBtn) clearBtn.classList.remove('d-none');
+        }
+
+        function performLiveSearch() {
+            if (searchSpinner) searchSpinner.classList.add('d-none');
+            const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+            const currentCards = document.querySelectorAll('.barangay-card-wrapper');
+            let visibleCount = 0;
+
+            if (clearBtn) {
+                if (query.length > 0) clearBtn.classList.remove('d-none');
+                else clearBtn.classList.add('d-none');
+            }
+
+            currentCards.forEach(card => {
+                const name = (card.getAttribute('data-name') || '').toLowerCase().trim();
+                const id = card.getAttribute('data-id');
+
+                if (!query || name.includes(query)) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                    const marker = markersMap.get(id);
+                    if (marker && currentActiveMarker === marker) {
+                        if (map) map.removeLayer(marker);
+                        currentActiveMarker = null;
+                    }
+                }
+            });
+
+            const countText = document.getElementById('resultCountText');
+            if (countText) {
+                countText.innerText = `Showing ${visibleCount} of ${currentCards.length} barangays`;
+            }
+
+            const barangayGrid = document.getElementById('barangayGrid');
+            if (clientEmptyState) {
+                if (visibleCount === 0 && currentCards.length > 0) {
+                    clientEmptyState.classList.remove('d-none');
+                    if (barangayGrid) barangayGrid.classList.add('d-none');
+                } else {
+                    clientEmptyState.classList.add('d-none');
+                    if (barangayGrid) barangayGrid.classList.remove('d-none');
+                }
             }
         }
-    }
 
-    let brgySearchTimer;
-    if (searchInput) {
-        searchInput.addEventListener('input', function () {
-            clearTimeout(brgySearchTimer);
-            if (searchSpinner) searchSpinner.classList.remove('d-none');
-            if (clearBtn) clearBtn.classList.add('d-none');
-            brgySearchTimer = setTimeout(performLiveSearch, 300);
-        });
-    }
-
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function() {
-            if (searchInput) searchInput.value = '';
-            if (searchSpinner) searchSpinner.classList.add('d-none');
-            performLiveSearch();
-            if (searchInput) searchInput.focus();
-        });
-    }
-
-
-    // Check for URL ?jump=id parameter to auto-open map and highlight barangay
-    const jumpId = urlParams.get('jump');
-    if (jumpId) {
-
-        if (toggleMapBtn && mapColumn.classList.contains('d-none')) {
-            toggleMapBtn.click();
-        } else if (!mapInitialized) {
-            initMap();
+        let brgySearchTimer;
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                clearTimeout(brgySearchTimer);
+                if (searchSpinner) searchSpinner.classList.remove('d-none');
+                if (clearBtn) clearBtn.classList.add('d-none');
+                brgySearchTimer = setTimeout(performLiveSearch, 300);
+            });
         }
-        setTimeout(() => {
-            jumpToBarangayMap(jumpId);
-        }, 400);
-    }
-});
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                if (searchInput) searchInput.value = '';
+                if (searchSpinner) searchSpinner.classList.add('d-none');
+                performLiveSearch();
+                if (searchInput) searchInput.focus();
+            });
+        }
+
+
+        // Check for URL ?jump=id parameter to auto-open map and highlight barangay
+        const jumpId = urlParams.get('jump');
+        if (jumpId) {
+
+            if (toggleMapBtn && mapColumn.classList.contains('d-none')) {
+                toggleMapBtn.click();
+            } else if (!mapInitialized) {
+                initMap();
+            }
+            setTimeout(() => {
+                jumpToBarangayMap(jumpId);
+            }, 400);
+        }
+    });
 </script>
 {% endblock %}

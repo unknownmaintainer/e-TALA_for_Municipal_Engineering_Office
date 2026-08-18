@@ -29,7 +29,8 @@ class Command(BaseCommand):
                 'username': 'engineer',
                 'email': 'staff1@gmail.com',
                 'full_name': 'Engr. Maria Santos',
-                'role': 'engineer',
+                'role': 'staff',
+                'designation': 'Municipal Engineer',
                 'password': 'password123',
                 'is_superuser': False,
                 'is_staff': True

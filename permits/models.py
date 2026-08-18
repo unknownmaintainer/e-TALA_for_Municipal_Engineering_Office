@@ -5,13 +5,13 @@ from django.utils import timezone
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = (
-        ('admin', 'Administrator'),
+        ('admin', 'Engineering Office Head (Admin)'),
         ('staff', 'Engineering Staff'),
-        ('engineer', 'Municipal Engineer'),
     )
     full_name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
+    designation = models.CharField(max_length=150, blank=True, default='', verbose_name="Job Title / Designation")
     profile_picture = models.ImageField(
         upload_to='profile_pictures/',
         blank=True, null=True

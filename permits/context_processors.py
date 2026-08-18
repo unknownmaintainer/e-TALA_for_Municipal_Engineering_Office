@@ -12,7 +12,7 @@ def recent_notifications(request):
     if request.path.startswith('/static/') or request.path.startswith('/media/') or request.path.startswith('/api/'):
         return {'recent_notifications': [], 'notifications_count': 0, 'has_urgent_alerts': False}
 
-    cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}"
+    cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}_v2"
     cached_payload = cache.get(cache_key)
     if cached_payload is not None:
         return cached_payload
@@ -51,7 +51,7 @@ def recent_notifications(request):
             alerts.append({
                 'type': 'expired',
                 'action': f'Expired: {doc_label} for "{doc.engineering_record.title}"',
-                'url': reverse('record_detail', args=[doc.engineering_record.record_id]),
+                'url': f"{reverse('record_detail', args=[doc.engineering_record.record_id])}?highlight_doc={doc.document_id}&item_id={doc.requirement_item_id or ''}#doc-{doc.document_id}",
                 'badge': 'expired',
                 'time': f'Expired on {doc.expiry_date.strftime("%b %d, %Y")}',
                 'user': None,
@@ -62,7 +62,7 @@ def recent_notifications(request):
             alerts.append({
                 'type': 'expiring',
                 'action': f'Expiring: {doc_label} for "{doc.engineering_record.title}"',
-                'url': reverse('record_detail', args=[doc.engineering_record.record_id]),
+                'url': f"{reverse('record_detail', args=[doc.engineering_record.record_id])}?highlight_doc={doc.document_id}&item_id={doc.requirement_item_id or ''}#doc-{doc.document_id}",
                 'badge': 'expiring',
                 'time': f'Expires on {doc.expiry_date.strftime("%b %d, %Y")}',
                 'user': None,

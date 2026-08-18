@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters %}
 
-{% block title %}Search Results · eTala{% endblock %}
+{% block title %}Search Results | eTala{% endblock %}
 
 {% block breadcrumb %}
 <span class="breadcrumb-item active">Global Search</span>
@@ -40,64 +40,69 @@
     {% endif %}
 </div>
 
-<!-- ══ CATEGORY TABS ═════════════════════════════════════════════════════ -->
-<div class="filter-tabs section-gap">
-    <a href="?q={{ q }}" class="filter-tab {% if not selected_record_type %}active{% endif %}">
-        All <span class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
-    </a>
-    <a href="?q={{ q }}&record_type=Project&project_scope=Municipal" class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">
-        Municipal <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ municipal_count }}</span>
-    </a>
-    <a href="?q={{ q }}&record_type=Project&project_scope=Barangay" class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">
-        Barangay <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ barangay_count }}</span>
-    </a>
-    <a href="?q={{ q }}&record_type=Permit" class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}">
-        Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
-    </a>
-    {% if illegal_count > 0 %}
-    <a href="?q={{ q }}&illegal=1" class="filter-tab" style="color: #dc2626;">
-        <i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 13px;"></i>
-        Illegal Constructions <span class="tab-count" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">{{ illegal_count }}</span>
-    </a>
-    {% endif %}
-</div>
-
 <!-- ══ SEARCH & FILTER BAR ═══════════════════════════════════════════════ -->
 <form method="GET" action="{% url 'search' %}" id="filterForm">
     <input type="hidden" name="record_type" value="{{ selected_record_type }}">
 
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <!-- Search Input Group (Integrated Pill Design) -->
-        <div class="etala-search-pill-wrapper" style="max-width: 440px; width: 100%; flex-grow: 1;">
-            <button type="submit" class="etala-search-pill-icon" style="cursor: pointer;" title="Search">
-                <i class="fa-solid fa-magnifying-glass"></i>
-            </button>
-            <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Type year (2026), permit, barangay, owner..." value="{{ q }}">
-
-            <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
-                <span class="visually-hidden">Searching...</span>
-            </div>
-
-            <a href="{% url 'search' %}" id="searchClearBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background:transparent;" title="Clear search">
-                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+    <!-- ══ UNIFIED COMPACT 1-LINE TOOLBAR (Tabs Left, Compact Search Right) ══ -->
+    <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
+        style="border-bottom: 1px solid var(--border-default, rgba(255,255,255,0.08)); max-width: 100%; box-sizing: border-box;">
+        
+        <!-- Left: Category Tabs -->
+        <div class="filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
+            style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 0 1 auto; min-width: 0; overflow-x: auto;">
+            <a href="?q={{ q }}" class="filter-tab {% if not selected_record_type %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                All Types <span class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
             </a>
-
-            <span class="etala-search-pill-divider"></span>
-
-            <!-- Integrated Filter Toggle button -->
-            <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#searchFiltersCollapse" aria-expanded="false" title="Toggle Filters">
-                <i class="fa-solid fa-sliders"></i>
-            </button>
+            <a href="?q={{ q }}&record_type=Project&project_scope=Municipal" class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                Municipal <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ municipal_count }}</span>
+            </a>
+            <a href="?q={{ q }}&record_type=Project&project_scope=Barangay" class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                Barangay <span class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ barangay_count }}</span>
+            </a>
+            <a href="?q={{ q }}&record_type=Permit" class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
+            </a>
+            {% if illegal_count > 0 %}
+            <a href="?q={{ q }}&illegal=1" class="filter-tab" style="color: #dc2626; padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                <i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 12px;"></i>
+                Violations <span class="tab-count" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">{{ illegal_count }}</span>
+            </a>
+            {% endif %}
         </div>
 
-        {% if selected_barangay or selected_year or selected_status or selected_record_type %}
-        <a href="{% url 'search' %}" class="premium-btn btn-delete text-decoration-none" style="height: 42px;" title="Reset Filters">
-            <span class="btn-icon"><i class="fa-solid fa-rotate-left"></i></span>
-            <span class="btn-divider"></span>
-            <span>Reset Filters</span>
-        </a>
-        {% endif %}
+        <!-- Right: Compact Search Pill (Contained, no overflow) -->
+        <div class="d-flex align-items-center ms-auto" style="flex: 0 0 250px; width: 250px; max-width: 250px;">
+            <div class="etala-search-pill-wrapper w-100" style="height: 34px; padding: 0 10px; gap: 6px;">
+                <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer;" title="Search">
+                    <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
+                </button>
+                <input type="text" name="q" class="etala-search-pill-input search-text-input"
+                    placeholder="Search keywords, year..." value="{{ q }}"
+                    style="font-size: 0.78rem;">
+
+                <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                    style="width: 12px; height: 12px;">
+                    <span class="visually-hidden">Searching...</span>
+                </div>
+
+                <a href="{% url 'search' %}" id="searchClearBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background:transparent;" title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
+                </a>
+
+                <span class="etala-search-pill-divider" style="height: 14px;"></span>
+
+                <!-- Integrated Filter Toggle button -->
+                <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#searchFiltersCollapse" aria-expanded="false" title="Toggle Filters"
+                    style="padding: 2px;">
+                    <i class="fa-solid fa-sliders" style="font-size: 12px;"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Advanced Filter Options Collapsible -->
@@ -161,21 +166,35 @@
                 <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
                     <!-- Record Title & Details -->
                     <td data-label="Record Title">
-                        <div class="cell-title d-flex align-items-center gap-1.5" {% if record.is_illegal_construction and record.illegal_status_info %}style="color: #dc2626; font-weight: 700;"{% endif %}>
-                            {% if record.is_illegal_construction %}
-                            <i class="fa-solid fa-triangle-exclamation me-1 text-danger" style="font-size: 11px;"></i>
-                            {% endif %}
+                        <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
                             <span>
                                 {% if record.record_type == 'Permit' %}
-                                    {{ record.specific_type_label }}{% if record.permit_detail.permit_number %} (#{{ record.permit_detail.permit_number }}){% endif %}
+                                    {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                        {{ record.permit_detail.applicant_name }}
+                                    {% elif record.title and record.title != 'Permit' %}
+                                        {{ record.title }}
+                                    {% else %}
+                                        {{ record.specific_type_label }}
+                                    {% endif %}
                                 {% else %}
                                     {{ record.title }}
                                 {% endif %}
                             </span>
+                            {% if record.is_illegal_construction %}
+                                {% if record.illegal_compliance_status == 'resolved' %}
+                                <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Regularized Enforcement Case"><i class="fa-solid fa-shield-halved me-1"></i>Regularized</span>
+                                {% else %}
+                                <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Active Violation Incident"><i class="fa-solid fa-triangle-exclamation me-1"></i>Violation</span>
+                                {% endif %}
+                            {% endif %}
                         </div>
                         <div class="cell-subtitle">
-                            {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' %}Property Owner{% else %}Applicant{% endif %}: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
+                            {% if record.record_type == 'Permit' %}
+                                {% if record.permit_detail and record.permit_detail.permit_number %}
+                                <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ record.permit_detail.permit_number }}</strong></div>
+                                {% else %}
+                                <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1" style="font-size: 11px;"></i>Pending Permit Issuance</div>
+                                {% endif %}
                             {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
                                 <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
                             {% endif %}
@@ -229,14 +248,12 @@
                                         <i class="fa-solid fa-eye" style="font-size: 13px;"></i> Inspect
                                     </a>
                                 </li>
-                                {% if request.user.role == 'staff' or request.user.role == 'admin' %}
+                                {% if request.user.role == 'admin' or record.created_by == request.user %}
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'edit_record' record.record_id %}">
                                         <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i> Edit
                                     </a>
                                 </li>
-                                {% endif %}
-                                {% if request.user.role == 'admin' %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-amber" href="javascript:void(0)" data-url="{% url 'archive_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmArchiveFromSearch(this.dataset.url, this.dataset.title)">
@@ -293,10 +310,12 @@
     {% else %}
     <div class="empty-state-unified py-5 text-center">
         <i class="fa-solid fa-magnifying-glass mb-3 text-muted" style="font-size: 38px;"></i>
-        <h5 class="fw-bold text-dark mb-1">No Matching Records Found</h5>
+        <h5 class="fw-bold title-text-adaptive mb-1">No Matching Records Found</h5>
         <p class="text-muted small mb-3">We couldn't find any records matching "{{ q }}". Try searching for a different keyword, year, or barangay.</p>
-        <a href="{% url 'records_browse' %}" class="etala-btn etala-btn-secondary d-inline-flex align-items-center gap-2 text-decoration-none">
-            <i class="fa-solid fa-folder-open" style="font-size: 13px;"></i> Browse All Records
+        <a href="{% url 'records_browse' %}" class="premium-btn btn-view d-inline-flex align-items-center gap-2 text-decoration-none">
+            <span class="btn-icon"><i class="fa-solid fa-folder-open"></i></span>
+            <span class="btn-divider"></span>
+            <span>Browse All Records</span>
         </a>
     </div>
     {% endif %}
@@ -312,7 +331,7 @@ function confirmArchiveFromSearch(archiveUrl, recordTitle) {
             message: "Are you sure you want to move '" + recordTitle + "' to Trash? It can be restored later at any time.",
             confirmText: 'Yes, Move to Trash',
             cancelText: 'No, Keep It.',
-            confirmClass: 'action-btn-warning',
+            confirmClass: 'action-btn-danger',
             iconClass: 'fa-solid fa-box-archive',
             onConfirm: function() {
                 window.location.href = archiveUrl;

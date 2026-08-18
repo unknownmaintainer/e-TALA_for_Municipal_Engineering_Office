@@ -3,7 +3,9 @@
 {% load permit_filters %}
 {% load humanize %}
 
-{% block title %}{{ record.title }} · eTala{% endblock %}
+{% block title %}{% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }} ({{ record.specific_type_label }}){% else %}{{ record.title }}{% endif %} | eTala{% endblock %}
+
+{% block back_fallback_url %}{% if record.is_illegal_construction %}{% url 'illegal_constructions' %}{% else %}{% url 'records_browse' %}{% endif %}{% endblock %}
 
 {% block breadcrumb %}
 {% if record.is_illegal_construction %}
@@ -71,43 +73,938 @@
 }
 
 .checklist-badge-complete {
-    background-color: #dcfce7 !important;
-    color: #15803d !important;
-    border: 1px solid #bbf7d0 !important;
+    background: transparent !important;
+    color: #16a34a !important;
+    border: none !important;
+    font-weight: 600;
 }
 .dark-mode .checklist-badge-complete {
-    background-color: rgba(34, 197, 94, 0.2) !important;
+    background: transparent !important;
     color: #4ade80 !important;
-    border-color: rgba(34, 197, 94, 0.35) !important;
+    border: none !important;
 }
 
 .checklist-badge-partial {
-    background-color: #eff6ff !important;
+    background: transparent !important;
     color: #2563eb !important;
-    border: 1px solid #dbeafe !important;
+    border: none !important;
+    font-weight: 600;
 }
 .dark-mode .checklist-badge-partial {
-    background-color: rgba(37, 99, 235, 0.2) !important;
+    background: transparent !important;
     color: #60a5fa !important;
-    border-color: rgba(59, 130, 246, 0.35) !important;
+    border: none !important;
 }
 
 .checklist-badge-empty {
-    background-color: #f1f5f9 !important;
-    color: #475569 !important;
-    border: 1px solid #e2e8f0 !important;
+    background: transparent !important;
+    color: #94a3b8 !important;
+    border: none !important;
+    font-weight: 500;
 }
 .dark-mode .checklist-badge-empty {
-    background-color: rgba(51, 65, 85, 0.6) !important;
-    color: #cbd5e1 !important;
-    border-color: #334155 !important;
+    background: transparent !important;
+    color: #94a3b8 !important;
+    border: none !important;
 }
 
-/* ── Batch Upload Modal & File Card System ── */
-#batchUploadModal .modal-dialog {
-    max-width: 680px !important;
+/* ── Illegal Construction Timeline Card ── */
+.illegal-banner-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
 }
-#batchUploadModal .modal-content {
+.illegal-banner-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.dark-mode .illegal-banner-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+.dark-mode .illegal-banner-header {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-bottom-color: #334155 !important;
+}
+.dark-mode .illegal-timeline-container {
+    background: #1e293b !important;
+}
+
+.timeline-line-track {
+    flex: 1;
+    height: 3px;
+    margin: -28px -10px 0 -10px;
+    transition: background 0.3s ease;
+}
+.timeline-line-track.active {
+    background: #16a34a !important;
+}
+.dark-mode .timeline-line-track.active {
+    background: #22c55e !important;
+}
+.timeline-line-track.inactive {
+    background: #e2e8f0 !important;
+}
+.dark-mode .timeline-line-track.inactive {
+    background: #334155 !important;
+}
+
+.step-circle {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+}
+.step-circle.step-done {
+    background: #dcfce7;
+    color: #16a34a;
+    border: 2px solid #16a34a;
+}
+.dark-mode .step-circle.step-done {
+    background: rgba(34, 197, 94, 0.2) !important;
+    color: #4ade80 !important;
+    border-color: #22c55e !important;
+}
+.step-circle.step-active {
+    background: #fef3c7;
+    color: #d97706;
+    border: 2px solid #d97706;
+}
+.dark-mode .step-circle.step-active {
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+    border-color: #f59e0b !important;
+}
+.step-circle.step-final-resolved {
+    background: #16a34a;
+    color: #ffffff;
+    border: 2px solid #16a34a;
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.2);
+}
+.dark-mode .step-circle.step-final-resolved {
+    background: #22c55e !important;
+    color: #ffffff !important;
+    border-color: #22c55e !important;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.35) !important;
+}
+.step-circle.step-pending {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 2px solid #cbd5e1;
+}
+.dark-mode .step-circle.step-pending {
+    background: #334155 !important;
+    border-color: #475569 !important;
+    color: #94a3b8 !important;
+}
+
+.timeline-step-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+.timeline-step-title.title-success {
+    color: #16a34a;
+}
+.dark-mode .timeline-step-title.title-success {
+    color: #4ade80 !important;
+}
+.timeline-step-title.title-warning {
+    color: #d97706;
+}
+.dark-mode .timeline-step-title.title-warning {
+    color: #fbbf24 !important;
+}
+.timeline-step-title.title-muted {
+    color: #64748b;
+}
+.dark-mode .timeline-step-title.title-muted {
+    color: #94a3b8 !important;
+}
+
+.timeline-step-sub {
+    font-size: 0.74rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+.dark-mode .timeline-step-sub {
+    color: #cbd5e1 !important;
+}
+
+.dark-mode .status-header-title {
+    color: #f8fafc !important;
+}
+.dark-mode .status-header-sub {
+    color: #94a3b8 !important;
+}
+
+.timeline-resolved-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease;
+}
+
+.timeline-permit-badge {
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+    font-size: 0.74rem !important;
+    padding: 3px 9px !important;
+}
+.dark-mode .timeline-permit-badge {
+    background: rgba(34, 197, 94, 0.22) !important;
+    color: #4ade80 !important;
+    border-color: rgba(34, 197, 94, 0.45) !important;
+}
+
+.timeline-case-resolved-badge {
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+    font-size: 0.82rem !important;
+    padding: 6px 14px !important;
+}
+.dark-mode .timeline-case-resolved-badge {
+    background: rgba(34, 197, 94, 0.22) !important;
+    color: #4ade80 !important;
+    border-color: rgba(34, 197, 94, 0.45) !important;
+}
+.timeline-case-resolved-badge i {
+    color: #16a34a;
+}
+.dark-mode .timeline-case-resolved-badge i {
+    color: #4ade80 !important;
+}
+
+.record-summary-card .text-break,
+.record-summary-card .title-text-adaptive,
+.record-summary-card .font-monospace {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+}
+
+.zip-download-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    height: 25px !important;
+    padding: 0 9px !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    color: #0284c7 !important;
+    background: rgba(2, 132, 199, 0.08) !important;
+    border: none !important;
+    border-radius: 6px !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    flex-shrink: 0 !important;
+    text-decoration: none !important;
+}
+.zip-download-btn:hover {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.28) !important;
+}
+.zip-download-btn:active {
+    transform: translateY(0) scale(0.97) !important;
+}
+.dark-mode .zip-download-btn,
+[data-bs-theme="dark"] .zip-download-btn {
+    background: rgba(56, 189, 248, 0.12) !important;
+    border: none !important;
+    color: #38bdf8 !important;
+}
+.dark-mode .zip-download-btn:hover,
+[data-bs-theme="dark"] .zip-download-btn:hover {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 10px rgba(2, 132, 199, 0.45) !important;
+}
+
+/* ── Checklist Row Action Buttons & Uniform Dynamic Hover System ── */
+.checklist-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none !important;
+    user-select: none;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 7px;
+    line-height: 1;
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+
+.checklist-action-btn.btn-view {
+    color: #2563eb !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    padding: 0 10px;
+    height: 28px;
+    gap: 5px;
+    border-radius: 7px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.checklist-action-btn.btn-view:hover {
+    background: rgba(37, 99, 235, 0.08) !important;
+    border-color: #93c5fd !important;
+    color: #1d4ed8 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.14);
+}
+
+.checklist-action-btn.btn-delete {
+    color: #64748b !important;
+    border: 1px solid transparent !important;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 7px;
+}
+.checklist-action-btn.btn-delete:hover {
+    background: rgba(239, 68, 68, 0.10) !important;
+    color: #dc2626 !important;
+    border-color: rgba(239, 68, 68, 0.25) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(239, 68, 68, 0.12);
+}
+
+.checklist-action-btn.btn-waive {
+    color: #64748b !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    padding: 0 8px;
+    height: 28px;
+    border-radius: 7px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.checklist-action-btn.btn-waive:hover {
+    background: #f1f5f9 !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+    transform: translateY(-1px);
+}
+
+.checklist-action-btn.btn-require {
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    padding: 0 9px;
+    height: 28px;
+    gap: 5px;
+    border-radius: 7px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.checklist-action-btn.btn-require:hover {
+    background: rgba(37, 99, 235, 0.08) !important;
+    border-color: #93c5fd !important;
+    color: #2563eb !important;
+    transform: translateY(-1px);
+}
+
+.checklist-action-btn.btn-upload {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    color: #ffffff !important;
+    padding: 0 12px;
+    height: 28px;
+    gap: 5px;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    border-radius: 7px;
+}
+.checklist-action-btn.btn-upload:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.38);
+    color: #ffffff !important;
+}
+
+/* Dark mode overrides */
+.dark-mode .checklist-action-btn.btn-view {
+    background: #1e293b !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #60a5fa !important;
+}
+.dark-mode .checklist-action-btn.btn-view:hover {
+    background: rgba(59, 130, 246, 0.18) !important;
+    border-color: rgba(96, 165, 250, 0.4) !important;
+    color: #93c5fd !important;
+}
+.dark-mode .checklist-action-btn.btn-delete {
+    color: #94a3b8 !important;
+}
+.dark-mode .checklist-action-btn.btn-delete:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
+}
+.dark-mode .checklist-action-btn.btn-waive {
+    background: #1e293b !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #cbd5e1 !important;
+}
+.dark-mode .checklist-action-btn.btn-waive:hover {
+    background: rgba(148, 163, 184, 0.18) !important;
+    color: #f1f5f9 !important;
+}
+.dark-mode .checklist-action-btn.btn-require {
+    background: #1e293b !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #cbd5e1 !important;
+}
+.dark-mode .checklist-action-btn.btn-require:hover {
+    background: rgba(59, 130, 246, 0.18) !important;
+    border-color: rgba(96, 165, 250, 0.4) !important;
+    color: #60a5fa !important;
+}
+
+/* ── Dynamic Sizing & Fluid Layout for Expanded vs Compressed Modes ── */
+.summary-toggle-btn {
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #475569 !important;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+}
+.summary-toggle-btn:hover {
+    background: #f8fafc !important;
+    color: #1e293b !important;
+    border-color: #94a3b8 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+.summary-toggle-btn.active {
+    background: #eff6ff !important;
+    color: #2563eb !important;
+    border-color: #bfdbfe !important;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+}
+.dark-mode .summary-toggle-btn {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+.dark-mode .summary-toggle-btn:hover {
+    background: #334155 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+.dark-mode .summary-toggle-btn.active {
+    background: rgba(37, 99, 235, 0.2) !important;
+    border-color: rgba(37, 99, 235, 0.4) !important;
+    color: #60a5fa !important;
+}
+
+/* Summary Close Button Hover */
+.summary-close-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    color: #64748b !important;
+    background: transparent;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+.summary-close-btn:hover {
+    background: rgba(239, 68, 68, 0.08) !important;
+    color: #dc2626 !important;
+    transform: scale(1.08);
+}
+.dark-mode .summary-close-btn {
+    color: #94a3b8 !important;
+}
+.dark-mode .summary-close-btn:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+}
+
+.doc-filename-link {
+    max-width: 280px;
+    display: inline-block;
+    transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#checklistCol.summary-collapsed .doc-filename-link {
+    max-width: 680px;
+}
+#checklistCol.summary-collapsed .checklist-sub-item,
+#checklistCol.summary-collapsed .checklist-standalone-item {
+    padding: 12px 20px !important;
+}
+#checklistCol.summary-collapsed .title-text-adaptive {
+    font-size: 0.88rem !important;
+}
+
+/* ── Smooth Expand / Compress Transitions & Multi-Screen Physics ── */
+#checklistCol {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#summaryCol {
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes summaryEntrance {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.summary-slide-in {
+    animation: summaryEntrance 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Breakpoints & Responsive Reflow Rules ── */
+@media (max-width: 991.98px) {
+    #checklistCol,
+    #summaryCol {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+    }
+    .doc-filename-link {
+        max-width: 320px !important;
+    }
+    .record-summary-card {
+        position: static !important;
+        margin-top: 0.5rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .doc-filename-link {
+        max-width: 220px !important;
+    }
+    .checklist-sub-item,
+    .checklist-standalone-item {
+        padding: 10px 14px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .doc-filename-link {
+        max-width: 150px !important;
+    }
+    .checklist-action-btn.btn-view span,
+    .checklist-action-btn.btn-require span {
+        display: none !important;
+    }
+    .checklist-action-btn.btn-view,
+    .checklist-action-btn.btn-require {
+        padding: 3px 6px !important;
+    }
+}
+
+/* ── Clean & Minimalist Expiry Pill Badges (User-Friendly) ── */
+.doc-expiry-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 2px 7px !important;
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    border-radius: 5px !important;
+    white-space: nowrap !important;
+    width: auto !important;
+    max-width: fit-content !important;
+    flex-shrink: 0 !important;
+    margin-left: 6px !important;
+    vertical-align: middle !important;
+}
+
+.doc-expiry-badge.badge-expired {
+    background-color: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fca5a5 !important;
+}
+.dark-mode .doc-expiry-badge.badge-expired {
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.doc-expiry-badge.badge-expiring {
+    background-color: #fef3c7 !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+}
+.dark-mode .doc-expiry-badge.badge-expiring {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+    border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+/* ── Premium 3.5-Second Smooth Focus Glow Animation (Triggered on Deep-Link from Notifications) ── */
+@keyframes smoothDocFocusPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+        border-color: #ef4444 !important;
+        background-color: rgba(239, 68, 68, 0.08) !important;
+    }
+    18% {
+        box-shadow: 0 0 0 7px rgba(239, 68, 68, 0.22);
+        border-color: #dc2626 !important;
+        background-color: rgba(239, 68, 68, 0.12) !important;
+    }
+    40% {
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+        border-color: #ef4444 !important;
+        background-color: rgba(239, 68, 68, 0.06) !important;
+    }
+    62% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.20);
+        border-color: #ef4444 !important;
+        background-color: rgba(239, 68, 68, 0.09) !important;
+    }
+    85% {
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.10);
+        border-color: #f87171 !important;
+        background-color: rgba(239, 68, 68, 0.03) !important;
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        border-color: #cbd5e1 !important;
+        background-color: transparent !important;
+    }
+}
+
+.doc-highlight-focused {
+    animation: smoothDocFocusPulse 3.5s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+    border-radius: 10px !important;
+    position: relative !important;
+    z-index: 4 !important;
+    transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+@keyframes badgeFocusPop {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.08); box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35); }
+}
+
+/* ── Premium Document Preview Modal (100% Full-Bleed Maximized Display) ── */
+#docPreviewModal {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+#docPreviewModal .modal-dialog {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#docPreviewModal .modal-content {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #323639 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#docPreviewModal .modal-header {
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    flex: 0 0 52px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 0 20px !important;
+    z-index: 10 !important;
+}
+
+.preview-action-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    height: 32px !important;
+    padding: 0 12px !important;
+    font-size: 0.76rem !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    border-radius: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #334155 !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    white-space: nowrap !important;
+}
+
+.preview-action-btn i {
+    font-size: 11px !important;
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.preview-action-btn:hover {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08) !important;
+}
+
+.preview-action-btn:active {
+    transform: translateY(0);
+}
+
+.preview-close-btn {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #64748b !important;
+    cursor: pointer !important;
+    transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.preview-close-btn:hover {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border-color: #fca5a5 !important;
+    transform: translateY(-1px);
+}
+
+.preview-close-btn:active {
+    transform: translateY(0);
+}
+
+#docPreviewModal .modal-body {
+    flex: 1 1 100% !important;
+    height: calc(100vh - 52px) !important;
+    max-height: calc(100vh - 52px) !important;
+    min-height: calc(100vh - 52px) !important;
+    width: 100vw !important;
+    position: relative !important;
+    background: #323639 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+#docPreviewModal #previewModalIframe {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #323639 !important;
+    z-index: 2 !important;
+}
+
+/* ── Light Mode / Dark Mode Full Harmonization ── */
+#docPreviewModal .modal-title {
+    color: #0f172a !important;
+}
+#docPreviewModal #previewModalSubtitle {
+    color: #64748b !important;
+}
+
+/* Header & Controls in Dark Mode */
+.dark-mode #docPreviewModal .modal-content {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+.dark-mode #docPreviewModal .modal-header {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+.dark-mode #docPreviewModal .modal-title {
+    color: #f8fafc !important;
+}
+.dark-mode #docPreviewModal #previewModalSubtitle {
+    color: #94a3b8 !important;
+}
+.dark-mode .preview-action-btn,
+[data-bs-theme="dark"] .preview-action-btn {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+.dark-mode .preview-action-btn:hover,
+[data-bs-theme="dark"] .preview-action-btn:hover {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #ffffff !important;
+}
+.dark-mode .preview-close-btn,
+[data-bs-theme="dark"] .preview-close-btn {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #94a3b8 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+.dark-mode .preview-close-btn:hover,
+[data-bs-theme="dark"] .preview-close-btn:hover {
+    background: rgba(239, 68, 68, 0.22) !important;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.45) !important;
+}
+.dark-mode #docPreviewModal #previewFallbackContainer {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+}
+.dark-mode #docPreviewModal #previewFallbackFileName {
+    color: #f8fafc !important;
+}
+
+.dark-mode .doc-highlight-focused {
+    border-color: #f87171 !important;
+}
+
+.highlight-expired-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: #ef4444;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.highlight-expiring-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: #f59e0b;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* ── Crisp & Defined Borders (Hindi Faded / Malinaw ang Outline) ── */
+.checklist-group-card {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.checklist-group-card:hover {
+    border-color: #94a3b8 !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
+}
+.checklist-group-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+.checklist-sub-item {
+    border-bottom: 1px solid #e2e8f0 !important;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.checklist-sub-item:last-child {
+    border-bottom: none !important;
+}
+.checklist-standalone-item {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.checklist-standalone-item:hover {
+    border-color: #94a3b8 !important;
+}
+.content-card {
+    border: 1px solid #cbd5e1 !important;
+}
+
+/* ── Group Header (Static without whole-row hover, focus on ZIP & Chevron) ── */
+.checklist-group-header,
+.checklist-group-header:hover {
+    background: #f8fafc !important;
+}
+.dark-mode .checklist-group-header,
+.dark-mode .checklist-group-header:hover {
+    background: #0f172a !important;
+}
+
+/* ── Child Sub-Items (Smooth interactive row hover) ── */
+.checklist-sub-item:hover,
+.checklist-standalone-item:hover {
+    background: #f1f5f9 !important;
+}
+.dark-mode .checklist-sub-item:hover,
+.dark-mode .checklist-standalone-item:hover {
+    background: rgba(30, 41, 59, 0.6) !important;
+}
+.dark-mode .checklist-group-card,
+.dark-mode .checklist-standalone-item,
+.dark-mode .content-card {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.dark-mode .checklist-group-header,
+.dark-mode .checklist-sub-item {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Upload Modals & File Card System ── */
+#batchUploadModal .modal-dialog,
+#uploadModal .modal-dialog {
+    max-width: 600px !important;
+}
+#batchUploadModal .modal-content,
+#uploadModal .modal-content {
     border-radius: 20px !important;
     border: none;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -116,23 +1013,23 @@
 .batch-file-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 14px 16px;
-    transition: all 0.2s ease;
+    border-radius: 10px;
+    padding: 10px 12px;
+    transition: all 0.15s ease;
 }
 .batch-file-card:hover {
     border-color: #cbd5e1;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.04);
 }
 .batch-file-icon {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-    border-radius: 10px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 7px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 13px;
 }
 .batch-file-icon.icon-pdf { background: #fee2e2; color: #dc2626; }
 .batch-file-icon.icon-word { background: #dbeafe; color: #2563eb; }
@@ -176,23 +1073,79 @@
     border-radius: 10px;
 }
 
-/* ── Dark Mode Modal & Batch Upload Enhancements ── */
-.dark-mode #batchUploadModal .modal-content {
+/* ── Dark Mode Modal & Upload Enhancements ── */
+.dark-mode #batchUploadModal .modal-content,
+.dark-mode #uploadModal .modal-content {
     background-color: #1e293b !important;
     border: 1px solid #334155 !important;
     color: #f8fafc !important;
 }
-.dark-mode #batchUploadModal .modal-header {
+.dark-mode #batchUploadModal .modal-header,
+.dark-mode #uploadModal .modal-header {
     background-color: #1e293b !important;
     border-color: #334155 !important;
 }
 .dark-mode #batchUploadModal .modal-header .modal-title,
-.dark-mode #batchUploadModal .modal-header .text-dark {
+.dark-mode #uploadModal .modal-header .modal-title,
+.dark-mode #batchUploadModal .modal-header .text-dark,
+.dark-mode #uploadModal .modal-header .text-dark {
     color: #f8fafc !important;
 }
-.dark-mode #batchUploadModal .modal-footer {
+.dark-mode #batchUploadModal .modal-footer,
+.dark-mode #uploadModal .modal-footer {
     background-color: #0f172a !important;
     border-color: #334155 !important;
+}
+
+/* ── Compact Essential-Only Dropzone ── */
+.compact-essential-dropzone {
+    position: relative;
+    border: 1.5px dashed #93c5fd;
+    background: linear-gradient(180deg, #f8faff 0%, #f0f7ff 100%);
+    border-radius: 14px;
+    padding: 20px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+.compact-essential-dropzone:hover,
+.compact-essential-dropzone.dragover {
+    border-color: #2563eb;
+    background: linear-gradient(180deg, #eff6ff 0%, #e0f2fe 100%);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.10);
+    transform: translateY(-1px);
+}
+.compact-essential-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.compact-essential-dropzone:hover .compact-essential-icon {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+.dark-mode .compact-essential-dropzone {
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    border-color: #3b82f6;
+}
+.dark-mode .compact-essential-dropzone:hover,
+.dark-mode .compact-essential-dropzone.dragover {
+    background: #1e293b;
+    border-color: #60a5fa;
+}
+.dark-mode .compact-essential-icon {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: #ffffff;
 }
 .dark-mode .batch-file-card {
     background-color: #0f172a !important;
@@ -595,63 +1548,75 @@
     </div>
 </div>
 
-<!-- ══ 2. ILLEGAL CONSTRUCTION COMPLIANCE TRACKER (Visual Stepper) ════════════ -->
+<!-- ══ 2. ILLEGAL CONSTRUCTION ENFORCEMENT & TIMELINE STEPPER CARD ════════════ -->
 {% if record.is_illegal_construction %}
-<div class="mb-3 content-card illegal-banner-card overflow-hidden" style="border-radius: 12px !important; padding: 0 !important;">
-
-    <!-- Stepper Header -->
+<div class="mb-3 content-card illegal-banner-card overflow-hidden shadow-sm" style="border-radius: 14px !important; padding: 0 !important; border: 1px solid var(--border-color, #e2e8f0);">
+    <!-- Top Header Bar -->
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 illegal-banner-header status-{{ record.illegal_compliance_status|default:'unresolved' }}"
-        style="padding: 10px 18px !important; min-height: 48px;">
-        <div class="d-flex align-items-center gap-2.5">
+        style="padding: 12px 20px !important; border-bottom: 1px solid rgba(0,0,0,0.06);">
+        <div class="d-flex align-items-center gap-3 min-w-0">
             {% if record.illegal_compliance_status == 'resolved' %}
-            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
-                style="background: rgba(22, 163, 74, 0.15); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.3); width: 32px; height: 32px; font-size: 14px;">
+            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
+                style="background: rgba(22, 163, 74, 0.15); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.3); width: 36px; height: 36px; font-size: 16px;">
                 <i class="fa-solid fa-certificate"></i>
             </div>
             {% elif record.illegal_compliance_status == 'pending_permit' %}
-            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
-                style="background: rgba(217, 119, 6, 0.15); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.3); width: 32px; height: 32px; font-size: 14px;">
+            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
+                style="background: rgba(217, 119, 6, 0.15); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.3); width: 36px; height: 36px; font-size: 16px;">
                 <i class="fa-solid fa-file-pen"></i>
             </div>
             {% else %}
-            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
-                style="background: rgba(220, 38, 38, 0.15); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); width: 32px; height: 32px; font-size: 14px;">
+            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 status-icon-badge"
+                style="background: rgba(220, 38, 38, 0.15); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); width: 36px; height: 36px; font-size: 16px;">
                 <i class="fa-solid fa-triangle-exclamation"></i>
             </div>
             {% endif %}
-            <div>
-                <h6 class="fw-bold mb-0 status-header-title" style="font-size: 0.88rem; letter-spacing: -0.01em;">{{ record.illegal_status_info.label }}</h6>
-                <div class="status-header-sub" style="font-size: 0.74rem; margin-top: 1px;">
+            <div class="min-w-0">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <h6 class="fw-bold mb-0 status-header-title text-truncate" style="font-size: 0.95rem; letter-spacing: -0.01em;">
+                        {% if record.illegal_compliance_status == 'resolved' %}
+                        Regularized
+                        {% elif record.illegal_compliance_status == 'pending_permit' %}
+                        Permit Application Filed
+                        {% else %}
+                        Unpermitted Construction
+                        {% endif %}
+                    </h6>
+                    {% if record.illegal_compliance_status == 'resolved' and record.permit_detail.permit_number %}
+                    <span class="timeline-resolved-badge timeline-permit-badge">
+                        Permit #{{ record.permit_detail.permit_number }}
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="status-header-sub text-truncate text-muted" style="font-size: 0.78rem; margin-top: 2px;">
                     Reported construction without permit{% if record.date_started %} on {{ record.date_started|date:"d M Y" }}{% endif %}.
                 </div>
             </div>
         </div>
 
-        {% if can_edit %}
-        <div class="d-flex align-items-center gap-2.5 flex-shrink-0 ms-auto flex-nowrap">
+        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
             {% if record.illegal_compliance_status == 'resolved' %}
-            <span class="d-inline-flex align-items-center gap-1.5 px-3 py-1.5 rounded-2 fw-semibold"
-                style="background: rgba(22, 163, 74, 0.12); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.25); font-size: 0.78rem;">
+            <span class="timeline-resolved-badge timeline-case-resolved-badge">
                 <i class="fa-solid fa-circle-check"></i>
                 <span>Case Resolved</span>
             </span>
-            {% else %}
+            {% elif can_edit %}
             <button type="button" class="btn btn-sm fw-semibold d-inline-flex align-items-center gap-1.5 btn-success text-white shadow-2xs text-nowrap"
                 data-bs-toggle="modal" data-bs-target="#regularizeDetailModal"
-                style="border-radius: 8px; font-size: 0.82rem; padding: 7px 15px; white-space: nowrap;">
-                <i class="fa-solid fa-certificate"></i>
+                style="border-radius: 8px; font-size: 0.78rem; height: 32px; padding: 0 12px; white-space: nowrap;">
+                <i class="fa-solid fa-certificate" style="font-size: 11px;"></i>
                 <span>Regularize &amp; Issue Permit</span>
             </button>
 
             <div class="dropdown">
                 <button
-                    class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-2 illegal-status-dropdown-btn shadow-2xs text-nowrap"
+                    class="btn btn-sm fw-semibold dropdown-toggle d-inline-flex align-items-center gap-1.5 illegal-status-dropdown-btn shadow-2xs text-nowrap"
                     type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                    style="border-radius: 8px; font-size: 0.82rem; padding: 7px 15px; white-space: nowrap;">
-                    <i class="fa-solid fa-sliders"></i>
-                    <span>Update Status</span>
+                    style="border-radius: 8px; font-size: 0.78rem; height: 32px; padding: 0 10px; white-space: nowrap;">
+                    <i class="fa-solid fa-sliders" style="font-size: 11px;"></i>
+                    <span>Status</span>
                 </button>
-                <div class="dropdown-menu dropdown-menu-end shadow-sm border p-1" style="border-radius: 10px; font-size: 0.82rem; min-width: 190px;">
+                <div class="dropdown-menu dropdown-menu-end shadow-sm border p-1" style="border-radius: 10px; font-size: 0.82rem; min-width: 190px; z-index: 99999;">
                     <form method="POST" action="{% url 'update_illegal_status' record.record_id %}">
                         {% csrf_token %}
                         <button type="submit" name="illegal_compliance_status" value="unresolved"
@@ -675,303 +1640,87 @@
             </div>
             {% endif %}
         </div>
-        {% endif %}
     </div>
 
-    <!-- ── Visual 3-Step Progress Tracker ──────────────────────────────── -->
-    <div class="compliance-stepper-body" style="padding: 22px 28px 20px 28px !important;">
-        <style>
-            .illegal-banner-header.status-unresolved {
-                background: #fef2f2;
-                color: #991b1b;
-                border-bottom: 1px solid #fee2e2;
-            }
-            .illegal-banner-header.status-unresolved .status-header-sub {
-                color: #b91c1c;
-                opacity: 0.85;
-            }
-            .illegal-banner-header.status-pending_permit {
-                background: #fffbeb;
-                color: #92400e;
-                border-bottom: 1px solid #fef3c7;
-            }
-            .illegal-banner-header.status-pending_permit .status-header-sub {
-                color: #b45309;
-                opacity: 0.85;
-            }
-            .illegal-banner-header.status-resolved {
-                background: #f0fdf4;
-                color: #166534;
-                border-bottom: 1px solid #dcfce7;
-            }
-            .illegal-banner-header.status-resolved .status-header-sub {
-                color: #15803d;
-                opacity: 0.85;
-            }
-
-            .illegal-status-dropdown-btn {
-                background: #ffffff;
-                color: #1e293b;
-                border: 1px solid #cbd5e1;
-            }
-            .illegal-status-dropdown-btn:hover {
-                background: #f8fafc;
-                color: #0f172a;
-                border-color: #94a3b8;
-            }
-
-            .compliance-stepper {
-                display: flex;
-                align-items: flex-start;
-                gap: 0;
-                position: relative;
-                padding: 6px 0;
-            }
-            .compliance-step {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-                position: relative;
-                z-index: 1;
-                transition: transform 0.25s ease;
-            }
-            .compliance-step:nth-child(1) { animation: stepperPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
-            .compliance-step:nth-child(2) { animation: stepperPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
-            .compliance-step:nth-child(3) { animation: stepperPopIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
-
-            @keyframes stepperPopIn {
-                0% { opacity: 0; transform: translateY(6px) scale(0.94); }
-                100% { opacity: 1; transform: translateY(0) scale(1); }
-            }
-
-            .compliance-step .step-dot {
-                width: 36px;
-                height: 36px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 14px;
-                font-weight: 700;
-                position: relative;
-                z-index: 2;
-                transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-                flex-shrink: 0;
-                cursor: default;
-            }
-            .compliance-step:hover .step-dot {
-                transform: translateY(-2px) scale(1.08);
-            }
-            .compliance-step .step-label {
-                font-size: 0.78rem;
-                font-weight: 700;
-                margin-top: 8px;
-                line-height: 1.25;
-                transition: color 0.25s ease;
-            }
-            .compliance-step .step-desc {
-                font-size: 0.70rem;
-                color: #64748b;
-                margin-top: 3px;
-                line-height: 1.25;
-                transition: color 0.25s ease;
-            }
-            .compliance-step:not(:last-child)::after {
-                content: '';
-                position: absolute;
-                top: 17px;
-                left: calc(50% + 20px);
-                width: calc(100% - 40px);
-                height: 3px;
-                background: #e2e8f0;
-                z-index: 0;
-                transition: background 0.35s ease;
-            }
-            .compliance-step.completed:not(:last-child)::after {
-                background: linear-gradient(90deg, #16a34a, #22c55e);
-            }
-            .compliance-step.active:not(:last-child)::after {
-                background: #e2e8f0;
-            }
-            .compliance-step.completed .step-dot {
-                background: #dcfce7;
-                color: #16a34a;
-                border: 2px solid #16a34a;
-                box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
-            }
-            .compliance-step.completed .step-dot i {
-                animation: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-            }
-            @keyframes checkPop {
-                0% { transform: scale(0.5); opacity: 0; }
-                100% { transform: scale(1); opacity: 1; }
-            }
-            .compliance-step.active .step-dot {
-                border: 2px solid currentColor;
-                animation: stepperPulseRing 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            }
-            @keyframes stepperPulseRing {
-                0% {
-                    box-shadow: 0 0 0 0 rgba(var(--step-glow, 220, 38, 38), 0.45);
-                }
-                60% {
-                    box-shadow: 0 0 0 8px rgba(var(--step-glow, 220, 38, 38), 0);
-                }
-                100% {
-                    box-shadow: 0 0 0 0 rgba(var(--step-glow, 220, 38, 38), 0);
-                }
-            }
-            .compliance-step.pending .step-dot {
-                background: #f1f5f9;
-                color: #94a3b8;
-                border: 2px solid #cbd5e1;
-            }
-
-            /* ── DARK MODE COMPATIBILITY ── */
-            .dark-mode .illegal-banner-card,
-            [data-bs-theme="dark"] .illegal-banner-card {
-                background: #1e293b !important;
-                border-color: #334155 !important;
-            }
-            .dark-mode .illegal-banner-header.status-unresolved,
-            [data-bs-theme="dark"] .illegal-banner-header.status-unresolved {
-                background: rgba(220, 38, 38, 0.15) !important;
-                color: #fca5a5 !important;
-                border-bottom-color: rgba(248, 113, 113, 0.25) !important;
-            }
-            .dark-mode .illegal-banner-header.status-unresolved .status-header-sub,
-            [data-bs-theme="dark"] .illegal-banner-header.status-unresolved .status-header-sub {
-                color: #cbd5e1 !important;
-            }
-            .dark-mode .illegal-banner-header.status-pending_permit,
-            [data-bs-theme="dark"] .illegal-banner-header.status-pending_permit {
-                background: rgba(217, 119, 6, 0.15) !important;
-                color: #fde047 !important;
-                border-bottom-color: rgba(251, 191, 36, 0.25) !important;
-            }
-            .dark-mode .illegal-banner-header.status-pending_permit .status-header-sub,
-            [data-bs-theme="dark"] .illegal-banner-header.status-pending_permit .status-header-sub {
-                color: #cbd5e1 !important;
-            }
-            .dark-mode .illegal-banner-header.status-resolved,
-            [data-bs-theme="dark"] .illegal-banner-header.status-resolved {
-                background: rgba(22, 163, 74, 0.15) !important;
-                color: #86efac !important;
-                border-bottom-color: rgba(74, 222, 128, 0.25) !important;
-            }
-            .dark-mode .illegal-banner-header.status-resolved .status-header-sub,
-            [data-bs-theme="dark"] .illegal-banner-header.status-resolved .status-header-sub {
-                color: #cbd5e1 !important;
-            }
-
-            .dark-mode .illegal-status-dropdown-btn,
-            [data-bs-theme="dark"] .illegal-status-dropdown-btn {
-                background: #0f172a !important;
-                border-color: #334155 !important;
-                color: #f8fafc !important;
-            }
-            .dark-mode .illegal-status-dropdown-btn:hover,
-            [data-bs-theme="dark"] .illegal-status-dropdown-btn:hover {
-                background: #1e293b !important;
-                border-color: #475569 !important;
-            }
-            .dark-mode .compliance-stepper-body,
-            [data-bs-theme="dark"] .compliance-stepper-body {
-                background: #1e293b !important;
-            }
-            .dark-mode .compliance-step:not(:last-child)::after,
-            [data-bs-theme="dark"] .compliance-step:not(:last-child)::after {
-                background: #334155 !important;
-            }
-            .dark-mode .compliance-step.completed:not(:last-child)::after,
-            [data-bs-theme="dark"] .compliance-step.completed:not(:last-child)::after {
-                background: #22c55e !important;
-            }
-            .dark-mode .compliance-step.pending .step-dot,
-            [data-bs-theme="dark"] .compliance-step.pending .step-dot {
-                background: #0f172a !important;
-                border-color: #334155 !important;
-                color: #64748b !important;
-            }
-            .dark-mode .compliance-step .step-desc,
-            [data-bs-theme="dark"] .compliance-step .step-desc {
-                color: #94a3b8 !important;
-            }
-
-            @media (max-width: 480px) {
-                .compliance-step .step-label { font-size: 0.65rem; }
-                .compliance-step .step-desc { display: none; }
-                .compliance-step .step-dot { width: 28px; height: 28px; font-size: 11px; }
-                .compliance-step:not(:last-child)::after { top: 13px; left: calc(50% + 16px); width: calc(100% - 32px); }
-            }
-        </style>
-
-        <div class="compliance-stepper">
-            <!-- Step 1: Detection & Stop Order -->
-            <div class="compliance-step {% if record.illegal_compliance_status == 'unresolved' %}active{% else %}completed{% endif %}"
-                {% if record.illegal_compliance_status == 'unresolved' %}style="color: #dc2626; --step-glow: 220, 38, 38;"{% endif %}>
-                <div class="step-dot"
-                    {% if record.illegal_compliance_status == 'unresolved' %}style="background: #fee2e2; color: #dc2626; border-color: #dc2626;"{% endif %}>
-                    {% if record.illegal_compliance_status == 'unresolved' %}
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    {% else %}
+    <!-- 3-Step Interactive Timeline Stepper Body -->
+    <div class="px-4 py-3.5 illegal-timeline-container">
+        <div class="d-flex align-items-center justify-content-between position-relative mx-auto" style="max-width: 720px; width: 100%;">
+            
+            <!-- Step 1: Detection & Notice (Always Active / Done) -->
+            <div class="d-flex flex-column align-items-center text-center position-relative z-1" style="flex: 1;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm step-circle step-done">
                     <i class="fa-solid fa-check"></i>
-                    {% endif %}
                 </div>
-                <div class="step-label" {% if record.illegal_compliance_status == 'unresolved' %}style="color: #dc2626;"{% else %}style="color: #16a34a;"{% endif %}>
-                    Inspection &amp; Notice
-                </div>
-                <div class="step-desc">
-                    {% if record.date_started %}{{ record.date_started|date:"M d, Y" }}{% else %}Notice Issued{% endif %}
+                <div class="mt-2">
+                    <div class="timeline-step-title title-success">Detection &amp; Notice</div>
+                    <div class="timeline-step-sub">
+                        {{ record.date_started|date:"M d, Y"|default:record.created_at|date:"M d, Y" }}
+                    </div>
                 </div>
             </div>
 
-            <!-- Step 2: Permit Application Filed -->
-            <div class="compliance-step {% if record.illegal_compliance_status == 'pending_permit' %}active{% elif record.illegal_compliance_status == 'resolved' %}completed{% else %}pending{% endif %}"
-                {% if record.illegal_compliance_status == 'pending_permit' %}style="color: #d97706; --step-glow: 217, 119, 6;"{% endif %}>
-                <div class="step-dot"
-                    {% if record.illegal_compliance_status == 'pending_permit' %}style="background: #fef3c7; color: #d97706; border-color: #d97706;"{% endif %}>
-                    {% if record.illegal_compliance_status == 'pending_permit' %}
-                    <i class="fa-solid fa-file-pen"></i>
-                    {% elif record.illegal_compliance_status == 'resolved' %}
+            <!-- Connector Line 1-2 -->
+            <div class="timeline-line-track {% if record.illegal_compliance_status == 'resolved' or record.illegal_compliance_status == 'pending_permit' %}active{% else %}inactive{% endif %}"></div>
+
+            <!-- Step 2: Permit Filed -->
+            <div class="d-flex flex-column align-items-center text-center position-relative z-1" style="flex: 1;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm step-circle {% if record.illegal_compliance_status == 'resolved' %}step-done{% elif record.illegal_compliance_status == 'pending_permit' %}step-active{% else %}step-pending{% endif %}">
+                    {% if record.illegal_compliance_status == 'resolved' %}
                     <i class="fa-solid fa-check"></i>
+                    {% elif record.illegal_compliance_status == 'pending_permit' %}
+                    <i class="fa-solid fa-file-pen" style="font-size: 13px;"></i>
                     {% else %}
-                    <span>2</span>
+                    <i class="fa-regular fa-clock" style="font-size: 13px;"></i>
                     {% endif %}
                 </div>
-                <div class="step-label" {% if record.illegal_compliance_status == 'pending_permit' %}style="color: #d97706;"{% elif record.illegal_compliance_status == 'resolved' %}style="color: #16a34a;"{% else %}style="color: #94a3b8;"{% endif %}>
-                    Permit Filed
-                </div>
-                <div class="step-desc">
-                    {% if record.illegal_compliance_status == 'pending_permit' %}Under Review{% elif record.illegal_compliance_status == 'resolved' %}Approved{% else %}Awaiting{% endif %}
+                <div class="mt-2">
+                    <div class="timeline-step-title {% if record.illegal_compliance_status == 'resolved' %}title-success{% elif record.illegal_compliance_status == 'pending_permit' %}title-warning{% else %}title-muted{% endif %}">Permit Filed</div>
+                    <div class="timeline-step-sub">
+                        {% if record.illegal_compliance_status == 'resolved' %}
+                        Approved
+                        {% elif record.illegal_compliance_status == 'pending_permit' %}
+                        In Progress
+                        {% else %}
+                        Pending Filing
+                        {% endif %}
+                    </div>
                 </div>
             </div>
 
-            <!-- Step 3: Regularized / Permit Issued -->
-            <div class="compliance-step {% if record.illegal_compliance_status == 'resolved' %}active{% else %}pending{% endif %}"
-                {% if record.illegal_compliance_status == 'resolved' %}style="color: #16a34a; --step-glow: 22, 163, 74;"{% endif %}>
-                <div class="step-dot"
-                    {% if record.illegal_compliance_status == 'resolved' %}style="background: #dcfce7; color: #16a34a; border-color: #16a34a;"{% endif %}>
+            <!-- Connector Line 2-3 -->
+            <div class="timeline-line-track {% if record.illegal_compliance_status == 'resolved' %}active{% else %}inactive{% endif %}"></div>
+
+            <!-- Step 3: Permit Issued (Regularized) -->
+            <div class="d-flex flex-column align-items-center text-center position-relative z-1" style="flex: 1;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm step-circle {% if record.illegal_compliance_status == 'resolved' %}step-final-resolved{% else %}step-pending{% endif %}">
                     {% if record.illegal_compliance_status == 'resolved' %}
                     <i class="fa-solid fa-certificate"></i>
                     {% else %}
-                    <span>3</span>
+                    <i class="fa-solid fa-lock" style="font-size: 12px;"></i>
                     {% endif %}
                 </div>
-                <div class="step-label" {% if record.illegal_compliance_status == 'resolved' %}style="color: #16a34a;"{% else %}style="color: #94a3b8;"{% endif %}>
-                    Regularized
-                </div>
-                <div class="step-desc">
-                    {% if record.illegal_compliance_status == 'resolved' and record.permit_detail.permit_number %}
-                    {{ record.permit_detail.permit_type }} #{{ record.permit_detail.permit_number }}
-                    {% elif record.illegal_compliance_status == 'resolved' %}Permit Issued{% else %}Pending{% endif %}
+                <div class="mt-2">
+                    <div class="timeline-step-title {% if record.illegal_compliance_status == 'resolved' %}title-success{% else %}title-muted{% endif %}">Permit Issued</div>
+                    <div class="timeline-step-sub">
+                        {% if record.illegal_compliance_status == 'resolved' %}
+                        {% if record.permit_detail.permit_type and record.permit_detail.permit_number %}
+                        {{ record.permit_detail.permit_type }} #{{ record.permit_detail.permit_number }}
+                        {% elif record.permit_detail.permit_number %}
+                        Permit #{{ record.permit_detail.permit_number }}
+                        {% else %}
+                        Regularized &amp; Issued
+                        {% endif %}
+                        {% else %}
+                        Awaiting Issuance
+                        {% endif %}
+                    </div>
                 </div>
             </div>
+
         </div>
     </div>
 </div>
+{% endif %}
 
 {% if can_edit and record.is_illegal_construction %}
 <!-- ══ REGULARIZE DETAIL MODAL ════════════════════════════════════════ -->
@@ -1041,36 +1790,41 @@
     </div>
 </div>
 {% endif %}
-{% endif %}
 
-<!-- ══ 3. MAIN CONTENT GRID (8:4 Layout) ════════════════════════════════════ -->
+<!-- ══ 3. MAIN CONTENT GRID (Default: Expanded Full-Width, Toggleable Split) ════════════════════════════════════ -->
 <div class="row g-4 mb-5 align-items-start">
 
-    <!-- ── LEFT COLUMN: Document Checklist & Files (col-lg-8) ─────────────── -->
-    <div class="col-lg-8 d-flex flex-column gap-4 min-w-0">
+    <!-- ── LEFT COLUMN: Document Checklist & Files (col-lg-12 by default) ─────────────── -->
+    <div class="col-lg-12 summary-collapsed d-flex flex-column gap-4 min-w-0" id="checklistCol" style="transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);">
 
         {% if record.is_illegal_construction and record.illegal_compliance_status == 'unresolved' %}
         <!-- ⚠️ UNRESOLVED VIOLATION INCIDENT EVIDENCE & DOCUMENTS CARD -->
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
-            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-3" style="padding: 18px 24px !important; min-height: 72px !important;">
-                <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-2" style="padding: 14px 18px !important; min-height: 56px !important;">
+                <div class="d-flex align-items-center flex-shrink-0 flex-nowrap me-auto">
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 38px; height: 38px; min-width: 38px; margin-right: 14px !important; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 17px;"></i>
+                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 16px;"></i>
                     </div>
-                    <div class="min-w-0 flex-grow-1">
-                        <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 1rem; letter-spacing: -0.01em;">Incident Evidence Documents</h5>
-                    </div>
+                    <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em; white-space: nowrap !important; overflow: visible !important;">Incident Evidence Documents</h5>
                 </div>
 
-                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
+                <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
+                    <button type="button"
+                        class="btn btn-sm summary-toggle-btn d-inline-flex align-items-center gap-1 shadow-2xs text-nowrap"
+                        id="toggleSummaryBtn" onclick="toggleRecordSummary()" title="Toggle Record Summary Sidebar"
+                        style="border-radius: 7px; font-size: 0.75rem; height: 28px; padding: 0 8px; white-space: nowrap;">
+                        <i class="fa-solid fa-table-columns" style="font-size: 11px;"></i>
+                        <span class="summary-btn-label">Summary</span>
+                    </button>
+
                     {% if can_edit and record.status != 'archived' %}
                     <button type="button"
-                        class="btn btn-sm btn-danger fw-semibold px-3.5 py-2 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
-                        style="border-radius: 8px; font-size: 0.82rem; white-space: nowrap;"
+                        class="btn btn-sm btn-danger fw-semibold px-2.5 py-1 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        style="border-radius: 7px; font-size: 0.75rem; height: 28px; white-space: nowrap;"
                         onclick="openGroupBatchUploadModal('', 'Incident Evidence Documents')">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span>Upload Evidence Files</span>
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
+                        <span>Upload Evidence</span>
                     </button>
                     {% endif %}
                 </div>
@@ -1080,28 +1834,46 @@
                 {% if attachments %}
                 <div class="d-flex flex-column gap-2">
                     {% for doc in attachments %}
-                    <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                    <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs"
+                        id="doc-{{ doc.document_id }}" data-doc-id="{{ doc.document_id }}" {% if doc.requirement_item_id %}data-item-id="{{ doc.requirement_item_id }}"{% endif %} {% if doc.expiry_date %}data-expiry-date="{{ doc.expiry_date|date:'Y-m-d' }}"{% endif %}>
                         <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                             <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
                                 style="width: 32px; height: 32px; min-width: 32px; margin-right: 14px !important; border-radius: 8px; background: rgba(37, 99, 235, 0.12); color: #2563eb; font-size: 14px;">
                                 <i class="fa-solid fa-file-lines"></i>
                             </div>
                             <div class="min-w-0 flex-grow-1">
-                                <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem;">{{ doc.file_name }}</div>
+                                <div class="fw-bold title-text-adaptive text-truncate d-flex align-items-center flex-nowrap gap-1.5" style="font-size: 0.86rem;">
+                                    <a href="javascript:void(0)"
+                                        onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc.file_name|escapejs }}', 'Incident Evidence')"
+                                        class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5 text-truncate"
+                                        title="{{ doc.file_name }}" data-bs-toggle="tooltip">
+                                        <span class="text-truncate">{{ doc.file_name }}</span>
+                                    </a>
+                                    {% if doc.expiry_date %}
+                                        {% if doc.expiry_date < today %}
+                                        <span class="doc-expiry-badge badge-expired"><i class="fa-solid fa-circle-exclamation"></i>Expired {{ doc.expiry_date|date:"M d, Y" }}</span>
+                                        {% elif doc.expiry_date <= thirty_days_later %}
+                                        <span class="doc-expiry-badge badge-expiring"><i class="fa-regular fa-clock"></i>Expires {{ doc.expiry_date|date:"M d, Y" }}</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
                                 <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">Uploaded on {{ doc.uploaded_at|date:"M d, Y • h:i A" }}</div>
                             </div>
                         </div>
                         <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
-                            <a href="{{ doc_url_map|dict_get:doc.document_id }}" target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none" style="font-size: 0.76rem;">
-                                <i class="fa-solid fa-arrow-up-right-from-square me-1" style="font-size: 11px;"></i>View
-                            </a>
+                            <button type="button" class="checklist-action-btn btn-view"
+                                onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc.file_name|escapejs }}', 'Incident Evidence')"
+                                title="Preview Document">
+                                <i class="fa-solid fa-eye" style="font-size: 10px;"></i>
+                                <span>View</span>
+                            </button>
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
+                            <button type="button" class="checklist-action-btn btn-delete"
                                 data-url="{% url 'delete_document' record.record_id doc.document_id %}"
                                 data-name="{{ doc.file_name }}"
                                 onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
                                 title="Delete uploaded file">
-                                <i class="fa-solid fa-trash-can"></i>
+                                <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
                             </button>
                             {% endif %}
                         </div>
@@ -1133,32 +1905,38 @@
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
             
             <!-- Card Header -->
-            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap gap-2" style="padding: 14px 18px !important; min-height: 56px !important;">
-                <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2.5" style="padding: 12px 18px !important; min-height: 52px !important;">
+                <div class="d-flex align-items-center flex-shrink-0 flex-nowrap me-auto">
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe;">
-                        <i class="fa-solid fa-clipboard-check" style="font-size: 16px;"></i>
+                        style="width: 34px; height: 34px; min-width: 34px; margin-right: 10px !important; background: rgba(37, 99, 235, 0.1); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2);">
+                        <i class="fa-solid fa-clipboard-check" style="font-size: 15px;"></i>
                     </div>
-                    <div class="min-w-0 flex-grow-1">
-                        <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em;">Document Checklist</h5>
-                    </div>
+                    <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.92rem; letter-spacing: -0.01em; white-space: nowrap !important; overflow: visible !important;">Document Checklist</h5>
                 </div>
 
-                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
+                <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
                     {% if completion and completion.total > 0 %}
-                    <span class="badge checklist-badge-empty d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 rounded-2"
-                        style="font-size: 0.74rem; font-weight: 600; white-space: nowrap;">
+                    <span class="badge checklist-badge-empty d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2"
+                        style="font-size: 0.72rem; font-weight: 600; white-space: nowrap;">
                         <i class="fa-solid {% if completion.is_complete %}fa-circle-check text-success{% else %}fa-list-check{% endif %}"></i>
                         <span>{{ completion.fulfilled }}/{{ completion.total }} Complete</span>
                     </span>
                     {% endif %}
 
+                    <button type="button"
+                        class="btn btn-sm summary-toggle-btn d-inline-flex align-items-center gap-1 shadow-2xs text-nowrap"
+                        id="toggleSummaryBtn" onclick="toggleRecordSummary()" title="Toggle Record Summary Sidebar"
+                        style="border-radius: 7px; font-size: 0.75rem; height: 28px; padding: 0 9px; white-space: nowrap;">
+                        <i class="fa-solid fa-table-columns" style="font-size: 11px;"></i>
+                        <span class="summary-btn-label">Summary</span>
+                    </button>
+
                     {% if can_edit and record.status != 'archived' %}
                     <button type="button"
-                        class="btn btn-sm btn-primary fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
-                        style="border-radius: 8px; font-size: 0.78rem; white-space: nowrap;"
+                        class="btn btn-sm btn-primary fw-semibold px-2.5 py-1 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        style="border-radius: 7px; font-size: 0.75rem; height: 28px; white-space: nowrap;"
                         onclick="openGroupBatchUploadModal('', 'All Checklist Documents')">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
                         <span>Batch Upload</span>
                     </button>
                     {% endif %}
@@ -1178,48 +1956,37 @@
                     <div class="checklist-group-card border rounded-3 overflow-hidden shadow-2xs" style="transition: all 0.2s ease;">
                         
                         <!-- Group Header -->
-                        <div class="p-3 px-3.5 checklist-group-header d-flex align-items-center justify-content-between flex-nowrap gap-3" style="user-select: none;">
+                        <div class="p-2.5 px-3 checklist-group-header d-flex align-items-center justify-content-between flex-nowrap gap-3" style="user-select: none;">
 
                             <!-- Folder Title Area (Clickable to toggle collapse) -->
                             <div class="d-flex align-items-center min-w-0 flex-grow-1 cursor-pointer flex-nowrap"
                                 data-bs-toggle="collapse" data-bs-target="#groupCollapse_{{ req.req_id }}"
                                 aria-expanded="true" aria-controls="groupCollapse_{{ req.req_id }}">
-                                <div class="rounded-3 checklist-icon-box checklist-folder-box flex-shrink-0 {% if g_stats.is_complete %}checklist-icon-fulfilled{% elif g_stats.fulfilled > 0 %}checklist-icon-default{% else %}checklist-folder-default{% endif %}"
-                                    style="width: 34px; height: 34px; min-width: 34px; margin-right: 14px !important;">
+                                <div class="rounded-2 checklist-icon-box checklist-folder-box flex-shrink-0 {% if g_stats.is_complete %}checklist-icon-fulfilled{% elif g_stats.fulfilled > 0 %}checklist-icon-default{% else %}checklist-folder-default{% endif %}"
+                                    style="width: 28px; height: 28px; min-width: 28px; margin-right: 12px !important;">
                                     {% if g_stats.is_complete %}
-                                    <i class="fa-solid fa-folder-check" style="font-size: 14px;"></i>
+                                    <i class="fa-solid fa-folder-closed" style="font-size: 12.5px;"></i>
                                     {% else %}
-                                    <i class="fa-solid fa-folder-open" style="font-size: 14px;"></i>
+                                    <i class="fa-solid fa-folder-open" style="font-size: 12.5px;"></i>
                                     {% endif %}
                                 </div>
                                 <div class="min-w-0 flex-grow-1">
-                                    <h6 class="fw-bold mb-0 text-truncate title-text-adaptive" style="font-size: 0.88rem;">
+                                    <h6 class="fw-bold mb-0 text-truncate title-text-adaptive" style="font-size: 0.88rem; line-height: 1.3; color: #0f172a;">
                                         {{ req.requirement_item.name }}
                                     </h6>
-                                    <div class="text-muted text-truncate" style="font-size: 0.75rem; margin-top: 1px;">
-                                        {{ g_stats.total }} required document{% if g_stats.total > 1 %}s{% endif %}
+                                    <div class="text-muted text-truncate" style="font-size: 0.75rem; margin-top: 2px;">
+                                        {% if g_stats.is_complete %}
+                                        <span class="text-success fw-semibold"><i class="fa-solid fa-check me-1"></i>All {{ g_stats.total }} requirements satisfied</span>
+                                        {% elif g_stats.fulfilled > 0 %}
+                                        <span><strong class="text-primary fw-semibold">{{ g_stats.fulfilled }}</strong> of {{ g_stats.total }} fulfilled</span>
+                                        {% else %}
+                                        <span>0 of {{ g_stats.total }} fulfilled</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
-                                {% if g_stats.is_complete %}
-                                <span class="badge checklist-badge-complete d-inline-flex align-items-center gap-1"
-                                    style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
-                                    <i class="fa-solid fa-check"></i> Complete
-                                </span>
-                                {% elif g_stats.fulfilled > 0 %}
-                                <span class="badge checklist-badge-partial"
-                                    style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
-                                    {{ g_stats.fulfilled }}/{{ g_stats.total }} Uploaded
-                                </span>
-                                {% else %}
-                                <span class="badge checklist-badge-empty"
-                                    style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
-                                    0/{{ g_stats.total }} Uploaded
-                                </span>
-                                {% endif %}
-
+                            <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
                                 {% if g_stats.fulfilled > 0 %}
                                 <a href="{% url 'download_category_zip' record.record_id req.req_id %}"
                                     class="zip-download-btn"
@@ -1245,87 +2012,98 @@
                         <div class="collapse show" id="groupCollapse_{{ req.req_id }}">
                             <div class="checklist-group-body border-top d-flex flex-column">
                                 {% for sub_req in sub_list %}
-                                <div class="checklist-sub-item d-flex align-items-center justify-content-between flex-nowrap gap-3">
+                                <div class="checklist-sub-item d-flex align-items-center justify-content-between flex-nowrap gap-3"
+                                    {% if sub_req.document %}id="doc-{{ sub_req.document.document_id }}" data-doc-id="{{ sub_req.document.document_id }}" data-expiry-date="{{ sub_req.document.expiry_date|date:'Y-m-d' }}"{% endif %}
+                                    data-item-id="{{ sub_req.requirement_item.item_id }}">
                                     <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                                         <!-- 📎 SUBFILE ATTACHMENT ICON -->
                                         <div class="rounded-2 checklist-icon-box flex-shrink-0 {% if sub_req.is_fulfilled %}checklist-icon-fulfilled{% elif sub_req.is_waived %}checklist-icon-waived{% else %}checklist-icon-default{% endif %}"
-                                            style="width: 32px; height: 32px; min-width: 32px; margin-right: 12px !important; border-radius: 8px; font-size: 13px;">
+                                            style="width: 28px; height: 28px; min-width: 28px; margin-right: 12px !important; font-size: 11.5px;">
                                             {% if sub_req.is_fulfilled %}
                                             <i class="fa-solid fa-circle-check"></i>
                                             {% elif sub_req.is_waived %}
                                             <i class="fa-solid fa-ban"></i>
                                             {% else %}
-                                            <i class="fa-solid fa-file-lines"></i>
+                                            <i class="fa-regular fa-file" style="opacity: 0.65;"></i>
                                             {% endif %}
                                         </div>
                                         <div class="min-w-0 flex-grow-1">
-                                            <div class="fw-bold title-text-adaptive text-break" style="font-size: 0.86rem; line-height: 1.35;">{{ sub_req.requirement_item.name }}</div>
-                                            <div class="text-truncate" style="font-size: 0.76rem; margin-top: 2px;">
-                                                {% if sub_req.is_fulfilled and sub_req.document %}
-                                                <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}"
-                                                    target="_blank" class="text-decoration-none fw-semibold text-success d-inline-flex align-items-center gap-1.5"
-                                                    title="Click to view file">
-                                                    <i class="fa-solid fa-file-pdf text-danger"></i>
-                                                    <span class="text-truncate" style="max-width: 280px;">{{ sub_req.document.file_name }}</span>
-                                                </a>
-                                                {% if sub_req.document.expiry_date %}
-                                                <span class="text-muted ms-1">&bull; Exp: {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
-                                                {% endif %}
-                                                {% elif sub_req.is_waived %}
-                                                <span class="text-muted"><i class="fa-solid fa-ban me-1 text-secondary" style="font-size: 10px;"></i>Not Applicable (Waived)</span>
-                                                {% else %}
-                                                <span class="text-muted"><i class="fa-regular fa-clock me-1 text-secondary" style="font-size: 10px;"></i>Pending upload</span>
+                                            <div class="fw-semibold title-text-adaptive text-break d-flex align-items-center flex-nowrap gap-1.5" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
+                                                <span class="text-truncate">{{ sub_req.requirement_item.name|clean_req_name }}</span>
+                                                {% if sub_req.document and sub_req.document.expiry_date %}
+                                                    {% if sub_req.document.expiry_date < today %}
+                                                    <span class="doc-expiry-badge badge-expired"><i class="fa-solid fa-circle-exclamation"></i>Expired {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
+                                                    {% elif sub_req.document.expiry_date <= thirty_days_later %}
+                                                    <span class="doc-expiry-badge badge-expiring"><i class="fa-regular fa-clock"></i>Expires {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
+                                                    {% endif %}
                                                 {% endif %}
                                             </div>
+                                            {% if sub_req.is_fulfilled and sub_req.document %}
+                                            <div class="text-truncate" style="font-size: 0.75rem; margin-top: 2px;">
+                                                <a href="javascript:void(0)"
+                                                    onclick="openDocPreview('{{ doc_url_map|dict_get:sub_req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:sub_req.document.document_id|default:sub_req.document.file_name|escapejs }}', '{{ sub_req.requirement_item.name|escapejs }}')"
+                                                    class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5"
+                                                    title="{{ sub_req.document.file_name }}" data-bs-toggle="tooltip">
+                                                    <i class="{{ sub_req.document.file_name|file_icon_class }}" style="font-size: 11px;"></i>
+                                                    <span class="text-truncate doc-filename-link">{{ sub_req.document.file_name }}</span>
+                                                </a>
+                                                {% if sub_req.document.expiry_date and sub_req.document.expiry_date >= today and sub_req.document.expiry_date > thirty_days_later %}
+                                                <span class="text-muted ms-1" style="font-size: 0.72rem;">&bull; Exp: {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
+                                                {% endif %}
+                                            </div>
+                                            {% elif sub_req.is_waived %}
+                                            <div class="text-truncate" style="font-size: 0.74rem; margin-top: 1px;">
+                                                <span class="text-muted"><i class="fa-solid fa-ban me-1 text-secondary" style="font-size: 9.5px;"></i>Not Applicable (Waived)</span>
+                                            </div>
+                                            {% else %}
+                                            <div class="text-truncate" style="font-size: 0.74rem; margin-top: 1px;">
+                                                <span class="text-muted" style="opacity: 0.75;"><i class="fa-regular fa-clock me-1" style="font-size: 9.5px;"></i>Pending upload</span>
+                                            </div>
+                                            {% endif %}
                                         </div>
                                     </div>
 
                                     <!-- Actions per row -->
-                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
                                         {% if sub_req.is_fulfilled and sub_req.document %}
-                                        <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}"
-                                            target="_blank" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-dark d-inline-flex align-items-center gap-1.5 text-decoration-none"
-                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
-                                            title="View Document">
-                                            <i class="fa-solid fa-arrow-up-right-from-square text-primary" style="font-size: 11px;"></i>
+                                        <button type="button" class="checklist-action-btn btn-view"
+                                            onclick="openDocPreview('{{ doc_url_map|dict_get:sub_req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:sub_req.document.document_id|default:sub_req.document.file_name|escapejs }}', '{{ sub_req.requirement_item.name|escapejs }}')"
+                                            title="Preview Document">
+                                            <i class="fa-solid fa-eye" style="font-size: 10px;"></i>
                                             <span>View</span>
-                                        </a>
+                                        </button>
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="btn btn-sm btn-light border text-danger px-2 py-1.5 d-inline-flex align-items-center justify-content-center"
-                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px; width: 32px;"
+                                        <button type="button" class="checklist-action-btn btn-delete"
                                             data-url="{% url 'delete_document' record.record_id sub_req.document.document_id %}"
                                             data-name="{{ sub_req.document.file_name }}"
                                             onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
                                             title="Delete uploaded file">
-                                            <i class="fa-solid fa-trash-can"></i>
+                                            <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
                                         </button>
                                         {% endif %}
                                         
                                         {% elif sub_req.is_waived %}
-                                        <span class="badge checklist-badge-empty" style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
+                                        <span class="text-muted fw-semibold" style="font-size: 0.70rem;">N/A</span>
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
-                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
+                                        <button type="button" class="checklist-action-btn btn-require"
                                             data-req-id="{{ sub_req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' sub_req.req_id %}"
                                             title="Undo N/A status">
-                                            <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> <span>Require</span>
+                                            <i class="fa-solid fa-rotate-left" style="font-size: 9.5px;"></i> <span>Require</span>
                                         </button>
                                         {% endif %}
                                         
                                         {% else %}
                                         {% if can_edit and record.status != 'archived' %}
-                                        <button type="button" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-2xs"
-                                            style="border-radius: 7px; font-size: 0.80rem; height: 32px;"
+                                        <button type="button" class="checklist-action-btn btn-upload"
                                             onclick="openUploadModal('{{ sub_req.requirement_item.item_id }}', '{{ sub_req.requirement_item.name|escapejs }}')">
-                                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
+                                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 9.5px;"></i>
                                             <span>Upload</span>
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
-                                            style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
+                                        <button type="button" class="checklist-action-btn btn-waive"
                                             data-req-id="{{ sub_req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' sub_req.req_id %}"
                                             title="Mark as Not Applicable">N/A</button>
                                         {% else %}
-                                        <span class="badge" style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
+                                        <span class="text-warning fw-semibold" style="font-size: 0.72rem;">Missing</span>
                                         {% endif %}
                                         {% endif %}
                                     </div>
@@ -1338,83 +2116,97 @@
 
                     {% else %}
                     <!-- 📄 STANDALONE FILE REQUIREMENT ROW -->
-                    <div class="checklist-standalone-item d-flex align-items-center justify-content-between flex-nowrap gap-3">
+                    <div class="checklist-standalone-item d-flex align-items-center justify-content-between flex-nowrap gap-3"
+                        {% if req.document %}id="doc-{{ req.document.document_id }}" data-doc-id="{{ req.document.document_id }}" data-expiry-date="{{ req.document.expiry_date|date:'Y-m-d' }}"{% endif %}
+                        data-item-id="{{ req.requirement_item.item_id }}">
                         <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                             <!-- 📄 STANDALONE MAIN FILE ICON -->
-                            <div class="rounded-3 checklist-icon-box flex-shrink-0 {% if req.is_fulfilled %}checklist-icon-fulfilled{% elif req.is_waived %}checklist-icon-waived{% else %}checklist-icon-default{% endif %}"
-                                style="width: 34px; height: 34px; min-width: 34px; margin-right: 12px !important; font-size: 14px;">
+                            <div class="rounded-2 checklist-icon-box flex-shrink-0 {% if req.is_fulfilled %}checklist-icon-fulfilled{% elif req.is_waived %}checklist-icon-waived{% else %}checklist-icon-default{% endif %}"
+                                style="width: 28px; height: 28px; min-width: 28px; margin-right: 12px !important; font-size: 11.5px;">
                                 {% if req.is_fulfilled %}
-                                <i class="fa-solid fa-file-circle-check"></i>
+                                <i class="fa-solid fa-circle-check"></i>
                                 {% elif req.is_waived %}
                                 <i class="fa-solid fa-ban"></i>
                                 {% else %}
-                                <i class="fa-solid fa-file-lines"></i>
+                                <i class="fa-regular fa-file" style="opacity: 0.65;"></i>
                                 {% endif %}
                             </div>
                             <div class="min-w-0 flex-grow-1">
-                                <div class="fw-bold title-text-adaptive text-break" style="font-size: 0.88rem; line-height: 1.35;">{{ req.requirement_item.name }}</div>
-                                <div class="text-truncate" style="font-size: 0.76rem; margin-top: 2px;">
-                                    {% if req.is_fulfilled and req.document %}
-                                    <a href="{{ doc_url_map|dict_get:req.document.document_id }}"
-                                        target="_blank" class="text-decoration-none fw-semibold text-success d-inline-flex align-items-center gap-1.5"
-                                        title="Click to view file">
-                                        <i class="fa-solid fa-file-pdf text-danger"></i>
-                                        <span class="text-truncate" style="max-width: 280px;">{{ req.document.file_name }}</span>
-                                    </a>
-                                    {% elif req.is_waived %}
-                                    <span class="text-muted"><i class="fa-solid fa-ban me-1 text-secondary" style="font-size: 10px;"></i>Not Applicable (Waived)</span>
-                                    {% else %}
-                                    <span class="text-muted"><i class="fa-regular fa-clock me-1 text-secondary" style="font-size: 10px;"></i>Pending upload</span>
+                                <div class="fw-semibold title-text-adaptive text-break d-flex align-items-center flex-nowrap gap-1.5" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
+                                    <span class="text-truncate">{{ req.requirement_item.name }}</span>
+                                    {% if req.document and req.document.expiry_date %}
+                                        {% if req.document.expiry_date < today %}
+                                        <span class="doc-expiry-badge badge-expired"><i class="fa-solid fa-circle-exclamation"></i>Expired {{ req.document.expiry_date|date:"M d, Y" }}</span>
+                                        {% elif req.document.expiry_date <= thirty_days_later %}
+                                        <span class="doc-expiry-badge badge-expiring"><i class="fa-regular fa-clock"></i>Expires {{ req.document.expiry_date|date:"M d, Y" }}</span>
+                                        {% endif %}
                                     {% endif %}
                                 </div>
+                                {% if req.is_fulfilled and req.document %}
+                                <div class="text-truncate" style="font-size: 0.75rem; margin-top: 2px;">
+                                    <a href="javascript:void(0)"
+                                        onclick="openDocPreview('{{ doc_url_map|dict_get:req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:req.document.document_id|default:req.document.file_name|escapejs }}', '{{ req.requirement_item.name|escapejs }}')"
+                                        class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5"
+                                        title="{{ req.document.file_name }}" data-bs-toggle="tooltip">
+                                        <i class="{{ req.document.file_name|file_icon_class }}" style="font-size: 11px;"></i>
+                                        <span class="text-truncate doc-filename-link">{{ req.document.file_name }}</span>
+                                    </a>
+                                    {% if req.document.expiry_date and req.document.expiry_date >= today and req.document.expiry_date > thirty_days_later %}
+                                    <span class="text-muted ms-1" style="font-size: 0.72rem;">&bull; Exp: {{ req.document.expiry_date|date:"M d, Y" }}</span>
+                                    {% endif %}
+                                </div>
+                                {% elif req.is_waived %}
+                                <div class="text-truncate" style="font-size: 0.74rem; margin-top: 1px;">
+                                    <span class="text-muted"><i class="fa-solid fa-ban me-1 text-secondary" style="font-size: 9.5px;"></i>Not Applicable (Waived)</span>
+                                </div>
+                                {% else %}
+                                <div class="text-truncate" style="font-size: 0.74rem; margin-top: 1px;">
+                                    <span class="text-muted" style="opacity: 0.75;"><i class="fa-regular fa-clock me-1" style="font-size: 9.5px;"></i>Pending upload</span>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
 
-                        <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
                             {% if req.is_fulfilled and req.document %}
-                            <a href="{{ doc_url_map|dict_get:req.document.document_id }}"
-                                target="_blank" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-dark d-inline-flex align-items-center gap-1.5 text-decoration-none"
-                                style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
-                                title="View Document">
-                                <i class="fa-solid fa-arrow-up-right-from-square text-primary" style="font-size: 11px;"></i>
+                            <button type="button" class="checklist-action-btn btn-view"
+                                onclick="openDocPreview('{{ doc_url_map|dict_get:req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:req.document.document_id|default:req.document.file_name|escapejs }}', '{{ req.requirement_item.name|escapejs }}')"
+                                title="Preview Document">
+                                <i class="fa-solid fa-eye" style="font-size: 10px;"></i>
                                 <span>View</span>
-                            </a>
+                            </button>
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="btn btn-sm btn-light border text-danger px-2 py-1.5 d-inline-flex align-items-center justify-content-center"
-                                style="border-radius: 7px; font-size: 0.78rem; height: 32px; width: 32px;"
+                            <button type="button" class="checklist-action-btn btn-delete"
                                 data-url="{% url 'delete_document' record.record_id req.document.document_id %}"
                                 data-name="{{ req.document.file_name }}"
                                 onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
                                 title="Delete uploaded file">
-                                <i class="fa-solid fa-trash-can"></i>
+                                <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
                             </button>
                             {% endif %}
                             
                             {% elif req.is_waived %}
-                            <span class="badge checklist-badge-empty" style="font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">N/A</span>
+                            <span class="text-muted fw-semibold" style="font-size: 0.70rem;">N/A</span>
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
-                                style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
+                            <button type="button" class="checklist-action-btn btn-require"
                                 data-req-id="{{ req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' req.req_id %}"
                                 title="Undo N/A status">
-                                <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> <span>Require</span>
+                                <i class="fa-solid fa-rotate-left" style="font-size: 9.5px;"></i> <span>Require</span>
                             </button>
                             {% endif %}
                             
                             {% else %}
                             {% if can_edit and record.status != 'archived' %}
-                            <button type="button" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-2xs"
-                                style="border-radius: 7px; font-size: 0.80rem; height: 32px;"
+                            <button type="button" class="checklist-action-btn btn-upload"
                                 onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')">
-                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
+                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 9.5px;"></i>
                                 <span>Upload</span>
                             </button>
-                            <button type="button" class="btn btn-sm btn-light border px-2.5 py-1.5 fw-semibold text-secondary btn-toggle-waive d-inline-flex align-items-center gap-1"
-                                style="border-radius: 7px; font-size: 0.78rem; height: 32px;"
+                            <button type="button" class="checklist-action-btn btn-waive"
                                 data-req-id="{{ req.req_id }}" data-toggle-url="{% url 'toggle_requirement_waived' req.req_id %}"
                                 title="Mark as Not Applicable">N/A</button>
                             {% else %}
-                            <span class="badge" style="background: #fffbeb; color: #b45309; font-weight: 600; font-size: 0.74rem; padding: 4px 8px; border-radius: 6px;">Missing</span>
+                            <span class="text-warning fw-semibold" style="font-size: 0.72rem;">Missing</span>
                             {% endif %}
                             {% endif %}
                         </div>
@@ -1461,26 +2253,31 @@
         {% if record.illegal_compliance_status != 'unresolved' and attachments %}
         <!-- 📜 INCIDENT EVIDENCE & VIOLATION NOTICES (Preserved History after Permit Filing / Regularization) -->
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
-            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-wrap flex-sm-nowrap gap-2" style="padding: 14px 18px !important; min-height: 56px !important;">
-                <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
-                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 {% if record.is_illegal_construction %}checklist-icon-danger{% else %}checklist-icon-default{% endif %}"
-                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important;">
-                        <i class="fa-solid {% if record.is_illegal_construction %}fa-file-shield{% else %}fa-paperclip{% endif %}" style="font-size: 15px;"></i>
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-2" style="padding: 14px 18px !important; min-height: 56px !important;">
+                <div class="d-flex align-items-center flex-shrink-0 flex-nowrap me-auto">
+                    {% if record.is_illegal_construction %}
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2);">
+                        <i class="fa-solid fa-file-shield" style="font-size: 15px;"></i>
                     </div>
-                    <div class="min-w-0 flex-grow-1">
-                        <h6 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em;">
-                            {% if record.is_illegal_construction %}Incident &amp; Violation Evidence History{% else %}Supporting &amp; Additional Documents{% endif %}
-                        </h6>
+                    {% else %}
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(37, 99, 235, 0.12); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2);">
+                        <i class="fa-solid fa-paperclip" style="font-size: 15px;"></i>
                     </div>
+                    {% endif %}
+                    <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em; white-space: nowrap !important; overflow: visible !important;">
+                        {% if record.is_illegal_construction %}Incident &amp; Violation Evidence History{% else %}Supporting &amp; Additional Documents{% endif %}
+                    </h5>
                 </div>
 
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
                     {% if can_edit and record.status != 'archived' %}
                     <button type="button"
-                        class="btn btn-sm btn-outline-secondary fw-semibold px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
-                        style="border-radius: 8px; font-size: 0.78rem; white-space: nowrap;"
+                        class="btn btn-sm btn-primary fw-semibold px-2.5 py-1 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        style="border-radius: 7px; font-size: 0.75rem; height: 28px; white-space: nowrap;"
                         onclick="openGroupBatchUploadModal('', '{% if record.is_illegal_construction %}Incident Evidence Documents{% else %}Additional Documents{% endif %}')">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
                         <span>Upload Files</span>
                     </button>
                     {% endif %}
@@ -1491,26 +2288,38 @@
                 {% for doc in attachments %}
                 <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
                     <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
-                        <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
-                            style="width: 32px; height: 32px; min-width: 32px; margin-right: 14px !important; border-radius: 8px; background: rgba(37, 99, 235, 0.12); color: #2563eb; font-size: 14px;">
+                        <div class="rounded-2 checklist-icon-box flex-shrink-0 checklist-icon-fulfilled"
+                            style="width: 28px; height: 28px; min-width: 28px; margin-right: 12px !important; font-size: 11.5px;">
                             <i class="fa-solid fa-file-lines"></i>
                         </div>
                         <div class="min-w-0 flex-grow-1">
-                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem;">{{ doc.file_name }}</div>
-                            <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">Uploaded on {{ doc.uploaded_at|date:"M d, Y • h:i A" }}</div>
+                            <div class="fw-semibold title-text-adaptive text-break" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
+                                <a href="javascript:void(0)"
+                                    onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Supporting Document')"
+                                    class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5" title="{{ doc.file_name }}" data-bs-toggle="tooltip">
+                                    <i class="{{ doc.file_name|file_icon_class }}" style="font-size: 11px;"></i>
+                                    <span class="text-truncate doc-filename-link">{{ doc.file_name }}</span>
+                                </a>
+                            </div>
+                            <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">
+                                <i class="fa-regular fa-calendar-check me-1" style="font-size: 9.5px;"></i>Uploaded on {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
+                            </div>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap">
-                        <a href="{{ doc_url_map|dict_get:doc.document_id }}" target="_blank" class="etala-btn etala-btn-secondary etala-btn-xs text-decoration-none" style="font-size: 0.76rem;">
-                            <i class="fa-solid fa-arrow-up-right-from-square me-1" style="font-size: 11px;"></i>View
-                        </a>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
+                        <button type="button" class="checklist-action-btn btn-view"
+                            onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Supporting Document')"
+                            title="Preview Document">
+                            <i class="fa-solid fa-eye" style="font-size: 10px;"></i>
+                            <span>View</span>
+                        </button>
                         {% if can_edit and record.status != 'archived' %}
-                        <button type="button" class="etala-btn etala-btn-secondary etala-btn-xs text-danger"
+                        <button type="button" class="checklist-action-btn btn-delete"
                             data-url="{% url 'delete_document' record.record_id doc.document_id %}"
                             data-name="{{ doc.file_name }}"
                             onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)"
                             title="Delete uploaded file">
-                            <i class="fa-solid fa-trash-can"></i>
+                            <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
                         </button>
                         {% endif %}
                     </div>
@@ -1522,19 +2331,30 @@
 
     </div>
 
-    <!-- ── RIGHT COLUMN: Record Summary & Details (col-lg-4) ──────────────── -->
-    <div class="col-lg-4 d-flex flex-column gap-4 min-w-0">
+    <!-- ── RIGHT COLUMN: Record Summary & Details (col-lg-4, Hidden by default) ──────────────── -->
+    <div class="col-lg-4 d-none d-flex flex-column gap-4 min-w-0" id="summaryCol" style="transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);">
 
-        <!-- Record Summary Card (Sticky on scroll, natural height) -->
-        <div class="content-card record-summary-card d-flex flex-column position-sticky" style="top: 1.5rem; z-index: 10; border-radius: 16px; height: auto !important; padding: 20px 22px !important;">
-            <div class="d-flex align-items-center pb-3 mb-3 border-bottom flex-nowrap">
-                <i class="fa-solid fa-circle-info text-primary flex-shrink-0 me-2" style="font-size: 15px;"></i>
-                <span class="fw-bold text-uppercase subtitle-text-adaptive"
-                    style="font-size: 0.82rem; letter-spacing: 0.05em; white-space: nowrap;">Record Summary</span>
+        <!-- Record Summary Card (Sticky on scroll, matching standardized card header) -->
+        <div class="content-card record-summary-card d-flex flex-column position-sticky overflow-hidden" style="top: 1.5rem; z-index: 10; border-radius: 16px; height: auto !important; padding: 0 !important;">
+            
+            <!-- Standardized Matching Card Header -->
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap" style="padding: 14px 18px !important; min-height: 56px !important;">
+                <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(37, 99, 235, 0.12); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2);">
+                        <i class="fa-solid fa-circle-info" style="font-size: 15px;"></i>
+                    </div>
+                    <div class="min-w-0 flex-grow-1">
+                        <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em;">Record Summary</h5>
+                    </div>
+                </div>
+                <button type="button" class="summary-close-btn" onclick="toggleRecordSummary()" title="Close Summary Panel">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                </button>
             </div>
 
-            <!-- Key-Value Pairs (Consistent: icon + label on 1st line, value below) -->
-            <div class="d-flex flex-column gap-1.5" style="font-size: 0.84rem;">
+            <!-- Card Body: Key-Value Pairs (Consistent: icon + label on 1st line, value below) -->
+            <div class="content-card-body p-3.5 d-flex flex-column gap-1" style="font-size: 0.84rem;">
                 
                 <!-- Record ID -->
                 <div class="py-1 border-bottom d-flex flex-column gap-0.5">
@@ -1708,6 +2528,9 @@
                     </div>
                     <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
                         {{ record.created_by.full_name|default:record.created_by.username }}
+                        {% if record.created_by.designation %}
+                        <span class="text-muted fw-normal d-block" style="font-size: 0.73rem;">{{ record.created_by.designation }}</span>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -1744,6 +2567,7 @@
                 </div>
                 
                 {% for item in notes_list %}
+                {% if item.value %}
                 <div class="py-1 {% if not forloop.last %}border-bottom{% endif %} d-flex flex-column gap-0.5 ms-4">
                     {% if item.label %}
                     <div class="text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
@@ -1764,10 +2588,12 @@
                         {% endif %}
                     </div>
                 </div>
+                {% endif %}
                 {% endfor %}
             </div>
             {% endwith %}
             {% endif %}
+            </div>
         </div>
 
     </div>
@@ -1778,93 +2604,100 @@
 <!-- MODAL A: SINGLE FILE UPLOAD MODAL -->
 {% if can_edit and record.status != 'archived' %}
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3">
-                <div>
-                    <h5 class="modal-title fw-bold mb-0 text-dark" style="font-size: 1.05rem;" id="uploadModalLabel">
-                        Upload Requirement Document
-                    </h5>
-                    <div style="font-size: 0.78rem; color: var(--gray-500); margin-top: 2px;">
-                        Slot: <strong id="uploadModalItemName" class="text-primary"></strong>
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+        <div class="modal-content border-0 shadow-2xl" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header border-bottom p-3 px-4 bg-white d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 36px; height: 36px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #ffffff; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 16px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0 title-text-adaptive" style="font-size: 1.02rem; letter-spacing: -0.01em;" id="uploadModalLabel">
+                            Upload Requirement Document
+                        </h5>
+                        <div class="text-muted" style="font-size: 0.78rem; margin-top: 1px;">
+                            Slot: <strong id="uploadModalItemName" class="text-primary"></strong>
+                        </div>
                     </div>
                 </div>
-                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close" onclick="clearFile()"></button>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close" onclick="clearSingleSelectedFile()"></button>
             </div>
             
-            <div class="modal-body p-4">
+            <div class="modal-body p-3 px-4">
                 <form method="POST" action="{% url 'upload_document' record.record_id %}" enctype="multipart/form-data"
                     id="checklistUploadForm" onsubmit="event.preventDefault(); startSingleUpload();">
                     {% csrf_token %}
                     <input type="hidden" name="requirement_item_id" id="uploadItemId">
 
-                    <!-- Drag & Drop Zone -->
-                    <div class="p-4 text-center mb-3" id="dropZone"
+                    <!-- Compact Essential-Only Dropzone -->
+                    <div class="compact-essential-dropzone" id="dropZone"
                         onclick="document.getElementById('modalFileInput').click()"
-                        ondragover="event.preventDefault(); this.style.borderColor='var(--primary-brand)'; this.style.background='#f0f9ff';"
-                        ondragleave="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';"
-                        ondrop="handleDrop(event)"
-                        style="border: 2px dashed #cbd5e1; cursor: pointer; background: #f8fafc; border-radius: 12px; transition: all 0.2s ease;">
+                        ondragover="event.preventDefault(); this.classList.add('dragover');"
+                        ondragleave="this.classList.remove('dragover');"
+                        ondrop="handleDrop(event)">
                         
-                        <div class="mb-2 d-flex justify-content-center">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center"
-                                style="width: 48px; height: 48px; background: #eff6ff; color: #2563eb;">
-                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px;"></i>
-                            </div>
+                        <div class="compact-essential-icon">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
                         </div>
-                        <div class="fw-bold mb-1 text-dark" style="font-size: 0.95rem;">
-                            Drag &amp; drop your file here
+
+                        <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 0.92rem;">
+                            Click to browse or drag file here
                         </div>
-                        <div class="mb-2 text-muted" style="font-size: 0.76rem;">or</div>
-                        <button type="button" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.82rem;" onclick="document.getElementById('modalFileInput').click();">
-                            <i class="fa-solid fa-folder-open me-1.5"></i> Browse Files
-                        </button>
-                        <div class="mt-2.5 text-muted" style="font-size: 0.74rem;">
-                            PDF, JPG, PNG, WEBP &bull; Max 10MB
+                        <div class="text-muted small" style="font-size: 0.75rem;">
+                            Supports PDF, JPG, PNG &bull; Max 50 MB
                         </div>
+
                         <input type="file" name="document_file" id="modalFileInput"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp" class="d-none" onchange="showSelectedFile(this)">
+                            accept=".pdf,.jpg,.jpeg,.png,.webp" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" style="cursor: pointer; z-index: 5;" onchange="showSelectedFile(this)">
                     </div>
 
                     <!-- Progressive Selected File & Validity Section -->
-                    <div id="singleFileSelectedContainer" class="d-none mb-3">
-                        <div class="p-3 selected-file-preview-card border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs mb-2">
+                    <div id="singleFileSelectedContainer" class="d-none">
+                        <div class="p-2.5 px-3 selected-file-preview-card border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs" style="background: #f8fafc; border-color: #e2e8f0 !important;">
                             <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
-                                <i class="fa-solid fa-file-pdf text-danger flex-shrink-0" id="singleFileIcon" style="font-size: 18px;"></i>
-                                <span class="fw-bold text-dark text-truncate" id="singleSelectedFileName" style="font-size: 0.85rem;"></span>
+                                <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                                    <i class="fa-solid fa-file-pdf text-danger" id="singleFileIcon" style="font-size: 15px;"></i>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="fw-bold text-dark text-truncate" id="singleSelectedFileName" style="font-size: 0.84rem; line-height: 1.3;"></div>
+                                    <div class="text-muted" id="singleSelectedFileSizeBadge" style="font-size: 0.72rem; font-weight: 500;"></div>
+                                </div>
                             </div>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-circle p-1 d-inline-flex align-items-center justify-content-center" style="width: 22px; height: 22px;">
-                                <i class="fa-solid fa-check" style="font-size: 11px;"></i>
-                            </span>
+                            <div class="d-flex align-items-center gap-2.5 flex-shrink-0">
+                                <span class="text-success fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;">
+                                    <i class="fa-solid fa-check"></i>
+                                    <span>Ready</span>
+                                </span>
+                                <button type="button" class="btn btn-sm text-muted p-0 border-0 d-inline-flex align-items-center justify-content-center" style="width: 22px; height: 22px; background: transparent; transition: color 0.15s ease;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#64748b'" onclick="clearSingleSelectedFile()" title="Change file">
+                                    <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Validity Field (Shown ONLY when document type requires validity) -->
-                        <div id="singleValidityBox" class="d-none p-3 rounded-3 border bg-light">
-                            <label class="form-label fw-semibold text-dark mb-1.5 d-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
+                        <div id="singleValidityBox" class="d-none p-2.5 px-3 rounded-3 border bg-light mt-2">
+                            <label class="form-label fw-semibold text-dark mb-1 d-flex align-items-center gap-1.5" style="font-size: 0.78rem;">
                                 <i class="fa-regular fa-calendar-check text-primary"></i>
                                 <span>Valid Until</span>
                             </label>
                             <input type="date" name="expiry_date" id="modalExpiryDateInput"
-                                class="form-control form-control-sm bg-white" style="border-radius: 8px; font-size: 0.82rem;">
-                        </div>
-                        <div id="singleNoValidityBox" class="d-none p-2 px-3 rounded-2 text-muted" style="background: #f8fafc; font-size: 0.76rem; border: 1px dashed #cbd5e1;">
-                            <i class="fa-solid fa-circle-info me-1 text-secondary"></i>
-                            No expiration date required for this document.
+                                class="form-control form-control-sm bg-white" style="border-radius: 8px; font-size: 0.80rem;">
                         </div>
                     </div>
 
                     <!-- Progress / Uploading State -->
-                    <div id="selectedFileInfo" class="d-none p-4 rounded-3 text-center border shadow-sm mb-3"
+                    <div id="selectedFileInfo" class="d-none p-3 rounded-3 text-center border shadow-sm mt-3"
                         style="background: #f0fdf4; border-color: #bbf7d0 !important;">
-                        <div class="d-flex justify-content-center mb-2">
+                        <div class="d-flex justify-content-center mb-1.5">
                             <div class="spinner-border text-success" id="uploadSpinner" role="status"
-                                style="width: 32px; height: 32px; border-width: 3px;">
+                                style="width: 26px; height: 26px; border-width: 2.5px;">
                                 <span class="visually-hidden">Uploading...</span>
                             </div>
                         </div>
-                        <div class="fw-bold text-dark mb-1 text-truncate" id="selectedFileName" style="font-size: 0.9rem;"></div>
-                        <div id="selectedFileSize" class="text-muted mb-2.5" style="font-size: 0.78rem;">Preparing to upload...</div>
-                        <div class="progress" style="height: 6px; border-radius: 3px; background: #dcfce7; overflow: hidden;">
+                        <div class="fw-bold text-dark mb-0.5 text-truncate" id="selectedFileName" style="font-size: 0.86rem;"></div>
+                        <div id="selectedFileSize" class="text-muted mb-2" style="font-size: 0.75rem;">Uploading document...</div>
+                        <div class="progress" style="height: 5px; border-radius: 3px; background: #dcfce7; overflow: hidden;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
                                 id="uploadProgressBar" role="progressbar" style="width: 0%; transition: width 0.15s ease;"></div>
                         </div>
@@ -1873,10 +2706,10 @@
                 </form>
             </div>
             
-            <div class="modal-footer border-top px-4 py-3 d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-sm btn-secondary px-3" style="border-radius: 8px; font-size: 0.82rem;" data-bs-dismiss="modal" onclick="clearFile()">Cancel</button>
-                <button type="button" id="singleUploadSubmitBtn" class="btn btn-sm btn-secondary px-4 fw-semibold shadow-2xs d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem;" disabled onclick="startSingleUpload()">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
+            <div class="modal-footer border-top p-3 px-4 bg-white d-flex align-items-center justify-content-end gap-2">
+                <button type="button" class="btn btn-light border px-3.5 py-2 fw-semibold text-secondary" style="border-radius: 9px; font-size: 0.82rem; height: 38px; min-width: 85px;" data-bs-dismiss="modal" onclick="clearSingleSelectedFile()">Cancel</button>
+                <button type="button" id="singleUploadSubmitBtn" class="btn btn-primary px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" style="border-radius: 9px; font-size: 0.82rem; height: 38px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); opacity: 0.55; cursor: not-allowed;" disabled onclick="startSingleUpload()">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 13px;"></i>
                     <span>Upload Document</span>
                 </button>
             </div>
@@ -1886,21 +2719,21 @@
 
 <!-- MODAL B: BATCH UPLOAD MODAL -->
 <div class="modal fade" id="batchUploadModal" tabindex="-1" aria-labelledby="batchUploadModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 680px;">
+    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 640px;">
         <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden;">
             
             <!-- Header -->
             <div class="modal-header border-bottom p-3 px-4 bg-white d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center gap-2.5">
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 42px; height: 42px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #ffffff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);">
-                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 19px;"></i>
+                        style="width: 38px; height: 38px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #ffffff; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 18px;"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.10rem; letter-spacing: -0.01em;" id="batchUploadModalLabel">
+                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.05rem; letter-spacing: -0.01em;" id="batchUploadModalLabel">
                             Batch Document Upload
                         </h5>
-                        <div class="text-muted" id="batchUploadSubTitle" style="font-size: 0.80rem; margin-top: 1px;">
+                        <div class="text-muted" id="batchUploadSubTitle" style="font-size: 0.78rem; margin-top: 1px;">
                             Upload multiple documents and assign each file to its checklist requirement.
                         </div>
                     </div>
@@ -1911,49 +2744,37 @@
             <form action="{% url 'batch_upload_documents' record.record_id %}" method="POST"
                 enctype="multipart/form-data" id="batchUploadForm">
                 {% csrf_token %}
-                <div class="modal-body p-4">
+                <div class="modal-body p-3 px-4">
 
-                    <!-- Premium Upload Area / Dropzone -->
-                    <div class="premium-dropzone" id="batchDropZone">
-                        <div class="premium-dropzone-icon-wrap">
-                            <span class="premium-dropzone-floating-badge floating-pdf">PDF</span>
-                            <span class="premium-dropzone-floating-badge floating-doc">DOCX</span>
-                            <span class="premium-dropzone-floating-badge floating-img">PNG</span>
-                            <div class="premium-dropzone-center-icon">
-                                <i class="fa-solid fa-cloud-arrow-up"></i>
-                            </div>
-                        </div>
-
-                        <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 1.05rem;">
-                            Drop Files Here
-                        </div>
-                        <div class="text-muted small mb-2" style="font-size: 0.82rem;">
-                            or <span class="text-primary fw-semibold text-decoration-underline cursor-pointer">Browse Files</span>
-                        </div>
+                    <!-- Compact Essential-Only Dropzone -->
+                    <div class="compact-essential-dropzone" id="batchDropZone"
+                        onclick="document.getElementById('batchFileInput').click()"
+                        ondragover="event.preventDefault(); this.classList.add('dragover');"
+                        ondragleave="this.classList.remove('dragover');"
+                        ondrop="handleBatchDrop(event)">
                         
-                        <div>
-                            <span class="premium-dropzone-pill">
-                                <i class="fa-solid fa-file-shield text-primary" style="font-size: 11px;"></i>
-                                Supports PDF, DOC, DOCX, JPG, PNG &bull; Max 15 MB each
-                            </span>
+                        <div class="compact-essential-icon">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+
+                        <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 0.92rem;">
+                            Click to browse or drag multiple files here
+                        </div>
+                        <div class="text-muted small" style="font-size: 0.75rem;">
+                            Supports PDF, JPG, PNG &bull; Max 50 MB each
                         </div>
 
                         <input type="file" name="files" id="batchFileInput"
                             class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" style="cursor: pointer; z-index: 5;">
+                            accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;" onchange="handleBatchFileSelect(this)">
                     </div>
 
                     <!-- Selected Files List Container -->
                     <div id="fileListContainer" class="mt-3.5" style="display: none;">
                         <div class="d-flex align-items-center justify-content-between mb-2.5">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="fw-bold title-text-adaptive" style="font-size: 0.90rem;" id="selectedFilesCount">
-                                    Files to Upload (0)
-                                </span>
-                                <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style="font-size: 0.70rem; font-weight: 600;">
-                                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Auto-assigned
-                                </span>
-                            </div>
+                            <span class="fw-bold title-text-adaptive" style="font-size: 0.90rem;" id="selectedFilesCount">
+                                Files to Upload (0)
+                            </span>
                             <button type="button" class="btn btn-sm text-danger p-0 border-0 fw-semibold text-decoration-underline"
                                 style="font-size: 0.78rem;" onclick="clearBatchFiles()">
                                 <i class="fa-solid fa-rotate-left me-1"></i>Clear all
@@ -1967,17 +2788,12 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="modal-footer border-top p-3 px-4 bg-light d-flex justify-content-between align-items-center">
-                    <div class="text-muted small d-none d-sm-block" style="font-size: 0.78rem;">
-                        <i class="fa-solid fa-circle-info me-1 text-primary"></i> Files will be stored securely with versioning.
-                    </div>
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <button type="button" class="btn btn-secondary px-3.5 py-2 fw-medium" style="border-radius: 10px; font-size: 0.84rem;" data-bs-dismiss="modal" onclick="clearBatchFiles()">Cancel</button>
-                        <button type="submit" id="batchUploadSubmitBtn" class="btn btn-primary px-4 py-2 fw-semibold shadow-sm d-inline-flex align-items-center gap-2" style="border-radius: 10px; font-size: 0.84rem;">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span id="batchSubmitBtnText">Upload Files</span>
-                        </button>
-                    </div>
+                <div class="modal-footer border-top p-3 px-4 bg-white d-flex align-items-center justify-content-end gap-2">
+                    <button type="button" class="btn btn-light border px-3.5 py-2 fw-semibold text-secondary" style="border-radius: 9px; font-size: 0.82rem; height: 38px; min-width: 85px;" data-bs-dismiss="modal" onclick="clearBatchFiles()">Cancel</button>
+                    <button type="submit" id="batchUploadSubmitBtn" class="btn btn-primary px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" style="border-radius: 9px; font-size: 0.82rem; height: 38px; background: linear-gradient(135deg, #2563eb, #1d4ed8); border: none; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 13px;"></i>
+                        <span id="batchSubmitBtnText">Upload Files</span>
+                    </button>
                 </div>
             </form>
         </div>
@@ -2014,6 +2830,82 @@
     </div>
 </div>
 {% endif %}
+
+<!-- ══ ULTRA-SMOOTH DOCUMENT PREVIEW MODAL / LIGHTBOX (Zero Browser Flicker) ══ -->
+<div class="modal fade p-0" id="docPreviewModal" tabindex="-1" aria-labelledby="docPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen m-0 p-0">
+        <div class="modal-content border-0 d-flex flex-column h-100 position-relative rounded-0">
+            
+            <!-- Modal Header -->
+            <div class="modal-header px-4 py-2.5 border-bottom d-flex align-items-center justify-content-between flex-shrink-0" style="background: var(--card-bg, #ffffff);">
+                <div class="d-flex align-items-center min-w-0 me-3 gap-2.5">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" id="previewModalIconWrapper" style="width: 36px; height: 36px; background: rgba(239, 68, 68, 0.10); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);">
+                        <i class="fa-solid fa-file-pdf" id="previewModalFileIcon" style="font-size: 16px;"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h6 class="modal-title fw-bold text-truncate text-dark mb-0 title-text-adaptive" id="docPreviewModalLabel" style="font-size: 0.94rem; letter-spacing: -0.01em;">Document Preview</h6>
+                        <span class="text-muted text-truncate d-block" id="previewModalSubtitle" style="font-size: 0.72rem; font-weight: 500;">Document &bull; Official Record Preview</span>
+                    </div>
+                </div>
+                
+                <div class="preview-header-btn-group flex-shrink-0">
+                    <a href="#" id="previewModalDownload" download class="preview-action-btn" title="Download file to computer">
+                        <i class="fa-solid fa-download"></i>
+                        <span class="d-none d-sm-inline">Download</span>
+                    </a>
+                    <a href="#" id="previewModalOpenNewTab" target="_blank" class="preview-action-btn" title="Open in dedicated browser tab">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        <span class="d-none d-sm-inline">Open in Tab</span>
+                    </a>
+                    <button type="button" class="preview-close-btn" data-bs-dismiss="modal" aria-label="Close" title="Close preview">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body (100% Flush Container without gaps) -->
+            <div class="modal-body p-0 position-relative flex-grow-1 overflow-hidden" id="previewModalBody" style="background: #0f172a;">
+                
+                <!-- Smooth Spinner Loader (Centered) -->
+                <div id="previewModalSpinner" class="position-absolute top-50 start-50 translate-middle d-flex flex-column align-items-center justify-content-center text-center p-4" style="z-index: 5;">
+                    <div class="spinner-border text-light mb-2.5" style="width: 2.4rem; height: 2.4rem; border-width: 3px;" role="status"></div>
+                    <span class="text-light small fw-medium" style="opacity: 0.9; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">Loading preview...</span>
+                </div>
+
+                <!-- PDF Viewer Iframe (100% Flush Fill) -->
+                <iframe id="previewModalIframe" src="about:blank" class="w-100 h-100 border-0 position-absolute top-0 start-0 d-none" style="z-index: 2; background: #ffffff;"></iframe>
+
+                <!-- Image Container (Centered High-Res Display) -->
+                <div id="previewImageContainer" class="w-100 h-100 position-absolute top-0 start-0 d-none align-items-center justify-content-center p-4 overflow-auto" style="z-index: 2; background: #0f172a;">
+                    <img id="previewModalImage" src="" alt="Document Preview" class="img-fluid" style="max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+                </div>
+
+                <!-- User-Friendly Friendly Document Card for External/Unsupported Files -->
+                <div id="previewFallbackContainer" class="w-100 h-100 position-absolute top-0 start-0 d-none flex-column align-items-center justify-content-center p-3 p-md-4 text-center" style="z-index: 2; background: #0f172a;">
+                    <div class="card p-4 p-md-5 border shadow-lg text-center d-flex flex-column align-items-center" style="max-width: 480px; width: 100%; border-radius: 16px; background: #ffffff;">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 shadow-2xs" id="fallbackIconWrapper" style="width: 68px; height: 68px; background: rgba(0, 40, 85, 0.08); color: #002855;">
+                            <i class="fa-solid fa-file-lines" id="fallbackIcon" style="font-size: 28px;"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-1 text-truncate w-100" id="previewFallbackFileName" style="font-size: 1rem;" title="">File Document</h6>
+                        <span class="badge bg-secondary-subtle text-secondary border px-2.5 py-1 rounded-pill mb-3" id="fallbackTypeBadge" style="font-size: 0.72rem; font-weight: 600;">DOCUMENT</span>
+                        <p class="text-muted small mb-4 mx-auto" style="font-size: 0.83rem; line-height: 1.55; max-width: 380px;">
+                            This document is ready to view. You can open it in a separate browser tab or download it directly to your device.
+                        </p>
+                        <div class="d-flex align-items-center justify-content-center gap-2.5 w-100 flex-wrap">
+                            <a href="#" id="previewFallbackOpenTabBtn" target="_blank" class="btn btn-primary px-3.5 py-2 d-inline-flex align-items-center gap-1.5 shadow-sm fw-semibold" style="border-radius: 8px; font-size: 0.84rem; background: linear-gradient(135deg, #002855 0%, #001f42 100%); border: none;">
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 12px;"></i> Open in New Tab
+                            </a>
+                            <a href="#" id="previewFallbackDownloadBtn" download class="btn btn-light border px-3.5 py-2 d-inline-flex align-items-center gap-1.5 shadow-2xs fw-semibold text-secondary" style="border-radius: 8px; font-size: 0.84rem;">
+                                <i class="fa-solid fa-download" style="font-size: 12px;"></i> Download File
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -2084,29 +2976,27 @@
 
         document.getElementById('selectedFileInfo').classList.add('d-none');
         document.getElementById('singleFileSelectedContainer').classList.add('d-none');
-        document.getElementById('dropZone').style.display = '';
+        document.getElementById('dropZone').classList.remove('d-none');
+        document.getElementById('selectedFileInfo').classList.add('d-none');
 
         const validityBox = document.getElementById('singleValidityBox');
-        const noValidityBox = document.getElementById('singleNoValidityBox');
         const expInput = document.getElementById('modalExpiryDateInput');
         if (expInput) expInput.value = '';
 
         const needsValidity = checkRequiresValidity(itemName);
-        if (validityBox && noValidityBox) {
+        if (validityBox) {
             if (needsValidity) {
                 validityBox.classList.remove('d-none');
-                noValidityBox.classList.add('d-none');
             } else {
                 validityBox.classList.add('d-none');
-                noValidityBox.classList.remove('d-none');
             }
         }
 
         const submitBtn = document.getElementById('singleUploadSubmitBtn');
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.classList.remove('btn-primary');
-            submitBtn.classList.add('btn-secondary');
+            submitBtn.style.opacity = '0.55';
+            submitBtn.style.cursor = 'not-allowed';
         }
 
         const bar = document.getElementById('uploadProgressBar');
@@ -2116,36 +3006,64 @@
         modal.show();
     }
 
+    function clearSingleSelectedFile() {
+        const input = document.getElementById('modalFileInput');
+        if (input) input.value = '';
+
+        const container = document.getElementById('singleFileSelectedContainer');
+        if (container) container.classList.add('d-none');
+
+        const dropzone = document.getElementById('dropZone');
+        if (dropzone) dropzone.classList.remove('d-none');
+
+        const submitBtn = document.getElementById('singleUploadSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.55';
+            submitBtn.style.cursor = 'not-allowed';
+        }
+    }
+
     function showSelectedFile(input) {
         const file = input.files[0];
         if (!file) return;
 
-        if (file.size > 10 * 1024 * 1024) {
+        if (file.size > 50 * 1024 * 1024) {
             if (window.showToast) {
-                showToast('error', 'File Too Large', 'Maximum allowed file size is 10MB.');
+                showToast('error', 'File Too Large', 'Maximum allowed file size is 50MB.');
             } else {
-                alert('Maximum allowed file size is 10MB.');
+                alert('Maximum allowed file size is 50MB.');
             }
             input.value = '';
             return;
         }
 
-        const allowed = /\.(pdf|jpg|jpeg|png|docx|doc)$/i;
+        const allowed = /\.(pdf|jpg|jpeg|png|webp)$/i;
         if (!allowed.test(file.name)) {
             if (window.showToast) {
-                showToast('error', 'Invalid File Type', 'Only PDF, JPG, PNG, and DOCX files are allowed.');
+                showToast('error', 'Invalid File Type', 'Only PDF, JPG, and PNG files are allowed.');
             } else {
-                alert('Only PDF, JPG, PNG, and DOCX files are allowed.');
+                alert('Only PDF, JPG, and PNG files are allowed.');
             }
             input.value = '';
             return;
         }
 
         const nameEl = document.getElementById('singleSelectedFileName');
-        if (nameEl) nameEl.textContent = file.name;
+        if (nameEl) {
+            nameEl.textContent = file.name;
+            nameEl.title = file.name;
+        }
+
+        const sizeBadge = document.getElementById('singleSelectedFileSizeBadge');
+        if (sizeBadge) sizeBadge.textContent = formatBytes(file.size);
 
         const iconEl = document.getElementById('singleFileIcon');
         if (iconEl) iconEl.className = `fa-solid ${getFileIcon(file.name)} flex-shrink-0`;
+
+        // Smoothly hide empty dropzone and reveal sleek selected file preview card
+        const dropzone = document.getElementById('dropZone');
+        if (dropzone) dropzone.classList.add('d-none');
 
         const container = document.getElementById('singleFileSelectedContainer');
         if (container) container.classList.remove('d-none');
@@ -2153,8 +3071,8 @@
         const submitBtn = document.getElementById('singleUploadSubmitBtn');
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.classList.remove('btn-secondary');
-            submitBtn.classList.add('btn-primary');
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
         }
     }
 
@@ -2209,7 +3127,7 @@
                     window.location.reload();
                 }, 500);
             } else {
-                const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format or size (max 10MB).';
+                const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format or size (max 50MB).';
                 if (window.showToast) {
                     showToast('error', 'Upload Failed', errorMsg);
                 } else {
@@ -2307,17 +3225,17 @@
                 {% for sub_req in sub_list %}
                 <span class="slot-item"
                     data-id="{{ sub_req.requirement_item.item_id }}"
-                    data-name="{{ sub_req.requirement_item.name|escapejs }}"
+                    data-name="{{ sub_req.requirement_item.name|clean_req_name }}"
                     data-group-id="{{ req.requirement_item.item_id }}"
-                    data-group-name="{{ req.requirement_item.name|escapejs }}"
+                    data-group-name="{{ req.requirement_item.name|clean_req_name }}"
                     data-fulfilled="{{ sub_req.is_fulfilled|yesno:'true,false' }}"></span>
                 {% endfor %}
             {% else %}
                 <span class="slot-item"
                     data-id="{{ req.requirement_item.item_id }}"
-                    data-name="{{ req.requirement_item.name|escapejs }}"
+                    data-name="{{ req.requirement_item.name|clean_req_name }}"
                     data-group-id="{{ req.requirement_item.item_id }}"
-                    data-group-name="{{ req.requirement_item.name|escapejs }}"
+                    data-group-name="{{ req.requirement_item.name|clean_req_name }}"
                     data-fulfilled="{{ req.is_fulfilled|yesno:'true,false' }}"></span>
             {% endif %}
             {% endwith %}
@@ -2327,13 +3245,36 @@
     <script>
     let activeBatchGroupId = '';
 
+    function sanitizeSlotText(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/\\u0026/gi, '&')
+            .replace(/\\u002D/gi, '-')
+            .replace(/\\u0027/gi, "'")
+            .replace(/\\u0022/gi, '"')
+            .replace(/&amp;/gi, '&')
+            .replace(/&quot;/gi, '"')
+            .replace(/&#39;/gi, "'")
+            .trim();
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     // Available Document Checklist Slots
     const availableSlots = Array.from(document.querySelectorAll('#checklist-slots-data .slot-item')).map(function(el) {
         return {
             id: el.dataset.id,
-            name: el.dataset.name,
+            name: sanitizeSlotText(el.dataset.name),
             groupId: el.dataset.groupId,
-            groupName: el.dataset.groupName,
+            groupName: sanitizeSlotText(el.dataset.groupName),
             is_fulfilled: el.dataset.fulfilled === 'true'
         };
     });
@@ -2483,6 +3424,7 @@
 
         if (!list) return;
         list.innerHTML = '';
+        list.scrollTop = 0;
 
         const targetSlots = activeBatchGroupId 
             ? availableSlots.filter(s => String(s.groupId) === String(activeBatchGroupId))
@@ -2494,10 +3436,10 @@
             if (submitBtnText) submitBtnText.textContent = `Upload ${selectedBatchFilesStore.length} Document${selectedBatchFilesStore.length > 1 ? 's' : ''}`;
             
             if (dropZone) {
-                dropZone.className = "premium-dropzone-compact border border-2 border-dashed rounded-3 p-2.5 px-3.5 text-center position-relative d-flex align-items-center justify-content-between gap-2 shadow-2xs";
+                dropZone.className = "compact-essential-dropzone p-2.5 px-3 d-flex align-items-center justify-content-between gap-2 shadow-2xs";
                 dropZone.innerHTML = `
                     <div class="d-flex align-items-center gap-2.5">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; background: rgba(99, 102, 241, 0.15); color: #6366f1;">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; background: rgba(37, 99, 235, 0.12); color: #2563eb;">
                             <i class="fa-solid fa-cloud-arrow-up" style="font-size: 14px;"></i>
                         </div>
                         <div class="text-start">
@@ -2505,7 +3447,7 @@
                             <span class="text-muted" style="font-size: 0.72rem;">or click Add Files to queue more</span>
                         </div>
                     </div>
-                    <label for="batchFileInput" class="btn btn-sm btn-outline-primary px-3 py-1.5 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.78rem;">
+                    <label for="batchFileInput" class="btn btn-sm btn-outline-primary px-3 py-1 fw-semibold shadow-2xs cursor-pointer mb-0" style="border-radius: 8px; font-size: 0.76rem;">
                         <i class="fa-solid fa-plus me-1"></i> Add Files
                     </label>
                     <input type="file" name="files" id="batchFileInput"
@@ -2540,8 +3482,8 @@
                 let badgeHTML = '';
 
                 if (targetSlots.length === 0 || isIllegalReport) {
-                    labelHTML = `<i class="fa-solid fa-tag me-1 text-danger"></i> Document Classification:`;
-                    badgeHTML = `<span class="badge px-2 py-0.5 rounded-pill text-danger" style="background: rgba(220, 38, 38, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Incident Evidence</span>`;
+                    labelHTML = `<i class="fa-solid fa-tag me-1 text-danger"></i> Class:`;
+                    badgeHTML = `<span class="text-danger fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;"><i class="fa-solid fa-triangle-exclamation"></i> Evidence</span>`;
                     slotOptionsHTML = `
                         <option value="">Field Inspection Photo / Site Evidence</option>
                         <option value="">Notice of Violation (NOV)</option>
@@ -2551,31 +3493,64 @@
                         <option value="">Other Investigation Document</option>
                     `;
                 } else {
-                    labelHTML = `<i class="fa-solid fa-folder-tree me-1 text-primary"></i> Checklist Requirement:`;
-                    badgeHTML = assignedSlot ? `<span class="badge px-2 py-0.5 rounded-pill text-primary" style="background: rgba(37, 99, 235, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-check me-1"></i>Assigned</span>` : `<span class="badge px-2 py-0.5 rounded-pill text-warning" style="background: rgba(217, 119, 6, 0.1); font-size: 0.70rem; font-weight: 600;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Unassigned</span>`;
-                    slotOptionsHTML = `<option value="">-- Choose target checklist slot --</option>`;
-                    targetSlots.forEach(slot => {
-                        const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
-                        if (claimedByOthers.includes(String(slot.id)) && !isSelected) {
-                            return;
+                    labelHTML = `<i class="fa-solid fa-folder-tree me-1 text-primary"></i> Slot:`;
+                    if (assignedSlot) {
+                        if (assignedSlot.is_fulfilled) {
+                            badgeHTML = `<span class="text-warning fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;" title="This slot already has a file and will be replaced upon upload"><i class="fa-solid fa-arrows-rotate"></i> Replaces existing</span>`;
+                        } else {
+                            badgeHTML = `<span class="text-primary fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;"><i class="fa-solid fa-check"></i> Assigned</span>`;
                         }
-                        const occupiedLabel = slot.is_fulfilled ? ' ⚠️ (Replaces existing file)' : '';
-                        const groupLabel = (!activeBatchGroupId && slot.groupName) ? ` [${slot.groupName}]` : '';
-                        slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${slot.name}${groupLabel}${occupiedLabel}</option>`;
+                    } else {
+                        badgeHTML = `<span class="text-warning fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;"><i class="fa-solid fa-triangle-exclamation"></i> Unassigned</span>`;
+                    }
+                    slotOptionsHTML = `<option value="">-- Choose target checklist slot --</option>`;
+                    
+                    // Group slots cleanly by groupName
+                    const groups = {};
+                    targetSlots.forEach(slot => {
+                        const gName = (slot.groupName && slot.groupName.trim()) ? slot.groupName.trim() : 'General Documents';
+                        if (!groups[gName]) groups[gName] = [];
+                        groups[gName].push(slot);
                     });
+
+                    const groupKeys = Object.keys(groups);
+                    if (groupKeys.length === 1 || activeBatchGroupId) {
+                        targetSlots.forEach(slot => {
+                            const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
+                            if (claimedByOthers.includes(String(slot.id)) && !isSelected) return;
+                            const occupiedLabel = slot.is_fulfilled ? ' (Replaces existing)' : '';
+                            slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${slot.name}${occupiedLabel}</option>`;
+                        });
+                    } else {
+                        groupKeys.forEach(gName => {
+                            const validSlots = groups[gName].filter(slot => {
+                                const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
+                                return isSelected || !claimedByOthers.includes(String(slot.id));
+                            });
+                            if (validSlots.length > 0) {
+                                slotOptionsHTML += `<optgroup label="${escapeHtml(gName)}">`;
+                                validSlots.forEach(slot => {
+                                    const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
+                                    const occupiedLabel = slot.is_fulfilled ? ' (Replaces existing)' : '';
+                                    slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${slot.name}${occupiedLabel}</option>`;
+                                });
+                                slotOptionsHTML += `</optgroup>`;
+                            }
+                        });
+                    }
                 }
 
                 const wrapper = document.createElement('div');
-                wrapper.className = 'batch-file-card mb-2.5';
+                wrapper.className = 'batch-file-card mb-2';
 
                 let validityHTML = '';
                 if (needsValidity) {
                     validityHTML = `
-                        <div class="d-flex align-items-center gap-2 mt-2 pt-2 border-top border-secondary-subtle">
-                            <span class="text-muted fw-semibold text-nowrap flex-shrink-0" style="font-size: 0.75rem;"><i class="fa-regular fa-calendar-days me-1 text-warning"></i> Expiration Date:</span>
-                            <input type="date" name="expiry_dates" class="form-control form-control-sm py-1 px-2.5 batch-slot-select"
+                        <div class="d-flex align-items-center gap-2 mt-1.5 pt-1.5 border-top border-secondary-subtle">
+                            <span class="text-muted fw-semibold text-nowrap flex-shrink-0" style="font-size: 0.72rem;"><i class="fa-regular fa-calendar-days me-1 text-warning"></i> Exp Date:</span>
+                            <input type="date" name="expiry_dates" class="form-control form-control-sm py-0.5 px-2 batch-slot-select"
                                 value="${itemObj.expiryDate || ''}"
-                                style="font-size: 0.80rem; border-radius: 8px; width: 160px;"
+                                style="font-size: 0.76rem; border-radius: 6px; width: 140px; height: 30px;"
                                 onchange="updateBatchExpiryDate(${index}, this.value)">
                         </div>
                     `;
@@ -2583,69 +3558,78 @@
                     validityHTML = `<input type="hidden" name="expiry_dates" value="">`;
                 }
 
+                let replaceWarningHTML = '';
+                if (assignedSlot && assignedSlot.is_fulfilled) {
+                    replaceWarningHTML = `
+                        <div class="d-flex align-items-center gap-1.5 mt-1 text-warning" style="font-size: 0.70rem; font-weight: 500;">
+                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 10px;"></i>
+                            <span>Current file in this slot will be replaced upon upload.</span>
+                        </div>
+                    `;
+                }
+
                 wrapper.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
-                        <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
-                            <div class="batch-file-icon ${fileMeta.typeClass} flex-shrink-0">
+                    <!-- Top Row: File Meta, Size, Status & Remove (Strictly 1 Line, Clean Text, No Pill Backgrounds) -->
+                    <div class="d-flex align-items-center justify-content-between gap-2" style="flex-wrap: nowrap; min-width: 0;">
+                        <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1" style="overflow: hidden; min-width: 0;">
+                            <div class="batch-file-icon ${fileMeta.typeClass} flex-shrink-0" style="width: 24px; height: 24px; font-size: 12px; border-radius: 5px;">
                                 <i class="fa-solid ${fileMeta.icon}"></i>
                             </div>
-                            <div class="min-w-0 flex-grow-1">
-                                <div class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.88rem;" title="${f.name}">${f.name}</div>
-                                <div class="d-flex align-items-center gap-2 mt-0.5">
-                                    <span class="badge px-2 py-0.5 rounded-pill" style="background: rgba(100, 116, 139, 0.12); color: #64748b; font-size: 0.70rem; font-weight: 600;">${formatBytes(f.size)}</span>
-                                    ${badgeHTML}
-                                </div>
-                            </div>
+                            <span class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.82rem; min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;" title="${escapeHtml(f.name)}" data-bs-toggle="tooltip" data-bs-placement="top">
+                                ${escapeHtml(f.name)}
+                            </span>
+                            <span class="text-muted flex-shrink-0" style="font-size: 0.72rem; font-weight: 500;">
+                                (${formatBytes(f.size)})
+                            </span>
                         </div>
-                        <button type="button" class="batch-btn-remove flex-shrink-0" onclick="removeBatchFile(${index})" title="Remove this file">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0" style="flex-wrap: nowrap; white-space: nowrap;">
+                            ${badgeHTML}
+                            <button type="button" class="btn btn-sm text-muted p-0 border-0 d-inline-flex align-items-center justify-content-center" style="width: 20px; height: 20px; background: transparent; transition: color 0.15s ease;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#64748b'" onclick="removeBatchFile(${index})" title="Remove this file">
+                                <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Slot Selector -->
-                    <div class="d-flex flex-column gap-1">
-                        <label class="text-muted fw-semibold mb-0" style="font-size: 0.75rem;">
+                    <!-- Bottom Row: Inline Requirement Slot Selector -->
+                    <div class="d-flex align-items-center gap-2 mt-1.5" style="flex-wrap: nowrap;">
+                        <span class="text-muted fw-semibold flex-shrink-0" style="font-size: 0.73rem; white-space: nowrap;">
                             ${labelHTML}
-                        </label>
-                        <select name="item_ids" class="form-select form-select-sm batch-slot-select"
-                            style="border-radius: 8px; font-size: 0.82rem; height: 38px; cursor: pointer;"
+                        </span>
+                        <select name="item_ids" class="form-select form-select-sm batch-slot-select flex-grow-1"
+                            style="border-radius: 6px; font-size: 0.78rem; height: 32px; padding: 2px 28px 2px 10px; cursor: pointer; border-color: #cbd5e1;"
                             onchange="updateBatchSlotSelection(${index}, this.value)">
                             ${slotOptionsHTML}
                         </select>
                     </div>
+                    ${replaceWarningHTML}
                     ${validityHTML}
                 `;
                 list.appendChild(wrapper);
             });
+
+            if (window.bootstrap && bootstrap.Tooltip) {
+                list.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+                    bootstrap.Tooltip.getOrCreateInstance(el);
+                });
+            }
         } else {
             if (container) container.style.display = 'none';
             if (submitBtnText) submitBtnText.textContent = 'Upload Files';
             if (dropZone) {
-                dropZone.className = "premium-dropzone";
+                dropZone.className = "compact-essential-dropzone";
                 dropZone.innerHTML = `
-                    <div class="premium-dropzone-icon-wrap">
-                        <span class="premium-dropzone-floating-badge floating-pdf">PDF</span>
-                        <span class="premium-dropzone-floating-badge floating-doc">DOCX</span>
-                        <span class="premium-dropzone-floating-badge floating-img">PNG</span>
-                        <div class="premium-dropzone-center-icon">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                        </div>
+                    <div class="compact-essential-icon">
+                        <i class="fa-solid fa-layer-group"></i>
                     </div>
-                    <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 1.05rem;">
-                        Drop Files Here
+                    <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 0.92rem;">
+                        Click to browse or drag multiple files here
                     </div>
-                    <div class="text-muted small mb-2" style="font-size: 0.82rem;">
-                        or <span class="text-primary fw-semibold text-decoration-underline cursor-pointer">Browse Files</span>
-                    </div>
-                    <div>
-                        <span class="premium-dropzone-pill">
-                            <i class="fa-solid fa-file-shield text-primary" style="font-size: 11px;"></i>
-                            Supports PDF, DOC, DOCX, JPG, PNG &bull; Max 15 MB each
-                        </span>
+                    <div class="text-muted small" style="font-size: 0.75rem;">
+                        Supports PDF, JPG, PNG &bull; Max 50 MB each
                     </div>
                     <input type="file" name="files" id="batchFileInput"
                         class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" style="cursor: pointer; z-index: 5;">
+                        accept=".pdf,.jpg,.jpeg,.png,.webp" style="cursor: pointer; z-index: 5;">
                 `;
             }
             if (fileInput) fileInput.value = '';
@@ -2770,43 +3754,56 @@
         }
     });
 
-    // Toggle Waive (N/A) status for requirements
-    document.querySelectorAll('.btn-toggle-waive').forEach(button => {
-        button.addEventListener('click', function () {
-            const reqId = this.dataset.reqId;
-            const toggleUrl = this.dataset.toggleUrl || `/requirements/${reqId}/toggle-waive/`;
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            this.disabled = true;
+    // Helper function to get CSRF token
+    function getCsrfToken() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input && input.value) return input.value;
+        const cookieMatch = document.cookie.match(/csrftoken=([^;]+)/);
+        return cookieMatch ? cookieMatch[1] : '';
+    }
 
-            fetch(toggleUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    if (window.showToast) {
-                        showToast('error', 'Status Update Failed', data.error || 'Unable to update requirement status.');
-                    } else {
-                        alert(data.error || 'Unable to update requirement status');
-                    }
-                    this.disabled = false;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+    // Toggle Waive (N/A) / Require status for requirements
+    document.addEventListener('click', function (e) {
+        const button = e.target.closest('.btn-waive, .btn-require, .btn-toggle-waive');
+        if (!button) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const reqId = button.dataset.reqId;
+        const toggleUrl = button.dataset.toggleUrl || `/requirements/${reqId}/toggle-waive/`;
+        const csrfToken = getCsrfToken();
+        button.disabled = true;
+
+        fetch(toggleUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
                 if (window.showToast) {
-                    showToast('error', 'Network Error', 'An error occurred while communicating with the server.');
+                    showToast('error', 'Status Update Failed', data.error || 'Unable to update requirement status.');
                 } else {
-                    alert('Network error updating requirement status');
+                    alert(data.error || 'Unable to update requirement status');
                 }
-                this.disabled = false;
-            });
+                button.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            if (window.showToast) {
+                showToast('error', 'Network Error', 'An error occurred while communicating with the server.');
+            } else {
+                alert('Network error updating requirement status');
+            }
+            button.disabled = false;
         });
     });
 
@@ -2824,6 +3821,75 @@
         }
     });
 
+    function toggleRecordSummary() {
+        const checklistCol = document.getElementById('checklistCol');
+        const summaryCol = document.getElementById('summaryCol');
+        const toggleBtns = document.querySelectorAll('.summary-toggle-btn');
+        if (!checklistCol || !summaryCol) return;
+
+        const isHidden = summaryCol.classList.contains('d-none');
+        if (isHidden) {
+            // Expand / Show Summary (Split 8:4 view with smooth slide-in)
+            summaryCol.classList.remove('d-none');
+            summaryCol.classList.add('summary-slide-in');
+            checklistCol.classList.remove('col-lg-12', 'summary-collapsed');
+            checklistCol.classList.add('col-lg-8');
+            toggleBtns.forEach(btn => {
+                btn.classList.add('active');
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = 'fa-solid fa-table-columns text-primary';
+            });
+            localStorage.setItem('etala_record_summary_visible', 'true');
+        } else {
+            // Collapse / Hide Summary (Full-width 12 view)
+            summaryCol.classList.remove('summary-slide-in');
+            summaryCol.classList.add('d-none');
+            checklistCol.classList.remove('col-lg-8');
+            checklistCol.classList.add('col-lg-12', 'summary-collapsed');
+            toggleBtns.forEach(btn => {
+                btn.classList.remove('active');
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = 'fa-solid fa-table-columns';
+            });
+            localStorage.setItem('etala_record_summary_visible', 'false');
+        }
+    }
+
+    // Apply saved summary state preference on page load (Default: Expanded Full-Width)
+    document.addEventListener('DOMContentLoaded', function () {
+        const savedState = localStorage.getItem('etala_record_summary_visible');
+        const checklistCol = document.getElementById('checklistCol');
+        const summaryCol = document.getElementById('summaryCol');
+        const toggleBtns = document.querySelectorAll('.summary-toggle-btn');
+
+        if (savedState === 'true') {
+            // If user explicitly chose to show summary before, open it
+            if (summaryCol && checklistCol) {
+                summaryCol.classList.remove('d-none');
+                summaryCol.classList.add('summary-slide-in');
+                checklistCol.classList.remove('col-lg-12', 'summary-collapsed');
+                checklistCol.classList.add('col-lg-8');
+                toggleBtns.forEach(btn => {
+                    btn.classList.add('active');
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.className = 'fa-solid fa-table-columns text-primary';
+                });
+            }
+        } else {
+            // Default: EXPANDED FULL-WIDTH (Summary Hidden)
+            if (summaryCol && checklistCol) {
+                summaryCol.classList.add('d-none');
+                checklistCol.classList.remove('col-lg-8');
+                checklistCol.classList.add('col-lg-12', 'summary-collapsed');
+                toggleBtns.forEach(btn => {
+                    btn.classList.remove('active');
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.className = 'fa-solid fa-table-columns';
+                });
+            }
+        }
+    });
+
     function confirmArchiveDetail() {
         if (window.showConfirmModal) {
             showConfirmModal({
@@ -2831,7 +3897,7 @@
                 message: "Are you sure you want to move '{{ record.title|escapejs }}' to Trash? It can be restored later at any time.",
                 confirmText: 'Yes, Move to Trash',
                 cancelText: 'No, Keep It.',
-                confirmClass: 'action-btn-warning',
+                confirmClass: 'action-btn-danger',
                 iconClass: 'fa-solid fa-box-archive',
                 onConfirm: function () {
                     window.location.href = "{% url 'archive_record' record.record_id %}";
@@ -2843,5 +3909,221 @@
             }
         }
     }
+    // ── Deep-Link Document Focus & Highlight (from Notifications) ──
+    function handleDocumentDeepLink() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let highlightDocId = urlParams.get('highlight_doc');
+        let highlightItemId = urlParams.get('item_id');
+        if (!highlightDocId && window.location.hash && window.location.hash.startsWith('#doc-')) {
+            highlightDocId = window.location.hash.replace('#doc-', '');
+        }
+
+        if (!highlightDocId && !highlightItemId) return;
+
+        let targetEl = null;
+        if (highlightDocId) {
+            targetEl = document.getElementById('doc-' + highlightDocId) || document.querySelector(`[data-doc-id="${highlightDocId}"]`);
+        }
+        if (!targetEl && highlightItemId) {
+            targetEl = document.querySelector(`[data-item-id="${highlightItemId}"]`);
+        }
+
+        if (!targetEl) return;
+
+        // 1. Auto-expand parent group/folder accordion if collapsed
+        const parentCollapse = targetEl.closest('.collapse');
+        if (parentCollapse) {
+            if (!parentCollapse.classList.contains('show')) {
+                parentCollapse.classList.add('show');
+            }
+            try {
+                const bsCollapse = bootstrap.Collapse.getOrCreateInstance(parentCollapse, { toggle: false });
+                bsCollapse.show();
+            } catch (e) {}
+        }
+
+        // 2. Smoothly scroll into center of viewport and trigger subtle clean focus ring
+        function triggerHighlight() {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            targetEl.classList.remove('doc-highlight-focused');
+            void targetEl.offsetWidth; // trigger reflow
+            targetEl.classList.add('doc-highlight-focused');
+        }
+
+        setTimeout(triggerHighlight, 120);
+        setTimeout(triggerHighlight, 400);
+    }
+
+    // ── Ultra-Smooth In-App Document Preview Lightbox (Zero Flicker) ──
+    function openDocPreview(url, fileName, docType) {
+        if (!url) return;
+        const modalEl = document.getElementById('docPreviewModal');
+        if (!modalEl) {
+            window.open(url, '_blank');
+            return;
+        }
+
+        const titleEl = document.getElementById('docPreviewModalLabel');
+        const subtitleEl = document.getElementById('previewModalSubtitle');
+        const iconEl = document.getElementById('previewModalFileIcon');
+        const iconWrapper = document.getElementById('previewModalIconWrapper');
+        const newTabBtn = document.getElementById('previewModalOpenNewTab');
+        const downloadBtn = document.getElementById('previewModalDownload');
+        const spinner = document.getElementById('previewModalSpinner');
+        const imgContainer = document.getElementById('previewImageContainer');
+        const imgEl = document.getElementById('previewModalImage');
+        const iframeEl = document.getElementById('previewModalIframe');
+        const fallbackContainer = document.getElementById('previewFallbackContainer');
+        const fallbackFileName = document.getElementById('previewFallbackFileName');
+        const fallbackOpenTabBtn = document.getElementById('previewFallbackOpenTabBtn');
+        const fallbackDownloadBtn = document.getElementById('previewFallbackDownloadBtn');
+        const fallbackTypeBadge = document.getElementById('fallbackTypeBadge');
+        const fallbackIcon = document.getElementById('fallbackIcon');
+
+        let cleanFileName = fileName;
+        if (!cleanFileName || cleanFileName === 'None' || cleanFileName === 'null') {
+            cleanFileName = 'document';
+        }
+
+        // 1. Reset state (Display Human-Readable Requirement as main title, and record/preview context as subtitle)
+        if (titleEl) {
+            if (docType && docType !== cleanFileName) {
+                titleEl.textContent = docType;
+            } else {
+                titleEl.textContent = cleanFileName;
+            }
+        }
+        if (subtitleEl) {
+            subtitleEl.textContent = cleanFileName && cleanFileName !== docType ? cleanFileName : 'Document \u2022 Official Record Preview';
+        }
+        if (newTabBtn) newTabBtn.href = url;
+        if (downloadBtn) {
+            downloadBtn.href = url;
+            downloadBtn.setAttribute('download', cleanFileName);
+        }
+        if (fallbackOpenTabBtn) fallbackOpenTabBtn.href = url;
+        if (fallbackDownloadBtn) {
+            fallbackDownloadBtn.href = url;
+            fallbackDownloadBtn.setAttribute('download', cleanFileName);
+        }
+        if (fallbackFileName) {
+            fallbackFileName.textContent = cleanFileName;
+            fallbackFileName.title = cleanFileName;
+        }
+
+        spinner.classList.remove('d-none');
+        imgContainer.classList.add('d-none');
+        imgContainer.classList.remove('d-flex');
+        iframeEl.classList.add('d-none');
+        fallbackContainer.classList.add('d-none');
+        fallbackContainer.classList.remove('d-flex');
+        iframeEl.src = 'about:blank';
+        imgEl.src = '';
+
+        const cleanUrl = (url || '').split('?')[0].split('#')[0].toLowerCase();
+        const fnLower = (fileName || '').toLowerCase();
+        const dtLower = (docType || '').toLowerCase();
+
+        // High-accuracy file type determination by checking filename, url, and docType
+        const isPdf = /\.pdf$/i.test(fnLower) || /\.pdf$/i.test(cleanUrl) || /\.pdf$/i.test(dtLower) || 
+                      fnLower.includes('.pdf') || cleanUrl.includes('.pdf') || dtLower.includes('.pdf');
+
+        const isImage = /\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(fnLower) || 
+                        /\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(cleanUrl) || 
+                        /\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(dtLower);
+
+        const isWord = /\.(docx?|rtf|odt|txt)$/i.test(fnLower) || /\.(docx?|rtf|odt|txt)$/i.test(cleanUrl);
+
+        // Update file badge and icons
+        const ext = (cleanFileName.split('.').pop() || cleanUrl.split('.').pop() || 'DOCUMENT').toUpperCase();
+        if (fallbackTypeBadge) {
+            fallbackTypeBadge.textContent = ext.length <= 6 ? ext + ' DOCUMENT' : 'DOCUMENT';
+        }
+
+        // Update header icon and styling
+        if (iconEl && iconWrapper) {
+            if (isImage) {
+                iconEl.className = 'fa-solid fa-file-image';
+                iconWrapper.style.background = 'rgba(37, 99, 235, 0.10)';
+                iconWrapper.style.color = '#2563eb';
+                iconWrapper.style.borderColor = 'rgba(37, 99, 235, 0.2)';
+                if (fallbackIcon) fallbackIcon.className = 'fa-solid fa-file-image';
+            } else if (isPdf) {
+                iconEl.className = 'fa-solid fa-file-pdf';
+                iconWrapper.style.background = 'rgba(239, 68, 68, 0.10)';
+                iconWrapper.style.color = '#ef4444';
+                iconWrapper.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                if (fallbackIcon) fallbackIcon.className = 'fa-solid fa-file-pdf';
+            } else if (isWord) {
+                iconEl.className = 'fa-solid fa-file-word';
+                iconWrapper.style.background = 'rgba(79, 70, 229, 0.10)';
+                iconWrapper.style.color = '#4f46e5';
+                iconWrapper.style.borderColor = 'rgba(79, 70, 229, 0.2)';
+                if (fallbackIcon) fallbackIcon.className = 'fa-solid fa-file-word';
+            } else {
+                iconEl.className = 'fa-solid fa-file-lines';
+                iconWrapper.style.background = 'rgba(100, 116, 139, 0.10)';
+                iconWrapper.style.color = '#64748b';
+                iconWrapper.style.borderColor = 'rgba(100, 116, 139, 0.2)';
+                if (fallbackIcon) fallbackIcon.className = 'fa-solid fa-file-lines';
+            }
+        }
+
+        // 2. Open Modal via Bootstrap
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+
+        // 3. Load Content smoothly with optimized Fit-Width zoom
+        if (isImage) {
+            spinner.classList.remove('d-none');
+            imgContainer.classList.add('d-none');
+            imgContainer.classList.remove('d-flex');
+            imgEl.onload = function() {
+                spinner.classList.add('d-none');
+                imgContainer.classList.remove('d-none');
+                imgContainer.classList.add('d-flex');
+            };
+            imgEl.onerror = function() {
+                spinner.classList.add('d-none');
+                fallbackContainer.classList.remove('d-none');
+                fallbackContainer.classList.add('d-flex');
+            };
+            imgEl.src = url;
+        } else if (isPdf) {
+            spinner.classList.add('d-none');
+            iframeEl.classList.remove('d-none');
+            let pdfUrl = url;
+            if (pdfUrl) {
+                const cleanPdfUrl = pdfUrl.split('#')[0];
+                pdfUrl = cleanPdfUrl + '#toolbar=1&navpanes=0';
+            }
+            iframeEl.src = pdfUrl;
+        } else {
+            spinner.classList.add('d-none');
+            fallbackContainer.classList.remove('d-none');
+            fallbackContainer.classList.add('d-flex');
+        }
+    }
+
+    // Clean up iframe source on modal close to release memory & audio/video
+    document.addEventListener('DOMContentLoaded', function () {
+        const modalEl = document.getElementById('docPreviewModal');
+        if (modalEl) {
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                const iframeEl = document.getElementById('previewModalIframe');
+                const imgEl = document.getElementById('previewModalImage');
+                if (iframeEl) iframeEl.src = 'about:blank';
+                if (imgEl) imgEl.src = '';
+            });
+        }
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', handleDocumentDeepLink);
+    } else {
+        handleDocumentDeepLink();
+    }
+    window.addEventListener('hashchange', handleDocumentDeepLink);
 </script>
 {% endblock %}

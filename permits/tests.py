@@ -47,12 +47,12 @@ class PermitsTestCase(TestCase):
         with self.assertRaises(ValidationError):
             validate_document_file(invalid_file)
 
-        # Valid file type, invalid size (> 10MB)
-        large_file = SimpleUploadedFile("test.pdf", b"x" * (11 * 1024 * 1024), content_type="application/pdf")
+        # Valid file type, invalid size (> 50MB)
+        large_file = SimpleUploadedFile("test.pdf", b"x" * (51 * 1024 * 1024), content_type="application/pdf")
         with self.assertRaises(ValidationError):
             validate_document_file(large_file)
 
-        # Valid file (PDF under 10MB)
+        # Valid file (PDF under 50MB)
         valid_file = SimpleUploadedFile("test.pdf", b"x" * (5 * 1024 * 1024), content_type="application/pdf")
         try:
             validate_document_file(valid_file)
@@ -236,12 +236,12 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         response = self.client.get(reverse('reports'))
         self.assertEqual(response.status_code, 200)
 
-    def test_archive_view_restricted_to_admin(self):
+    def test_archive_view_permissions(self):
         from django.urls import reverse
-        # Logged in as staff -> Blocked
+        # Logged in as staff -> Allowed to view own trash
         self.client.login(username='staffuser', password='Password123')
         response = self.client.get(reverse('archive'))
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
 
         # Logged in as admin -> Allowed
         self.client.login(username='adminuser', password='Password123')

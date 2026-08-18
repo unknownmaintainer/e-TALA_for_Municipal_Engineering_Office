@@ -1,7 +1,8 @@
 {% extends 'permits/base.html' %}
 {% load static %}
+{% load permit_filters %}
 
-{% block title %}Activity Logs · eTala{% endblock %}
+{% block title %}Activity Logs | eTala{% endblock %}
 
 {% block breadcrumb %}
 <span class="breadcrumb-item active">Activity Logs</span>
@@ -40,49 +41,49 @@
 <div class="content-card">
     <div class="content-card-body" style="padding: 24px;">
         
-        <!-- Toolbar: Sub-Tabs & Filters (Matching Records & Illegal Constructions) -->
+        <!-- Toolbar: Sub-Tabs & Filters (Unified 1-Line Compact Design) -->
         <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
             <input type="hidden" name="tab" id="activeLogTabInput" value="{{ active_log_tab|default:'audit' }}">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3 d-print-none">
                 <!-- Left: Scope Segmented Control (Audit Trail / Login History) -->
-                <div class="scope-segmented-control flex-shrink-0" style="height: 38px; border-radius: 12px; padding: 2.5px;">
-                    <button class="scope-pill-btn {% if active_log_tab != 'login' %}active{% endif %}" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button" title="Audit Trail" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
-                        <i class="fa-solid fa-list-check" style="font-size: 13px;"></i>
+                <div class="scope-segmented-control flex-shrink-0" style="height: 34px;">
+                    <button class="scope-pill-btn {% if active_log_tab != 'login' %}active{% endif %}" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button" title="Audit Trail">
+                        <i class="fa-solid fa-list-check"></i>
                         <span>Audit Trail</span>
                     </button>
                     {% if request.user.role == 'admin' %}
-                    <button class="scope-pill-btn {% if active_log_tab == 'login' %}active{% endif %}" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button" title="Login History" style="font-size: 0.80rem; padding: 0 14px; border: none; background: transparent;">
-                        <i class="fa-solid fa-shield-halved" style="font-size: 13px;"></i>
+                    <button class="scope-pill-btn {% if active_log_tab == 'login' %}active{% endif %}" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button" title="Login History">
+                        <i class="fa-solid fa-shield-halved"></i>
                         <span>Login History</span>
                     </button>
                     {% endif %}
                 </div>
 
-                <!-- Right: Integrated Search & Filter Pill (Standard eTala Pill) -->
-                <div class="d-flex align-items-center flex-grow-1 ms-auto" style="max-width: 360px; min-width: 240px;">
-                    <div class="etala-search-pill-wrapper" style="height: 38px; border-radius: 12px;">
+                <!-- Right: Compact Search & Filter Pill -->
+                <div class="d-flex align-items-center ms-auto" style="flex: 0 0 260px; width: 260px; max-width: 100%;">
+                    <div class="etala-search-pill-wrapper w-100" style="height: 34px; border-radius: 10px; padding: 0 10px; gap: 6px;">
                         <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search logs">
-                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
                         </button>
                         <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                            placeholder="{% if active_log_tab == 'login' %}Search email, IP address...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.82rem;">
+                            placeholder="{% if active_log_tab == 'login' %}Search email, IP...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.78rem;">
 
                         <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                            style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
+                            style="width: 12px; height: 12px; margin-right: 4px; flex-shrink: 0;">
                             <span class="visually-hidden">Searching...</span>
                         </div>
 
                         {% if query %}
                         <a href="?tab={{ active_log_tab|default:'audit' }}" id="logClearSearchBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon" style="background: transparent;" title="Clear search">
-                            <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                            <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
                         </a>
                         {% endif %}
 
-                        <span class="etala-search-pill-divider"></span>
+                        <span class="etala-search-pill-divider" style="height: 14px;"></span>
 
                         <!-- Integrated Filter Toggle Button -->
-                        <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
-                            <i class="fa-solid fa-sliders"></i>
+                        <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters" style="padding: 2px;">
+                            <i class="fa-solid fa-sliders" style="font-size: 12px;"></i>
                         </button>
                     </div>
                 </div>
@@ -143,7 +144,7 @@
                                 <option value="30days" {% if date_filter == '30days' %}selected{% endif %}>Past 30 Days</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6" id="filterColActionType" style="{% if active_log_tab == 'login' %}display: none;{% else %}display: block;{% endif %}">
+                        <div class="col-12 col-sm-6 {% if active_log_tab == 'login' %}d-none{% endif %}" id="filterColActionType">
                             <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Action Type</label>
                             <select name="action_type" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;">
                                 <option value="all" {% if action_type == 'all' or not action_type %}selected{% endif %}>All Actions</option>
@@ -153,7 +154,7 @@
                                 <option value="delete" {% if action_type == 'delete' %}selected{% endif %}>Record Deleted</option>
                             </select>
                         </div>
-                        <div class="col-12 col-sm-6" id="filterColLoginStatus" style="{% if active_log_tab == 'login' %}display: block;{% else %}display: none;{% endif %}">
+                        <div class="col-12 col-sm-6 {% if active_log_tab != 'login' %}d-none{% endif %}" id="filterColLoginStatus">
                             <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Login Status</label>
                             <select name="status" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;">
                                 <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>All Attempts</option>
@@ -166,8 +167,10 @@
             </div>
         </form>
 
-        <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
-        <div id="log-tab-content-audit" class="tab-pane-custom" style="{% if active_log_tab == 'login' %}display: none; opacity: 0;{% else %}display: block; opacity: 1;{% endif %}">
+        <!-- ══ TABLES WRAPPER FOR SEAMLESS AJAX UPDATES ══ -->
+        <div id="activityLogsTablesWrapper">
+            <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
+            <div id="log-tab-content-audit" class="tab-pane-custom {% if active_log_tab == 'login' %}d-none{% endif %}">
             {% if log_page_obj %}
                 <div class="table-responsive table-responsive-cards mb-4">
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
@@ -176,8 +179,8 @@
                                 {% if request.user.role == 'admin' %}
                                 <th style="width: 220px;">STAFF MEMBER</th>
                                 {% endif %}
-                                <th style="width: auto;">ACTION PERFORMED</th>
-                                <th style="width: 150px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th style="width: auto;">ACTION &amp; EVENT DETAILS</th>
+                                <th style="width: 160px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -185,20 +188,20 @@
                             <tr>
                                 {% if request.user.role == 'admin' %}
                                 <td data-label="Staff Member" style="vertical-align: middle;">
-                                    <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-                                        <div style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: #e2e8f0; color: #334155; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid #cbd5e1; flex-shrink: 0; overflow: hidden;">
+                                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                                        <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(2, 132, 199, 0.12); color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(2, 132, 199, 0.25); flex-shrink: 0; overflow: hidden;">
                                             {% if log.user.profile_picture_url %}
-                                            <img src="{{ log.user.profile_picture_url }}" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
+                                            <img src="{{ log.user.profile_picture_url }}" alt="" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
                                             {% else %}
                                             {{ log.user.full_name|default:log.user.username|slice:":1"|upper }}
                                             {% endif %}
                                         </div>
                                         <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
+                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
                                                 {{ log.user.full_name|default:log.user.username }}
                                             </div>
                                             <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
-                                                {{ log.user.get_role_display|default:"Operator" }}
+                                                {{ log.user.designation|default:log.user.get_role_display }}
                                             </div>
                                         </div>
                                     </div>
@@ -206,16 +209,30 @@
                                 {% endif %}
 
                                 <td data-label="Action Performed" style="vertical-align: middle; white-space: normal !important; overflow: hidden;">
-                                    <div style="display: flex; align-items: flex-start; gap: 12px; min-width: 0; width: 100%;">
-                                        <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus text-primary{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square text-info{% elif 'Uploaded' in log.action %}fa-upload text-success{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash text-danger{% elif 'Blocked' in log.action %}fa-shield-halved text-warning{% else %}fa-clock-rotate-left text-secondary{% endif %}" style="font-size: 14px; opacity: 0.85; flex-shrink: 0; margin-top: 3px;"></i>
-                                        <div class="fw-medium text-dark" style="font-size: 0.84rem; white-space: normal !important; word-break: break-word; overflow-wrap: break-word; line-height: 1.45; min-width: 0; flex: 1;">
-                                            {{ log.action|safe }}
+                                    <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; width: 100%;">
+                                        <div class="d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5" style="width: 26px; height: 26px; border-radius: 7px; background: {% if 'Created' in log.action or 'Added' in log.action %}rgba(34, 197, 94, 0.12); color: #16a34a;{% elif 'Updated' in log.action or 'Modified' in log.action %}rgba(2, 132, 199, 0.12); color: #0284c7;{% elif 'Uploaded' in log.action %}rgba(13, 148, 136, 0.12); color: #0d9488;{% elif 'Deleted' in log.action or 'Trash' in log.action or 'Removed' in log.action %}rgba(239, 68, 68, 0.12); color: #dc2626;{% elif 'Alerts' in log.action or 'Email' in log.action %}rgba(245, 158, 11, 0.12); color: #d97706;{% else %}rgba(100, 116, 139, 0.12); color: #64748b;{% endif %}">
+                                            <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square{% elif 'Uploaded' in log.action %}fa-cloud-arrow-up{% elif 'Trash' in log.action %}fa-box-archive{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash{% elif 'Alerts' in log.action or 'Email' in log.action %}fa-bell{% elif 'ZIP' in log.action or 'Download' in log.action %}fa-file-zipper{% elif 'Blocked' in log.action %}fa-shield-halved{% else %}fa-clock-rotate-left{% endif %}" style="font-size: 13px;"></i>
+                                        </div>
+                                        <div style="min-width: 0; flex: 1;">
+                                            <div class="fw-semibold title-text-adaptive" style="font-size: 0.84rem; line-height: 1.4; word-break: break-word;">
+                                                {{ log.action|clean_audit_action|safe }}
+                                            </div>
+                                            {% if log.target_record_id %}
+                                            <div class="text-muted d-flex align-items-center gap-1 mt-1" style="font-size: 0.72rem;">
+                                                <i class="fa-regular fa-folder-open text-primary" style="font-size: 10px;"></i>
+                                                <span>Ref:</span>
+                                                <a href="{% url 'record_detail' log.target_record_id %}" class="text-primary text-decoration-none fw-semibold d-inline-flex align-items-center gap-0.5" title="Open Record #{{ log.target_record_id }}">
+                                                    <span>Record #{{ log.target_record_id }}</span>
+                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 8px;"></i>
+                                                </a>
+                                            </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </td>
 
                                 <td class="text-end" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
-                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
+                                    <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
                                         {{ log.performed_at|date:"h:i:s A" }}
                                     </div>
                                     <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
@@ -303,11 +320,11 @@
                     </div>
                 </div>
             {% else %}
-                <div class="text-center py-5 px-3 my-3 border rounded-3 bg-white" style="border-color: var(--border-default) !important; border-radius: 12px !important;">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-light text-secondary rounded-circle mb-3" style="width: 54px; height: 54px;">
-                        <i class="fa-solid fa-magnifying-glass" style="font-size: 20px; opacity: 0.6;"></i>
+                <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 280px;">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle" style="width: 56px; height: 56px; background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+                        <i class="fa-solid fa-magnifying-glass" style="font-size: 22px;"></i>
                     </div>
-                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">No matching activity records</h6>
+                    <h6 class="fw-bold title-text-adaptive mb-1" style="font-size: 0.95rem;">No matching activity records</h6>
                     <p class="text-muted mb-3" style="font-size: 0.82rem; max-width: 400px; margin: 0 auto;">
                         {% if query %}
                         No activity logs match your search for <strong>"{{ query }}"</strong>.
@@ -316,79 +333,65 @@
                         {% endif %}
                     </p>
                     {% if query or date_filter != 'all' or action_type != 'all' %}
-                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5" style="text-decoration: none;">
-                        <i class="fa-solid fa-xmark" style="font-size: 12px;"></i> Clear Search &amp; Filters
+                    <a href="{% url 'activity_logs' %}" class="premium-btn btn-view text-decoration-none" style="border-radius: 8px; font-size: 0.80rem; padding: 5px 14px;">
+                        <i class="fa-solid fa-rotate-left me-1.5" style="font-size: 11px;"></i>
+                        <span>Reset All Filters</span>
                     </a>
                     {% endif %}
                 </div>
             {% endif %}
         </div>
 
-        <!-- ══ SUB-TAB 2: LOGIN HISTORY ══ -->
         {% if request.user.role == 'admin' %}
-        <div id="log-tab-content-login" class="tab-pane-custom" style="{% if active_log_tab == 'login' %}display: block; opacity: 1;{% else %}display: none; opacity: 0;{% endif %}">
+        <div id="log-tab-content-login" class="tab-pane-custom {% if active_log_tab != 'login' %}d-none{% endif %}">
 
             {% if login_page_obj %}
                 <div class="table-responsive table-responsive-cards mb-4">
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="width: 280px;">STAFF / ACCOUNT ATTEMPTED</th>
-                                <th style="width: 150px;">STATUS</th>
-                                <th style="width: auto;">OUTCOME / DETAILS</th>
-                                <th style="width: 160px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th style="width: 50%;">STAFF / ACCOUNT ATTEMPTED</th>
+                                <th style="width: 25%;">LOGIN STATUS</th>
+                                <th style="width: 25%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for attempt in login_page_obj %}
                             <tr>
                                 <td data-label="Staff / Account" style="vertical-align: middle;">
-                                    <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+                                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
                                         {% if attempt.success %}
-                                        <div style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
+                                        <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.25); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
                                             {{ attempt.email_attempted|slice:":1"|upper }}
                                         </div>
                                         {% else %}
-                                        <div style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
+                                        <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
                                             {{ attempt.email_attempted|slice:":1"|upper }}
                                         </div>
                                         {% endif %}
                                         <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
+                                            <div class="fw-bold title-text-adaptive" style="font-size: 0.85rem; line-height: 1.25; word-break: break-all;">
                                                 {{ attempt.email_attempted }}
                                             </div>
                                             <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
-                                                {% if attempt.success %}Authorized Staff Account{% else %}Unregistered / External Email{% endif %}
+                                                {% if attempt.success %}Authorized Staff Account{% else %}Unregistered / External Account{% endif %}
                                             </div>
                                         </div>
                                     </div>
                                 </td>
                                 <td data-label="Status" style="vertical-align: middle;">
                                     {% if attempt.success %}
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
-                                            <i class="fa-solid fa-circle-check" style="font-size: 11px;"></i> Successful
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.74rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
+                                            <i class="fa-solid fa-circle-check" style="font-size: 11px;"></i> Successful Login
                                         </span>
                                     {% else %}
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
-                                            <i class="fa-solid fa-circle-xmark" style="font-size: 11px;"></i> Failed
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1" style="font-size: 0.74rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
+                                            <i class="fa-solid fa-circle-xmark" style="font-size: 11px;"></i> Failed Attempt
                                         </span>
-                                    {% endif %}
-                                </td>
-                                <td data-label="Outcome / Details" style="vertical-align: middle;">
-                                    {% if attempt.success %}
-                                        <div class="d-flex align-items-center gap-1.5 text-success" style="font-size: 0.82rem; font-weight: 500;">
-                                            <i class="fa-solid fa-shield-check" style="font-size: 13px;"></i>
-                                            <span>Session Authenticated Successfully</span>
-                                        </div>
-                                    {% else %}
-                                        <div class="d-flex align-items-center gap-1.5 text-danger" style="font-size: 0.82rem; font-weight: 500;">
-                                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 13px;"></i>
-                                            <span>Invalid Password or Unregistered User</span>
-                                        </div>
                                     {% endif %}
                                 </td>
                                 <td class="text-end" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
-                                    <div class="fw-bold text-dark font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
+                                    <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
                                         {{ attempt.timestamp|date:"h:i:s A" }}
                                     </div>
                                     <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
@@ -497,6 +500,7 @@
             {% endif %}
         </div>
         {% endif %}
+        </div> <!-- /#activityLogsTablesWrapper -->
 
     </div>
 </div>
@@ -531,10 +535,25 @@
         transition: opacity 0.15s ease-in-out;
     }
 
-    /* Clean Table Spacing & Smooth Row Transitions */
+    /* Clean Table Spacing & Smooth Row Transitions (No Stretched Single Rows) */
+    .table-responsive-cards {
+        min-height: auto !important;
+        margin-bottom: 16px !important;
+    }
+
+    .table-responsive-cards .data-table {
+        margin-bottom: 0 !important;
+        height: auto !important;
+    }
+
+    .table-responsive-cards .data-table tbody tr {
+        height: auto !important;
+        transition: background-color 0.18s ease !important;
+    }
+
     .table-responsive-cards .data-table th {
-        padding-top: 12px !important;
-        padding-bottom: 12px !important;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
         font-size: 0.74rem !important;
         letter-spacing: 0.04em !important;
         color: var(--gray-600, #475569) !important;
@@ -543,8 +562,8 @@
     }
 
     .table-responsive-cards .data-table td {
-        padding-top: 14px !important;
-        padding-bottom: 14px !important;
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
         vertical-align: middle !important;
         border-bottom: 1px solid var(--gray-100, #f1f5f9) !important;
     }
@@ -557,10 +576,6 @@
 
     .table-responsive-cards .data-table td.text-end {
         white-space: nowrap !important;
-    }
-
-    .table-responsive-cards .data-table tbody tr {
-        transition: background-color 0.18s ease !important;
     }
 
     .table-responsive-cards .data-table tbody tr:hover {
@@ -646,8 +661,6 @@
     }
 
     function updateSettingsExportUrl() {
-        const activeSubTab = localStorage.getItem('active_settings_log_tab') || 'audit';
-    function updateSettingsExportUrl() {
         const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
         const query = document.querySelector('input[name="q"]')?.value || '';
         const dateRange = document.querySelector('select[name="date_range"]')?.value || 'all';
@@ -655,7 +668,7 @@
         const statusVal = document.querySelector('select[name="status"]')?.value || 'all';
         const exportBtn = document.getElementById('exportPdfHeaderBtn');
         if (exportBtn && exportBtn.tagName === 'A') {
-            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + activeTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
+            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + encodeURIComponent(activeTab) + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
         }
     }
 
@@ -665,7 +678,7 @@
         const dateRange = document.querySelector('select[name="date_range"]')?.value || 'all';
         const actionType = document.querySelector('select[name="action_type"]')?.value || 'all';
         const statusVal = document.querySelector('select[name="status"]')?.value || 'all';
-        const exportUrl = "{% url 'export_activity_logs' %}?tab=" + activeTab + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
+        const exportUrl = "{% url 'export_activity_logs' %}?tab=" + encodeURIComponent(activeTab) + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
         
         if (window.downloadFileWithToast) {
             window.downloadFileWithToast(exportUrl, `eTala_${activeTab}_Activity_Logs.pdf`, {
@@ -691,16 +704,7 @@
         const tabInput = document.getElementById('activeLogTabInput');
         if (tabInput) tabInput.value = tabName;
         localStorage.setItem('active_settings_log_tab', tabName);
-        
-        // Update URL param without refreshing
-        if (!isInitial) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('tab', tabName);
-            window.history.replaceState({}, '', url.toString());
-        }
 
-        const tabAudit = document.getElementById('log-tab-content-audit');
-        const tabLogin = document.getElementById('log-tab-content-login');
         const btnAudit = document.getElementById('log-tab-btn-audit');
         const btnLogin = document.getElementById('log-tab-btn-login');
         const colAction = document.getElementById('filterColActionType');
@@ -713,32 +717,27 @@
             if (colAction) colAction.style.display = 'block';
             if (colLogin) colLogin.style.display = 'none';
             if (searchInput) searchInput.placeholder = 'Search action or staff...';
-            
-            if (tabAudit) {
-                tabAudit.style.display = 'block';
-                tabAudit.style.opacity = '1';
-            }
-            if (tabLogin) {
-                tabLogin.style.display = 'none';
-                tabLogin.style.opacity = '0';
-            }
         } else {
             if (btnAudit) btnAudit.classList.remove('active');
             if (btnLogin) btnLogin.classList.add('active');
             if (colAction) colAction.style.display = 'none';
             if (colLogin) colLogin.style.display = 'block';
             if (searchInput) searchInput.placeholder = 'Search email, IP address...';
-            
-            if (tabAudit) {
-                tabAudit.style.display = 'none';
-                tabAudit.style.opacity = '0';
-            }
-            if (tabLogin) {
-                tabLogin.style.display = 'block';
-                tabLogin.style.opacity = '1';
+        }
+
+        if (!isInitial) {
+            const form = document.getElementById('activityLogsFilterForm');
+            if (form) {
+                const formData = new FormData(form);
+                formData.set('tab', tabName);
+                const params = new URLSearchParams(formData);
+                if (window.updateLogsTableAJAX) {
+                    window.updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
+                } else {
+                    window.location.search = params.toString();
+                }
             }
         }
-        updateSettingsExportUrl();
     }
 
     function changePerPage(val) {
@@ -746,7 +745,11 @@
         urlParams.set('per_page', val);
         const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
         urlParams.set('tab', activeTab);
-        window.location.search = urlParams.toString();
+        if (window.updateLogsTableAJAX) {
+            window.updateLogsTableAJAX(window.location.pathname + '?' + urlParams.toString());
+        } else {
+            window.location.search = urlParams.toString();
+        }
     }
 
     function jumpToPage(pageVal, maxPage, pageParamName) {
@@ -763,19 +766,12 @@
         urlParams.set(pageParamName, pageNum);
         const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
         urlParams.set('tab', activeTab);
-        window.location.search = urlParams.toString();
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab');
-        if (tabParam === 'login' || urlParams.has('login_page') || (urlParams.has('status') && urlParams.get('status') !== 'all')) {
-            switchLogTab('login', true);
+        if (window.updateLogsTableAJAX) {
+            window.updateLogsTableAJAX(window.location.pathname + '?' + urlParams.toString());
         } else {
-            switchLogTab('audit', true);
+            window.location.search = urlParams.toString();
         }
-        updateSettingsExportUrl();
-    });
+    }
 
     function confirmIPAction(formId, title, message, confirmText, confirmClass, icon) {
         if (window.showConfirmModal) {
@@ -793,20 +789,21 @@
         }
     }
 
-    // Live Debounced Auto-Search for Activity Logs with Loading Spinner
+    // ══ LIVE SEAMLESS AJAX SEARCH & FILTER SYSTEM ═════════════════════════
     document.addEventListener('DOMContentLoaded', function () {
-        const logSearchInput = document.querySelector('input[name="q"]');
+        const logSearchInput = document.getElementById('liveSearchInput') || document.querySelector('input[name="q"]');
         const logSearchSpinner = document.getElementById('logSearchSpinner');
         const logClearBtn = document.getElementById('logClearSearchBtn');
+        const filterForm = document.getElementById('activityLogsFilterForm');
         let logSearchTimer;
 
         async function updateLogsTableAJAX(url) {
-            const tableCard = document.querySelector('.content-card') || document.querySelector('.table-responsive');
+            const tablesWrapper = document.getElementById('activityLogsTablesWrapper');
             if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
             if (logClearBtn) logClearBtn.classList.add('d-none');
-            if (tableCard) {
-                tableCard.style.transition = 'opacity 0.08s ease';
-                tableCard.style.opacity = '0.6';
+            if (tablesWrapper) {
+                tablesWrapper.style.transition = 'opacity 0.08s ease';
+                tablesWrapper.style.opacity = '0.5';
             }
 
             try {
@@ -817,23 +814,34 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(text, 'text/html');
 
-                const newTableCard = doc.querySelector('.content-card') || doc.querySelector('.table-responsive');
-                if (tableCard && newTableCard) {
-                    tableCard.innerHTML = newTableCard.innerHTML;
+                const newTablesWrapper = doc.getElementById('activityLogsTablesWrapper');
+                if (tablesWrapper && newTablesWrapper) {
+                    tablesWrapper.innerHTML = newTablesWrapper.innerHTML;
                 }
+
+                // Update active chips container smoothly
+                const newChipsContainer = doc.querySelector('.active-filter-chips');
+                const currentChipsContainer = document.querySelector('.active-filter-chips');
+                if (currentChipsContainer) {
+                    if (newChipsContainer) {
+                        currentChipsContainer.innerHTML = newChipsContainer.innerHTML;
+                    } else {
+                        currentChipsContainer.remove();
+                    }
+                } else if (newChipsContainer) {
+                    const filtersCollapse = document.getElementById('advancedFiltersCollapse');
+                    if (filtersCollapse) {
+                        filtersCollapse.insertAdjacentElement('beforebegin', newChipsContainer);
+                    }
+                }
+
+                // Sync URL history
                 window.history.pushState({}, '', url);
-                
-                // Re-sync active tab from form input
-                const currentTab = document.getElementById('activeLogTabInput')?.value || 'audit';
-                switchLogTab(currentTab, true);
-                
-                // Re-bind listeners for new DOM elements
-                bindFilterEvents();
+                updateSettingsExportUrl();
             } catch (err) {
                 console.error("AJAX refresh error:", err);
-                if (logSearchInput && logSearchInput.form) logSearchInput.form.submit();
             } finally {
-                if (tableCard) tableCard.style.opacity = '1';
+                if (tablesWrapper) tablesWrapper.style.opacity = '1';
                 if (logSearchSpinner) logSearchSpinner.classList.add('d-none');
                 if (logClearBtn) {
                     if (logSearchInput && logSearchInput.value.trim().length > 0) logClearBtn.classList.remove('d-none');
@@ -842,51 +850,64 @@
             }
         }
 
-        function bindFilterEvents() {
-            document.querySelectorAll('.filter-dropdown-ajax').forEach(function(select) {
-                select.removeEventListener('change', onFilterChange);
-                select.addEventListener('change', onFilterChange);
-            });
-        }
+        window.updateLogsTableAJAX = updateLogsTableAJAX;
 
-        function onFilterChange() {
-            const searchInput = document.querySelector('input[name="q"]');
-            if (searchInput && searchInput.form) {
-                const formData = new FormData(searchInput.form);
+        function triggerFormSearch() {
+            if (filterForm) {
+                const formData = new FormData(filterForm);
                 const params = new URLSearchParams(formData);
                 updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
             }
         }
 
-        if (logSearchInput && logSearchInput.form) {
-            if (logSearchInput.value) {
-                const len = logSearchInput.value.length;
-                logSearchInput.focus();
-                logSearchInput.setSelectionRange(len, len);
-            }
+        // Live input keystroke listener (debounced)
+        if (logSearchInput) {
             logSearchInput.addEventListener('input', function () {
                 clearTimeout(logSearchTimer);
                 if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
                 if (logClearBtn) logClearBtn.classList.add('d-none');
                 logSearchTimer = setTimeout(() => {
-                    const formData = new FormData(logSearchInput.form);
-                    const params = new URLSearchParams(formData);
-                    updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
-                }, 450);
+                    triggerFormSearch();
+                }, 300);
             });
         }
 
-        bindFilterEvents();
+        // Prevent full page reload on Enter in search form
+        if (filterForm) {
+            filterForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                clearTimeout(logSearchTimer);
+                triggerFormSearch();
+            });
+        }
 
-        // Event delegation for active filter chips & reset all
-        document.addEventListener('click', function(e) {
+        // Clear button click listener
+        if (logClearBtn) {
+            logClearBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (logSearchInput) {
+                    logSearchInput.value = '';
+                    logSearchInput.focus();
+                }
+                triggerFormSearch();
+            });
+        }
+
+        // Filter dropdowns change listener
+        document.querySelectorAll('.filter-dropdown-ajax').forEach(function (select) {
+            select.addEventListener('change', function () {
+                triggerFormSearch();
+            });
+        });
+
+        // Event delegation for filter chips click & pagination inside tablesWrapper
+        document.addEventListener('click', function (e) {
+            // Chip clear or Reset all
             const chipLink = e.target.closest('.active-filter-chips a');
             if (chipLink) {
                 e.preventDefault();
                 const url = chipLink.getAttribute('href');
                 if (url && url !== '#') {
-                    updateLogsTableAJAX(url);
-                    // Sync dropdown values from URL
                     const urlParams = new URLSearchParams(url.split('?')[1] || '');
                     const dateSel = document.querySelector('select[name="date_range"]');
                     const actSel = document.querySelector('select[name="action_type"]');
@@ -894,9 +915,31 @@
                     if (dateSel) dateSel.value = urlParams.get('date_range') || 'all';
                     if (actSel) actSel.value = urlParams.get('action_type') || 'all';
                     if (statSel) statSel.value = urlParams.get('status') || 'all';
+                    updateLogsTableAJAX(url);
+                }
+                return;
+            }
+
+            // Pagination link clicks
+            const pageLink = e.target.closest('#activityLogsTablesWrapper .pagination .page-link');
+            if (pageLink && pageLink.getAttribute('href') && !pageLink.closest('.disabled') && !pageLink.closest('.active')) {
+                e.preventDefault();
+                const href = pageLink.getAttribute('href');
+                if (href && href.startsWith('?')) {
+                    updateLogsTableAJAX(window.location.pathname + href);
                 }
             }
         });
+
+        // Initialize active tab on load
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam === 'login' || urlParams.has('login_page') || (urlParams.has('status') && urlParams.get('status') !== 'all')) {
+            switchLogTab('login', true);
+        } else {
+            switchLogTab('audit', true);
+        }
+        updateSettingsExportUrl();
     });
 </script>
 

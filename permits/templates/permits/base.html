@@ -5,7 +5,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dashboard · eTala{% endblock %}</title>
+    <script>
+        // ⚡ CRITICAL ZERO-BLINK / ZERO-FOUC INITIALIZATION (Executes before any CSS loads)
+        (function() {
+            var isDark = localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark-mode');
+                document.documentElement.setAttribute('data-bs-theme', 'dark');
+                document.documentElement.style.colorScheme = 'dark';
+                document.documentElement.style.backgroundColor = '#0b1329';
+            } else {
+                document.documentElement.classList.remove('dark-mode');
+                document.documentElement.setAttribute('data-bs-theme', 'light');
+                document.documentElement.style.colorScheme = 'light';
+                document.documentElement.style.backgroundColor = '#f8fafc';
+            }
+            if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 768) {
+                document.documentElement.classList.add('sidebar-is-collapsed');
+            }
+        })();
+    </script>
+    <style>
+        /* Instant Root Canvas Colors */
+        html.dark-mode, html.dark-mode body { background-color: #0b1329 !important; color: #f8fafc; color-scheme: dark; }
+        html:not(.dark-mode), html:not(.dark-mode) body { background-color: #f8fafc !important; }
+
+        /* ══ ULTRA-SMOOTH SYNCHRONIZED THEME CROSSFADE (Header + Table + Cards + Canvas) ══ */
+        html,
+        body,
+        .etala-main,
+        .etala-content,
+        .etala-header,
+        .etala-header-container,
+        .header-left,
+        .header-right,
+        .header-back-btn,
+        .etala-breadcrumb-capsule,
+        .breadcrumb-home-circle,
+        .breadcrumb-chevron,
+        .breadcrumb-item,
+        .user-profile-header-card,
+        .notification-btn,
+        .content-card,
+        .content-card-body,
+        .content-card-header,
+        .content-card-table,
+        #recordsTableCard,
+        .card,
+        .card-body,
+        .card-header,
+        .table-responsive,
+        .data-table,
+        .data-table thead,
+        .data-table thead tr,
+        .data-table thead th,
+        .data-table tbody,
+        .data-table tbody tr,
+        .data-table tbody td,
+        .data-table .cell-title,
+        .data-table .cell-subtitle,
+        .compact-data-table,
+        .compact-data-table thead th,
+        .compact-data-table tbody td,
+        .filter-panel-unified,
+        .scope-segmented-control,
+        .scope-pill-btn,
+        .etala-search-pill-wrapper,
+        .etala-search-pill-input,
+        .user-group-card,
+        .user-row-item {
+            transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                        border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                        color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* ══ ULTRA-SMOOTH MODAL OPEN & CLOSE ANIMATIONS ═════════════════════════ */
+        .modal.fade .modal-dialog {
+            transform: scale(0.96) translateY(-8px) !important;
+            opacity: 0 !important;
+            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out !important;
+        }
+
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0) !important;
+            opacity: 1 !important;
+        }
+
+        .modal-backdrop.fade {
+            opacity: 0 !important;
+            transition: opacity 0.2s linear !important;
+        }
+
+        .modal-backdrop.show {
+            opacity: 0.55 !important;
+        }
+    </style>
+    <title>{% block title %}Dashboard | eTala{% endblock %}</title>
     <link rel="icon" type="image/png" href="{% static 'carigara_logo.png' %}">
     <link rel="apple-touch-icon" href="{% static 'carigara_logo.png' %}">
     <meta name="description"
@@ -18,23 +114,8 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=110">
-    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=110">
-    <script>
-        // Immediate check to prevent FOUC (flash of unstyled content)
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark-mode');
-        } else {
-            document.documentElement.classList.remove('dark-mode');
-        }
-
-        // Immediate check to persist sidebar collapsed state across page navigations
-        if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 768) {
-            document.documentElement.classList.add('sidebar-is-collapsed');
-        } else {
-            document.documentElement.classList.remove('sidebar-is-collapsed');
-        }
-    </script>
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=115">
+    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=115">
     <style>
         .notification-icon-wrapper {
             width: 36px;
@@ -49,28 +130,10 @@
         .notif-electrical { background: #f3e8ff !important; color: #9333ea !important; }
         .notif-record { background: #dcfce7 !important; color: #16a34a !important; }
 
-        /* ══ RELIABLE & ULTRA-SMOOTH PAGE TRANSITIONS ═════════════════════════ */
+        /* ══ INSTANT ROCK-SOLID PAGE RENDERING (No Post-Load Jitter / Aftershock) ═════ */
         .etala-content {
-            animation: etalaContentEnter 0.20s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            will-change: opacity, transform;
-        }
-
-        @keyframes etalaContentEnter {
-            0% {
-                opacity: 0;
-                transform: translateY(4px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .etala-content {
-                animation: none !important;
-                transition: none !important;
-            }
+            opacity: 1 !important;
+            transform: none !important;
         }
 
         /* Top Nano-Progress Bar (Ultra-Smooth Glowing Progress Sweep) */
@@ -341,10 +404,11 @@
             align-items: center !important;
             background: #f1f5f9 !important;
             padding: 3px !important;
-            border-radius: 20px !important;
+            border-radius: 12px !important;
             border: 1px solid #e2e8f0 !important;
-            gap: 2px !important;
-            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+            gap: 3px !important;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+            box-sizing: border-box !important;
         }
 
         a.scope-pill-btn,
@@ -353,24 +417,26 @@
             align-items: center !important;
             justify-content: center !important;
             gap: 6px !important;
-            padding: 6px 14px !important;
-            min-height: 34px !important;
-            font-size: 0.8rem !important;
+            padding: 4px 12px !important;
+            height: calc(100% - 0px) !important;
+            min-height: 26px !important;
+            font-size: 0.78rem !important;
             font-weight: 600 !important;
             color: #64748b !important;
-            border-radius: 16px !important;
+            border-radius: 9px !important;
             border: none !important;
             text-decoration: none !important;
             transition: all 0.15s ease !important;
             line-height: 1 !important;
             white-space: nowrap !important;
             background: transparent !important;
+            box-sizing: border-box !important;
         }
 
         a.scope-pill-btn i,
         .scope-pill-btn i {
             color: #64748b !important;
-            font-size: 13px !important;
+            font-size: 12px !important;
             transition: color 0.15s ease !important;
         }
 
@@ -390,9 +456,10 @@
         .scope-pill-btn.active {
             background: #ffffff !important;
             color: #0f766e !important;
-            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08) !important;
             font-weight: 700 !important;
             text-decoration: none !important;
+            border-radius: 9px !important;
         }
 
         a.scope-pill-btn.active i,
@@ -443,7 +510,8 @@
         [data-bs-theme="dark"] .scope-pill-btn.active {
             background: #1e293b !important;
             color: #2dd4bf !important;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
+            border-radius: 9px !important;
         }
 
         .dark-mode a.scope-pill-btn.active i,
@@ -453,31 +521,79 @@
             color: #2dd4bf !important;
         }
 
-        /* Strict Horizontal Overflow & Page Shift Protection */
+        /* Strict Horizontal Overflow & Page Shift Protection (using 'clip' so position: sticky is preserved) */
         html, body {
             max-width: 100vw !important;
-            overflow-x: hidden !important;
+            overflow-x: clip !important;
         }
 
+        .etala-layout,
         .etala-main,
         #mainContent,
         .etala-app-container {
             max-width: 100% !important;
-            overflow-x: hidden !important;
+            overflow-x: clip !important;
         }
 
-        /* Maximize table content width to fill columns without awkward whitespace gaps & prevent text overflow */
-        /* Standard minimum height on table containers so action dropdowns never get clipped on short lists */
-        .table-responsive,
-        .table-card-responsive {
-            min-height: 260px;
-        }
+        /* Unified Stable Table Container Height (Maintains consistent height across 0 records, 1 record, or many) */
         .content-card:has(.table-responsive),
         .content-card:has(.table-card-responsive),
         .content-card:has(table),
         .card:has(.table-responsive),
         .card:has(table) {
-            min-height: 300px;
+            min-height: 420px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+        }
+
+        .content-card:has(.table-responsive) > .card-body,
+        .content-card:has(table) > .card-body {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            flex: 1 1 auto !important;
+            min-height: 100% !important;
+        }
+
+        .table-responsive,
+        .table-card-responsive {
+            min-height: auto;
+            flex: 1 0 auto !important;
+        }
+
+        .data-table tbody tr {
+            height: auto !important;
+        }
+
+        .pagination-bar {
+            margin-top: auto !important;
+        }
+
+        /* ── Standardized Full-Card Unified Empty State ── */
+        .empty-state-unified {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 2.5rem 1rem !important;
+            text-align: center;
+        }
+        .empty-state-icon-circle {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: rgba(2, 132, 199, 0.12) !important;
+            color: #0284c7 !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+        .dark-mode .empty-state-icon-circle,
+        [data-bs-theme="dark"] .empty-state-icon-circle {
+            background: rgba(56, 189, 248, 0.12) !important;
+            color: #38bdf8 !important;
         }
 
         .data-table,
@@ -527,6 +643,13 @@
             text-overflow: ellipsis !important;
             display: block !important;
             word-break: normal !important;
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+
+        .cell-title *,
+        .cell-subtitle * {
+            background-color: transparent !important;
         }
 
         .cell-subtitle,
@@ -1691,8 +1814,8 @@
             #sidebar .nav-item,
             .etala-sidebar .nav-item {
                 position: relative;
-                margin: 3px 8px;
-                padding: 9px 12px;
+                margin: 3px 8px !important;
+                padding: 9px 12px !important;
                 border-radius: 10px;
                 transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
                 color: #f1f5f9 !important;
@@ -1702,6 +1825,7 @@
                 font-size: 0.86rem !important;
                 font-weight: 600 !important;
                 letter-spacing: -0.1px;
+                z-index: 1;
             }
 
             #sidebar .nav-item .nav-label,
@@ -1727,9 +1851,9 @@
 
             #sidebar .nav-item:hover,
             .etala-sidebar .nav-item:hover {
-                background: rgba(56, 189, 248, 0.16) !important;
+                background: rgba(255, 255, 255, 0.09) !important;
                 color: #ffffff !important;
-                transform: translateX(3px) !important;
+                transform: translateX(2px);
             }
 
             #sidebar .nav-item:hover .nav-label,
@@ -1783,10 +1907,12 @@
                 flex: 1 1 auto !important;
                 overflow-y: auto !important;
                 overflow-x: hidden !important;
-                padding: 0 12px 12px 12px !important;
+                padding: 0 12px 60px 12px !important;
                 scrollbar-width: none !important;
                 display: flex !important;
                 flex-direction: column !important;
+                position: relative !important;
+                z-index: 1 !important;
             }
 
             .sidebar-nav::-webkit-scrollbar {
@@ -1794,12 +1920,22 @@
                 width: 0 !important;
             }
 
-            /* Blueprint Art — Always Pinned to Sidebar Bottom */
+            /* Blueprint Art — Pinned seamlessly to very bottom edge as subtle watermark */
             .sidebar-blueprint-art {
-                flex-shrink: 0 !important;
-                padding: 10px 16px 14px !important;
-                opacity: 0.28 !important;
+                position: absolute !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                padding: 0 16px 8px 16px !important;
+                opacity: 0.16 !important;
                 pointer-events: none !important;
+                z-index: 0 !important;
+            }
+
+            .sidebar-blueprint-art svg {
+                width: 100% !important;
+                height: 52px !important;
+                color: #ffffff !important;
             }
 
             /* ── Core Stat Metric Cards (Light & Dark Mode) ── */
@@ -2065,6 +2201,29 @@
             [data-bs-theme="dark"] .table tbody tr:hover>td,
             [data-bs-theme="dark"] .table tbody tr:hover>th {
                 background-color: rgba(51, 65, 85, 0.45) !important;
+            }
+
+            /* Comprehensive Global Hover Transparency Guarantee */
+            tbody tr td,
+            tbody tr td *,
+            tbody tr:hover td,
+            tbody tr:hover td *,
+            tbody tr:hover .cell-title,
+            tbody tr:hover .cell-title *,
+            tbody tr:hover .cell-subtitle,
+            tbody tr:hover .cell-subtitle *,
+            tbody tr:hover .compact-cell-title {
+                background-color: transparent !important;
+            }
+
+            /* Preserve badge backgrounds */
+            tbody tr td .badge,
+            tbody tr td .tag,
+            tbody tr td .status-badge,
+            tbody tr:hover td .badge,
+            tbody tr:hover td .tag,
+            tbody tr:hover td .status-badge {
+                background-color: revert !important;
             }
 
             .cell-id {
@@ -2717,6 +2876,176 @@
             .dark-mode .dropdown-divider,
             [data-bs-theme="dark"] .dropdown-divider {
                 border-color: #334155 !important;
+            }
+
+            /* ── CRISP DROPDOWN ARROWS & DYNAMIC ROTATION ── */
+            .dropdown-toggle::after {
+                display: inline-block;
+                margin-left: 0.45em;
+                vertical-align: 0.2em;
+                content: "";
+                border-top: 0.35em solid currentColor;
+                border-right: 0.3em solid transparent;
+                border-bottom: 0;
+                border-left: 0.3em solid transparent;
+                transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .dropdown-toggle[aria-expanded="true"]::after,
+            .show > .dropdown-toggle::after {
+                transform: rotate(180deg);
+            }
+
+            /* Form Select Crisp High-Contrast Arrow (Light & Dark) */
+            .form-select,
+            .obo-select,
+            .cr-field select {
+                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+                background-repeat: no-repeat !important;
+                background-position: right 0.75rem center !important;
+                background-size: 16px 12px !important;
+                padding-right: 2.25rem !important;
+                transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease !important;
+            }
+
+            .dark-mode .form-select,
+            .dark-mode .obo-select,
+            .dark-mode .cr-field select,
+            [data-bs-theme="dark"] .form-select,
+            [data-bs-theme="dark"] .obo-select,
+            [data-bs-theme="dark"] .cr-field select {
+                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+                background-color: #0f172a !important;
+                border-color: #334155 !important;
+                color: #f8fafc !important;
+            }
+
+            /* ── BULLETPROOF PREMIUM BUTTON CENTERING & ICON ALIGNMENT ── */
+            .premium-btn,
+            a.premium-btn,
+            button.premium-btn {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 7px !important;
+                padding: 0 14px !important;
+                height: 36px !important;
+                line-height: 36px !important;
+                vertical-align: middle !important;
+                box-sizing: border-box !important;
+                text-decoration: none !important;
+            }
+
+            .premium-btn .btn-icon,
+            a.premium-btn .btn-icon,
+            button.premium-btn .btn-icon {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                line-height: 1 !important;
+                font-size: 13px !important;
+                width: auto !important;
+                height: auto !important;
+                vertical-align: middle !important;
+                flex-shrink: 0 !important;
+            }
+
+            .premium-btn .btn-icon i,
+            a.premium-btn .btn-icon i,
+            button.premium-btn .btn-icon i {
+                display: inline-block !important;
+                line-height: 1 !important;
+                vertical-align: 0 !important;
+                font-size: 13px !important;
+            }
+
+            .premium-btn .btn-divider,
+            a.premium-btn .btn-divider,
+            button.premium-btn .btn-divider {
+                display: inline-block !important;
+                width: 1px !important;
+                height: 14px !important;
+                background: rgba(203, 213, 225, 0.6) !important;
+                flex-shrink: 0 !important;
+                vertical-align: middle !important;
+                margin: 0 1px !important;
+            }
+
+            .dark-mode .premium-btn .btn-divider,
+            [data-bs-theme="dark"] .premium-btn .btn-divider {
+                background: rgba(255, 255, 255, 0.22) !important;
+            }
+
+            .premium-btn span:not(.btn-icon):not(.btn-divider) {
+                display: inline-flex !important;
+                align-items: center !important;
+                line-height: 1 !important;
+            }
+
+            /* ── PREMIUM BUTTON MICRO-INTERACTIONS & EFFECTS ── */
+            .premium-btn,
+            .etala-btn,
+            .btn-primary,
+            .btn-secondary,
+            .btn-outline-primary,
+            .btn-outline-secondary,
+            .btn-outline-danger {
+                transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+                            box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+                            background-color 0.16s ease,
+                            border-color 0.16s ease !important;
+            }
+
+            .premium-btn:hover,
+            .etala-btn:hover {
+                transform: translateY(-1.5px);
+                box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.15) !important;
+            }
+
+            .premium-btn:active,
+            .etala-btn:active,
+            .btn:active {
+                transform: scale(0.97) !important;
+            }
+
+            /* ── DATAFIELDS & INPUT FOCUS GLOW ── */
+            .form-control:focus,
+            .form-select:focus,
+            .obo-input:focus,
+            .obo-select:focus,
+            .cr-field input:focus,
+            .cr-field select:focus,
+            .cr-field textarea:focus {
+                border-color: #0f766e !important;
+                box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important;
+                outline: none !important;
+            }
+
+            .dark-mode .form-control:focus,
+            .dark-mode .form-select:focus,
+            [data-bs-theme="dark"] .form-control:focus,
+            [data-bs-theme="dark"] .form-select:focus {
+                border-color: #2dd4bf !important;
+                box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2) !important;
+            }
+
+            /* ── BACK BUTTON MICRO-INTERACTIONS ── */
+            .header-back-btn {
+                transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            }
+            .header-back-btn:hover {
+                transform: translateX(-2px) !important;
+            }
+            .header-back-btn:active {
+                transform: scale(0.95) !important;
+            }
+
+            /* ── SEARCH CLEAR "X" BUTTON MICRO-INTERACTIONS ── */
+            .clear-search-icon {
+                transition: transform 0.16s ease, color 0.16s ease !important;
+            }
+            .clear-search-icon:hover {
+                transform: scale(1.15) !important;
+                color: #ef4444 !important;
             }
 
             /* ── SOFT ROUNDED HEADER SEARCH BAR ── */
@@ -3594,10 +3923,35 @@
         }
 
         /* ═════════════════════════════════════════════════════════════════════
-           BULLETPROOF DROPDOWN SYSTEM (STRICT DOWNWARD, UNCLIPPED, HIGH Z-INDEX)
+           STICKY & FIXED TOP HEADER BAR (LIGHT & DARK MODES ACROSS ALL PAGES)
            ═════════════════════════════════════════════════════════════════════ */
         header.etala-header,
+        .etala-header {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1040 !important;
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+            overflow: visible !important;
+        }
+
+        .dark-mode header.etala-header,
+        .dark-mode .etala-header,
+        [data-bs-theme="dark"] header.etala-header,
+        [data-bs-theme="dark"] .etala-header {
+            background-color: #0f172a !important;
+            background: #0f172a !important;
+            border-bottom: 1px solid #1e293b !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+        }
+
+        /* ═════════════════════════════════════════════════════════════════════
+           BULLETPROOF DROPDOWN SYSTEM (STRICT DOWNWARD, UNCLIPPED, HIGH Z-INDEX)
+           ═════════════════════════════════════════════════════════════════════ */
         .etala-header-container,
+        .header-left,
         .header-right,
         .dropdown,
         .btn-group {
@@ -4143,6 +4497,343 @@
                 transform: translateY(0);
             }
         }
+
+        /* ══ ULTRA-FAST 60FPS GPU COMPOSITED THEME CROSSFADE ═════════════════ */
+        ::view-transition-old(root) {
+            animation: 160ms cubic-bezier(0.4, 0, 0.2, 1) both etalaThemeFadeOut;
+        }
+        ::view-transition-new(root) {
+            animation: 160ms cubic-bezier(0.4, 0, 0.2, 1) both etalaThemeFadeIn;
+        }
+        @keyframes etalaThemeFadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        @keyframes etalaThemeFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ══ ULTRA-SMOOTH COMPONENT ENTRY & EXIT ANIMATIONS ═══════════════════ */
+        .etala-content {
+            animation: etalaContentEntrance 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes etalaContentEntrance {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ══ ULTRA-SMOOTH MODAL OPEN & CLOSE ANIMATIONS ═════════════════════════ */
+        .modal.fade .modal-dialog {
+            transform: scale(0.95) translateY(-10px) !important;
+            opacity: 0 !important;
+            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                        opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .modal.show .modal-dialog {
+            transform: scale(1) translateY(0) !important;
+            opacity: 1 !important;
+        }
+
+        .modal-backdrop.fade {
+            opacity: 0 !important;
+            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .modal-backdrop.show {
+            opacity: 0.55 !important;
+        }
+
+        /* ══ ULTRA-SMOOTH DROPDOWN ENTRY & EXIT ANIMATION ══════════════════════ */
+        .dropdown-menu {
+            display: block !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            transform: translateY(-6px) scale(0.97) !important;
+            pointer-events: none !important;
+            transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+                        visibility 0.18s !important;
+        }
+
+        .dropdown-menu.show {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: translateY(0) scale(1) !important;
+            pointer-events: auto !important;
+        }
+
+        /* ══ PREMIUM ELASTIC TACTILE BUTTON INTERACTIONS (60FPS NATIVE CSS) ═══ */
+        .btn,
+        .action-btn,
+        .sidebar-new-record-btn,
+        .header-back-btn,
+        .header-user-btn,
+        .header-bell-btn,
+        .notification-btn,
+        .sidebar-collapse-btn,
+        .theme-switch-btn,
+        .filter-pill,
+        .scope-pill-btn,
+        .pill-tab,
+        .row-action-btn,
+        .doc-action-btn,
+        .btn-flag-illegal,
+        .flatpickr-footer-btn,
+        .mobile-menu-btn,
+        .mobile-drawer-close-btn,
+        button[type="submit"],
+        button[type="button"] {
+            transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        box-shadow 0.14s ease,
+                        background-color 0.14s ease,
+                        color 0.14s ease,
+                        border-color 0.14s ease !important;
+            will-change: transform;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .btn:active,
+        .action-btn:active,
+        .sidebar-new-record-btn:active,
+        .header-back-btn:active,
+        .header-user-btn:active,
+        .header-bell-btn:active,
+        .notification-btn:active,
+        .sidebar-collapse-btn:active,
+        .theme-switch-btn:active,
+        .filter-pill:active,
+        .scope-pill-btn:active,
+        .pill-tab:active,
+        .row-action-btn:active,
+        .doc-action-btn:active,
+        .btn-flag-illegal:active,
+        .flatpickr-footer-btn:active,
+        .mobile-menu-btn:active,
+        .mobile-drawer-close-btn:active,
+        button[type="submit"]:active,
+        button[type="button"]:active {
+            transform: scale(0.95) translateY(1px) !important;
+            transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.25, 1) !important;
+        }
+
+        /* ══ MAIN CONTENT BLUR & DOT SPINNER (SIDEBAR EXCLUDED & ALWAYS CRISP) ══════ */
+        .etala-page-transition-overlay {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 260px;
+            width: calc(100vw - 260px);
+            height: 100vh;
+            z-index: 1045;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(248, 250, 252, 0.65);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s, left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dark-mode .etala-page-transition-overlay,
+        [data-bs-theme="dark"] .etala-page-transition-overlay {
+            background: rgba(11, 19, 41, 0.72);
+        }
+
+        /* When sidebar is collapsed on desktop */
+        html.sidebar-is-collapsed .etala-page-transition-overlay,
+        .etala-sidebar.collapsed ~ .etala-main .etala-page-transition-overlay {
+            left: 72px !important;
+            width: calc(100vw - 72px) !important;
+        }
+
+        /* On mobile / unauthenticated screens */
+        @media (max-width: 767.98px) {
+            .etala-page-transition-overlay {
+                left: 0 !important;
+                width: 100vw !important;
+            }
+        }
+
+        .etala-page-transition-overlay.is-active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .etala-transition-spinner-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #1e293b;
+        }
+
+        .dark-mode .etala-transition-spinner-box,
+        [data-bs-theme="dark"] .etala-transition-spinner-box {
+            color: #ffffff;
+        }
+
+        .etala-dot-spinner {
+            animation: etalaSpinDot 0.85s steps(12, end) infinite;
+            filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.12));
+        }
+
+        .dark-mode .etala-dot-spinner,
+        [data-bs-theme="dark"] .etala-dot-spinner {
+            filter: drop-shadow(0 4px 18px rgba(56, 189, 248, 0.35));
+        }
+
+        @keyframes etalaSpinDot {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ── Header User Profile Trigger & Smooth Dropdown Animation ── */
+        .header-user-profile-btn {
+            background: transparent;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            gap: 0.675rem;
+        }
+
+        .header-user-profile-btn:hover,
+        .header-user-profile-btn[aria-expanded="true"] {
+            background: rgba(241, 245, 249, 0.9);
+        }
+
+        .header-user-profile-btn .fa-chevron-down {
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .header-user-profile-btn[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
+
+        .user-profile-dropdown-card {
+            width: 250px !important;
+            background: #ffffff !important;
+            border: 1px solid rgba(226, 232, 240, 0.85) !important;
+            border-radius: 14px !important;
+            padding: 0.45rem !important;
+            box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.08) !important;
+            margin-top: 8px !important;
+            transform-origin: top right;
+            animation: etalaDropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes etalaDropdownIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-8px) scale(0.96);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .user-profile-header-card {
+            border-color: #f1f5f9 !important;
+            border-radius: 8px;
+        }
+
+        .user-profile-dropdown-card .dropdown-item {
+            font-size: 0.84rem !important;
+            font-weight: 500 !important;
+            color: #334155 !important;
+            padding: 0.55rem 0.75rem !important;
+            border-radius: 8px !important;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .user-profile-dropdown-card .dropdown-item i {
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease !important;
+        }
+
+        .user-profile-dropdown-card .dropdown-item:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            transform: translateX(3px);
+        }
+
+        .user-profile-dropdown-card .dropdown-item:hover i {
+            transform: scale(1.15);
+            color: #1e293b !important;
+        }
+
+        .user-profile-dropdown-card .dropdown-item.dropdown-logout-item:hover {
+            background-color: #fef2f2 !important;
+            color: #dc2626 !important;
+        }
+
+        .user-profile-dropdown-card .dropdown-item.dropdown-logout-item:hover i {
+            color: #dc2626 !important;
+            transform: translateX(2px);
+        }
+
+        /* Dark Mode User Dropdown */
+        .dark-mode .user-profile-dropdown-card,
+        [data-bs-theme="dark"] .user-profile-dropdown-card {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        .dark-mode .header-user-profile-btn:hover,
+        .dark-mode .header-user-profile-btn[aria-expanded="true"],
+        [data-bs-theme="dark"] .header-user-profile-btn:hover,
+        [data-bs-theme="dark"] .header-user-profile-btn[aria-expanded="true"] {
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        .dark-mode .user-profile-header-card,
+        [data-bs-theme="dark"] .user-profile-header-card {
+            border-color: #334155 !important;
+        }
+
+        .dark-mode .user-profile-dropdown-card .dropdown-item,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-item {
+            color: #cbd5e1 !important;
+        }
+
+        .dark-mode .user-profile-dropdown-card .dropdown-item:hover,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-item:hover {
+            background-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+
+        .dark-mode .user-profile-dropdown-card .dropdown-item.dropdown-logout-item:hover,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-item.dropdown-logout-item:hover {
+            background-color: rgba(239, 68, 68, 0.18) !important;
+            color: #f87171 !important;
+        }
+
+        .dark-mode .user-profile-dropdown-card .dropdown-divider,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-divider {
+            border-color: #334155 !important;
+        }
+
+        .dark-mode .user-profile-dropdown-card .text-dark,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .text-dark {
+            color: #f8fafc !important;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -4246,20 +4937,20 @@
                     </div>
 
                     <!-- Trash -->
-                    {% if request.user.role == 'admin' %}
+                    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                     <a href="{% url 'archive' %}"
                         class="nav-item {% if active_tab == 'archive' or '/archive/' in request.path %}active{% endif %}"
-                        title="Trash">
+                        title="{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}">
                         <div class="nav-item-content">
                             <i class="fa-solid fa-trash-can"
                                 style="font-size: 15px; width: 20px; text-align: center;"></i>
-                            <span class="nav-label">Trash</span>
+                            <span class="nav-label">{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}</span>
                         </div>
                     </a>
                     {% endif %}
 
                     <!-- Reports -->
-                    {% if request.user.role == 'admin' or request.user.role == 'engineer' %}
+                    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                     <a href="{% url 'reports' %}"
                         class="nav-item {% if active_tab == 'reports' or '/reports/' in request.path %}active{% endif %}"
                         title="Reports">
@@ -4312,7 +5003,7 @@
             <div class="sidebar-blueprint-art">
                 <svg viewBox="0 0 200 70" fill="none" stroke="currentColor" stroke-width="1.2"
                     stroke-linecap="round" stroke-linejoin="round"
-                    style="width: 100%; height: 60px; color: #ffffff;">
+                    style="width: 100%; height: 50px; color: #ffffff;">
                     <path d="M10 65 V25 L35 10 L60 25 V65 M10 40 H60 M35 10 V65 M20 25 H50 M20 50 H50" />
                     <path d="M65 65 V35 L85 20 L105 35 V65 M65 50 H105 M85 20 V65" />
                     <path
@@ -4326,6 +5017,26 @@
              MAIN CONTENT AREA
              ═══════════════════════════════════════════ -->
         <div class="etala-main">
+            <!-- ══ MAIN CONTENT BLUR & DOT SPINNER (SIDEBAR EXCLUDED & UNTOUCHED) ══ -->
+            <div id="etalaPageTransitionOverlay" class="etala-page-transition-overlay" aria-hidden="true">
+                <div class="etala-transition-spinner-box">
+                    <svg class="etala-dot-spinner" viewBox="0 0 64 64" width="48" height="48">
+                        <circle cx="32" cy="10" r="4.2" opacity="1.0" fill="currentColor"/>
+                        <circle cx="43" cy="13" r="4.2" opacity="0.92" fill="currentColor"/>
+                        <circle cx="51" cy="21" r="4.2" opacity="0.83" fill="currentColor"/>
+                        <circle cx="54" cy="32" r="4.2" opacity="0.75" fill="currentColor"/>
+                        <circle cx="51" cy="43" r="4.2" opacity="0.66" fill="currentColor"/>
+                        <circle cx="43" cy="51" r="4.2" opacity="0.58" fill="currentColor"/>
+                        <circle cx="32" cy="54" r="4.2" opacity="0.50" fill="currentColor"/>
+                        <circle cx="21" cy="51" r="4.2" opacity="0.42" fill="currentColor"/>
+                        <circle cx="13" cy="43" r="4.2" opacity="0.33" fill="currentColor"/>
+                        <circle cx="10" cy="32" r="4.2" opacity="0.25" fill="currentColor"/>
+                        <circle cx="13" cy="21" r="4.2" opacity="0.18" fill="currentColor"/>
+                        <circle cx="21" cy="13" r="4.2" opacity="0.12" fill="currentColor"/>
+                    </svg>
+                </div>
+            </div>
+
             <!-- Top Header Bar -->
             <header class="etala-header">
                 <div class="etala-header-container d-flex align-items-center justify-content-between w-100">
@@ -4334,13 +5045,16 @@
                             title="Menu">
                             <i data-lucide="menu" style="width: 20px; height: 20px;"></i>
                         </button>
+                        {% if request.resolver_match.url_name != 'dashboard' and request.path != '/' and request.path != '/dashboard/' %}
                         <button type="button" class="header-back-btn"
-                            data-fallback-url="{% url 'dashboard' %}"
-                            onclick="if(window.history.length > 1){ history.back(); } else { window.location.href = this.dataset.fallbackUrl; }"
+                            id="globalHeaderBackBtn"
+                            data-fallback-url="{% block back_fallback_url %}{% url 'dashboard' %}{% endblock %}"
+                            onclick="handleSmartGlobalBack(this)"
                             title="Go back">
                             <i data-lucide="arrow-left" style="width: 16px; height: 16px;"></i>
                             <span class="d-none d-sm-inline">Back</span>
                         </button>
+                        {% endif %}
                         <!-- Floating Pill Breadcrumb (Exact User Reference Design) -->
                         <nav class="etala-breadcrumb-capsule" aria-label="breadcrumb">
                             <a href="{% url 'dashboard' %}" class="breadcrumb-home-circle" title="Dashboard">
@@ -4488,65 +5202,69 @@
                                     style="width: 36px; height: 36px; border: 2px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.06); background: #064e3b;">
                                     {% if request.user.profile_picture_url %}
                                     <img src="{{ request.user.profile_picture_url }}" alt=""
-                                        style="width: 100%; height: 100%; object-fit: cover;"
-                                        onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
-                                    <div class="w-100 h-100 align-items-center justify-content-center fw-bold text-white"
-                                        style="background: #064e3b; font-size: 0.85rem; display: none;">
+                                        loading="eager" decoding="async"
+                                        class="header-avatar-img w-100 h-100 d-block"
+                                        style="object-fit: cover;"
+                                        onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
+                                    <div class="header-avatar-initials w-100 h-100 align-items-center justify-content-center fw-bold text-white d-none"
+                                        style="background: #064e3b; font-size: 0.85rem;">
                                         {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                     </div>
                                     {% else %}
-                                    <div class="w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white"
+                                    <img src="" alt=""
+                                        loading="eager" decoding="async"
+                                        class="header-avatar-img w-100 h-100 d-none"
+                                        style="object-fit: cover;"
+                                        onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
+                                    <div class="header-avatar-initials w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white"
                                         style="background: #064e3b; font-size: 0.85rem;">
                                         {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                     </div>
                                     {% endif %}
                                 </div>
-                                <div class="d-none d-md-flex flex-column align-items-start justify-content-center text-start min-w-0"
-                                    style="line-height: 1.25; max-width: 170px; overflow: hidden;">
-                                    <span class="fw-bold text-dark text-truncate d-block w-100"
-                                        style="font-size: 0.84rem; letter-spacing: -0.2px; max-width: 170px;"
-                                        title="{{ request.user.full_name|default:request.user.username }}">
-                                        {{ request.user.full_name|default:request.user.username }}
-                                    </span>
-                                    <span class="text-muted text-truncate d-block w-100" style="font-size: 0.72rem; font-weight: 500; max-width: 170px;">
-                                        {% if request.user.role == 'admin' %}Administrator{% elif request.user.role == 'engineer' %}Municipal Engineer{% else %}Engineering Staff{% endif %}
-                                    </span>
-                                </div>
-                                <i class="fa-solid fa-chevron-down ms-1 text-muted flex-shrink-0" style="font-size: 10px; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.2s ease;"></i>
+                                <span class="d-none d-md-block fw-bold text-dark text-truncate"
+                                    style="font-size: 0.85rem; letter-spacing: -0.2px; max-width: 155px;"
+                                    title="{{ request.user.full_name|default:request.user.username }}">
+                                    {{ request.user.full_name|default:request.user.username }}
+                                </span>
+                                <i class="fa-solid fa-chevron-down ms-0.5 text-muted flex-shrink-0" style="font-size: 10px; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.2s ease;"></i>
                             </button>
 
                             <!-- Clean User Profile Dropdown Card -->
-                            <div class="dropdown-menu dropdown-menu-end p-2.5 user-profile-dropdown-card shadow-lg"
-                                style="width: 270px; border-radius: 14px;">
-                                <!-- User Identity Header -->
-                                <div class="p-2.5 d-flex align-items-center border-bottom mb-2 user-profile-header-card"
-                                    style="border-radius: 10px; gap: 0.675rem;">
-                                    <div class="rounded-circle overflow-hidden flex-shrink-0"
-                                        style="width: 38px; height: 38px; border: 2px solid #cbd5e1; background: #064e3b;">
+                            <div class="dropdown-menu dropdown-menu-end p-2 user-profile-dropdown-card shadow-lg"
+                                style="width: 250px; border-radius: 14px;">
+                                <!-- User Identity Header (Avatar + Name + Email) -->
+                                <div class="px-2 py-2 mb-1.5 border-bottom user-profile-header-card d-flex align-items-center gap-2.5" style="border-color: #f1f5f9;">
+                                    <div class="overflow-hidden rounded-circle flex-shrink-0 user-dropdown-avatar-box"
+                                        style="width: 38px; height: 38px; border: 1.5px solid #cbd5e1; background: #064e3b; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
                                         {% if request.user.profile_picture_url %}
                                         <img src="{{ request.user.profile_picture_url }}" alt=""
-                                            style="width: 100%; height: 100%; object-fit: cover;"
-                                            onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
-                                        <div class="w-100 h-100 align-items-center justify-content-center fw-bold text-white"
-                                            style="background: #064e3b; font-size: 0.88rem; display: none;">
+                                            loading="eager" decoding="async"
+                                            class="dropdown-avatar-img w-100 h-100 d-block"
+                                            style="object-fit: cover;"
+                                            onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
+                                        <div class="dropdown-avatar-initials w-100 h-100 align-items-center justify-content-center fw-bold text-white d-none"
+                                            style="background: #064e3b; font-size: 0.9rem;">
                                             {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                         </div>
                                         {% else %}
-                                        <div class="w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white"
-                                            style="background: #064e3b; font-size: 0.88rem;">
+                                        <img src="" alt=""
+                                            loading="eager" decoding="async"
+                                            class="dropdown-avatar-img w-100 h-100 d-none"
+                                            style="object-fit: cover;"
+                                            onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
+                                        <div class="dropdown-avatar-initials w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white"
+                                            style="background: #064e3b; font-size: 0.9rem;">
                                             {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                         </div>
                                         {% endif %}
                                     </div>
                                     <div class="min-w-0 flex-grow-1">
-                                        <div class="fw-bold text-dark text-truncate d-block"
-                                            style="font-size: 0.86rem; line-height: 1.25; max-width: 195px;"
-                                            title="{{ request.user.full_name|default:request.user.username }}">
+                                        <div class="fw-bold text-dark text-truncate" style="font-size: 0.86rem; line-height: 1.25;" title="{{ request.user.full_name|default:request.user.username }}">
                                             {{ request.user.full_name|default:request.user.username }}
                                         </div>
-                                        <div class="text-primary fw-semibold"
-                                            style="font-size: 0.71rem; margin-top: 2px;">
-                                            {% if request.user.role == 'admin' %}Administrator{% elif request.user.role == 'engineer' %}Municipal Engineer{% else %}Engineering Staff{% endif %}
+                                        <div class="text-muted text-truncate mt-0.5" style="font-size: 0.73rem;" title="{{ request.user.email }}">
+                                            {{ request.user.email }}
                                         </div>
                                     </div>
                                 </div>
@@ -4554,7 +5272,7 @@
                                 <!-- Menu Items -->
                                 <div class="d-flex flex-column gap-1">
                                     <a href="{% url 'profile' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2 py-2 px-2.5 rounded-2 text-decoration-none"
+                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none"
                                         style="font-size: 0.84rem; font-weight: 500;">
                                         <i class="fa-regular fa-user flex-shrink-0"
                                             style="width: 16px; font-size: 14px; color: #475569;"></i>
@@ -4562,7 +5280,7 @@
                                     </a>
                                     {% if request.user.role == 'admin' %}
                                     <a href="{% url 'settings' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2 py-2 px-2.5 rounded-2 text-decoration-none"
+                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none"
                                         style="font-size: 0.84rem; font-weight: 500;">
                                         <i class="fa-solid fa-gear flex-shrink-0"
                                             style="width: 16px; font-size: 14px; color: #475569;"></i>
@@ -4570,17 +5288,17 @@
                                     </a>
                                     {% endif %}
                                     <a href="{% url 'about_system' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2 py-2 px-2.5 rounded-2 text-decoration-none {% if active_tab == 'about_system' %}active{% endif %}"
+                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none"
                                         style="font-size: 0.84rem; font-weight: 500;">
                                         <i class="fa-solid fa-circle-info flex-shrink-0"
                                             style="width: 16px; font-size: 14px; color: #0284c7;"></i>
                                         <span>About eTala</span>
                                     </a>
 
-                                    <hr class="dropdown-divider my-1.5" style="border-color: #e2e8f0; opacity: 1;">
+                                    <hr class="dropdown-divider my-1" style="border-color: #f1f5f9; opacity: 1;">
 
                                     <a href="{% url 'logout' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2 py-2 px-2.5 rounded-2 text-decoration-none text-danger"
+                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none text-danger dropdown-logout-item"
                                         style="font-size: 0.84rem; font-weight: 600;">
                                         <i class="fa-solid fa-arrow-right-from-bracket flex-shrink-0"
                                             style="width: 16px; font-size: 14px; color: #ef4444;"></i>
@@ -4821,18 +5539,53 @@
             }
         });
 
-        // Theme switching logic
+        // ⚡ 60FPS ZERO-LAG HARDWARE-ACCELERATED THEME SWITCH
+        window.applyTheme = function(theme) {
+            const isDark = theme === 'dark';
+
+            const updateDOMTheme = function() {
+                if (isDark) {
+                    document.documentElement.classList.add('dark-mode');
+                    document.documentElement.setAttribute('data-bs-theme', 'dark');
+                    document.documentElement.style.colorScheme = 'dark';
+                    document.documentElement.style.backgroundColor = '#0b1329';
+                    if (document.body) {
+                        document.body.classList.add('dark-mode');
+                        document.body.setAttribute('data-bs-theme', 'dark');
+                        document.body.style.colorScheme = 'dark';
+                        document.body.style.backgroundColor = '#0b1329';
+                    }
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark-mode');
+                    document.documentElement.setAttribute('data-bs-theme', 'light');
+                    document.documentElement.style.colorScheme = 'light';
+                    document.documentElement.style.backgroundColor = '#f8fafc';
+                    if (document.body) {
+                        document.body.classList.remove('dark-mode');
+                        document.body.setAttribute('data-bs-theme', 'light');
+                        document.body.style.colorScheme = 'light';
+                        document.body.style.backgroundColor = '#f8fafc';
+                    }
+                    localStorage.setItem('theme', 'light');
+                }
+            };
+
+            // Hardware-accelerated GPU view transition (Instant & 0 Lag)
+            if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                updateDOMTheme();
+                return;
+            }
+
+            document.startViewTransition(updateDOMTheme);
+        };
+
         document.addEventListener("DOMContentLoaded", function () {
             const toggleBtn = document.getElementById('themeToggleBtn');
             if (toggleBtn) {
                 toggleBtn.addEventListener('click', function () {
-                    if (document.documentElement.classList.contains('dark-mode')) {
-                        document.documentElement.classList.remove('dark-mode');
-                        localStorage.setItem('theme', 'light');
-                    } else {
-                        document.documentElement.classList.add('dark-mode');
-                        localStorage.setItem('theme', 'dark');
-                    }
+                    const isDark = document.documentElement.classList.contains('dark-mode');
+                    window.applyTheme(isDark ? 'light' : 'dark');
                 });
             }
 
@@ -4923,19 +5676,19 @@
         /* Light Mode Clean Variants */
         .custom-app-toast.toast-variant-success {
             border: 1px solid #dcfce7 !important;
-            border-left: 4px solid #16a34a !important;
+            border-left: 4px solid #10b981 !important;
         }
         .custom-app-toast.toast-variant-info {
             border: 1px solid #dbeafe !important;
-            border-left: 4px solid #2563eb !important;
+            border-left: 4px solid #3b82f6 !important;
         }
         .custom-app-toast.toast-variant-warning {
             border: 1px solid #fef3c7 !important;
-            border-left: 4px solid #d97706 !important;
+            border-left: 4px solid #f59e0b !important;
         }
         .custom-app-toast.toast-variant-error {
             border: 1px solid #fee2e2 !important;
-            border-left: 4px solid #dc2626 !important;
+            border-left: 4px solid #ef4444 !important;
         }
 
         .custom-app-toast .toast-icon-badge {
@@ -5092,13 +5845,13 @@
 
             const tagLower = (type || '').toLowerCase();
             const isSuccess = tagLower.includes('success');
-            const isWarning = tagLower.includes('warning') || tagLower.includes('alert');
+            const isWarning = tagLower.includes('warning') || tagLower.includes('alert') || tagLower.includes('caution');
             const isError = tagLower.includes('error') || tagLower.includes('danger');
 
             let variantClass = 'toast-variant-info';
-            let iconBg = '#2563eb';
-            let iconHtml = '<i class="fa-solid fa-info" style="font-size: 13px;"></i>';
-            let defaultTitle = 'Information';
+            let iconBg = '#3b82f6';
+            let iconHtml = '<i class="fa-solid fa-circle-info" style="font-size: 14px;"></i>';
+            let defaultTitle = 'Notice';
 
             const msgLower = (message || '').toLowerCase();
 
@@ -5109,8 +5862,8 @@
                 });
 
                 variantClass = 'toast-variant-success';
-                iconBg = '#16a34a';
-                iconHtml = '<i class="fa-solid fa-check" style="font-size: 13px;"></i>';
+                iconBg = '#10b981';
+                iconHtml = '<i class="fa-solid fa-circle-check" style="font-size: 14px;"></i>';
                 
                 if (msgLower.includes('regulariz')) {
                     defaultTitle = 'Regularized Successfully';
@@ -5139,11 +5892,13 @@
                 }
             } else if (isError) {
                 variantClass = 'toast-variant-error';
-                iconBg = '#dc2626';
-                iconHtml = '<i class="fa-solid fa-xmark" style="font-size: 13px;"></i>';
+                iconBg = '#ef4444';
+                iconHtml = '<i class="fa-solid fa-circle-xmark" style="font-size: 14px;"></i>';
                 
-                if (msgLower.includes('delet')) {
-                    defaultTitle = 'Deletion Failed';
+                if (msgLower.includes('already exist') || msgLower.includes('duplicate') || msgLower.includes('already used') || msgLower.includes('already registered')) {
+                    defaultTitle = 'Duplicate Entry';
+                } else if (msgLower.includes('delet')) {
+                    defaultTitle = 'Deletion Blocked';
                 } else if (msgLower.includes('upload')) {
                     defaultTitle = 'Upload Failed';
                 } else if (msgLower.includes('password')) {
@@ -5151,17 +5906,17 @@
                 } else if (msgLower.includes('permission') || msgLower.includes('denied') || msgLower.includes('unauthoriz')) {
                     defaultTitle = 'Access Denied';
                 } else {
-                    defaultTitle = 'Error Occurred';
+                    defaultTitle = 'Action Failed';
                 }
             } else if (isWarning) {
                 variantClass = 'toast-variant-warning';
-                iconBg = '#d97706';
-                iconHtml = '<i class="fa-solid fa-exclamation" style="font-size: 13px; font-weight: 900;"></i>';
+                iconBg = '#f59e0b';
+                iconHtml = '<i class="fa-solid fa-triangle-exclamation" style="font-size: 13px;"></i>';
                 
                 if (msgLower.includes('prevent') || msgLower.includes('cannot') || msgLower.includes('restricted')) {
                     defaultTitle = 'Action Prevented';
                 } else {
-                    defaultTitle = 'Action Required';
+                    defaultTitle = 'Warning';
                 }
             }
 
@@ -5388,47 +6143,48 @@
             const classLower = (options.confirmClass || '').toLowerCase();
 
             // ─── STRICT STANDARD MODAL COLOR CODING ──────────────────────────────────
-            // 🔴 RED: Crucial/Destructive (Move to Trash, Delete, Remove, Purge)
+            // ─── STRICT STANDARD MODAL COLOR CODING ──────────────────────────────────
+            // 🔴 RED: Crucial/Destructive (Move to Trash, Delete, Remove, Purge, Destroy)
             // 🟢 GREEN: Positive/Recovery (Restore, Recover, Reactivate)
             // 🟠 AMBER: Warning/Security (Deactivate, Lock, Block, Reset)
             // 🔵 BLUE: Information/Process (Update, Confirm, Backup)
 
-            const isRestore = titleLower.includes('restore') || titleLower.includes('recover') || messageLower.includes('restore') || classLower.includes('success');
-            const isTrashOrDelete = titleLower.includes('trash') || titleLower.includes('delete') || titleLower.includes('remove') || titleLower.includes('purge') || titleLower.includes('destroy') || messageLower.includes('trash') || messageLower.includes('delete') || classLower.includes('danger') || classLower.includes('trash');
-            const isSecurity = titleLower.includes('deactivat') || titleLower.includes('block') || titleLower.includes('lock') || classLower.includes('warning');
+            const isTrashOrDelete = titleLower.includes('trash') || titleLower.includes('delete') || titleLower.includes('remove') || titleLower.includes('purge') || titleLower.includes('destroy') || classLower.includes('danger') || classLower.includes('trash') || classLower.includes('archive');
+            const isRestore = !isTrashOrDelete && (titleLower.includes('restore') || titleLower.includes('recover') || titleLower.includes('reactivat') || classLower.includes('success'));
+            const isSecurity = !isTrashOrDelete && !isRestore && (titleLower.includes('deactivat') || titleLower.includes('block') || titleLower.includes('lock') || classLower.includes('warning'));
 
-            let confirmBg = '#dc2626';
+            let confirmBg = '#ef4444';
             let iconClass = 'fa-solid fa-trash-can';
             let bgIcon = '#fee2e2';
             let defaultConfirmText = 'Yes, Delete!';
             let defaultCancelText = 'No, Keep It.';
 
-            if (isRestore) {
-                // 🟢 RESTORE / RECOVERY
-                confirmBg = '#16a34a';
-                iconClass = 'fa-solid fa-arrow-rotate-left';
-                bgIcon = '#dcfce7';
-                defaultConfirmText = 'Yes, Restore!';
-                defaultCancelText = 'No, Keep in Trash';
-            } else if (isTrashOrDelete) {
-                // 🔴 MOVE TO TRASH / DELETION (CRUCIAL)
-                confirmBg = '#dc2626';
+            if (isTrashOrDelete) {
+                // 🔴 MOVE TO TRASH / DELETION (CRUCIAL DESTRUCTIVE ACTION)
+                confirmBg = '#ef4444';
                 iconClass = titleLower.includes('trash') ? 'fa-solid fa-box-archive' : 'fa-solid fa-trash-can';
                 bgIcon = '#fee2e2';
                 defaultConfirmText = titleLower.includes('trash') ? 'Yes, Move to Trash' : 'Yes, Delete!';
                 defaultCancelText = 'No, Keep It.';
+            } else if (isRestore) {
+                // 🟢 RESTORE / RECOVERY
+                confirmBg = '#10b981';
+                iconClass = 'fa-solid fa-arrow-rotate-left';
+                bgIcon = '#dcfce7';
+                defaultConfirmText = 'Yes, Restore!';
+                defaultCancelText = 'No, Keep in Trash';
             } else if (isSecurity) {
                 // 🟠 WARNING / SECURITY ACTION
-                confirmBg = '#d97706';
+                confirmBg = '#f59e0b';
                 iconClass = 'fa-solid fa-triangle-exclamation';
                 bgIcon = '#fef3c7';
                 defaultConfirmText = 'Yes, Proceed';
                 defaultCancelText = 'Cancel';
             } else {
                 // 🔵 DEFAULT / INFORMATION
-                confirmBg = '#0284c7';
+                confirmBg = '#3b82f6';
                 iconClass = 'fa-solid fa-circle-question';
-                bgIcon = '#e0f2fe';
+                bgIcon = '#dbeafe';
                 defaultConfirmText = 'Yes, Proceed';
                 defaultCancelText = 'Cancel';
             }
@@ -5583,31 +6339,6 @@
                 }
             });
 
-            // ── Consistent Button Press Feedback ──────────────────────────
-            // Adds a micro scale-down on mousedown for all buttons and clickable elements
-            const PRESS_SELECTORS = '.action-btn, .btn, .nav-item, .mobile-nav-item, .sidebar-new-record-btn, .brgy-card, .gradient-stat-card, .filter-tab, .pill-tab, .row-action-btn, .doc-action-btn, .btn-flag-illegal, .header-user-btn, .header-back-btn, .sidebar-collapse-btn, .mobile-drawer-close-btn, .sidebar-logout-btn';
-
-            document.addEventListener('mousedown', function (e) {
-                const el = e.target.closest(PRESS_SELECTORS);
-                if (!el || el.closest('[data-bs-toggle="dropdown"]')) return;
-                el.style.transform = 'scale(0.97)';
-                el.style.transition = 'transform 0.1s cubic-bezier(0.4, 0, 0.2, 1)';
-            });
-
-            document.addEventListener('mouseup', function () {
-                document.querySelectorAll('[style*="scale(0.97)"]').forEach(function (el) {
-                    el.style.transform = '';
-                    setTimeout(function () { el.style.transition = ''; }, 150);
-                });
-            });
-
-            document.addEventListener('mouseleave', function () {
-                document.querySelectorAll('[style*="scale(0.97)"]').forEach(function (el) {
-                    el.style.transform = '';
-                    setTimeout(function () { el.style.transition = ''; }, 150);
-                });
-            }, true);
-
             // ── Dynamic Stacking Context LIFT for Active Table Row Dropdowns ─
             document.addEventListener('show.bs.dropdown', function (e) {
                 const tr = e.target.closest('tr');
@@ -5621,6 +6352,95 @@
                 if (tr) {
                     tr.classList.remove('dropdown-open-row');
                     tr.style.zIndex = '';
+                }
+            });
+        })();
+
+        // ── Global Smart Back Navigation ──────────────────────────────
+        window.handleSmartGlobalBack = function (btn) {
+            const fallbackUrl = (btn && btn.dataset && btn.dataset.fallbackUrl) ? btn.dataset.fallbackUrl : "{% url 'dashboard' %}";
+            const ref = document.referrer;
+            const currentHost = window.location.host;
+
+            // Detect if previous page was a form submission / create / edit action
+            const isFormAction = ref && (
+                ref.includes('/create') ||
+                ref.includes('/edit') ||
+                ref.includes('/delete') ||
+                ref.includes('/upload') ||
+                ref.includes('/login') ||
+                ref.includes('/register') ||
+                ref.includes('/reset-password')
+            );
+
+            const safeSavedList = sessionStorage.getItem('etala_last_list_url');
+
+            if (isFormAction) {
+                // Form submit bypass: jump directly to safe listing or parent fallback
+                window.location.href = safeSavedList || fallbackUrl;
+                return;
+            }
+
+            if (window.history.length > 1 && ref && ref.includes(currentHost)) {
+                window.history.back();
+            } else {
+                window.location.href = fallbackUrl;
+            }
+        };
+
+        // ── State & Scroll Position Memory Retention ──────────────────
+        (function () {
+            const currentPath = window.location.pathname;
+            const isListingPage = currentPath.includes('/records') || 
+                                  currentPath.includes('/permits') || 
+                                  currentPath.includes('/activity-logs') || 
+                                  currentPath.includes('/reports') || 
+                                  currentPath.includes('/barangays') || 
+                                  currentPath.includes('/illegal-constructions') || 
+                                  currentPath.includes('/users') || 
+                                  currentPath.includes('/archive');
+
+            // 1. Remember list URL with current query parameters
+            if (isListingPage) {
+                sessionStorage.setItem('etala_last_list_url', window.location.href);
+
+                // Restore scroll position on back navigation
+                const savedScroll = sessionStorage.getItem('etala_scroll_' + currentPath);
+                if (savedScroll) {
+                    window.addEventListener('DOMContentLoaded', function () {
+                        setTimeout(function () {
+                            window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'instant' });
+                        }, 50);
+                    });
+                }
+            }
+
+            // 2. Save scroll position before leaving or clicking a table row/item
+            window.addEventListener('beforeunload', function () {
+                if (isListingPage) {
+                    sessionStorage.setItem('etala_scroll_' + currentPath, window.scrollY);
+                }
+            });
+
+            document.addEventListener('click', function (e) {
+                const itemLink = e.target.closest('.data-table tbody tr, .mobile-record-item, .brgy-card');
+                if (itemLink && isListingPage) {
+                    sessionStorage.setItem('etala_scroll_' + currentPath, window.scrollY);
+                }
+            });
+
+            // 3. Global Keyboard Shortcut (Alt + ArrowLeft)
+            document.addEventListener('keydown', function (e) {
+                const tag = (e.target.tagName || '').toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+                if (document.querySelector('.modal.show')) return;
+
+                if (e.altKey && e.key === 'ArrowLeft') {
+                    const backBtn = document.getElementById('globalHeaderBackBtn');
+                    if (backBtn) {
+                        e.preventDefault();
+                        handleSmartGlobalBack(backBtn);
+                    }
                 }
             });
         })();
@@ -6234,39 +7054,23 @@
                 }
             });
 
-            // ══ SMART AUTO-DROPUP FOR ALL BOTTOM TABLE ROWS ══════════════════
-            // Automatically flips dropdown upwards for last table rows or when near bottom of card/viewport
+            // ══ SMART AUTO-DROPUP FOR TABLE ACTION MENUS ═════════════════════
+            // Only flips dropdown upwards when genuinely near bottom of viewport with enough room above
             document.addEventListener('show.bs.dropdown', function (e) {
                 const btn = e.target.closest('.row-action-btn, [data-bs-toggle="dropdown"]');
                 if (!btn) return;
                 const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell');
                 if (!parentDropdown) return;
 
-                const row = btn.closest('tr');
-                const tbody = btn.closest('tbody');
-                const tableCard = btn.closest('.content-card, #recordsTableCard, .card, .content-card-table');
-                
                 const rect = btn.getBoundingClientRect();
                 const spaceBelowViewport = window.innerHeight - rect.bottom;
-                
-                // Calculate space below inside the table container
-                let spaceBelowCard = 999;
-                if (tableCard) {
-                    const cardRect = tableCard.getBoundingClientRect();
-                    spaceBelowCard = cardRect.bottom - rect.bottom;
-                }
-                
-                // Check if row is among the last 2 rows in the table
-                let isLastRows = false;
-                if (row && tbody) {
-                    const rows = Array.from(tbody.querySelectorAll('tr'));
-                    const rowIndex = rows.indexOf(row);
-                    if (rows.length >= 2 && rowIndex >= rows.length - 2) {
-                        isLastRows = true;
-                    }
-                }
+                const spaceAboveViewport = rect.top;
 
-                if (isLastRows || spaceBelowCard < 185 || spaceBelowViewport < 220) {
+                // Always drop DOWN if there is at least 180px below or if near the top of viewport (< 200px from top)
+                // Only drop UP if viewport bottom is cramped (< 180px) AND there is ample room above (>= 200px)
+                const shouldDropUp = spaceBelowViewport < 180 && spaceAboveViewport >= 200;
+
+                if (shouldDropUp) {
                     parentDropdown.classList.add('dropup');
                     const dropContainer = btn.closest('.dropdown');
                     if (dropContainer) dropContainer.classList.add('dropup');
@@ -6342,8 +7146,95 @@
                 window.initPremiumDatePickers(e.target);
             }
         });
+
+        // ⚡ GLOBAL SMOOTH PAGE TRANSITION BLUR & DOT SPINNER
+        (function() {
+            let transitionSafetyTimer = null;
+
+            window.showPageTransition = function(timeoutMs) {
+                const overlay = document.getElementById('etalaPageTransitionOverlay');
+                if (overlay) {
+                    overlay.classList.add('is-active');
+                    clearTimeout(transitionSafetyTimer);
+                    transitionSafetyTimer = setTimeout(window.hidePageTransition, timeoutMs || 2500);
+                }
+            };
+
+            window.hidePageTransition = function() {
+                const overlay = document.getElementById('etalaPageTransitionOverlay');
+                if (overlay) overlay.classList.remove('is-active');
+                if (transitionSafetyTimer) clearTimeout(transitionSafetyTimer);
+            };
+
+            window.addEventListener('DOMContentLoaded', window.hidePageTransition);
+            window.addEventListener('pageshow', window.hidePageTransition);
+            window.addEventListener('popstate', window.hidePageTransition);
+            window.addEventListener('focus', window.hidePageTransition);
+
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                const target = link.getAttribute('target');
+                const download = link.hasAttribute('download');
+
+                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || target === '_blank' || download) {
+                    return;
+                }
+
+                if (link.hasAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle') || link.classList.contains('zip-download-btn') || link.closest('.dropdown-menu') || link.hasAttribute('data-no-transition') || link.classList.contains('no-transition')) {
+                    return;
+                }
+
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+                    return;
+                }
+
+                window.showPageTransition();
+            });
+        })();
+
+        // 🌐 REAL-TIME OFFLINE & NO-INTERNET DETECTION (Friendly for Non-Tech Staff)
+        (function() {
+            const offlineBanner = document.getElementById('etalaOfflineBanner');
+            const onlineBanner = document.getElementById('etalaOnlineBanner');
+
+            function updateNetworkStatus() {
+                if (!navigator.onLine) {
+                    if (onlineBanner) onlineBanner.classList.add('d-none');
+                    if (offlineBanner) offlineBanner.classList.remove('d-none');
+                } else {
+                    if (offlineBanner && !offlineBanner.classList.contains('d-none')) {
+                        offlineBanner.classList.add('d-none');
+                        if (onlineBanner) {
+                            onlineBanner.classList.remove('d-none');
+                            setTimeout(function() {
+                                onlineBanner.classList.add('d-none');
+                            }, 4000);
+                        }
+                    }
+                }
+            }
+
+            window.addEventListener('online', updateNetworkStatus);
+            window.addEventListener('offline', updateNetworkStatus);
+            if (!navigator.onLine) {
+                updateNetworkStatus();
+            }
+        })();
     </script>
 
+    <!-- ══ REAL-TIME OFFLINE / NO INTERNET RESILIENCE BANNER ══ -->
+    <div id="etalaOfflineBanner" class="position-fixed top-0 start-50 translate-middle-x d-none shadow-lg px-4 py-2.5 rounded-pill d-flex align-items-center gap-2.5" style="z-index: 999999; margin-top: 16px; background: #dc2626; color: #ffffff; font-size: 0.84rem; font-weight: 600; box-shadow: 0 10px 30px rgba(220, 38, 38, 0.4); backdrop-filter: blur(8px);">
+        <i class="fa-solid fa-wifi-slash" style="font-size: 14px;"></i>
+        <span>No internet connection. Please keep this tab open; eTala will automatically reconnect.</span>
+    </div>
+
+    <div id="etalaOnlineBanner" class="position-fixed top-0 start-50 translate-middle-x d-none shadow-lg px-4 py-2.5 rounded-pill d-flex align-items-center gap-2.5" style="z-index: 999999; margin-top: 16px; background: #16a34a; color: #ffffff; font-size: 0.84rem; font-weight: 600; box-shadow: 0 10px 30px rgba(22, 163, 74, 0.4); backdrop-filter: blur(8px);">
+        <i class="fa-solid fa-circle-check" style="font-size: 14px;"></i>
+        <span>Internet connection restored! You are back online.</span>
+    </div>
 
     {% block extra_js %}{% endblock %}
 </body>

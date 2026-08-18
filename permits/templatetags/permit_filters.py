@@ -10,6 +10,66 @@ def dict_get(dictionary, key):
     return dictionary.get(key, '')
 
 
+import re
+
+@register.filter(name='clean_req_name')
+def clean_req_name(value):
+    """Strips legacy (a.1), (a.2), etc. numbering annotations from requirement names."""
+    if not value:
+        return ''
+    return re.sub(r'\s*\([a-z]\.\d+\)', '', str(value)).strip()
+
+
+@register.filter(name='clean_audit_action')
+def clean_audit_action(action):
+    """Formats audit log text into concise, professional, and unambiguous municipal actions."""
+    if not action:
+        return ''
+    s = str(action).strip()
+    
+    # Clean email expiry disclaimers to simple notification action
+    if 'Triggered Document Expiry Email Alerts' in s:
+        return 'Dispatched document expiry email notifications'
+        
+    # Clean user permanent deletion wording
+    if 'Permanently deleted unused user account' in s:
+        m = re.search(r"'([^']+)'", s)
+        user_str = f" {m.group(1)}" if m else ""
+        return f"Deleted user account{user_str}"
+        
+    # Clean user status toggle wording
+    if 'Toggled user' in s:
+        m = re.search(r"'([^']+)'", s)
+        user_str = f" {m.group(1)}" if m else ""
+        if 'deactivated' in s:
+            return f"Deactivated user account{user_str}"
+        elif 'activated' in s:
+            return f"Activated user account{user_str}"
+            
+    # Clean user creation wording
+    if s.startswith('Created user ') and ' with role ' in s:
+        m = re.search(r"Created user '([^']+)'", s)
+        role_m = re.search(r"with role '([^']+)'", s)
+        user_str = m.group(1) if m else ''
+        role_str = role_m.group(1).title() if role_m else 'Staff'
+        return f"Created {role_str} account for {user_str}"
+        
+    # Clean user profile update wording
+    if s.startswith('Updated user profile for '):
+        m = re.search(r"'([^']+)'", s)
+        user_str = f" {m.group(1)}" if m else ""
+        return f"Updated user profile for {user_str}".strip()
+
+    # Clean 'Moved to Trash: ...'
+    if s.startswith("Moved to Trash:"):
+        inner = s.replace("Moved to Trash:", "").strip().strip("'\"")
+        return f"Moved to Trash: {inner}"
+
+    # General cleanup of surrounding quotes for cleaner human reading
+    s = re.sub(r"'([^']+)'", r"\1", s)
+    return s
+
+
 @register.filter(name='split')
 def split(value, key):
     """Splits a string by a delimiter/key."""
@@ -78,25 +138,28 @@ def parse_notes(text):
     """
     if not text:
         return []
+    import html
     lines = [line.strip() for line in str(text).splitlines() if line.strip()]
     parsed = []
     
     for line in lines:
         if ':' in line:
             parts = line.split(':', 1)
-            lbl = parts[0].strip()
-            val = parts[1].strip()
+            lbl = html.unescape(parts[0].strip())
+            val = html.unescape(parts[1].strip())
             # Clean up robotic labels to simple municipal terms
             if lbl.lower() == 'violation category':
                 lbl = 'Violation Type'
             elif lbl.lower() == 'inspection findings':
                 lbl = 'Inspection Notes'
-            parsed.append({'label': lbl, 'value': val})
+            if val:
+                parsed.append({'label': lbl, 'value': val})
         else:
+            clean_line = html.unescape(line)
             if parsed:
-                parsed[-1]['value'] += '\n' + line
+                parsed[-1]['value'] += '\n' + clean_line
             else:
-                parsed.append({'label': '', 'value': line})
+                parsed.append({'label': '', 'value': clean_line})
                 
     return parsed
 
@@ -115,6 +178,26 @@ def is_valid_applicant(name):
     if name_str in invalid_placeholders:
         return False
     return True
+
+
+@register.filter(name='file_icon_class')
+def file_icon_class(filename):
+    """Returns the appropriate FontAwesome icon class and color based on file extension."""
+    if not filename:
+        return 'fa-solid fa-file text-secondary'
+    fn = str(filename).lower()
+    if fn.endswith('.pdf'):
+        return 'fa-solid fa-file-pdf text-danger'
+    elif fn.endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp', '.ico')):
+        return 'fa-solid fa-file-image text-primary'
+    elif fn.endswith(('.doc', '.docx')):
+        return 'fa-solid fa-file-word text-primary'
+    elif fn.endswith(('.xls', '.xlsx', '.csv')):
+        return 'fa-solid fa-file-excel text-success'
+    elif fn.endswith(('.zip', '.rar', '.7z', '.tar', '.gz')):
+        return 'fa-solid fa-file-zipper text-warning'
+    return 'fa-solid fa-file text-secondary'
+
 
 
 

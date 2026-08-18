@@ -22,13 +22,13 @@ TEMPLATES = [
                 'name': 'Building Permit with Attached Ancillary Permits',
                 'desc': 'Unified Office of the Building Official (OBO) Ancillary Permit Forms.',
                 'sub_items': [
-                    ('Architectural Permit Form (a.1)', 'Architectural Permit form signed and sealed by registered Architect.'),
-                    ('Civil / Structural Permit Form (a.2)', 'Civil/Structural Permit form signed and sealed by Civil/Structural Engineer.'),
-                    ('Electrical Permit Form (a.3)', 'Electrical Permit form signed and sealed by Professional Electrical Engineer (PEE).'),
-                    ('Plumbing and Sanitary Permit Form (a.4)', 'Plumbing & Sanitary Permit form signed and sealed by Master Plumber / Sanitary Engineer.'),
-                    ('Fencing Permit Form (a.5)', 'Fencing Permit form signed and sealed by Civil Engineer / Architect.'),
-                    ('Mechanical Permit Form (a.6)', 'Mechanical Permit form signed and sealed by Professional Mechanical Engineer (PME).'),
-                    ('Electronics Permit Form (a.7)', 'Electronics Permit form signed and sealed by Professional Electronics Engineer (PECE).'),
+                    ('Architectural Permit Form', 'Architectural Permit form signed and sealed by registered Architect.'),
+                    ('Civil / Structural Permit Form', 'Civil/Structural Permit form signed and sealed by Civil/Structural Engineer.'),
+                    ('Electrical Permit Form', 'Electrical Permit form signed and sealed by Professional Electrical Engineer (PEE).'),
+                    ('Plumbing and Sanitary Permit Form', 'Plumbing & Sanitary Permit form signed and sealed by Master Plumber / Sanitary Engineer.'),
+                    ('Fencing Permit Form', 'Fencing Permit form signed and sealed by Civil Engineer / Architect.'),
+                    ('Mechanical Permit Form', 'Mechanical Permit form signed and sealed by Professional Mechanical Engineer (PME).'),
+                    ('Electronics Permit Form', 'Electronics Permit form signed and sealed by Professional Electronics Engineer (PECE).'),
                 ]
             },
             {'name': 'Barangay Clearance', 'desc': 'Barangay Clearance from the respective barangay where the structure will be constructed.', 'sub_items': []},
@@ -68,10 +68,10 @@ TEMPLATES = [
                 'name': 'Certificate of Occupancy with Attached Documents',
                 'desc': 'Occupancy certificate application and mandatory completion clearances.',
                 'sub_items': [
-                    ('Application Form for Certificate of Occupancy (a.1)', 'Duly accomplished Occupancy Permit Application Form.'),
-                    ('Certificate of Completion (a.2)', 'Signed & sealed Certificate of Completion by Architect/Civil Engineer in-charge.'),
-                    ('As-Built Plan (a.3)', 'Complete set of signed & sealed As-Built architectural, structural, electrical, and plumbing drawings.'),
-                    ('FSIC - Fire Safety Inspection Certificate (a.4)', 'Fire Safety Inspection Certificate issued by Bureau of Fire Protection (BFP).'),
+                    ('Application Form for Certificate of Occupancy', 'Duly accomplished Occupancy Permit Application Form.'),
+                    ('Certificate of Completion', 'Signed & sealed Certificate of Completion by Architect/Civil Engineer in-charge.'),
+                    ('As-Built Plan', 'Complete set of signed & sealed As-Built architectural, structural, electrical, and plumbing drawings.'),
+                    ('FSIC - Fire Safety Inspection Certificate', 'Fire Safety Inspection Certificate issued by Bureau of Fire Protection (BFP).'),
                 ]
             }
         ],

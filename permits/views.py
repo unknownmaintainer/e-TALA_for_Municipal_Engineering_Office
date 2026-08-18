@@ -7,15 +7,19 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import zipfile
 
+import hashlib
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed, FileResponse, Http404, StreamingHttpResponse
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed, FileResponse, Http404, StreamingHttpResponse, HttpResponseNotModified
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError, ImproperlyConfigured
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Sum, F
@@ -32,11 +36,12 @@ from .models import (
     BlockedIP,
 )
 from .validators import validate_document_file, sanitize_input, validate_password_strength
-from .utils import get_client_ip
+from .utils import get_client_ip, process_avatar_image
 from .permissions import role_required, admin_required, staff_or_admin_required, has_role
 from .services import (
     get_office_settings, save_office_settings,
     build_record_zip_buffer, build_category_zip_buffer, build_barangay_zip_buffer,
+    build_municipal_zip_buffer,
     sanitize_zip_name, sanitize_file_name, get_record_export_name,
     send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records,
     parse_decimal_safely
@@ -125,16 +130,11 @@ def get_year_choices():
 def resolve_scope(request):
     """
     Resolves record filtering scope ('my' vs 'all') based on 'scope' GET parameter.
-    If scope is not explicitly passed:
-    - Admin / Municipal Engineer: default to 'all'
-    - Engineering Staff: default to 'my'
+    Defaults to 'all' so that the complete municipal archive is visible to all users by default.
     """
     scope = request.GET.get('scope', '').strip().lower()
     if scope not in ['my', 'all']:
-        if hasattr(request, 'user') and request.user.is_authenticated and getattr(request.user, 'role', '') == 'staff':
-            scope = 'my'
-        else:
-            scope = 'all'
+        scope = 'all'
     return scope
 
 
@@ -154,23 +154,25 @@ def login_view(request):
         return redirect('dashboard')
 
     if request.method == 'POST':
-        email = request.POST.get('email', '').strip().lower()
+        login_input = request.POST.get('email', '').strip()
         password = request.POST.get('password', '')
         ip_address = get_client_ip(request)
 
-        is_locked, lockout_msg = check_lockout(email, ip_address)
+        is_locked, lockout_msg = check_lockout(login_input, ip_address)
         if is_locked:
             messages.error(request, lockout_msg)
             return render(request, 'permits/login.html')
 
         User = get_user_model()
-        user_obj = User.objects.filter(email=email).first()
-        username = user_obj.username if user_obj else None
+        user_obj = User.objects.filter(
+            Q(email__iexact=login_input) | Q(username__iexact=login_input)
+        ).first()
+        username = user_obj.username if user_obj else login_input
 
         user = authenticate(request, username=username, password=password)
         if user is not None:
             if not user.is_active:
-                LoginAttempt.objects.create(email_attempted=email, success=False, ip_address=ip_address)
+                LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
                 messages.error(request, "Account is locked. Please contact the administrator.")
                 return render(request, 'permits/login.html')
 
@@ -180,7 +182,7 @@ def login_view(request):
                 except Exception as e:
                     logger.error(f"Error terminating previous session: {e}")
 
-            LoginAttempt.objects.create(email_attempted=email, success=True, ip_address=ip_address)
+            LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=ip_address)
             login(request, user)
 
             # Handle Remember Me checkbox (Standard Security Best Practice)
@@ -209,9 +211,7 @@ def login_view(request):
             log_audit(user, action_text, request=request)
             return redirect('dashboard')
         else:
-            LoginAttempt.objects.create(email_attempted=email, success=False, ip_address=ip_address)
-            if user_obj:
-                log_audit(user_obj, "Failed login attempt", request=request)
+            LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
             messages.error(request, "Incorrect email or password.")
 
     return render(request, 'permits/login.html')
@@ -219,7 +219,6 @@ def login_view(request):
 
 def logout_view(request):
     if request.user.is_authenticated:
-        log_audit(request.user, "Logged out", request=request)
         request.user.session_key = None
         request.user.save()
     logout(request)
@@ -235,14 +234,15 @@ def forgot_password_view(request):
             return render(request, 'permits/forgot_password.html')
 
         User = get_user_model()
-        user = User.objects.filter(email=email).first()
+        user = User.objects.filter(email__iexact=email).first()
+
 
         # Check if user exists in database
         if not user:
-            messages.error(request, f"No account found with email '{email}'. Please check your spelling or contact your administrator.")
+            messages.error(request, "No account found with this email address.")
             return render(request, 'permits/forgot_password.html')
 
-        # User exists: generate secure signed token (valid for 30 minutes)
+        # User exists: generate secure signed token (valid for 1 hour)
         try:
             token_data = {
                 'user_id': user.pk,
@@ -268,21 +268,31 @@ def forgot_password_view(request):
             })
             plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 1 hour.'
 
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            log_audit(user, "Password reset email sent", request=request)
-            logger.info(f"Password reset email sent to {email}")
-            messages.success(request, f"Password reset link successfully sent to {email}. Please check your inbox!")
+            try:
+                send_mail(
+                    subject=subject,
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+                logger.info(f"Password reset email sent to {email}")
+            except Exception as mail_exc:
+                logger.warning(f"SMTP delivery note for {email}: {mail_exc}")
+                # Log generated reset link to terminal for local admin/development testing
+                print("\n" + "=" * 72)
+                print(f"🔑 [eTala Password Reset Link for {email}]:")
+                print(f"👉 {reset_url}")
+                print("=" * 72 + "\n")
+
+            log_audit(user, "Password reset requested", request=request)
+            messages.success(request, "Password reset link sent! Check your inbox.")
             return redirect('login')
+
         except Exception as exc:
-            logger.error(f"Failed to send password reset email to {email}: {exc}")
-            messages.error(request, f"Unable to send reset email at this moment: {exc}. Please try again later.")
+            logger.error(f"Unexpected error in password reset for {email}: {exc}")
+            messages.error(request, "An unexpected error occurred. Please try again later.")
             return render(request, 'permits/forgot_password.html')
 
     return render(request, 'permits/forgot_password.html')
@@ -325,7 +335,7 @@ def reset_password_view(request):
         recent_passwords = PasswordHistory.objects.filter(user=user).order_by('-created_at')[:5]
         for ph in recent_passwords:
             if check_password(new_password, ph.password_hash):
-                messages.error(request, "You cannot reuse your last 5 passwords.")
+                messages.error(request, "You cannot reuse your recent passwords.")
                 return render(request, 'permits/reset_password.html', {'token': token})
 
         # Set the new password
@@ -336,7 +346,7 @@ def reset_password_view(request):
         PasswordHistory.objects.create(user=user, password_hash=make_password(new_password))
 
         log_audit(user, "Password reset successfully via email link", request=request)
-        messages.success(request, "Your password has been reset successfully. You can now log in.")
+        messages.success(request, "Password updated! You can now sign in.")
         return redirect('login')
 
     return render(request, 'permits/reset_password.html', {'token': token})
@@ -682,18 +692,8 @@ def ensure_barangay_schema():
 def barangays_view(request):
     ensure_barangay_schema()
 
-    # Clean up non-official test entries if present
-    OFFICIAL_NAMES = [
-        "Bagong Lipunan", "Balilit", "Barayong", "Barugohay Central", "Barugohay Norte", "Barugohay Sur",
-        "Baybay (Poblacion)", "Binibihan", "Bislig", "Caghalo", "Camansi", "Canal", "Candigahub", "Canfabi",
-        "Canlampay", "Cogon", "Cutay", "East Visoria", "Guindapunan East", "Guindapunan West", "Hiluctogan",
-        "Jugaban (Poblacion)", "Libo", "Lower Hiraan", "Lower Sogod", "Macalpi", "Manloy", "Nauguisan",
-        "Paglaum", "Pangna", "Parag-um", "Parena (Parina)", "Piloro", "Ponong (Poblacion)", "Rizal (Tagak East)",
-        "Sagkahan", "San Isidro", "San Juan", "San Mateo (Poblacion)", "Santa Fe", "Sawang (Poblacion)",
-        "Tagak", "Tangnan", "Tigbao", "Tinaguban", "Upper Hiraan", "Upper Sogod", "Uyawan", "West Visoria"
-    ]
+    # Clean up dummy test junk entries if present
     Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()
-    Barangay.objects.exclude(barangay_name__in=OFFICIAL_NAMES).filter(engineering_records__isnull=True, records__isnull=True).delete()
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -1196,10 +1196,12 @@ def record_create_step3_view(request):
         'barangays': barangays,
         'template': template,
         'current_year': timezone.now().year,
+        'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+        'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
         'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'active_tab': 'records'
     }
 
@@ -1245,6 +1247,9 @@ def record_create_step3_view(request):
         lat_val = float(lat_raw) if lat_raw else None
         lng_val = float(lng_raw) if lng_raw else None
 
+        date_completed_val = request.POST.get('date_completed', '').strip() or None
+        date_started_val = request.POST.get('date_started', '').strip() or None
+
         record = EngineeringRecord.objects.create(
             record_type=record_type,
             project_scope=scope,
@@ -1253,6 +1258,8 @@ def record_create_step3_view(request):
             year=year,
             description=sanitize_input(request.POST.get('description', '')).strip() if category != 'permit' else '',
             status=status,
+            date_started=date_started_val,
+            date_completed=date_completed_val,
             is_illegal_construction=is_illegal,
             illegal_compliance_status=illegal_status,
             latitude=lat_val,
@@ -1262,10 +1269,11 @@ def record_create_step3_view(request):
 
         
         if record_type == 'Permit':
+            chosen_subtype = request.POST.get('permit_type', subtype) or subtype
             date_issued_val = request.POST.get('date_issued', '').strip() or None
             PermitDetail.objects.create(
                 engineering_record=record,
-                permit_type=subtype,
+                permit_type=chosen_subtype,
                 building_type=request.POST.get('building_type', ''),
                 permit_number=permit_number,
                 applicant_name=applicant_name,
@@ -1273,13 +1281,14 @@ def record_create_step3_view(request):
                 remarks=sanitize_input(request.POST.get('remarks', '')).strip(),
             )
         elif record_type == 'Project':
+            chosen_subtype = request.POST.get('project_type', subtype) or subtype
             project_status = request.POST.get('project_status', 'Planning')
             funding_val = sanitize_input(request.POST.get('funding_source', 'General Fund')).strip()
             funding_other_val = sanitize_input(request.POST.get('funding_source_other', '')).strip() if funding_val == 'Others' else ''
             
             ProjectDetail.objects.create(
                 engineering_record=record,
-                project_type=subtype,
+                project_type=chosen_subtype,
                 funding_source=funding_val or 'General Fund',
                 funding_source_other=funding_other_val,
                 contractor=sanitize_input(request.POST.get('contractor', '')).strip(),
@@ -1382,7 +1391,7 @@ def municipal_projects_view(request):
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'barangays': Barangay.objects.all(),
         'year_choices': year_choices,
         'active_filters_count': active_filters_count,
@@ -1457,7 +1466,7 @@ def barangay_projects_view(request):
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'barangays': Barangay.objects.all(),
         'year_choices': year_choices,
         'active_filters_count': active_filters_count,
@@ -1542,7 +1551,7 @@ def permit_records_view(request):
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'barangays': Barangay.objects.all(),
         'year_choices': year_choices,
         'active_filters_count': active_filters_count,
@@ -1581,7 +1590,7 @@ def record_create_view(request):
                         'barangays': barangays,
                         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
                         'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                        'status_choices': EngineeringRecord.STATUS_CHOICES,
+                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
                         'current_year': current_year,
                         'active_tab': 'records',
                     })
@@ -1591,7 +1600,7 @@ def record_create_view(request):
                     'barangays': barangays,
                     'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
                     'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                    'status_choices': EngineeringRecord.STATUS_CHOICES,
+                    'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
                     'current_year': current_year,
                     'active_tab': 'records',
                 })
@@ -1616,10 +1625,65 @@ def record_create_view(request):
                 'barangays': barangays,
                 'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
                 'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                'status_choices': EngineeringRecord.STATUS_CHOICES,
+                'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
                 'current_year': timezone.now().year,
                 'active_tab': 'records',
             })
+
+        # ── Duplicate Prevention Checks ──────────────────────────────────
+        if record_type == 'Permit':
+            if permit_number:
+                existing_permit = PermitDetail.objects.filter(
+                    permit_number__iexact=permit_number
+                ).exclude(engineering_record__status='archived').select_related('engineering_record').first()
+                if existing_permit:
+                    messages.error(request, f"Permit No. '{permit_number}' is already registered in the system.")
+                    return render(request, 'permits/create_record.html', {
+                        'barangays': barangays,
+                        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
+                        'current_year': timezone.now().year,
+                        'active_tab': 'records',
+                    })
+
+            if applicant_name and subtype and barangay_id and year:
+                existing_app = EngineeringRecord.objects.filter(
+                    record_type='Permit',
+                    barangay_id=barangay_id,
+                    year=year,
+                    permit_detail__applicant_name__iexact=applicant_name,
+                    permit_detail__permit_type=subtype,
+                ).exclude(status='archived').first()
+                if existing_app:
+                    messages.error(request, f"A {subtype} Permit for '{applicant_name}' in this Barangay ({year}) already exists.")
+                    return render(request, 'permits/create_record.html', {
+                        'barangays': barangays,
+                        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
+                        'current_year': timezone.now().year,
+                        'active_tab': 'records',
+                    })
+        elif record_type == 'Project':
+            if title and barangay_id:
+                existing_proj = EngineeringRecord.objects.filter(
+                    record_type='Project',
+                    barangay_id=barangay_id,
+                    year=year,
+                    title__iexact=title,
+                    project_scope=scope,
+                ).exclude(status='archived').first()
+                if existing_proj:
+                    messages.error(request, f"Project '{title}' already exists in this Barangay for {year}.")
+                    return render(request, 'permits/create_record.html', {
+                        'barangays': barangays,
+                        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
+                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
+                        'current_year': timezone.now().year,
+                        'active_tab': 'records',
+                    })
 
         is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
         illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
@@ -1697,7 +1761,7 @@ def record_create_view(request):
         'barangays': barangays,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'current_year': timezone.now().year,
         'active_tab': 'records',
     })
@@ -1749,12 +1813,16 @@ def record_detail_view(request, record_id):
     # Non-checklist documents (uploaded without a slot)
     documents = record.documents.filter(requirement_item__isnull=True).order_by('-uploaded_at')
 
-    # Generate signed URLs for all documents
+    # Generate signed URLs for all documents with official LGU filename path
     all_docs = record.documents.all()
     doc_url_map = {}
+    doc_lgu_name_map = {}
     for doc in all_docs:
-        doc_url_map[doc.document_id] = reverse('serve_document', kwargs={
-            'token': signing.dumps({'document_id': doc.document_id}, salt='document-download')
+        lgu_fn = get_lgu_document_filename(doc)
+        doc_lgu_name_map[doc.document_id] = lgu_fn
+        doc_url_map[doc.document_id] = reverse('serve_document_named', kwargs={
+            'token': signing.dumps({'document_id': doc.document_id}, salt='document-download'),
+            'filename': lgu_fn
         })
 
     # Get detail
@@ -1824,12 +1892,13 @@ def record_detail_view(request, record_id):
         'documents': documents,
         'attachments': all_docs,
         'doc_url_map': doc_url_map,
+        'doc_lgu_name_map': doc_lgu_name_map,
         'permit_detail': permit_detail,
         'project_detail': project_detail,
         'timeline': timeline,
         'related_records': related_records,
         'can_edit': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
-        'can_archive': (request.user.role == 'admin'),
+        'can_archive': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
         'active_tab': 'illegal' if (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved') else 'records',
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
@@ -1869,12 +1938,16 @@ def record_requirement_detail_view(request, record_id, req_id):
 
         sub_reqs = [existing_sub_reqs[item.item_id] for item in sub_item_qs if item.item_id in existing_sub_reqs]
 
-    # Generate document signed URLs
+    # Generate document signed URLs with official LGU filename path
     all_docs = record.documents.all()
     doc_url_map = {}
+    doc_lgu_name_map = {}
     for doc in all_docs:
-        doc_url_map[doc.document_id] = reverse('serve_document', kwargs={
-            'token': signing.dumps({'document_id': doc.document_id}, salt='document-download')
+        lgu_fn = get_lgu_document_filename(doc)
+        doc_lgu_name_map[doc.document_id] = lgu_fn
+        doc_url_map[doc.document_id] = reverse('serve_document_named', kwargs={
+            'token': signing.dumps({'document_id': doc.document_id}, salt='document-download'),
+            'filename': lgu_fn
         })
 
     can_edit = (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user))
@@ -1890,6 +1963,7 @@ def record_requirement_detail_view(request, record_id, req_id):
         'total_sub': total_sub,
         'fulfilled_sub': fulfilled_sub,
         'doc_url_map': doc_url_map,
+        'doc_lgu_name_map': doc_lgu_name_map,
         'can_edit': can_edit,
         'active_tab': 'records',
     }
@@ -1964,6 +2038,10 @@ def regularize_record_view(request, record_id):
         record.record_type = 'Permit'
         record.is_illegal_construction = True
         record.illegal_compliance_status = 'resolved'
+        if permit_number and applicant_name:
+            record.title = f"{permit_number} — {applicant_name}"
+        elif applicant_name:
+            record.title = applicant_name
         record.save()
 
         # Auto-populate checklist slots for the regularized permit type
@@ -2017,7 +2095,18 @@ def flag_illegal_construction_view(request):
             return redirect(request.META.get('HTTP_REFERER', 'records_browse'))
             
         barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
-        
+
+        # ── Duplicate Incident Report Check ───────────────────────────────
+        existing_violation = EngineeringRecord.objects.filter(
+            is_illegal_construction=True,
+            illegal_compliance_status='unresolved',
+            barangay=barangay,
+            title__iexact=title,
+        ).exclude(status='archived').first()
+        if existing_violation:
+            messages.error(request, f"A violation report titled '{title}' already exists in Barangay {barangay.barangay_name}.")
+            return redirect(request.META.get('HTTP_REFERER', 'illegal_constructions'))
+
         # Parse date discovered or default to today
         if date_discovered_str:
             try:
@@ -2145,10 +2234,25 @@ def record_edit_view(request, record_id):
     barangays = Barangay.objects.all()
 
     if request.method == 'POST':
-        record.title = sanitize_input(request.POST.get('title', '')).strip()
+        new_title = sanitize_input(request.POST.get('title', '')).strip()
+        new_barangay_id = request.POST.get('barangay', record.barangay_id)
+
+        if record.record_type == 'Project' and new_title and new_barangay_id:
+            dup_proj = EngineeringRecord.objects.filter(
+                record_type='Project',
+                barangay_id=new_barangay_id,
+                year=record.year,
+                title__iexact=new_title,
+                project_scope=record.project_scope,
+            ).exclude(status='archived').exclude(record_id=record.record_id).first()
+            if dup_proj:
+                messages.error(request, f"Project '{new_title}' already exists in this Barangay for {record.year}.")
+                return redirect('edit_record', record_id=record.record_id)
+
+        record.title = new_title
         record.description = sanitize_input(request.POST.get('description', '')).strip()
         record.status = request.POST.get('status', record.status)
-        record.barangay_id = request.POST.get('barangay', record.barangay_id)
+        record.barangay_id = new_barangay_id
         record.date_started = request.POST.get('date_started', '') or None
         record.date_completed = request.POST.get('date_completed', '') or None
         
@@ -2183,14 +2287,22 @@ def record_edit_view(request, record_id):
                 # Normal permit record — update detail fields
                 applicant_name_val = sanitize_input(request.POST.get('applicant_name', '')).strip()
                 if not applicant_name_val:
-                    messages.error(request, "Applicant / Property Owner name is required for permits.")
+                    messages.error(request, "Applicant / Property Owner name is required.")
                     return redirect('edit_record', record_id=record.record_id)
                 old_subtype = detail.permit_type
                 new_subtype = request.POST.get('permit_type', '') or old_subtype
                 
                 detail.permit_type = new_subtype
                 detail.building_type = request.POST.get('building_type', detail.building_type)
-                detail.permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
+                new_permit_num = sanitize_input(request.POST.get('permit_number', '')).strip()
+                if new_permit_num:
+                    dup_permit = PermitDetail.objects.filter(
+                        permit_number__iexact=new_permit_num
+                    ).exclude(engineering_record__status='archived').exclude(engineering_record_id=record.record_id).select_related('engineering_record').first()
+                    if dup_permit:
+                        messages.error(request, f"Permit No. '{new_permit_num}' is already used by another record.")
+                        return redirect('edit_record', record_id=record.record_id)
+                detail.permit_number = new_permit_num
                 detail.applicant_name = applicant_name_val
                 detail.resolution_required = request.POST.get('resolution_required') == 'on'
                 detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
@@ -2283,7 +2395,7 @@ def record_edit_view(request, record_id):
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
         'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'active_tab': 'records',
     }
     return render(request, 'permits/edit_record.html', context)
@@ -2414,8 +2526,94 @@ startxref
     return io.BytesIO(png_bytes), content_type or 'image/png', None
 
 
+def get_lgu_document_filename(doc):
+    """
+    Standardized document filename matching the exact ZIP export naming convention in permits/services.py:
+    - If linked to a requirement slot: [Record_Export_Name]_[Requirement_Name].[ext]
+    - If supporting/unlinked: [Record_Export_Name]_[Original_Sanitized_Name].[ext]
+    Examples:
+      - Mardion_Fuerte_Barangay_Clearance.pdf
+      - Juan_Dela_Cruz_Contract_of_Lease.pdf
+      - Rehabilitation_of_Brgy_Hall_Program_of_Work.pdf
+    """
+    raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
+    _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
+    clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+
+    rec = doc.engineering_record
+    root_folder = get_record_export_name(rec, include_location=False) if rec else ""
+
+    req_item = doc.requirement_item
+    if req_item:
+        item_file_name = sanitize_zip_name(req_item.name, max_len=80).replace(" ", "_")
+    elif doc.document_type:
+        item_file_name = sanitize_zip_name(doc.document_type, max_len=80).replace(" ", "_")
+    else:
+        item_file_name = sanitize_file_name(raw_fname, max_name_len=80).replace(" ", "_")
+        if item_file_name.lower().endswith(clean_ext.lower()):
+            item_file_name = item_file_name[:-len(clean_ext)]
+
+    if root_folder and root_folder.lower() not in item_file_name.lower():
+        final_name = f"{root_folder}_{item_file_name}{clean_ext}"
+    else:
+        final_name = f"{item_file_name}{clean_ext}"
+
+    final_name = re.sub(r'[\r\n\t"\'<>\/\\|?*:]', '', final_name)
+    return final_name or f"document_{doc.document_id}{clean_ext}"
+
+
+def inject_pdf_title(content_bytes, title_str):
+    """
+    Ensures the PDF bytes contain internal /Title metadata so Chromium's PDF viewer
+    displays the human-readable document name instead of '(anonymous)'.
+    """
+    if not content_bytes or not title_str:
+        return content_bytes
+    
+    clean_title = re.sub(r'[\r\n\t]', ' ', str(title_str)).strip()
+    safe_ascii_title = "".join(c for c in clean_title if 32 <= ord(c) <= 126)[:90]
+    if not safe_ascii_title:
+        safe_ascii_title = "eTala Document"
+
+    # Try dynamically loading pypdf if available in the environment
+    try:
+        import importlib
+        pypdf_mod = importlib.import_module('pypdf')
+        reader = pypdf_mod.PdfReader(io.BytesIO(content_bytes))
+        writer = pypdf_mod.PdfWriter()
+        writer.append(reader)
+        writer.add_metadata({
+            '/Title': safe_ascii_title,
+            '/Author': 'eTala Municipal Engineering Office',
+        })
+        out_buf = io.BytesIO()
+        writer.write(out_buf)
+        out_buf.seek(0)
+        return out_buf.read()
+    except Exception:
+        pass
+
+    # Fast pure standard library byte-level PDF metadata injection / replacement fallback
+    try:
+        title_bytes = safe_ascii_title.encode('latin-1', 'replace')
+        if b'/Title' in content_bytes:
+            modified = re.sub(rb'/Title\s*\([^)]*\)', b'/Title (' + title_bytes + b')', content_bytes, count=1)
+            if modified != content_bytes:
+                return modified
+        
+        if b'/Info' in content_bytes and b'<<' in content_bytes:
+            modified = re.sub(rb'(/Info\s*\d+\s*\d+\s*R|/Info\s*<<)', rb'\1 /Title (' + title_bytes + rb') ', content_bytes, count=1)
+            if modified != content_bytes:
+                return modified
+    except Exception as exc:
+        logger.debug(f"inject_pdf_title byte fallback: {exc}")
+
+    return content_bytes
+
+
+@xframe_options_sameorigin
 @login_required
-def serve_document_view(request, token):
+def serve_document_view(request, token, filename=None):
     doc = None
     if str(token).isdigit():
         doc = get_object_or_404(Document, document_id=int(token))
@@ -2432,21 +2630,58 @@ def serve_document_view(request, token):
     if not doc:
         raise Http404("Document not found.")
 
-    # Authorization Check: Authenticated LGU staff, engineers, and admins can view documents on active records. Non-admin users cannot access archived record documents.
+    # Authorization Check: Authenticated LGU staff, engineers, and admins can view documents on active records.
     if doc.engineering_record:
         rec = doc.engineering_record
-        if rec.status == 'archived' and request.user.role != 'admin':
-            return HttpResponseForbidden("You do not have permission to view documents for archived records.")
+        if rec.status == 'archived':
+            user_role = getattr(request.user, 'role', '') if request.user.is_authenticated else ''
+            if user_role != 'admin':
+                return HttpResponseForbidden("You do not have permission to view documents for archived records.")
 
-    file_obj, content_type, redirect_url = _get_document_stream(doc)
-    if redirect_url:
-        return redirect(redirect_url)
+    try:
+        file_obj, content_type, redirect_url = _get_document_stream(doc)
+        lgu_filename = get_lgu_document_filename(doc)
+        is_pdf = (content_type == 'application/pdf') or lgu_filename.lower().endswith('.pdf')
 
-    file_name = doc.file_name or (doc.file.name if doc.file else 'document')
-    safe_filename = os.path.basename(file_name).replace('"', '')
-    response = FileResponse(file_obj, content_type=content_type)
-    response['Content-Disposition'] = f'inline; filename="{safe_filename}"'
-    return response
+        # If Supabase / external URL, proxy bytes so the iframe stays SAMEORIGIN without CORS/X-Frame-Options blocks
+        if redirect_url:
+            try:
+                import urllib.request
+                req_remote = urllib.request.Request(redirect_url, headers={'User-Agent': 'eTala-Server/1.0'})
+                with urllib.request.urlopen(req_remote, timeout=12) as remote_file:
+                    content_bytes = remote_file.read()
+                
+                if is_pdf:
+                    content_bytes = inject_pdf_title(content_bytes, lgu_filename)
+
+                file_obj = io.BytesIO(content_bytes)
+                response = FileResponse(file_obj, content_type=content_type or 'application/pdf')
+                response['Content-Disposition'] = f'inline; filename="{lgu_filename}"'
+                response['X-Frame-Options'] = 'SAMEORIGIN'
+                return response
+            except Exception as e:
+                logger.warning(f"serve_document_view streaming proxy fallback for doc {doc.document_id}: {e}")
+                return redirect(redirect_url)
+
+        if not file_obj:
+            if doc.file and hasattr(doc.file, 'url') and doc.file.url:
+                return redirect(doc.file.url)
+            raise Http404("Document file could not be loaded.")
+
+        content_bytes = file_obj.read()
+        if is_pdf:
+            content_bytes = inject_pdf_title(content_bytes, lgu_filename)
+        file_obj = io.BytesIO(content_bytes)
+
+        response = FileResponse(file_obj, content_type=content_type or 'application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{lgu_filename}"'
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
+    except Exception as exc:
+        logger.warning(f"serve_document_view fallback redirect for doc {doc.document_id}: {exc}")
+        if doc.file and hasattr(doc.file, 'url') and doc.file.url:
+            return redirect(doc.file.url)
+        raise Http404("Document file is currently unavailable.")
 
 
 # ─── DOCUMENT UPLOAD / DELETE ────────────────────────────────────────────────
@@ -2609,6 +2844,43 @@ def document_delete_view(request, record_id, document_id):
     return redirect('record_detail', record_id=record.record_id)
 
 
+@login_required
+def toggle_requirement_waived_view(request, req_id):
+    """Toggle the is_waived (N/A) status of a RecordRequirement item."""
+    if request.user.role not in ['staff', 'admin']:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower():
+            return JsonResponse({'success': False, 'error': 'You do not have permission to update requirements.'}, status=403)
+        raise PermissionDenied("You do not have permission to update requirements.")
+
+    req = get_object_or_404(RecordRequirement, req_id=req_id)
+
+    if request.method == 'POST':
+        if req.is_fulfilled and req.document:
+            return JsonResponse({
+                'success': False,
+                'error': 'Cannot mark as N/A while an uploaded document is attached. Please delete the document first.'
+            }, status=400)
+
+        req.is_waived = not req.is_waived
+        req.save(update_fields=['is_waived'])
+
+        action_str = "waived (marked N/A)" if req.is_waived else "un-waived (required)"
+        log_audit(
+            request.user,
+            f"Requirement '{req.requirement_item.name}' was {action_str} for record '{req.record.title}'",
+            req.record.record_id,
+            request
+        )
+
+        return JsonResponse({
+            'success': True,
+            'is_waived': req.is_waived,
+            'message': f"Requirement '{req.requirement_item.name}' is now {'marked as N/A' if req.is_waived else 'required'}."
+        })
+
+    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
+
+
 # (download_record_zip_view defined below under ZIP DOWNLOAD section)
 
 
@@ -2617,26 +2889,32 @@ def document_delete_view(request, record_id, document_id):
 @login_required
 def record_archive_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    if request.user.role != 'admin':
-        raise PermissionDenied("Only Administrators can archive records.")
+    if request.user.role != 'admin' and record.created_by != request.user:
+        raise PermissionDenied("You can only move your own records to trash.")
 
     record.status = 'archived'
     record.save()
-    log_audit(request.user, f"Archived: '{record.title}'", record.record_id, request)
-    messages.success(request, f"Record '{record.title}' archived.")
+    log_audit(request.user, f"Moved to Trash: '{record.title}'", record.record_id, request)
+    messages.success(request, f"Record '{record.title}' moved to trash.")
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
     return redirect('records_browse')
 
 
 @login_required
 def record_restore_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    if request.user.role != 'admin':
-        raise PermissionDenied("Only Administrators can restore records.")
+    if request.user.role != 'admin' and record.created_by != request.user:
+        raise PermissionDenied("You can only restore your own records from trash.")
 
     record.status = 'active'
     record.save()
     log_audit(request.user, f"Restored: '{record.title}'", record.record_id, request)
     messages.success(request, f"Record '{record.title}' restored.")
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
     return redirect('record_detail', record_id=record.record_id)
 
 
@@ -2644,11 +2922,14 @@ def record_restore_view(request, record_id):
 
 @login_required
 def archive_view(request):
-    if request.user.role != 'admin':
-        raise PermissionDenied("Only Administrators can view archived records.")
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("Unauthorized.")
+
     records = EngineeringRecord.objects.filter(status='archived').select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     )
+    if request.user.role == 'staff':
+        records = records.filter(created_by=request.user)
 
     query = request.GET.get('q', '').strip()
     if query:
@@ -2674,6 +2955,7 @@ def archive_view(request):
         'page_obj': page_obj,
         'q': query,
         'active_tab': 'archive',
+        'is_staff_view': (request.user.role == 'staff'),
     }
     return render(request, 'permits/archive.html', context)
 
@@ -2727,7 +3009,7 @@ def search_view(request):
         'selected_year': year,
         'selected_status': status,
         'barangays': barangays,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'year_choices': get_year_choices(),
         'active_tab': 'search',
         'per_page': per_page,
@@ -2856,9 +3138,7 @@ def reports_view(request):
             ws['A4'] = f"Generated: {gen_timestamp}  |  Filters: {active_filter_str}  |  Total: {records.count()} records"
             ws['A4'].font = meta_font
 
-            ws.append([]) # Row 5 empty
-
-            headers = ["Record ID", "Record Title", "Type", "Barangay", "Year", "Status", "Applicant", "Contractor", "Cost / Budget (₱)", "Uploads"]
+            headers = ["#", "Record / Permit No.", "Category", "Barangay", "Year", "Status", "Applicant / Contractor", "Budget / Cost (₱)", "Uploads"]
             ws.append(headers)
             header_row_idx = 6
 
@@ -2866,7 +3146,7 @@ def reports_view(request):
                 cell = ws.cell(row=header_row_idx, column=col_idx)
                 cell.font = header_font
                 cell.fill = header_fill
-                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 5, 6, 10] else ('right' if col_idx == 9 else 'left'), vertical='center')
+                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 5, 6, 9] else ('right' if col_idx == 8 else 'left'), vertical='center')
                 cell.border = thin_border
             ws.row_dimensions[header_row_idx].height = 24
 
@@ -2930,17 +3210,16 @@ def reports_view(request):
                     else:
                         specific_type = f"{r.project_scope} Project" if r.project_scope else "Project"
 
-                # Resolve Applicant and Contractor separately
-                applicant_val = "—"
-                contractor_val = "—"
+                # Resolve Applicant or Contractor cleanly
+                party_val = "—"
                 if r.record_type == 'Permit':
                     app_name = (r.permit_detail.applicant_name.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name else '').strip()
                     if app_name and app_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not app_name.startswith('[') and 'unpermitted' not in app_name.lower() and 'violation' not in app_name.lower():
-                        applicant_val = app_name
+                        party_val = app_name
                 else:
                     c_name = (r.project_detail.contractor.strip() if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.contractor else '').strip()
                     if c_name and c_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not c_name.startswith('[') and 'unpermitted' not in c_name.lower() and 'violation' not in c_name.lower():
-                        contractor_val = c_name
+                        party_val = c_name
 
                 # Resolve Cost / Budget
                 cost = 0
@@ -2958,7 +3237,7 @@ def reports_view(request):
                 barangay_name = r.barangay.barangay_name if r.barangay else "—"
                 year_val = r.year if r.year else "—"
 
-                row_data = [r.record_id, ref_no, specific_type, barangay_name, year_val, status_label, applicant_val, contractor_val, cost if cost > 0 else "—", doc_status]
+                row_data = [idx, ref_no, specific_type, barangay_name, year_val, status_label, party_val, cost if cost > 0 else "—", doc_status]
                 ws.append(row_data)
                 
                 curr_row = ws.max_row
@@ -2976,9 +3255,9 @@ def reports_view(request):
                     if row_fill:
                         cell.fill = row_fill
                     
-                    if col_idx in [1, 5, 6, 10]:
+                    if col_idx in [1, 5, 6, 9]:
                         cell.alignment = Alignment(horizontal='center', vertical='center')
-                    elif col_idx == 9:
+                    elif col_idx == 8:
                         cell.alignment = Alignment(horizontal='right', vertical='center')
                         if isinstance(cell.value, (int, float, Decimal)):
                             cell.number_format = '₱#,##0.00'
@@ -2990,9 +3269,9 @@ def reports_view(request):
             ws.row_dimensions[tot_row_idx].height = 22
             ws.cell(row=tot_row_idx, column=1, value="TOTAL").font = total_font
             ws.cell(row=tot_row_idx, column=2, value=f"{records.count()} Record(s)").font = total_font
-            ws.cell(row=tot_row_idx, column=8, value="Total Budget:").font = total_font
+            ws.cell(row=tot_row_idx, column=7, value="Total Budget:").font = total_font
             
-            cost_total_cell = ws.cell(row=tot_row_idx, column=9, value=total_val)
+            cost_total_cell = ws.cell(row=tot_row_idx, column=8, value=total_val)
             cost_total_cell.font = total_font
             cost_total_cell.number_format = '₱#,##0.00'
             cost_total_cell.alignment = Alignment(horizontal='right', vertical='center')
@@ -3001,7 +3280,7 @@ def reports_view(request):
                 cell = ws.cell(row=tot_row_idx, column=col_idx)
                 cell.border = double_bottom_border
                 cell.fill = total_fill
-                if col_idx not in [1, 2, 8, 9]:
+                if col_idx not in [1, 2, 7, 8]:
                     cell.value = ""
 
             # Auto-fit Column Widths
@@ -3014,13 +3293,15 @@ def reports_view(request):
                         if len(val_str) > max_len:
                             max_len = len(val_str)
                 ws.column_dimensions[col_letter].width = max(max_len + 4, 11)
-            ws.column_dimensions['A'].width = 11
-            ws.column_dimensions['B'].width = 26
-            ws.column_dimensions['C'].width = 20
-            ws.column_dimensions['G'].width = 20
-            ws.column_dimensions['H'].width = 20
-            ws.column_dimensions['I'].width = 18
-            ws.column_dimensions['J'].width = 13
+            ws.column_dimensions['A'].width = 8
+            ws.column_dimensions['B'].width = 28
+            ws.column_dimensions['C'].width = 22
+            ws.column_dimensions['D'].width = 18
+            ws.column_dimensions['E'].width = 10
+            ws.column_dimensions['F'].width = 16
+            ws.column_dimensions['G'].width = 24
+            ws.column_dimensions['H'].width = 18
+            ws.column_dimensions['I'].width = 12
 
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename=eTala_Engineering_Records_{timezone.now().strftime("%Y%m%d_%H%M")}.xlsx'
@@ -3070,8 +3351,12 @@ def reports_view(request):
             # Running Numbered Canvas with Header & Footer for Portrait Letter (612 x 792 pt)
             class NumberedCanvas(canvas.Canvas):
                 def __init__(self, *args, **kwargs):
-                    super(NumberedCanvas, self).__init__(*args, **kwargs)
+                    canvas.Canvas.__init__(self, *args, **kwargs)
                     self._saved_page_states = []
+                    self.setTitle("eTala Engineering Records Summary Report")
+                    self.setAuthor("Municipal Engineering Office — LGU Carigara")
+                    self.setSubject("Official Engineering Records Summary Report")
+                    self.setCreator("eTala Management System")
 
                 def showPage(self):
                     self._saved_page_states.append(dict(self.__dict__))
@@ -3113,6 +3398,10 @@ def reports_view(request):
             doc = SimpleDocTemplate(
                 buffer,
                 pagesize=letter,
+                title="eTala Engineering Records Summary Report",
+                author="Municipal Engineering Office — LGU Carigara",
+                subject="Official Engineering Records Summary Report",
+                creator="eTala Management System",
                 rightMargin=36,
                 leftMargin=36,
                 topMargin=26,
@@ -3269,16 +3558,16 @@ def reports_view(request):
             story.append(Spacer(1, 6))
 
             # Column Widths for Portrait Letter (Total: 540pt across 36pt margins)
-            col_widths = [26, 120, 70, 64, 30, 52, 96, 52, 30]
+            col_widths = [24, 118, 76, 74, 32, 54, 82, 58, 22]
             table_data = [[
-                Paragraph("ID", header_center_style),
-                Paragraph("Record Title / Ref", header_cell_style),
-                Paragraph("Type", header_cell_style),
+                Paragraph("#", header_center_style),
+                Paragraph("Record / Permit No.", header_cell_style),
+                Paragraph("Category", header_cell_style),
                 Paragraph("Barangay", header_cell_style),
                 Paragraph("Year", header_center_style),
                 Paragraph("Status", header_center_style),
                 Paragraph("Applicant / Contractor", header_cell_style),
-                Paragraph("Cost (₱)", header_right_style),
+                Paragraph("Budget / Cost", header_right_style),
                 Paragraph("Docs", header_center_style)
             ]]
 
@@ -3371,7 +3660,7 @@ def reports_view(request):
                 year_val = str(r.year) if r.year else "—"
 
                 table_data.append([
-                    Paragraph(str(r.record_id), cell_center),
+                    Paragraph(str(row_idx), cell_center),
                     Paragraph(ref_no, cell_style),
                     Paragraph(specific_type, cell_style),
                     Paragraph(barangay_name, cell_style),
@@ -3613,6 +3902,13 @@ def reports_view(request):
             completed_records_count += 1
     completion_rate_pct = round((completed_records_count / total_count * 100)) if total_count > 0 else 100
 
+    # 5. Project Financial & Monitoring Metrics
+    from django.db.models import Sum
+    total_projects_budget = projects_qs.aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
+    municipal_projects_budget = projects_qs.filter(project_scope='Municipal').aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
+    barangay_projects_budget = projects_qs.filter(project_scope='Barangay').aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
+    monitoring_projects_list = projects_qs.select_related('barangay', 'project_detail').order_by('-created_at')[:30]
+
     barangays = Barangay.objects.all()
 
     context = {
@@ -3622,6 +3918,10 @@ def reports_view(request):
         'total_projects': total_projects,
         'municipal_projects_count': municipal_projects_count,
         'barangay_projects_count': barangay_projects_count,
+        'total_projects_budget': total_projects_budget,
+        'municipal_projects_budget': municipal_projects_budget,
+        'barangay_projects_budget': barangay_projects_budget,
+        'monitoring_projects_list': monitoring_projects_list,
         'total_permits': total_permits,
         'building_permits_count': building_permits_count,
         'occupancy_permits_count': occupancy_permits_count,
@@ -3646,7 +3946,7 @@ def reports_view(request):
         'selected_barangay': selected_barangay,
         'selected_year': selected_year,
         'selected_status': selected_status,
-        'status_choices': EngineeringRecord.STATUS_CHOICES,
+        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'year_choices': get_year_choices(),
         'active_filters': active_filters,
         'active_tab': 'reports',
@@ -3659,7 +3959,7 @@ def reports_view(request):
 
 @login_required
 def activity_logs_view(request):
-    if request.user.role not in ['admin', 'staff', 'engineer']:
+    if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("You do not have permission to view activity logs.")
 
     if request.method == 'POST':
@@ -3707,8 +4007,13 @@ def activity_logs_view(request):
                 messages.success(request, f"Successfully restored email access for: {email}")
             return redirect('activity_logs')
 
-    # 1. Audit Logs (System Activity Log)
-    audit_logs = AuditLog.objects.select_related('user').order_by('-performed_at')
+    # 1. Audit Logs (High-Priority Operations Only)
+    audit_logs = AuditLog.objects.select_related('user').exclude(
+        Q(action__iexact='Logged out') |
+        Q(action__iexact='Failed login attempt') |
+        Q(action__icontains='Exported') |
+        Q(action__icontains='profile picture')
+    ).order_by('-performed_at')
     if request.user.role != 'admin':
         audit_logs = audit_logs.filter(user=request.user)
 
@@ -3719,7 +4024,7 @@ def activity_logs_view(request):
         )
 
     # Date Range Filter
-    date_filter = request.GET.get('date_range', 'all').strip()
+    date_filter = (request.GET.get('date_range') or request.GET.get('date_filter') or 'all').strip()
     now = timezone.now()
     if date_filter == 'today':
         audit_logs = audit_logs.filter(performed_at__date=now.date())
@@ -3731,13 +4036,23 @@ def activity_logs_view(request):
     # Action Type Filter
     action_type = request.GET.get('action_type', 'all').strip()
     if action_type == 'create':
-        audit_logs = audit_logs.filter(Q(action__icontains='created') | Q(action__icontains='added'))
+        audit_logs = audit_logs.filter(
+            Q(action__icontains='created') | Q(action__icontains='added') |
+            Q(action__icontains='encoded') | Q(action__icontains='flagged')
+        )
     elif action_type == 'update':
-        audit_logs = audit_logs.filter(Q(action__icontains='updated') | Q(action__icontains='modified'))
+        audit_logs = audit_logs.filter(
+            Q(action__icontains='updated') | Q(action__icontains='modified') |
+            Q(action__icontains='edited') | Q(action__icontains='regularized') |
+            Q(action__icontains='restored') | Q(action__icontains='status')
+        )
     elif action_type == 'upload':
-        audit_logs = audit_logs.filter(action__icontains='uploaded')
+        audit_logs = audit_logs.filter(Q(action__icontains='uploaded') | Q(action__icontains='document'))
     elif action_type == 'delete':
-        audit_logs = audit_logs.filter(Q(action__icontains='deleted') | Q(action__icontains='removed'))
+        audit_logs = audit_logs.filter(
+            Q(action__icontains='deleted') | Q(action__icontains='removed') |
+            Q(action__icontains='archived') | Q(action__icontains='trash')
+        )
 
     per_page = get_per_page(request, 10)
     audit_paginator = Paginator(audit_logs, per_page)
@@ -3803,7 +4118,7 @@ class Echo:
 
 @login_required
 def export_activity_logs_view(request):
-    if request.user.role not in ['admin', 'staff', 'engineer']:
+    if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("You do not have permission to export activity logs.")
         
     tab = request.GET.get('tab', 'audit').strip()
@@ -3821,7 +4136,6 @@ def export_activity_logs_view(request):
             content_type="text/csv"
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        log_audit(request.user, f"Exported {tab.capitalize()} Activity Logs to CSV", request=request)
         return response
 
     # ── DEFAULT: Direct PDF Export via ReportLab (Portrait Letter: 612 x 792 pt) ──
@@ -3836,6 +4150,10 @@ def export_activity_logs_view(request):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
+        title="eTala Activity Logs Report",
+        author="Municipal Engineering Office — LGU Carigara",
+        subject="System Activity and Audit Trail",
+        creator="eTala Management System",
         leftMargin=36,
         rightMargin=36,
         topMargin=26,
@@ -3981,24 +4299,24 @@ def export_activity_logs_view(request):
     # Query Data (Portrait 540pt)
     if tab == 'login' and request.user.role == 'admin':
         qs = LoginAttempt.objects.all().order_by('-timestamp')
-        if date_filter == 'today':
+        if date_filter in ['today', '24h']:
             qs = qs.filter(timestamp__date=now_pst.date())
-        elif date_filter == '7days':
+        elif date_filter in ['7days', '7d']:
             qs = qs.filter(timestamp__gte=now_pst - timedelta(days=7))
-        elif date_filter == '30days':
+        elif date_filter in ['30days', '30d']:
             qs = qs.filter(timestamp__gte=now_pst - timedelta(days=30))
         if action_type == 'success':
             qs = qs.filter(success=True)
         elif action_type == 'failed':
             qs = qs.filter(success=False)
         if query:
-            qs = qs.filter(Q(email_attempted__icontains=query) | Q(ip_address__icontains=query))
+            qs = qs.filter(email_attempted__icontains=query)
 
         table_data = [[
             Paragraph("#", th_style),
             Paragraph("TIMESTAMP (PST)", th_style),
             Paragraph("EMAIL / ACCOUNT ATTEMPTED", th_style),
-            Paragraph("LOGIN STATUS", th_style)
+            Paragraph("STATUS", th_style)
         ]]
         for idx, item in enumerate(qs[:1000], start=1):
             status_text = "SUCCESSFUL" if item.success else "FAILED"
@@ -4010,16 +4328,21 @@ def export_activity_logs_view(request):
                 Paragraph(item.email_attempted or "Unknown", td_style),
                 status_p
             ])
-        col_widths = [30, 130, 250, 130]
+        col_widths = [26, 140, 240, 134]
     else:
-        qs = AuditLog.objects.all().select_related('user').order_by('-performed_at')
+        qs = AuditLog.objects.all().select_related('user').exclude(
+            Q(action__iexact='Logged out') |
+            Q(action__iexact='Failed login attempt') |
+            Q(action__icontains='Exported') |
+            Q(action__icontains='profile picture')
+        ).order_by('-performed_at')
         if request.user.role != 'admin':
             qs = qs.filter(user=request.user)
-        if date_filter == 'today':
+        if date_filter in ['today', '24h']:
             qs = qs.filter(performed_at__date=now_pst.date())
-        elif date_filter == '7days':
+        elif date_filter in ['7days', '7d']:
             qs = qs.filter(performed_at__gte=now_pst - timedelta(days=7))
-        elif date_filter == '30days':
+        elif date_filter in ['30days', '30d']:
             qs = qs.filter(performed_at__gte=now_pst - timedelta(days=30))
         if action_type and action_type != 'all':
             qs = qs.filter(action__icontains=action_type)
@@ -4029,7 +4352,7 @@ def export_activity_logs_view(request):
         table_data = [[
             Paragraph("#", th_style),
             Paragraph("DATE &amp; TIME (PST)", th_style),
-            Paragraph("OPERATOR / STAFF", th_style),
+            Paragraph("STAFF / OPERATOR", th_style),
             Paragraph("ROLE", th_style),
             Paragraph("ACTION EXECUTED", th_style)
         ]]
@@ -4047,7 +4370,7 @@ def export_activity_logs_view(request):
                 Paragraph(role_str, td_style),
                 Paragraph(item.action, td_style)
             ])
-        col_widths = [30, 110, 120, 80, 200]
+        col_widths = [26, 110, 114, 80, 210]
 
     log_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     log_table.setStyle(TableStyle([
@@ -4061,10 +4384,38 @@ def export_activity_logs_view(request):
     ]))
     elements.append(log_table)
 
+    # Official Sign-off block (Total: 540pt)
+    from reportlab.platypus import KeepTogether
+    sign_style_left = ParagraphStyle('SignLeft', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=11, textColor=TEXT_DARK)
+    sign_style_right = ParagraphStyle('SignRight', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=2)
+    
+    signatory_data = [
+        [
+            Paragraph(f"<b>Prepared &amp; Exported by:</b><br/><br/><br/><u><b>{request.user.full_name or request.user.username}</b></u><br/>{request.user.get_role_display()}", sign_style_left),
+            Paragraph("<b>Certified Correct:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office — Carigara, Leyte", sign_style_right)
+        ]
+    ]
+    sign_table = Table(signatory_data, colWidths=[270, 270])
+    sign_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    elements.append(KeepTogether([
+        Spacer(1, 14),
+        sign_table
+    ]))
+
+    # Page numbering canvas
     class NumberedCanvas(canvas.Canvas):
         def __init__(self, *args, **kwargs):
-            canvas.Canvas.__init__(self, *args, **kwargs)
+            super().__init__(*args, **kwargs)
             self._saved_page_states = []
+            self.setTitle("eTala Activity Logs Report")
+            self.setAuthor("Municipal Engineering Office — LGU Carigara")
+            self.setSubject("System Activity and Audit Trail")
+            self.setCreator("eTala Management System")
 
         def showPage(self):
             self._saved_page_states.append(dict(self.__dict__))
@@ -4115,22 +4466,51 @@ def export_activity_logs_view(request):
 
 @login_required
 def serve_user_avatar_view(request, user_id):
-    """Securely streams a user's profile avatar picture with browser caching from Supabase storage."""
+    """Securely streams a user's profile avatar picture with in-memory caching and HTTP 304 ETag validation."""
     target_user = get_object_or_404(CustomUser, pk=user_id)
     if not target_user.profile_picture:
         raise Http404("User has no profile picture.")
 
     try:
-        if not target_user.profile_picture.storage.exists(target_user.profile_picture.name):
-            # Auto-heal orphaned DB pointer to prevent 404 console spam
-            target_user.profile_picture = None
-            target_user.save(update_fields=['profile_picture'])
-            raise Http404("Avatar file not found in cloud storage.")
-        file_obj = target_user.profile_picture.open('rb')
-        filename = os.path.basename(target_user.profile_picture.name)
-        content_type, _ = mimetypes.guess_type(filename)
-        response = FileResponse(file_obj, content_type=content_type or 'image/jpeg')
-        response['Cache-Control'] = 'public, max-age=3600'
+        raw_name = str(target_user.profile_picture.name)
+        v_token = hashlib.md5(raw_name.encode('utf-8')).hexdigest()[:12]
+        etag_header = f'"{v_token}"'
+
+        # If client already has this exact avatar version, return 304 Not Modified immediately
+        client_etag = request.headers.get('If-None-Match', '')
+        if client_etag and v_token in client_etag:
+            response = HttpResponseNotModified()
+            response['ETag'] = etag_header
+            response['Cache-Control'] = 'public, max-age=2592000, immutable'
+            return response
+
+        # Check Django fast in-memory cache
+        cache_key = f"avatar_bytes_{user_id}_{v_token}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            image_bytes, content_type = cached_data
+        else:
+            if not target_user.profile_picture.storage.exists(target_user.profile_picture.name):
+                # Auto-heal orphaned DB pointer to prevent 404 console spam
+                target_user.profile_picture = None
+                target_user.save(update_fields=['profile_picture'])
+                raise Http404("Avatar file not found in cloud storage.")
+            
+            with target_user.profile_picture.open('rb') as file_obj:
+                image_bytes = file_obj.read()
+            
+            filename = os.path.basename(target_user.profile_picture.name)
+            content_type, _ = mimetypes.guess_type(filename)
+            content_type = content_type or 'image/jpeg'
+            
+            # Cache the binary bytes in Django memory cache for 7 days
+            cache.set(cache_key, (image_bytes, content_type), timeout=604800)
+
+        response = HttpResponse(image_bytes, content_type=content_type)
+        response['ETag'] = etag_header
+        response['Cache-Control'] = 'public, max-age=2592000, immutable'
+        response['Content-Length'] = str(len(image_bytes))
         return response
     except Exception as e:
         if not isinstance(e, Http404):
@@ -4146,17 +4526,46 @@ def profile_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
 
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
         if action == 'upload_photo':
             if 'profile_picture' in request.FILES:
                 try:
-                    user.profile_picture = request.FILES['profile_picture']
-                    user.save()
+                    uploaded_file = request.FILES['profile_picture']
+                    # Optimize, center-crop to 1:1, and compress to lightweight baseline JPEG
+                    content_file, new_filename = process_avatar_image(uploaded_file)
+
+                    # Delete previous picture file from storage if present
+                    if user.profile_picture:
+                        try:
+                            user.profile_picture.delete(save=False)
+                        except Exception:
+                            pass
+
+                    # Save new profile picture (generates fresh cache token)
+                    user.profile_picture.save(new_filename, content_file, save=True)
                     log_audit(user, "Updated profile picture", request=request)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True,
+                            'message': "Profile picture updated successfully.",
+                            'photo_url': user.profile_picture_url,
+                        })
                     messages.success(request, "Profile picture updated successfully.")
+                except ValidationError as ve:
+                    err_msg = str(ve.message if hasattr(ve, 'message') else ve)
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'message': err_msg}, status=400)
+                    messages.error(request, err_msg)
                 except Exception as e:
                     logger.error(f"Error uploading profile picture: {str(e)}")
-                    messages.error(request, "Upload failed or timed out due to network connection. Please check your internet and try again.")
+                    err_msg = "Upload failed or timed out due to network connection. Please check your internet and try again."
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'message': err_msg}, status=500)
+                    messages.error(request, err_msg)
             else:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "No image file provided."}, status=400)
                 messages.error(request, "No image file provided.")
             return redirect('profile')
 
@@ -4167,28 +4576,74 @@ def profile_view(request):
                     user.profile_picture = None
                     user.save()
                     log_audit(user, "Removed profile picture", request=request)
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True,
+                            'message': "Profile picture removed.",
+                            'initials': (user.full_name or user.username)[:1].upper(),
+                        })
                     messages.success(request, "Profile picture removed.")
                 except Exception as e:
                     logger.error(f"Error deleting profile picture: {str(e)}")
-                    messages.error(request, "Failed to remove photo due to network connection. Please try again.")
+                    err_msg = "Failed to remove photo due to network connection. Please try again."
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'message': err_msg}, status=500)
+                    messages.error(request, err_msg)
+            else:
+                if is_ajax:
+                    return JsonResponse({'success': True, 'message': "No photo to remove."})
             return redirect('profile')
 
         elif action == 'update_profile':
             full_name = sanitize_input(request.POST.get('full_name', '')).strip()
-            email = sanitize_input(request.POST.get('email', '')).lower()
+            email = sanitize_input(request.POST.get('email', '')).lower().strip()
 
-            if not full_name or not email:
-                messages.error(request, "Full Name and Email are required.")
+            if not full_name:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "Full Name is required."}, status=400)
+                messages.error(request, "Full Name is required.")
+                return redirect('profile')
+
+            if len(full_name) < 2:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "Full Name must be at least 2 characters long."}, status=400)
+                messages.error(request, "Full Name must be at least 2 characters long.")
+                return redirect('profile')
+
+            common_typos = ['gma.com', 'gmai.com', 'gamil.com', 'gmal.com', 'gmaill.com', 'gmail.co', 'yaho.com', 'yahoo.co', 'hotmial.com', 'outlok.com']
+            domain = email.split('@')[-1] if '@' in email else ''
+            valid_tld_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|mil|ph|gov\.ph|edu\.ph|com\.ph|net\.ph|org\.ph|io|co|info|biz|me)$'
+            if not email or domain in common_typos or not re.match(valid_tld_pattern, email, re.IGNORECASE):
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "Please enter a valid email address with a valid domain (e.g. user@gmail.com)."}, status=400)
+                messages.error(request, "Please enter a valid email address with a valid domain (e.g. user@gmail.com).")
                 return redirect('profile')
 
             if CustomUser.objects.exclude(id=user.id).filter(email=email).exists():
-                messages.error(request, "Email already in use.")
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "This email address is already in use by another account."}, status=400)
+                messages.error(request, "This email address is already in use by another account.")
                 return redirect('profile')
 
             user.full_name = full_name
             user.email = email
+
+            # Only administrators can modify their own official designation in profile; staff designations are assigned by Admin in User Management
+            if user.role == 'admin':
+                designation = sanitize_input(request.POST.get('designation', '')).strip()
+                user.designation = designation or "Engineering Office Head"
+
             user.save()
             log_audit(user, "Updated profile details", request=request)
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'message': "Profile updated successfully.",
+                    'full_name': user.full_name,
+                    'email': user.email,
+                    'designation': user.designation or '',
+                    'initials': (user.full_name or user.username)[:1].upper()
+                })
             messages.success(request, "Profile updated successfully.")
             return redirect('profile')
 
@@ -4326,6 +4781,67 @@ def settings_view(request):
             messages.success(request, "Checklist template details updated successfully.")
             return redirect(f"{reverse('settings')}?tab=templates&template_id={tmpl.template_id}")
 
+        elif action == 'toggle_template_status':
+            template_id = request.POST.get('template_id')
+            tmpl = get_object_or_404(RequirementTemplate, pk=template_id)
+            tmpl.is_active = not tmpl.is_active
+            tmpl.save()
+            status_str = "activated" if tmpl.is_active else "deactivated"
+            log_audit(request.user, f"{status_str.title()} checklist template '{tmpl}'", request=request)
+            messages.success(request, f"Checklist '{tmpl}' {status_str} successfully.")
+            return redirect(f"{reverse('settings')}?tab=templates")
+
+        elif action == 'duplicate_template':
+            template_id = request.POST.get('template_id')
+            source_tmpl = get_object_or_404(RequirementTemplate, pk=template_id)
+            new_subtype = sanitize_input(request.POST.get('subtype', f"{source_tmpl.subtype} (Copy)")).strip()
+            new_scope = sanitize_input(request.POST.get('scope', source_tmpl.scope)).strip()
+            
+            new_tmpl = RequirementTemplate.objects.create(
+                record_type=source_tmpl.record_type,
+                subtype=new_subtype,
+                scope=new_scope,
+                is_active=True
+            )
+            # Copy parent items first
+            parent_map = {}
+            for item in source_tmpl.items.filter(parent__isnull=True):
+                new_item = RequirementItem.objects.create(
+                    template=new_tmpl,
+                    name=item.name,
+                    description=item.description,
+                    is_required=item.is_required,
+                    is_group=item.is_group,
+                    order=item.order
+                )
+                parent_map[item.item_id] = new_item
+                
+            # Copy child items
+            for item in source_tmpl.items.filter(parent__isnull=False):
+                new_parent = parent_map.get(item.parent_id)
+                if new_parent:
+                    RequirementItem.objects.create(
+                        template=new_tmpl,
+                        parent=new_parent,
+                        name=item.name,
+                        description=item.description,
+                        is_required=item.is_required,
+                        is_group=item.is_group,
+                        order=item.order
+                    )
+            log_audit(request.user, f"Duplicated checklist template '{source_tmpl}' to '{new_tmpl}'", request=request)
+            messages.success(request, f"Successfully created new checklist copy: '{new_tmpl}'")
+            return redirect(f"{reverse('settings')}?tab=templates&template_id={new_tmpl.template_id}")
+
+        elif action == 'bulk_toggle_template_status':
+            template_ids = request.POST.getlist('template_ids')
+            new_status = request.POST.get('status') == 'true'
+            updated = RequirementTemplate.objects.filter(pk__in=template_ids).update(is_active=new_status)
+            status_word = "Activated" if new_status else "Deactivated"
+            log_audit(request.user, f"{status_word} {updated} checklist template(s)", request=request)
+            messages.success(request, f"{status_word} {updated} checklist(s) successfully.")
+            return redirect(f"{reverse('settings')}?tab=templates")
+
         elif action == 'add_requirement_item':
             template_id = request.POST.get('template_id')
             tmpl = get_object_or_404(RequirementTemplate, pk=template_id)
@@ -4408,11 +4924,10 @@ def settings_view(request):
                 EngineeringRecord,
                 PermitDetail,
                 ProjectDetail,
-                PermitInspection,
-                ProjectInspection,
-                RecordAttachment,
-                RecordAuditLog,
-                OfficeSetting,
+                Document,
+                RecordRequirement,
+                AuditLog,
+                LoginAttempt,
             ]
             
             all_objects = []
@@ -4488,8 +5003,15 @@ def settings_view(request):
             messages.success(request, "Your password has been changed successfully.")
             return redirect('settings')
 
+    permit_count = sum(1 for t in templates if t.record_type == 'Permit')
+    municipal_count = sum(1 for t in templates if t.record_type == 'Project' and t.scope == 'Municipal')
+    barangay_count = sum(1 for t in templates if t.record_type == 'Project' and t.scope == 'Barangay')
+
     context = {
         'templates': templates,
+        'permit_count': permit_count,
+        'municipal_count': municipal_count,
+        'barangay_count': barangay_count,
         'barangays': barangays,
         'office_settings': office_settings,
         'active_tab': 'settings',
@@ -4531,6 +5053,7 @@ def users_view(request):
             username = email.split('@')[0]
             full_name = sanitize_input(request.POST.get('full_name', '')).strip()
             role = request.POST.get('role', 'staff')
+            designation = sanitize_input(request.POST.get('designation', '')).strip()
             password = request.POST.get('password', '')
 
             if not email or not password or not full_name:
@@ -4558,13 +5081,14 @@ def users_view(request):
                 email=email,
                 password=password,
                 full_name=full_name,
-                role=role
+                role=role,
+                designation=designation
             )
             if role == 'admin':
                 new_user.is_staff = True
             new_user.save()
 
-            log_audit(request.user, f"Created user '{username}' with role '{role}'", request=request)
+            log_audit(request.user, f"Created user '{username}' with role '{role}' and designation '{designation}'", request=request)
             messages.success(request, f"User {full_name} created successfully.")
             return redirect('users')
 
@@ -4605,6 +5129,7 @@ def users_view(request):
             email = sanitize_input(request.POST.get('email', '')).strip().lower()
             full_name = sanitize_input(request.POST.get('full_name', '')).strip()
             role = request.POST.get('role', 'staff')
+            designation = sanitize_input(request.POST.get('designation', '')).strip()
 
             if not email or not full_name:
                 messages.error(request, "All fields are required.")
@@ -4617,6 +5142,7 @@ def users_view(request):
 
             user_to_edit.email = email
             user_to_edit.full_name = full_name
+            user_to_edit.designation = designation
             
             # Prevent de-promoting oneself
             if user_to_edit == request.user:
@@ -4632,6 +5158,37 @@ def users_view(request):
             user_to_edit.save()
             log_audit(request.user, f"Updated user profile for '{user_to_edit.username}'", request=request)
             messages.success(request, f"User {full_name} updated successfully.")
+            return redirect('users')
+
+        elif action == 'delete_user':
+            user_id = request.POST.get('user_id')
+            user_to_delete = get_object_or_404(CustomUser, id=user_id)
+
+            if user_to_delete == request.user:
+                messages.error(request, "You cannot delete your own account.")
+                return redirect('users')
+
+            if user_to_delete.is_superuser:
+                messages.error(request, "Superuser administrator accounts cannot be deleted.")
+                return redirect('users')
+
+            # Check for linked engineering records or uploaded documents
+            created_records_count = EngineeringRecord.objects.filter(created_by=user_to_delete).count()
+            uploaded_docs_count = Document.objects.filter(uploaded_by=user_to_delete).count()
+            total_linked_items = created_records_count + uploaded_docs_count
+
+            if total_linked_items > 0:
+                messages.warning(
+                    request,
+                    f"Cannot permanently delete '{user_to_delete.full_name or user_to_delete.username}' because they have {total_linked_items} active record(s)/document(s) in the archive. Please toggle their account switch to Inactive instead to safeguard the official audit trail."
+                )
+                return redirect('users')
+
+            target_name = user_to_delete.full_name or user_to_delete.username
+            target_username = user_to_delete.username
+            user_to_delete.delete()
+            log_audit(request.user, f"Permanently deleted unused user account '{target_username}' ({target_name})", request=request)
+            messages.success(request, f"User account for '{target_name}' has been permanently deleted.")
             return redirect('users')
 
     users_base = CustomUser.objects.all().order_by('-created_at')
@@ -4801,14 +5358,37 @@ def download_barangay_zip_view(request, barangay_id):
         return redirect(request.META.get('HTTP_REFERER') or 'barangays')
 
     buffer = build_barangay_zip_buffer(barangay, _get_document_stream)
-    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=25).replace(" ", "_")
-    filename = f"Brgy_{clean_b_name}_Engineering_Records.zip"
+    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30).replace(" ", "_")
+    filename = f"{clean_b_name}.zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response['Content-Length'] = str(len(val))
     response['X-Content-Type-Options'] = 'nosniff'
     log_audit(request.user, f"Downloaded Barangay ZIP Archive for '{barangay.barangay_name}'", request=request)
+    return response
+
+
+@login_required
+def download_municipal_zip_view(request):
+    """Downloads all documents for the entire Municipality organized by Category -> Location -> Record -> Group -> File."""
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("Unauthorized")
+
+    doc_count = Document.objects.exclude(engineering_record__status='archived').count()
+    if doc_count == 0:
+        messages.warning(request, "No uploaded documents found to download.")
+        return redirect('records_browse')
+
+    buffer = build_municipal_zip_buffer(_get_document_stream)
+    today_str = timezone.now().strftime('%Y-%m-%d')
+    filename = f"Carigara_Engineering_Records_{today_str}.zip"
+    val = buffer.getvalue()
+    response = HttpResponse(val, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Length'] = str(len(val))
+    response['X-Content-Type-Options'] = 'nosniff'
+    log_audit(request.user, "Downloaded Full Municipal ZIP Archive", request=request)
     return response
 
 
@@ -4984,6 +5564,32 @@ def health_check_view(request):
         'database': db_status,
         'timestamp': timezone.now().isoformat()
     }, status=status_code)
+
+
+# ─── CUSTOM FRIENDLY HTTP ERROR HANDLERS (Non-Tech Staff Ready) ───────────────
+
+def page_not_found(request, exception=None):
+    """Custom 404 handler that renders friendly, non-technical recovery page."""
+    status_code = 200 if request.path.startswith('/errors/') else 404
+    return render(request, 'errors/404.html', status=status_code)
+
+
+def server_error(request):
+    """Custom 500 handler that renders friendly, non-technical recovery page."""
+    status_code = 200 if request.path.startswith('/errors/') else 500
+    return render(request, 'errors/500.html', status=status_code)
+
+
+def forbidden(request, exception=None):
+    """Custom 403 handler that renders friendly, non-technical recovery page."""
+    status_code = 200 if request.path.startswith('/errors/') else 403
+    return render(request, 'errors/403.html', status=status_code)
+
+
+def bad_request(request, exception=None):
+    """Custom 400 handler that renders friendly, non-technical recovery page."""
+    status_code = 200 if request.path.startswith('/errors/') else 400
+    return render(request, 'errors/400.html', status=status_code)
 
 
 

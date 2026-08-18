@@ -245,7 +245,7 @@ LOGOUT_REDIRECT_URL = 'login'
 # Security Headers & Protections
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG and not TESTING
@@ -304,17 +304,31 @@ CORS_ALLOWED_ORIGINS = [
 
 WHITENOISE_MANIFEST_STRICT = False
 
-# ── Hybrid Email Configuration: Gmail SMTP (All Emails) -> Resend -> Console ──
-# If Gmail App Password is provided (EMAIL_HOST_USER + EMAIL_HOST_PASSWORD), sends to ANY email in the world.
-# If RESEND_API_KEY is provided, uses Resend transactional delivery.
-# Otherwise, prints to console for offline development.
-
-# ── Email Configuration: Resend (Primary) -> Gmail SMTP -> Console ──
+# ── Universal Email Configuration: Standard SMTP (Brevo/Gmail/Custom) -> Resend -> Console ──
+email_host = os.getenv('EMAIL_HOST', '').strip()
+email_user = os.getenv('EMAIL_HOST_USER', '').strip()
+email_pass = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
 resend_key = os.getenv('RESEND_API_KEY', '').strip()
-gmail_user = os.getenv('EMAIL_HOST_USER', '').strip()
-gmail_pass = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
 
-if resend_key:
+if email_host and email_user and email_pass:
+    EMAIL_BACKEND       = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+    EMAIL_HOST          = email_host
+    EMAIL_PORT          = int(os.getenv('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS       = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 't')
+    EMAIL_USE_SSL       = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 't')
+    EMAIL_HOST_USER     = email_user
+    EMAIL_HOST_PASSWORD = email_pass
+    DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', email_user).strip()
+elif email_user and email_pass:
+    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST          = 'smtp.gmail.com'
+    EMAIL_PORT          = 587
+    EMAIL_USE_TLS       = True
+    EMAIL_USE_SSL       = False
+    EMAIL_HOST_USER     = email_user
+    EMAIL_HOST_PASSWORD = email_pass
+    DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', email_user).strip()
+elif resend_key:
     EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST          = 'smtp.resend.com'
     EMAIL_PORT          = 465
@@ -323,18 +337,10 @@ if resend_key:
     EMAIL_HOST_USER     = 'resend'
     EMAIL_HOST_PASSWORD = resend_key
     DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev').strip()
-elif gmail_user and gmail_pass:
-    EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST          = 'smtp.gmail.com'
-    EMAIL_PORT          = 587
-    EMAIL_USE_TLS       = True
-    EMAIL_USE_SSL       = False
-    EMAIL_HOST_USER     = gmail_user
-    EMAIL_HOST_PASSWORD = gmail_pass
-    DEFAULT_FROM_EMAIL  = gmail_user
 else:
     EMAIL_BACKEND       = 'django.core.mail.backends.console.EmailBackend'
     DEFAULT_FROM_EMAIL  = 'noreply@etala.local'
+
 
 
 # Configure file-based loggers
@@ -378,4 +384,8 @@ LOGGING = {
         },
     },
 }
+
+# File Upload Limits (Configured for heavy blueprints, geotechnical logs & detailed engineering plans)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 

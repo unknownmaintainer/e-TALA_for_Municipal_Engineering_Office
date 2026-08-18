@@ -99,17 +99,19 @@
 }
 
 .profile-user-name {
-    font-size: 1.35rem;
+    font-size: 1.18rem;
     font-weight: 800;
     color: var(--gray-900, #0f172a);
     margin-bottom: 3px;
     text-align: center;
+    line-height: 1.3;
     word-break: break-word;
     overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .profile-user-email {
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     color: var(--gray-500, #64748b);
     margin-bottom: 20px;
     text-align: center;
@@ -227,21 +229,21 @@
 }
 
 .profile-custom-input {
-    background: #f8fafc !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 10px !important;
-    font-size: 0.9rem !important;
+    background: #ffffff !important;
+    border: 1.5px solid #94a3b8 !important;
+    border-radius: 8px !important;
+    font-size: 0.88rem !important;
     font-weight: 500 !important;
     color: #0f172a !important;
-    padding: 11px 14px !important;
+    padding: 9px 13px !important;
     width: 100%;
-    transition: all 0.2s ease !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .profile-custom-input:focus {
     background: #ffffff !important;
-    border-color: #2563eb !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+    border-color: #002855 !important;
+    box-shadow: 0 0 0 3.5px rgba(0, 40, 85, 0.15) !important;
 }
 
 .profile-mini-stat-card {
@@ -249,6 +251,11 @@
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     padding: 14px 16px;
+    height: 100%;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     transition: all 0.2s ease;
 }
 
@@ -269,32 +276,44 @@
 }
 
 .profile-meta-value {
-    font-size: 0.95rem;
-    font-weight: 800;
+    font-size: 0.88rem;
+    font-weight: 700;
     color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .btn-profile-submit {
-    background: #1e40af;
+    background: #002855;
     color: #ffffff;
     border: none;
-    padding: 10px 28px;
+    padding: 10px 32px;
     border-radius: 8px;
     font-size: 0.88rem;
-    font-weight: 700;
+    font-weight: 600;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 40, 85, 0.18);
 }
 
-.btn-profile-submit:hover {
-    background: #1d4ed8;
-    box-shadow: 0 6px 16px rgba(30, 64, 175, 0.3);
-    transform: translateY(-1px);
+.btn-profile-submit:hover:not(:disabled) {
+    background: #001f44;
+    box-shadow: 0 6px 16px rgba(0, 40, 85, 0.25);
+    transform: translateY(-1.5px);
+}
+
+.btn-profile-submit:disabled {
+    background: #94a3b8 !important;
+    color: #f1f5f9 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed !important;
+    opacity: 0.65;
 }
 
 /* Activity Items */
@@ -373,10 +392,37 @@
     color: #cbd5e1 !important;
 }
 
-.dark-mode .profile-custom-input {
-    background: #0f172a !important;
+.dark-mode .profile-custom-input,
+[data-bs-theme="dark"] .profile-custom-input {
+    background-color: #0f172a !important;
     border-color: #334155 !important;
     color: #f8fafc !important;
+}
+
+.dark-mode .profile-custom-input:focus,
+[data-bs-theme="dark"] .profile-custom-input:focus {
+    border-color: #60a5fa !important;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18) !important;
+}
+
+.dark-mode .profile-custom-input:disabled,
+[data-bs-theme="dark"] .profile-custom-input:disabled {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #94a3b8 !important;
+}
+
+.dark-mode .profile-mini-stat-card,
+[data-bs-theme="dark"] .profile-mini-stat-card {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+.dark-mode .btn-profile-submit:disabled,
+[data-bs-theme="dark"] .btn-profile-submit:disabled {
+    background: #334155 !important;
+    color: #64748b !important;
+    opacity: 0.45;
 }
 
 .dark-mode .btn-profile-edit {
@@ -463,7 +509,7 @@
 {% block content %}
 
 <!-- Hidden File Form for Photo Upload -->
-<form method="POST" action="{% url 'profile' %}" enctype="multipart/form-data" id="photoUploadForm" class="d-none">
+<form method="POST" action="{% url 'profile' %}" enctype="multipart/form-data" id="photoUploadForm" class="d-none" data-no-transition="true" data-ajax="true">
     {% csrf_token %}
     <input type="hidden" name="action" value="upload_photo">
     <input type="file" name="profile_picture" id="profilePhotoInput" accept="image/*" onchange="handlePhotoSelect(this);">
@@ -479,6 +525,7 @@
                 <div class="profile-avatar-box">
                     {% if request.user.profile_picture_url %}
                     <img src="{{ request.user.profile_picture_url }}" alt="" class="profile-avatar-img"
+                        loading="eager" decoding="async"
                         onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
                     <div class="profile-avatar-placeholder" style="display: none;">
                         {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
@@ -488,20 +535,19 @@
                         {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                     </div>
                     {% endif %}
-                    
-                    <!-- Loading Overlay (Shown during upload) -->
-                    <div class="profile-avatar-overlay d-none" id="avatarLoadingOverlay">
-                        <div class="spinner-border text-light spinner-border-sm mb-1" role="status"></div>
-                        <span class="upload-progress-text">Uploading...</span>
-                    </div>
-
                     <label for="profilePhotoInput" class="profile-camera-badge" title="Change profile photo" id="cameraBadgeLabel">
                         <i class="fa-solid fa-camera" style="font-size: 13px;"></i>
                     </label>
                 </div>
 
-                <!-- User Name & Email -->
+                <!-- User Name, Designation & Email -->
                 <div class="profile-user-name">{{ request.user.full_name|default:request.user.username }}</div>
+                {% if request.user.designation %}
+                <div class="text-primary fw-semibold small mb-1 d-flex align-items-center justify-content-center gap-1" style="font-size: 0.82rem;">
+                    <i class="fa-solid fa-briefcase" style="font-size: 11px;"></i>
+                    <span>{{ request.user.designation }}</span>
+                </div>
+                {% endif %}
                 <div class="profile-user-email">{{ request.user.email }}</div>
 
                 <!-- Action Buttons -->
@@ -519,14 +565,10 @@
                     {% endif %}
 
                     {% if request.user.profile_picture %}
-                    <form method="POST" action="{% url 'profile' %}" id="removePhotoForm" class="m-0" onsubmit="handlePhotoRemove(this);">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="remove_photo">
-                        <button type="submit" class="btn-profile-remove" id="btnRemoveProfilePhoto">
-                            <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
-                            Remove photo
-                        </button>
-                    </form>
+                    <button type="button" class="btn-profile-remove" id="btnRemoveProfilePhoto" onclick="handlePhotoRemove(event);">
+                        <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
+                        <span>Remove photo</span>
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -549,33 +591,49 @@
                 </div>
                 <div class="section-head-sub">Update your profile details and save changes.</div>
 
-                <form method="POST" action="{% url 'profile' %}">
+                <form method="POST" action="{% url 'profile' %}" id="personalInfoForm" data-no-transition="true" data-ajax="true">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="update_profile">
 
-                    <!-- Form Inputs -->
+                    <!-- Form Inputs (Super Clean, Minimalist & User-Friendly) -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="profile-form-label">Full Name</label>
-                            <input type="text" name="full_name" class="form-control profile-custom-input" value="{{ request.user.full_name }}" maxlength="50" required>
+                            <label class="profile-form-label" for="profileFullName">Full Name <span class="text-danger fw-bold">*</span></label>
+                            <input type="text" name="full_name" id="profileFullName" class="form-control profile-custom-input" value="{{ request.user.full_name }}" maxlength="50" placeholder="e.g. Engr. Juan Dela Cruz" required>
+                            <div class="text-danger mt-1 align-items-center gap-1 text-nowrap" id="nameFeedback" style="font-size: 0.73rem; display: none;">
+                                <i class="fa-solid fa-circle-exclamation" style="font-size: 11px;"></i>
+                                <span id="nameFeedbackText">Full Name is required.</span>
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="profile-form-label">Work Email</label>
-                            <input type="email" name="email" class="form-control profile-custom-input" value="{{ request.user.email }}" required>
+                            <label class="profile-form-label" for="profileEmail">Work Email <span class="text-danger fw-bold">*</span></label>
+                            <input type="email" name="email" id="profileEmail" class="form-control profile-custom-input" value="{{ request.user.email }}" placeholder="e.g. juandelacruz@gmail.com" required>
+                            <div class="text-danger mt-1 align-items-center gap-1 text-nowrap" id="emailFeedback" style="font-size: 0.73rem; display: none;">
+                                <i class="fa-solid fa-circle-exclamation" style="font-size: 11px;"></i>
+                                <span id="emailFeedbackText">Invalid email format (e.g. name@gmail.com).</span>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="profile-form-label">Designation / Job Title</label>
+                            {% if request.user.role == 'admin' %}
+                            <input type="text" name="designation" list="lguDesignationList" class="form-control profile-custom-input" value="{{ request.user.designation|default:'' }}" placeholder="e.g. Municipal Engineer, Engineering Office Head">
+                            {% else %}
+                            <input type="text" class="form-control profile-custom-input bg-light opacity-75" value="{{ request.user.designation|default:'Engineering Staff' }}" readonly disabled style="cursor: not-allowed;">
+                            {% endif %}
                         </div>
                     </div>
 
-                    <div class="my-4 border-top" style="border-color: #f1f5f9;"></div>
-
-                    <!-- Readonly User Attributes (3 Distinct Mini Cards) -->
-                    <div class="row g-3 mb-4">
+                    <!-- Readonly User Attributes (3 Distinct Single-Line Mini Cards) -->
+                    <div class="row g-3 mb-2">
                         <div class="col-12 col-md-4">
                             <div class="profile-mini-stat-card">
                                 <div class="profile-meta-label d-flex align-items-center gap-1.5 mb-1.5">
                                     <i class="fa-solid fa-user-shield text-primary" style="font-size: 12px;"></i>
-                                    <span>Role Type</span>
+                                    <span>System Role</span>
                                 </div>
-                                <div class="profile-meta-value">{{ request.user.get_role_display }}</div>
+                                <div class="profile-meta-value text-truncate" title="{% if request.user.role == 'admin' %}Administrator{% else %}Engineering Staff{% endif %}">
+                                    {% if request.user.role == 'admin' %}Administrator{% else %}Staff{% endif %}
+                                </div>
                             </div>
                         </div>
                         <div class="col-12 col-md-4">
@@ -584,7 +642,7 @@
                                     <i class="fa-solid fa-building text-primary" style="font-size: 12px;"></i>
                                     <span>Department</span>
                                 </div>
-                                <div class="profile-meta-value">Engineering</div>
+                                <div class="profile-meta-value text-truncate">Engineering</div>
                             </div>
                         </div>
                         <div class="col-12 col-md-4">
@@ -593,18 +651,16 @@
                                     <i class="fa-solid fa-calendar-days text-primary" style="font-size: 12px;"></i>
                                     <span>Date Joined</span>
                                 </div>
-                                <div class="profile-meta-value">{{ request.user.date_joined|date:"M d, Y" }}</div>
+                                <div class="profile-meta-value text-truncate">{{ request.user.date_joined|date:"M d, Y" }}</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="my-4 border-top" style="border-color: #f1f5f9;"></div>
-
-                    <!-- Action Button -->
-                    <div class="text-center pt-1">
-                        <button type="submit" class="btn-profile-submit">
+                    <!-- Action Button (Centered & Clean) -->
+                    <div class="text-center pt-3 border-top mt-4" style="border-color: #f1f5f9;">
+                        <button type="submit" class="btn-profile-submit" id="btnSaveProfile" disabled>
                             <i class="fa-solid fa-floppy-disk" style="font-size: 14px;"></i>
-                            Save Changes
+                            <span>Save Changes</span>
                         </button>
                     </div>
                 </form>
@@ -659,19 +715,100 @@
         </div>
     </div>
 </div>
+
+<!-- Standard LGU Designation Datalist -->
+<datalist id="lguDesignationList">
+    <option value="Computer Operator / Data Encoder">
+    <option value="Building Inspector">
+    <option value="CAD Operator / Draftsman">
+    <option value="Records Management Officer">
+    <option value="Project / Field Inspector">
+    <option value="Administrative Aide">
+    <option value="Assistant Engineer">
+    <option value="Engineering Assistant">
+</datalist>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+function syncAllUserAvatars(photoUrl, initials) {
+    // Synchronize Left Card, Top-Right Header Pill, Dropdown Card, and Modal
+    const avatarBoxes = [
+        document.querySelector('.profile-avatar-box'),
+        document.querySelector('.header-avatar'),
+        document.querySelector('.user-dropdown-avatar-box'),
+        document.querySelector('.user-profile-header-card .user-dropdown-avatar-box')
+    ];
+
+    avatarBoxes.forEach(box => {
+        if (!box) return;
+        let img = box.querySelector('img');
+        let placeholder = box.querySelector('.profile-avatar-placeholder') || 
+                          box.querySelector('.header-avatar-initials') || 
+                          box.querySelector('.dropdown-avatar-initials') || 
+                          box.querySelector('div');
+
+        if (photoUrl) {
+            // Display Image Avatar
+            if (!img) {
+                img = document.createElement('img');
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                if (box.classList.contains('profile-avatar-box')) {
+                    img.className = 'profile-avatar-img';
+                } else if (box.classList.contains('header-avatar')) {
+                    img.className = 'header-avatar-img w-100 h-100';
+                } else {
+                    img.className = 'dropdown-avatar-img w-100 h-100';
+                }
+                box.insertBefore(img, box.firstChild);
+            }
+            img.src = photoUrl;
+            img.classList.remove('d-none');
+            img.style.display = 'block';
+            if (placeholder) {
+                placeholder.classList.remove('d-flex');
+                placeholder.classList.add('d-none');
+                placeholder.style.display = 'none';
+            }
+        } else {
+            // Display Letter Initials Avatar
+            if (img) {
+                img.classList.add('d-none');
+                img.style.display = 'none';
+                img.src = '';
+            }
+            if (!placeholder) {
+                placeholder = document.createElement('div');
+                placeholder.className = box.classList.contains('profile-avatar-box') 
+                    ? 'profile-avatar-placeholder' 
+                    : 'w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white';
+                placeholder.style.background = '#064e3b';
+                box.appendChild(placeholder);
+            }
+            if (initials) placeholder.textContent = initials;
+            placeholder.classList.remove('d-none');
+            placeholder.classList.add('d-flex');
+            placeholder.style.display = 'flex';
+        }
+    });
+
+    const modalImg = document.querySelector('#viewPhotoModal img');
+    if (modalImg && photoUrl) modalImg.src = photoUrl;
+}
+
 function handlePhotoSelect(input) {
     if (!input.files || !input.files[0]) return;
 
-    // Show loading overlay on avatar
-    const overlay = document.getElementById('avatarLoadingOverlay');
-    if (overlay) overlay.classList.remove('d-none');
+    const file = input.files[0];
+    const previewUrl = URL.createObjectURL(file);
 
-    // Update edit photo button to loading spinner
-    const editBtn = document.getElementById('btnEditProfilePhoto');
+    // 1. Instant local image preview on all avatar circles
+    syncAllUserAvatars(previewUrl);
+
+    // 2. Button displays in-place spinner
+    const editBtn = document.getElementById('btnUploadProfilePhoto') || document.getElementById('btnViewProfilePhoto');
     if (editBtn) {
         editBtn.disabled = true;
         editBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1.5" style="font-size: 13px;"></i> Uploading photo...';
@@ -679,22 +816,330 @@ function handlePhotoSelect(input) {
         editBtn.style.cursor = 'not-allowed';
     }
 
-    // Hide camera badge label
-    const badgeLabel = document.getElementById('cameraBadgeLabel');
-    if (badgeLabel) badgeLabel.style.display = 'none';
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    formData.append('action', 'upload_photo');
+    formData.append('profile_picture', file);
 
-    // Submit form
-    document.getElementById('photoUploadForm').submit();
+    fetch("{% url 'profile' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Update all avatars with server confirmed URL
+            syncAllUserAvatars(data.photo_url);
+
+            // Update button group seamlessly
+            const btnGroup = document.querySelector('.profile-btn-group');
+            if (btnGroup) {
+                btnGroup.innerHTML = `
+                    <button type="button" class="btn-profile-edit" id="btnViewProfilePhoto" data-bs-toggle="modal" data-bs-target="#viewPhotoModal">
+                        <i class="fa-solid fa-eye" style="font-size: 13px;"></i>
+                        View photo
+                    </button>
+                    <button type="button" class="btn-profile-remove" id="btnRemoveProfilePhoto" onclick="handlePhotoRemove(event);">
+                        <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
+                        <span>Remove photo</span>
+                    </button>
+                `;
+            }
+        } else {
+            alert(data.message || 'Upload failed.');
+            if (editBtn) {
+                editBtn.disabled = false;
+                editBtn.innerHTML = '<i class="fa-solid fa-camera" style="font-size: 13px;"></i> Upload photo';
+                editBtn.style.opacity = '1';
+                editBtn.style.cursor = 'pointer';
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Upload photo error:', err);
+    });
 }
 
-function handlePhotoRemove(form) {
+function handlePhotoRemove(e) {
+    if (e && e.preventDefault) e.preventDefault();
     const removeBtn = document.getElementById('btnRemoveProfilePhoto');
     if (removeBtn) {
         removeBtn.disabled = true;
-        removeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1.5" style="font-size: 13px;"></i> Removing...';
+        removeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1.5" style="font-size: 13px;"></i> Removing photo...';
         removeBtn.style.opacity = '0.75';
         removeBtn.style.cursor = 'not-allowed';
     }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    formData.append('action', 'remove_photo');
+
+    fetch("{% url 'profile' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const initialLetter = data.initials || '{{ request.user.full_name|default:request.user.username|slice:":1"|upper }}';
+            
+            // Sync all avatars back to initial letter placeholder
+            syncAllUserAvatars(null, initialLetter);
+
+            // Update button group to show Upload photo
+            const btnGroup = document.querySelector('.profile-btn-group');
+            if (btnGroup) {
+                btnGroup.innerHTML = `
+                    <button type="button" class="btn-profile-edit" id="btnUploadProfilePhoto" onclick="document.getElementById('profilePhotoInput').click();">
+                        <i class="fa-solid fa-camera" style="font-size: 13px;"></i>
+                        Upload photo
+                    </button>
+                `;
+            }
+        } else {
+            alert(data.message || 'Failed to remove photo.');
+            if (removeBtn) {
+                removeBtn.disabled = false;
+                removeBtn.innerHTML = '<i class="fa-solid fa-trash-can" style="font-size: 13px;"></i> <span>Remove photo</span>';
+                removeBtn.style.opacity = '1';
+                removeBtn.style.cursor = 'pointer';
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Remove photo error:', err);
+    });
 }
+
+// ── Real-Time Data Validation & Dirty Form State Detection ──
+document.addEventListener('DOMContentLoaded', function() {
+    const profileForm = document.getElementById('personalInfoForm');
+    if (!profileForm) return;
+
+    const saveBtn = document.getElementById('btnSaveProfile') || profileForm.querySelector('.btn-profile-submit');
+    if (!saveBtn) return;
+
+    const fullNameInput = document.getElementById('profileFullName') || profileForm.querySelector('input[name="full_name"]');
+    const emailInput = document.getElementById('profileEmail') || profileForm.querySelector('input[name="email"]');
+    const designationInput = profileForm.querySelector('input[name="designation"]:not([disabled])');
+    const nameFeedback = document.getElementById('nameFeedback');
+    const emailFeedback = document.getElementById('emailFeedback');
+    const nameFeedbackText = document.getElementById('nameFeedbackText');
+    const emailFeedbackText = document.getElementById('emailFeedbackText');
+
+    if (!fullNameInput || !emailInput) return;
+
+    // Strict Email Regex requiring recognized valid TLDs (e.g. .com, .ph, .gov.ph, .org, .net, .edu)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|mil|ph|gov\.ph|edu\.ph|com\.ph|net\.ph|org\.ph|io|co|info|biz|me)$/i;
+
+    // Capture initial pristine values
+    const initialValues = {
+        full_name: (fullNameInput.value || '').trim(),
+        email: (emailInput.value || '').trim().toLowerCase(),
+        designation: designationInput ? (designationInput.value || '').trim() : ''
+    };
+
+    function validateAndCheckDirty() {
+        const rawFullName = fullNameInput.value || '';
+        const rawEmail = emailInput.value || '';
+        const currentFullName = rawFullName.trim();
+        const currentEmail = rawEmail.trim().toLowerCase();
+        const currentDesignation = designationInput ? (designationInput.value || '').trim() : '';
+
+        // ── 1. Full Name Validation ──
+        let isNameValid = false;
+        if (rawFullName.length > 0 && currentFullName.length === 0) {
+            // Only whitespace entered
+            fullNameInput.style.borderColor = '#ef4444';
+            fullNameInput.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+            if (nameFeedbackText) nameFeedbackText.textContent = 'Full Name is required.';
+            if (nameFeedback) nameFeedback.style.display = 'flex';
+        } else if (currentFullName.length === 0) {
+            // Completely empty
+            fullNameInput.style.borderColor = '#ef4444';
+            fullNameInput.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+            if (nameFeedbackText) nameFeedbackText.textContent = 'Full Name is required.';
+            if (nameFeedback) nameFeedback.style.display = 'flex';
+        } else if (currentFullName.length < 2) {
+            // Too short
+            fullNameInput.style.borderColor = '#ef4444';
+            fullNameInput.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+            if (nameFeedbackText) nameFeedbackText.textContent = 'Name is too short (min. 2 characters).';
+            if (nameFeedback) nameFeedback.style.display = 'flex';
+        } else {
+            // Valid
+            fullNameInput.style.borderColor = '';
+            fullNameInput.style.boxShadow = '';
+            if (nameFeedback) nameFeedback.style.display = 'none';
+            isNameValid = true;
+        }
+
+        // ── 2. Email Validation ──
+        let isEmailValid = false;
+        const emailParts = currentEmail.split('@');
+        const domain = emailParts.length === 2 ? emailParts[1].toLowerCase() : '';
+        const commonTypos = ['gma.com', 'gmai.com', 'gamil.com', 'gmal.com', 'gmaill.com', 'gmail.co', 'yaho.com', 'yahoo.co', 'hotmial.com', 'outlok.com'];
+
+        if (currentEmail.length === 0) {
+            // Empty
+            emailInput.style.borderColor = '#ef4444';
+            emailInput.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+            if (emailFeedbackText) emailFeedbackText.textContent = 'Work Email is required.';
+            if (emailFeedback) emailFeedback.style.display = 'flex';
+        } else if (commonTypos.includes(domain)) {
+            // Common typo domains
+            emailInput.style.borderColor = '#ef4444';
+            emailInput.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+            if (emailFeedbackText) emailFeedbackText.textContent = 'Invalid email domain (e.g. gmail.com).';
+            if (emailFeedback) emailFeedback.style.display = 'flex';
+        } else if (!emailRegex.test(currentEmail) || domain.length < 4 || !domain.includes('.')) {
+            // Malformed email / missing dot / typo / extra string
+            emailInput.style.borderColor = '#ef4444';
+            emailInput.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+            if (emailFeedbackText) emailFeedbackText.textContent = 'Invalid email format (e.g. name@gmail.com).';
+            if (emailFeedback) emailFeedback.style.display = 'flex';
+        } else {
+            // Valid email
+            emailInput.style.borderColor = '';
+            emailInput.style.boxShadow = '';
+            if (emailFeedback) emailFeedback.style.display = 'none';
+            isEmailValid = true;
+        }
+
+        // ── 3. Check Dirty State against Pristine ──
+        const isChanged = (
+            currentFullName !== initialValues.full_name ||
+            currentEmail !== initialValues.email ||
+            (designationInput && currentDesignation !== initialValues.designation)
+        );
+
+        const isFormValid = isNameValid && isEmailValid;
+
+        if (isChanged && isFormValid) {
+            saveBtn.disabled = false;
+            saveBtn.style.pointerEvents = 'auto';
+            saveBtn.style.cursor = 'pointer';
+        } else {
+            saveBtn.disabled = true;
+            saveBtn.style.pointerEvents = 'none';
+            saveBtn.style.cursor = 'not-allowed';
+        }
+    }
+
+    // Default pristine state: Button is disabled until user makes an edit
+    saveBtn.disabled = true;
+    saveBtn.style.pointerEvents = 'none';
+
+    // Attach real-time input change listeners
+    [fullNameInput, emailInput, designationInput].forEach(input => {
+        if (input) {
+            ['input', 'keyup', 'change', 'paste', 'blur'].forEach(evt => {
+                input.addEventListener(evt, validateAndCheckDirty);
+            });
+        }
+    });
+
+    // ── AJAX In-Place Form Submission with Instant UI Synchronization ──
+    profileForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const currentFullName = (fullNameInput.value || '').trim();
+        const currentEmail = (emailInput.value || '').trim().toLowerCase();
+
+        if (currentFullName.length < 2 || !emailRegex.test(currentEmail)) {
+            validateAndCheckDirty();
+            if (currentFullName.length < 2) {
+                fullNameInput.focus();
+            } else {
+                emailInput.focus();
+            }
+            return;
+        }
+
+        // 1. Button loading spinner state
+        saveBtn.disabled = true;
+        saveBtn.style.pointerEvents = 'none';
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1.5" style="font-size: 14px;"></i> Saving changes...';
+
+        const formData = new FormData(profileForm);
+
+        fetch("{% url 'profile' %}", {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (window.hidePageTransition) window.hidePageTransition();
+            if (data.success) {
+                // 2. Update Pristine baseline values
+                initialValues.full_name = data.full_name;
+                initialValues.email = data.email;
+                if (designationInput) initialValues.designation = data.designation;
+
+                // 3. Instantly synchronize Left Profile Card
+                const leftNameEl = document.querySelector('.profile-user-name');
+                if (leftNameEl) leftNameEl.textContent = data.full_name;
+
+                const leftEmailEl = document.querySelector('.profile-user-email');
+                if (leftEmailEl) leftEmailEl.textContent = data.email;
+
+                // 4. Instantly synchronize Header Navbar Top-Right Pill
+                const headerNameEl = document.querySelector('.header-user-profile-btn span.fw-bold');
+                if (headerNameEl) {
+                    headerNameEl.textContent = data.full_name;
+                    headerNameEl.setAttribute('title', data.full_name);
+                }
+
+                // 5. Instantly synchronize Dropdown Card
+                const dropdownNameEl = document.querySelector('.user-profile-header-card .fw-bold');
+                if (dropdownNameEl) {
+                    dropdownNameEl.textContent = data.full_name;
+                    dropdownNameEl.setAttribute('title', data.full_name);
+                }
+
+                const dropdownEmailEl = document.querySelector('.user-profile-header-card .text-muted');
+                if (dropdownEmailEl) {
+                    dropdownEmailEl.textContent = data.email;
+                    dropdownEmailEl.setAttribute('title', data.email);
+                }
+
+                // 6. Update initials on all avatar fallback placeholders if user has no photo
+                const hasPhoto = !!document.querySelector('.profile-avatar-box img[src]:not([style*="display: none"])');
+                if (!hasPhoto && data.initials) {
+                    document.querySelectorAll('.profile-avatar-placeholder, .header-avatar-initials, .dropdown-avatar-initials').forEach(el => {
+                        el.textContent = data.initials;
+                    });
+                }
+
+                // 7. Temporary Success Button feedback
+                saveBtn.innerHTML = '<i class="fa-solid fa-circle-check text-success me-1.5" style="font-size: 14px;"></i> Changes Saved!';
+                setTimeout(() => {
+                    saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="font-size: 14px;"></i> <span>Save Changes</span>';
+                    validateAndCheckDirty();
+                }, 1800);
+            } else {
+                alert(data.message || 'Failed to update profile.');
+                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="font-size: 14px;"></i> <span>Save Changes</span>';
+                validateAndCheckDirty();
+            }
+        })
+        .catch(err => {
+            if (window.hidePageTransition) window.hidePageTransition();
+            console.error('Update profile error:', err);
+            profileForm.submit(); // fallback
+        });
+    });
+});
 </script>
 {% endblock %}

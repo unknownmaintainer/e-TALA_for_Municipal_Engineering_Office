@@ -91,7 +91,7 @@ for item in OFFICIAL_49_CARIGARA_BARANGAYS:
         b.latitude = lat
         b.longitude = lng
         b.save()
-        print(f"  [✓] Updated Barangay: {name} (PSGC: {psgc})")
+        print(f"  [OK] Updated Barangay: {name} (PSGC: {psgc})")
 
 # Purge non-official or dummy barangays that are not in official 49 list (e.g. Wang, Barugo)
 deleted_count = 0

@@ -52,6 +52,7 @@ urlpatterns = [
     path('records/<int:record_id>/restore/', views.record_restore_view, name='restore_record'),
     path('records/<int:record_id>/download-zip/', views.download_record_zip_view, name='download_record_zip'),
     path('records/<int:record_id>/download-category/<int:req_id>/', views.download_category_zip_view, name='download_category_zip'),
+    path('records/export/municipal-zip/', views.download_municipal_zip_view, name='download_municipal_zip'),
     path('records/<int:record_id>/requirement/<int:req_id>/', views.record_requirement_detail_view, name='record_requirement_detail'),
     path('records/<int:record_id>/batch-upload/', views.batch_upload_documents_view, name='batch_upload_documents'),
     path('records/bulk-encoding/', views.bulk_encoding_view, name='bulk_encoding'),
@@ -59,6 +60,7 @@ urlpatterns = [
 
     # Documents
     path('documents/serve/<str:token>/', views.serve_document_view, name='serve_document'),
+    path('documents/serve/<str:token>/<str:filename>', views.serve_document_view, name='serve_document_named'),
     path('records/<int:record_id>/document/upload/', views.document_upload_view, name='upload_document'),
     path('records/<int:record_id>/document/<int:document_id>/delete/', views.document_delete_view, name='delete_document'),
     path('requirements/<int:req_id>/toggle-waive/', views.toggle_requirement_waived_view, name='toggle_requirement_waived'),
@@ -81,6 +83,12 @@ urlpatterns = [
 
     # Legacy redirect
     path('projects/', views.projects_view, name='projects'),
+
+    # Error Page Previews & Diagnostics
+    path('errors/404/', views.page_not_found, name='preview_404'),
+    path('errors/500/', views.server_error, name='preview_500'),
+    path('errors/403/', views.forbidden, name='preview_403'),
+    path('errors/400/', views.bad_request, name='preview_400'),
 
     # REST API & JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

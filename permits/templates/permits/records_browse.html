@@ -3,7 +3,7 @@
 {% load humanize %}
 {% load permit_filters %}
 
-{% block title %}Records Archive · eTala{% endblock %}
+{% block title %}Records Management | eTala{% endblock %}
 
 {% block breadcrumb %}
 <span class="breadcrumb-item active">Records Archive</span>
@@ -20,6 +20,32 @@
     .row-highlight-unresolved { background-color: rgba(254, 226, 226, 0.3) !important; }
     .row-highlight-pending { background-color: rgba(254, 243, 199, 0.3) !important; }
     .row-highlight-resolved { background-color: rgba(220, 252, 231, 0.3) !important; }
+
+    .dark-mode .row-highlight-unresolved,
+    [data-bs-theme="dark"] .row-highlight-unresolved {
+        background-color: rgba(239, 68, 68, 0.12) !important;
+    }
+    .dark-mode .row-highlight-pending,
+    [data-bs-theme="dark"] .row-highlight-pending {
+        background-color: rgba(245, 158, 11, 0.12) !important;
+    }
+    .dark-mode .row-highlight-resolved,
+    [data-bs-theme="dark"] .row-highlight-resolved {
+        background-color: rgba(34, 197, 94, 0.12) !important;
+    }
+
+    .dark-mode .row-highlight-unresolved:hover,
+    [data-bs-theme="dark"] .row-highlight-unresolved:hover {
+        background-color: rgba(239, 68, 68, 0.2) !important;
+    }
+    .dark-mode .row-highlight-pending:hover,
+    [data-bs-theme="dark"] .row-highlight-pending:hover {
+        background-color: rgba(245, 158, 11, 0.2) !important;
+    }
+    .dark-mode .row-highlight-resolved:hover,
+    [data-bs-theme="dark"] .row-highlight-resolved:hover {
+        background-color: rgba(34, 197, 94, 0.2) !important;
+    }
 
     .data-table {
         width: 100% !important;
@@ -97,6 +123,14 @@
     .data-table .barangay-table-link,
     .data-table .barangay-name-text,
     .data-table .badge {
+    .data-table .tag,
+    .data-table .tag-permit,
+    .data-table .tag-municipal,
+    .data-table .tag-project,
+    .data-table .tag-barangay,
+    .data-table .barangay-table-link,
+    .data-table .barangay-name-text,
+    .data-table .badge {
         display: inline-block !important;
         white-space: nowrap !important;
         overflow: hidden !important;
@@ -129,88 +163,79 @@
     {% endif %}
 </div>
 
-<!-- ══ CATEGORY TABS (Horizontal scroll) ═════════════════════════════ -->
-<div class="filter-tabs mb-3">
-    <a href="?{% if selected_scope %}scope={{ selected_scope }}{% endif %}"
-        class="filter-tab {% if not selected_record_type %}active{% endif %}">
-        All <span
-            class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
-    </a>
-    <a href="?record_type=Project&project_scope=Municipal{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
-        class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">
-        Municipal <span
-            class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">{{ municipal_count }}</span>
-    </a>
-    <a href="?record_type=Project&project_scope=Barangay{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
-        class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">
-        Barangay <span
-            class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">{{ barangay_count }}</span>
-    </a>
-    <a href="?record_type=Permit{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
-        class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}">
-        Permits <span
-            class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
-    </a>
-</div>
-
 <form method="GET" action="{% url 'records_browse' %}" id="filterForm">
     <input type="hidden" name="record_type" value="{{ selected_record_type }}">
     <input type="hidden" name="project_scope" value="{{ selected_project_scope }}">
     <input type="hidden" name="scope" value="{{ selected_scope }}">
     <input type="hidden" name="illegal" value="{{ selected_illegal }}">
 
-    <!-- ══ ONE-LINE ACTION & FILTER BAR ══════════════════════════════════ -->
-    <div class="records-filter-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3">
-        <!-- Left Group: Integrated Search & Filter Pill -->
-        <div class="d-flex align-items-center flex-grow-1" style="max-width: 420px; min-width: 240px;">
-            <div class="etala-search-pill-wrapper">
+    <!-- ══ UNIFIED COMPACT 1-LINE TOOLBAR (Tabs Left, Compact Search Right) ══ -->
+    <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
+        style="border-bottom: 1px solid var(--border-default, rgba(255,255,255,0.08)); max-width: 100%; box-sizing: border-box;">
+        
+        <!-- Left: Category Tabs -->
+        <div class="filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
+            style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 0 1 auto; min-width: 0; overflow-x: auto;">
+            <a href="?{% if selected_scope %}scope={{ selected_scope }}{% endif %}"
+                class="filter-tab {% if not selected_record_type %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                All Types <span
+                    class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
+            </a>
+            <a href="?record_type=Project&project_scope=Municipal{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
+                class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                Municipal <span
+                    class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Municipal' %}active{% endif %}">{{ municipal_count }}</span>
+            </a>
+            <a href="?record_type=Project&project_scope=Barangay{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
+                class="filter-tab {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                Barangay <span
+                    class="tab-count {% if selected_record_type == 'Project' and selected_project_scope == 'Barangay' %}active{% endif %}">{{ barangay_count }}</span>
+            </a>
+            <a href="?record_type=Permit{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
+                class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+                Permits <span
+                    class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_count }}</span>
+            </a>
+        </div>
+
+        <!-- Right: Compact Search Pill (Contained, no overflow) -->
+        <div class="d-flex align-items-center ms-auto" style="flex: 0 0 240px; width: 240px; max-width: 240px;">
+            <div class="etala-search-pill-wrapper w-100" style="height: 34px; padding: 0 10px; gap: 6px;">
                 <button type="submit"
                     class="etala-search-pill-icon search-btn-icon"
                     style="cursor: pointer;" title="Search records">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
                 </button>
                 <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                    placeholder="Search records, owner, year..." value="{{ q|default:'' }}" autocomplete="off">
+                    placeholder="Search records..." value="{{ q|default:'' }}" autocomplete="off"
+                    style="font-size: 0.78rem;">
 
                 <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                    style="width: 13px; height: 13px;">
+                    style="width: 12px; height: 12px;">
                     <span class="visually-hidden">Searching...</span>
                 </div>
 
                 {% if q %}
-                <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}"
+                <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if selected_illegal %}&illegal={{ selected_illegal }}{% endif %}"
                     class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon"
                     style="background: transparent;" title="Clear search">
-                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                    <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
                 </a>
                 {% endif %}
 
-                <span class="etala-search-pill-divider"></span>
+                <span class="etala-search-pill-divider" style="height: 14px;"></span>
 
                 <!-- Integrated Filter Icon Button -->
                 <button class="etala-search-pill-filter-btn"
-                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
-                    <i class="fa-solid fa-sliders"></i>
+                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters"
+                    style="padding: 2px;">
+                    <i class="fa-solid fa-sliders" style="font-size: 12px;"></i>
                 </button>
             </div>
-        </div>
-
-        <!-- Right Side: Scope Toggle ("My Records" vs "All Records") -->
-        <div class="scope-segmented-control flex-shrink-0 ms-auto">
-            <a href="?{% param_replace scope='my' page=1 %}"
-                class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}"
-                title="Show records created by you">
-                <i class="fa-solid fa-user"></i>
-                <span>My Records</span>
-                <span class="scope-count-badge">{{ my_scope_count }}</span>
-            </a>
-            <a href="?{% param_replace scope='all' page=1 %}"
-                class="scope-pill-btn {% if selected_scope == 'all' or not selected_scope %}active{% endif %}"
-                title="Show all municipal records">
-                <i class="fa-solid fa-layer-group"></i>
-                <span>All Records</span>
-                <span class="scope-count-badge">{{ all_scope_count }}</span>
-            </a>
         </div>
     </div>
 
@@ -377,15 +402,15 @@
             {% endif %}
         </div>
     </div>
-</form>
 
 
 <!-- ══ DATA TABLE ════════════════════════════════════════════════════════ -->
 <div class="content-card" id="recordsTableCard"
-    style="height: auto !important; min-height: 220px !important; overflow: visible !important;">
-    <div class="card-body p-0" style="overflow: visible !important;">
+    style="min-height: 420px !important; display: flex; flex-direction: column; justify-content: space-between; overflow: visible !important;">
+    <div class="card-body p-0 d-flex flex-column justify-content-between flex-grow-1" style="overflow: visible !important;">
+        {% if page_obj %}
         <!-- Desktop Table View -->
-        <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important;">
+        <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important; flex: 1 0 auto;">
             <table class="data-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
@@ -399,17 +424,21 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% if page_obj %}
                     {% for r in page_obj %}
                     <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer;">
                         <td>
-                            <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap"
-                                title="{% if r.record_type == 'Permit' %}{{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}{% else %}{{ r.title }}{% endif %}">
+                            <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
                                 <span>
                                     {% if r.record_type == 'Permit' %}
-                                    {{ r.specific_type_label }}{% if r.permit_detail.permit_number %} (#{{ r.permit_detail.permit_number }}){% endif %}
+                                        {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                            {{ r.permit_detail.applicant_name }}
+                                        {% elif r.title and r.title != 'Permit' %}
+                                            {{ r.title }}
+                                        {% else %}
+                                            {{ r.specific_type_label }}
+                                        {% endif %}
                                     {% else %}
-                                    {{ r.title }}
+                                        {{ r.title }}
                                     {% endif %}
                                 </span>
                                 {% if r.is_illegal_construction %}
@@ -421,10 +450,14 @@
                                 {% endif %}
                             </div>
                             <div class="cell-subtitle">
-                                {% if r.record_type == 'Permit' and r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
-                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if r.is_illegal_construction and r.illegal_compliance_status != 'resolved' %}Property Owner{% else %}Applicant{% endif %}: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                {% if r.record_type == 'Permit' %}
+                                    {% if r.permit_detail and r.permit_detail.permit_number %}
+                                    <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
+                                    {% else %}
+                                    <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1" style="font-size: 11px;"></i>Pending Permit Issuance</div>
+                                    {% endif %}
                                 {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
-                                <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>
+                                    <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>
                                 {% endif %}
                                 <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
                             </div>
@@ -504,10 +537,12 @@
                                     onclick="event.stopPropagation();">
                                     <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                             href="{% url 'record_detail' r.record_id %}"><i class="fa-solid fa-eye" style="font-size: 13px; flex-shrink: 0;"></i> <span>View Details</span></a></li>
-                                    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                     {% if r.status != 'archived' %}
+                                    {% if request.user.role == 'admin' or r.created_by == request.user %}
                                     <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                             href="{% url 'edit_record' r.record_id %}"><i class="fa-solid fa-pen-to-square" style="font-size: 13px; flex-shrink: 0;"></i> <span>Edit Record</span></a></li>
+                                    {% endif %}
+                                    {% if request.user.role == 'admin' or r.created_by == request.user %}
                                     <li>
                                         <hr class="dropdown-divider my-1">
                                     </li>
@@ -525,33 +560,12 @@
                     </tr>
 
                     {% endfor %}
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="p-4 text-center">
-                            <div class="empty-state-card text-center mx-auto">
-                                <div class="empty-state-icon-wrapper mb-3">
-                                    <i class="fa-solid fa-folder-open" style="font-size: 26px; color: #94a3b8;"></i>
-                                </div>
-                                <h3 class="fw-bold mb-2 text-dark" style="font-size: 0.95rem; text-wrap: balance;">No matching records found</h3>
-                                <p class="text-muted small mx-auto mb-3" style="max-width: 480px; line-height: 1.55; text-wrap: balance; font-size: 0.82rem;">
-                                    We couldn't find any engineering records matching your search or filters. Try adjusting your query or resetting filters.
-                                </p>
-                                <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}"
-                                    class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2 px-3 py-1.5"
-                                    style="text-decoration:none; border-radius: 8px;">
-                                    <i class="fa-solid fa-rotate-left" style="font-size: 12px;"></i> Clear all filters
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endif %}
                 </tbody>
             </table>
         </div>
 
         <!-- Mobile Card List View -->
         <div class="d-block d-md-none">
-            {% if page_obj %}
             <div class="d-flex flex-column gap-0">
                 {% for r in page_obj %}
                 <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item">
@@ -560,7 +574,13 @@
                         <i class="{% if r.record_type == 'Permit' %}fa-solid fa-file-shield{% elif r.project_scope == 'Municipal' %}fa-solid fa-landmark{% else %}fa-solid fa-location-dot{% endif %}"></i>
                     </div>
                     <div class="flex-grow-1 min-w-0">
-                        <div class="mobile-record-title">{{ r.title }}</div>
+                        <div class="mobile-record-title">
+                            {% if r.record_type == 'Permit' and r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                {{ r.permit_detail.applicant_name }}
+                            {% else %}
+                                {{ r.title }}
+                            {% endif %}
+                        </div>
                         <div class="mobile-record-meta d-flex align-items-center flex-wrap gap-1.5 mt-0.5">
                             <span>{{ r.barangay.barangay_name|default:"—" }} · {{ r.year|default:"—" }}</span>
                             {% with stats=r.completion_stats %}
@@ -580,35 +600,13 @@
                 </a>
                 {% endfor %}
             </div>
-            {% else %}
-            <div class="p-3">
-                <div class="empty-state-card">
-                    <div class="empty-state-icon-wrapper">
-                        <i class="fa-solid fa-folder-open" style="font-size: 32px; color: #94a3b8;"></i>
-                    </div>
-                    <h3 class="h6 fw-bold mb-1">No matching records found</h3>
-                    <p class="text-muted small mx-auto mb-4" style="max-width: 360px;">
-                        We couldn't find any engineering records matching your search or filters. Try adjusting your
-                        query or resetting filters.
-                    </p>
-                    <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}"
-                        class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-2"
-                        style="text-decoration:none;">
-                        <i class="fa-solid fa-rotate-left" style="font-size: 13px;"></i> Clear all filters
-                    </a>
-                </div>
-            </div>
-            {% endif %}
         </div>
 
+        <!-- Pagination Bar -->
         <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex align-items-center gap-3">
                 <span class="pagination-info m-0">
-                    {% if page_obj.paginator.count > 0 %}
                     Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count|intcomma }}</strong> records
-                    {% else %}
-                    Showing 0–0 of 0 records
-                    {% endif %}
                 </span>
                 <div class="per-page-select">
                     <span>Show:</span>
@@ -677,8 +675,50 @@
                 {% endif %}
             </div>
         </div>
+
+        {% else %}
+        <!-- Standardized Full Unified Empty State -->
+        <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 380px;">
+            <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle"
+                style="width: 64px; height: 64px; background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+                {% if q or selected_status or selected_barangay or selected_year %}
+                <i class="fa-solid fa-magnifying-glass" style="font-size: 26px;"></i>
+                {% else %}
+                <i class="fa-solid fa-folder-open" style="font-size: 26px;"></i>
+                {% endif %}
+            </div>
+            <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size: 1.05rem;">
+                {% if q or selected_status or selected_barangay or selected_year %}
+                No matching records found
+                {% else %}
+                No records encoded yet
+                {% endif %}
+            </h5>
+            <p class="text-muted small mb-4" style="font-size: 0.84rem; max-width: 440px; line-height: 1.55;">
+                {% if q or selected_status or selected_barangay or selected_year %}
+                We couldn't find any engineering records matching your search or filters. Try adjusting your query or resetting filters.
+                {% else %}
+                There are currently no engineering records in this archive. Start by encoding the first record.
+                {% endif %}
+            </p>
+            {% if q or selected_status or selected_barangay or selected_year %}
+            <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}"
+                class="premium-btn btn-view text-decoration-none" style="border-radius: 8px; font-size: 0.82rem; padding: 6px 16px;">
+                <i class="fa-solid fa-rotate-left me-1.5" style="font-size: 11px;"></i>
+                <span>Clear all filters</span>
+            </a>
+            {% elif request.user.role == 'staff' or request.user.role == 'admin' %}
+            <a href="{% url 'create_step1' %}" class="premium-btn btn-add text-decoration-none">
+                <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
+                <span class="btn-divider"></span>
+                <span>Encode First Record</span>
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
-    {% endblock %}
+</div>
+{% endblock %}
 
     {% block extra_js %}
     <script>
@@ -958,7 +998,7 @@
                     message: "Are you sure you want to move '" + recordTitle + "' to Trash? It can be restored later at any time.",
                     confirmText: 'Yes, Move to Trash',
                     cancelText: 'No, Keep It.',
-                    confirmClass: 'action-btn-warning',
+                    confirmClass: 'action-btn-danger',
                     iconClass: 'fa-solid fa-box-archive',
                     onConfirm: function () {
                         window.location.href = archiveUrl;

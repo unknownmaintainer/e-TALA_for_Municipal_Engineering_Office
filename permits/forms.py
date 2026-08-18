@@ -10,6 +10,7 @@ class UserCreationForm(forms.Form):
     email = forms.EmailField()
     full_name = forms.CharField(max_length=255)
     role = forms.ChoiceField(choices=CustomUser.ROLE_CHOICES, initial='staff')
+    designation = forms.CharField(max_length=150, required=False)
     password = forms.CharField(widget=forms.PasswordInput)
 
     def clean_email(self):
@@ -20,6 +21,9 @@ class UserCreationForm(forms.Form):
 
     def clean_full_name(self):
         return sanitize_input(self.cleaned_data.get('full_name', '')).strip()
+
+    def clean_designation(self):
+        return sanitize_input(self.cleaned_data.get('designation', '')).strip()
 
     def clean_password(self):
         password = self.cleaned_data.get('password', '')
@@ -34,6 +38,7 @@ class UserEditForm(forms.Form):
     email = forms.EmailField()
     full_name = forms.CharField(max_length=255)
     role = forms.ChoiceField(choices=CustomUser.ROLE_CHOICES, initial='staff')
+    designation = forms.CharField(max_length=150, required=False)
 
     def clean_email(self):
         email = sanitize_input(self.cleaned_data.get('email', '')).strip().lower()
@@ -44,6 +49,9 @@ class UserEditForm(forms.Form):
 
     def clean_full_name(self):
         return sanitize_input(self.cleaned_data.get('full_name', '')).strip()
+
+    def clean_designation(self):
+        return sanitize_input(self.cleaned_data.get('designation', '')).strip()
 
 
 class FlagIllegalConstructionForm(forms.Form):
