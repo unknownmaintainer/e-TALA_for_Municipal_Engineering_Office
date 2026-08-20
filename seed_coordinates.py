@@ -97,8 +97,8 @@ for item in OFFICIAL_49_CARIGARA_BARANGAYS:
 deleted_count = 0
 for b in Barangay.objects.all():
     name_clean = b.barangay_name.lower()
-    is_valid = any(name_clean == item["name"].lower() or name_clean == item["name"].replace(" (Poblacion)", "").lower() for item in OFFICIAL_49_CARIGARA_BARANGAYS)
-    if not is_valid and b.engineering_records.count() == 0 and b.records.count() == 0:
+    has_records = (hasattr(b, 'engineering_records') and b.engineering_records.exists()) or (hasattr(b, 'records') and b.records.exists())
+    if not is_valid and not has_records:
         print(f"  [-] Removing non-official Barangay: {b.barangay_name}")
         b.delete()
         deleted_count += 1
