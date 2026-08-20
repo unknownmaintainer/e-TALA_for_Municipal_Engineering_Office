@@ -121,7 +121,13 @@
                                     </td>
                                     <td>
                                         {% if sub_req.is_fulfilled %}
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.72rem;">✓ Uploaded</span>
+                                            {% if sub_req.document and sub_req.document.expiry_date and sub_req.document.expiry_date < today %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-exclamation me-1"></i>Expired last {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
+                                            {% elif sub_req.document and sub_req.document.expiry_date and sub_req.document.expiry_date <= thirty_days_later %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" style="font-size: 0.72rem;"><i class="fa-regular fa-clock me-1"></i>Expires {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
+                                            {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.72rem;">✓ Uploaded</span>
+                                            {% endif %}
                                         {% elif sub_req.is_waived %}
                                         <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.72rem;">N/A</span>
                                         {% else %}
@@ -139,9 +145,52 @@
                                     </td>
                                     <td class="text-end pe-3">
                                         {% if sub_req.is_fulfilled and sub_req.document %}
-                                        <a href="{{ doc_url_map|dict_get:sub_req.document.document_id }}" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2.5 fw-semibold" style="font-size: 0.76rem; border-radius: 5px;">
-                                            <i class="fa-solid fa-eye me-1"></i> View
-                                        </a>
+                                        <div class="dropdown d-inline-block" onclick="event.stopPropagation();">
+                                            <button type="button" class="checklist-kebab-btn" data-bs-toggle="dropdown"
+                                                aria-expanded="false" data-bs-auto-close="true"
+                                                onclick="event.stopPropagation();" title="Document Actions">
+                                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
+                                                style="min-width: 185px; font-size: 0.81rem; border-radius: 12px; padding: 6px; z-index: 99999;"
+                                                onclick="event.stopPropagation();">
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                        href="{{ doc_url_map|dict_get:sub_req.document.document_id }}" target="_blank">
+                                                        <i class="fa-solid fa-eye text-primary" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>Preview Document</span>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                        href="{{ doc_url_map|dict_get:sub_req.document.document_id }}" download>
+                                                        <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>Download File</span>
+                                                    </a>
+                                                </li>
+                                                {% if can_edit and record.status != 'archived' %}
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                        href="javascript:void(0)"
+                                                        onclick="openUploadModal('{{ sub_req.requirement_item.item_id }}', '{{ sub_req.requirement_item.name|escapejs }}')">
+                                                        <i class="fa-solid fa-arrows-rotate text-success" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>{% if sub_req.document.expiry_date and sub_req.document.expiry_date < today %}Renew / Replace{% else %}Update / Replace{% endif %}</span>
+                                                    </a>
+                                                </li>
+                                                <li><hr class="dropdown-divider my-1"></li>
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap"
+                                                        href="javascript:void(0)"
+                                                        data-url="{% url 'delete_document' record.record_id sub_req.document.document_id %}"
+                                                        data-name="{{ sub_req.document.file_name }}"
+                                                        onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)">
+                                                        <i class="fa-solid fa-trash-can" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>Delete File</span>
+                                                    </a>
+                                                </li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
                                         {% elif can_edit and record.status != 'archived' %}
                                         <button type="button" class="btn btn-sm text-white fw-semibold py-1 px-2.5" style="background: #002855; border-radius: 5px; font-size: 0.76rem;" onclick="openUploadModal('{{ sub_req.requirement_item.item_id }}', '{{ sub_req.requirement_item.name|escapejs }}')">
                                             <i class="fa-solid fa-upload me-1"></i> Upload
@@ -164,7 +213,13 @@
                                     </td>
                                     <td>
                                         {% if req.is_fulfilled %}
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.72rem;">✓ Uploaded</span>
+                                            {% if req.document and req.document.expiry_date and req.document.expiry_date < today %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-exclamation me-1"></i>Expired last {{ req.document.expiry_date|date:"M d, Y" }}</span>
+                                            {% elif req.document and req.document.expiry_date and req.document.expiry_date <= thirty_days_later %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" style="font-size: 0.72rem;"><i class="fa-regular fa-clock me-1"></i>Expires {{ req.document.expiry_date|date:"M d, Y" }}</span>
+                                            {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.72rem;">✓ Uploaded</span>
+                                            {% endif %}
                                         {% elif req.is_waived %}
                                         <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.72rem;">N/A</span>
                                         {% else %}
@@ -182,9 +237,52 @@
                                     </td>
                                     <td class="text-end pe-3">
                                         {% if req.is_fulfilled and req.document %}
-                                        <a href="{{ doc_url_map|dict_get:req.document.document_id }}" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-2.5 fw-semibold" style="font-size: 0.76rem; border-radius: 5px;">
-                                            <i class="fa-solid fa-eye me-1"></i> View
-                                        </a>
+                                        <div class="dropdown d-inline-block" onclick="event.stopPropagation();">
+                                            <button type="button" class="checklist-kebab-btn" data-bs-toggle="dropdown"
+                                                aria-expanded="false" data-bs-auto-close="true"
+                                                onclick="event.stopPropagation();" title="Document Actions">
+                                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
+                                                style="min-width: 185px; font-size: 0.81rem; border-radius: 12px; padding: 6px; z-index: 99999;"
+                                                onclick="event.stopPropagation();">
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                        href="{{ doc_url_map|dict_get:req.document.document_id }}" target="_blank">
+                                                        <i class="fa-solid fa-eye text-primary" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>Preview Document</span>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                        href="{{ doc_url_map|dict_get:req.document.document_id }}" download>
+                                                        <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>Download File</span>
+                                                    </a>
+                                                </li>
+                                                {% if can_edit and record.status != 'archived' %}
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                                        href="javascript:void(0)"
+                                                        onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')">
+                                                        <i class="fa-solid fa-arrows-rotate text-success" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>{% if req.document.expiry_date and req.document.expiry_date < today %}Renew / Replace{% else %}Update / Replace{% endif %}</span>
+                                                    </a>
+                                                </li>
+                                                <li><hr class="dropdown-divider my-1"></li>
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap"
+                                                        href="javascript:void(0)"
+                                                        data-url="{% url 'delete_document' record.record_id req.document.document_id %}"
+                                                        data-name="{{ req.document.file_name }}"
+                                                        onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)">
+                                                        <i class="fa-solid fa-trash-can" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>Delete File</span>
+                                                    </a>
+                                                </li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
                                         {% elif can_edit and record.status != 'archived' %}
                                         <button type="button" class="btn btn-sm text-white fw-semibold py-1 px-2.5" style="background: #002855; border-radius: 5px; font-size: 0.76rem;" onclick="openUploadModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|escapejs }}')">
                                             <i class="fa-solid fa-upload me-1"></i> Upload
@@ -229,7 +327,7 @@
                         </div>
                         <div class="d-flex align-items-center justify-content-between py-1">
                             <span class="text-muted" style="font-size: 0.8rem;">Status</span>
-                            <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.75rem;">{{ record.get_status_display }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary border" style="font-size: 0.75rem;">{{ record.status_label }}</span>
                         </div>
                     </div>
 
@@ -285,9 +383,9 @@
 
                     <!-- Progressive Selected File & Validity Section -->
                     <div id="singleFileSelectedContainer" class="d-none">
-                        <div class="p-2.5 px-3 selected-file-preview-card border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs" style="background: #f8fafc; border-color: #e2e8f0 !important;">
+                        <div class="p-2.5 px-3 selected-file-preview-card border rounded-3 d-flex align-items-center justify-content-between gap-3 shadow-2xs">
                             <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
-                                <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                                <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 selected-file-icon-box" style="width: 32px; height: 32px;">
                                     <i class="fa-solid fa-file-pdf text-danger" id="singleFileIcon" style="font-size: 15px;"></i>
                                 </div>
                                 <div class="min-w-0 flex-grow-1">
@@ -295,12 +393,12 @@
                                     <div class="text-muted" id="singleSelectedFileSizeBadge" style="font-size: 0.72rem; font-weight: 500;"></div>
                                 </div>
                             </div>
-                            <div class="d-flex align-items-center gap-2.5 flex-shrink-0">
-                                <span class="text-success fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.74rem;">
-                                    <i class="fa-solid fa-check"></i>
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                <span class="upload-ready-badge d-inline-flex align-items-center gap-1 px-2 py-0.5 rounded-2 fw-semibold" style="font-size: 0.72rem;">
+                                    <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i>
                                     <span>Ready</span>
                                 </span>
-                                <button type="button" class="btn btn-sm text-muted p-0 border-0 d-inline-flex align-items-center justify-content-center" style="width: 22px; height: 22px; background: transparent; transition: color 0.15s ease;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#64748b'" onclick="clearSingleSelectedFile()" title="Change file">
+                                <button type="button" class="btn btn-sm p-0 border-0 d-inline-flex align-items-center justify-content-center selected-file-remove-btn" style="width: 24px; height: 24px; background: transparent;" onclick="clearSingleSelectedFile()" title="Change file">
                                     <i class="fa-solid fa-xmark" style="font-size: 14px;"></i>
                                 </button>
                             </div>

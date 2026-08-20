@@ -66,7 +66,7 @@
                             <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
                         </button>
                         <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                            placeholder="{% if active_log_tab == 'login' %}Search email, IP...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.78rem;">
+                            placeholder="{% if active_log_tab == 'login' %}Search email or account...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.78rem;">
 
                         <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
                             style="width: 12px; height: 12px; margin-right: 4px; flex-shrink: 0;">
@@ -160,6 +160,7 @@
                                 <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>All Attempts</option>
                                 <option value="success" {% if status_filter == 'success' %}selected{% endif %}>Successful Logins</option>
                                 <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed Attempts</option>
+                                <option value="blocked" {% if status_filter == 'blocked' %}selected{% endif %}>Blocked Devices &amp; Locked Accounts</option>
                             </select>
                         </div>
                     </div>
@@ -173,14 +174,17 @@
             <div id="log-tab-content-audit" class="tab-pane-custom {% if active_log_tab == 'login' %}d-none{% endif %}">
             {% if log_page_obj %}
                 <div class="table-responsive table-responsive-cards mb-4">
-                    <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
+                    <table class="data-table table-card-responsive mb-0" style="width: 100%;">
                         <thead>
                             <tr>
                                 {% if request.user.role == 'admin' %}
-                                <th style="width: 220px;">STAFF MEMBER</th>
+                                <th style="width: 32%; min-width: 190px;">STAFF MEMBER</th>
+                                <th style="width: 48%;">ACTION &amp; EVENT DETAILS</th>
+                                <th style="width: 20%; min-width: 130px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                {% else %}
+                                <th style="width: 78%;">ACTION &amp; EVENT DETAILS</th>
+                                <th style="width: 22%; min-width: 130px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
                                 {% endif %}
-                                <th style="width: auto;">ACTION &amp; EVENT DETAILS</th>
-                                <th style="width: 160px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -351,9 +355,10 @@
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="width: 50%;">STAFF / ACCOUNT ATTEMPTED</th>
-                                <th style="width: 25%;">LOGIN STATUS</th>
-                                <th style="width: 25%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th style="width: 48%;">STAFF / ACCOUNT ATTEMPTED</th>
+                                <th style="width: 26%;">LOGIN STATUS</th>
+                                <th style="width: 21%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th class="text-end" style="width: 5%; min-width: 44px; padding-right: 14px;"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -363,31 +368,47 @@
                                     <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
                                         {% if attempt.success %}
                                         <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.25); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
-                                            {{ attempt.email_attempted|slice:":1"|upper }}
+                                            {{ attempt.display_name|slice:":1"|upper }}
                                         </div>
                                         {% else %}
                                         <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
-                                            {{ attempt.email_attempted|slice:":1"|upper }}
+                                            {{ attempt.display_name|slice:":1"|upper }}
                                         </div>
                                         {% endif %}
                                         <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold title-text-adaptive" style="font-size: 0.85rem; line-height: 1.25; word-break: break-all;">
-                                                {{ attempt.email_attempted }}
+                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
+                                                {{ attempt.display_name }}
                                             </div>
                                             <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
-                                                {% if attempt.success %}Authorized Staff Account{% else %}Unregistered / External Account{% endif %}
+                                                {% if attempt.is_registered_staff %}
+                                                <span>{{ attempt.display_email }}</span> &bull; <span>{{ attempt.display_role }}</span>
+                                                {% else %}
+                                                <span class="text-danger-emphasis">Unregistered / External Attempt</span>
+                                                {% endif %}
                                             </div>
                                         </div>
                                     </div>
                                 </td>
                                 <td data-label="Status" style="vertical-align: middle;">
-                                    {% if attempt.success %}
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1" style="font-size: 0.74rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
-                                            <i class="fa-solid fa-circle-check" style="font-size: 11px;"></i> Successful Login
+                                    {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
+                                        <span class="text-danger fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
+                                            <i class="fa-solid fa-shield-halved" style="font-size: 13px;"></i>
+                                            <span>Blocked Device</span>
+                                        </span>
+                                    {% elif not attempt.is_active_staff and attempt.is_registered_staff %}
+                                        <span class="text-warning-emphasis fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
+                                            <i class="fa-solid fa-user-lock" style="font-size: 13px;"></i>
+                                            <span>Account Locked</span>
+                                        </span>
+                                    {% elif attempt.success %}
+                                        <span class="text-success fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
+                                            <i class="fa-solid fa-circle-check" style="font-size: 13px;"></i>
+                                            <span>Successful Login</span>
                                         </span>
                                     {% else %}
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1" style="font-size: 0.74rem; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
-                                            <i class="fa-solid fa-circle-xmark" style="font-size: 11px;"></i> Failed Attempt
+                                        <span class="text-danger fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
+                                            <i class="fa-solid fa-circle-xmark" style="font-size: 13px;"></i>
+                                            <span>Failed Attempt</span>
                                         </span>
                                     {% endif %}
                                 </td>
@@ -397,6 +418,85 @@
                                     </div>
                                     <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                         {{ attempt.timestamp|date:"M d, Y" }}
+                                    </div>
+                                </td>
+                                <td class="text-end pe-3 action-menu-cell" style="width: 55px; vertical-align: middle;" onclick="event.stopPropagation();">
+                                    <div class="dropdown" onclick="event.stopPropagation();">
+                                        <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
+                                            data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" data-bs-auto-close="true"
+                                            onclick="event.stopPropagation();" title="Actions">
+                                            <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
+                                            style="min-width: 200px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;"
+                                            onclick="event.stopPropagation();">
+                                            {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
+                                            <li>
+                                                <form method="POST" action="{% url 'activity_logs' %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="unblock_ip">
+                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-success">
+                                                        <i class="fa-solid fa-shield-check text-success" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                        <span>Unblock Device</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% elif attempt.ip_address %}
+                                            <li>
+                                                <form method="POST" action="{% url 'activity_logs' %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="block_ip">
+                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-danger">
+                                                        <i class="fa-solid fa-shield-halved text-danger" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                        <span>Block Device Access</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% endif %}
+
+                                            {% if attempt.is_registered_staff %}
+                                            {% if attempt.is_active_staff and attempt.display_email|lower != request.user.email|lower and attempt.display_name|lower != request.user.username|lower %}
+                                            <li>
+                                                <form method="POST" action="{% url 'activity_logs' %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="block_email">
+                                                    <input type="hidden" name="email" value="{{ attempt.display_email }}">
+                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address|default:'' }}">
+                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-warning">
+                                                        <i class="fa-solid fa-user-lock text-warning" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                        <span>Lock Account</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% elif not attempt.is_active_staff %}
+                                            <li>
+                                                <form method="POST" action="{% url 'activity_logs' %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="unblock_email">
+                                                    <input type="hidden" name="email" value="{{ attempt.display_email }}">
+                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address|default:'' }}">
+                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-success">
+                                                        <i class="fa-solid fa-user-check text-success" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                        <span>Unlock Account</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% endif %}
+                                            {% endif %}
+
+                                            {% if attempt.display_email %}
+                                            <li><hr class="dropdown-divider my-1"></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-muted"
+                                                    onclick="copyAccountIdentifier('{{ attempt.display_email|escapejs }}');">
+                                                    <i class="fa-regular fa-copy text-muted" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                    <span>Copy Email</span>
+                                                </button>
+                                            </li>
+                                            {% endif %}
+                                        </ul>
                                     </div>
                                 </td>
                             </tr>
@@ -480,23 +580,30 @@
                     </div>
                 </div>
             {% else %}
-                <div class="text-center py-5 px-3 my-3 border rounded-3 bg-white" style="border-color: var(--border-default) !important; border-radius: 12px !important;">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-light text-secondary rounded-circle mb-3" style="width: 54px; height: 54px;">
-                        <i class="fa-solid fa-shield-halved" style="font-size: 20px; opacity: 0.6;"></i>
+                <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 280px;">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle" style="width: 56px; height: 56px; background: {% if status_filter == 'blocked' %}rgba(34, 197, 94, 0.12); color: #16a34a;{% else %}rgba(2, 132, 199, 0.12); color: #0284c7;{% endif %}">
+                        <i class="fa-solid {% if status_filter == 'blocked' %}fa-shield-check{% else %}fa-shield-halved{% endif %}" style="font-size: 22px;"></i>
                     </div>
-                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">No matching login records</h6>
+                    <h6 class="fw-bold title-text-adaptive mb-1" style="font-size: 0.95rem;">
+                        {% if status_filter == 'blocked' %}
+                        No Blocked Devices or Restricted Accounts
+                        {% else %}
+                        No matching login records
+                        {% endif %}
+                    </h6>
                     <p class="text-muted mb-3" style="font-size: 0.82rem; max-width: 400px; margin: 0 auto;">
-                        {% if query %}
+                        {% if status_filter == 'blocked' %}
+                        All staff accounts and connected devices are currently authorized with active access.
+                        {% elif query %}
                         No login history matches your search for <strong>"{{ query }}"</strong>.
                         {% else %}
                         No authentication attempts match the selected filter criteria.
                         {% endif %}
                     </p>
-                    {% if query or status_filter != 'all' or date_filter != 'all' %}
-                    <a href="{% url 'activity_logs' %}" class="action-btn action-btn-secondary action-btn-sm d-inline-flex align-items-center gap-1.5" style="text-decoration: none;">
-                        <i class="fa-solid fa-xmark" style="font-size: 12px;"></i> Clear Search &amp; Filters
+                    <a href="?tab=login&status=all" class="action-btn action-btn-ghost action-btn-xs" style="font-size: 0.78rem; padding: 5px 14px; border-radius: 8px; text-decoration: none;">
+                        <i class="fa-solid fa-rotate-left me-1.5" style="font-size: 11px;"></i>
+                        <span>View All Logins</span>
                     </a>
-                    {% endif %}
                 </div>
             {% endif %}
         </div>
@@ -534,6 +641,47 @@
     }
     .tab-pane-custom {
         transition: opacity 0.15s ease-in-out;
+    }
+
+    /* Sub-Filter Pills Styling (Zero Visual Competition) */
+    .sub-filter-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: transparent;
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        text-decoration: none;
+        transition: all 0.18s ease;
+    }
+    .sub-filter-pill:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+    .sub-filter-pill.active {
+        background: #e0f2fe;
+        color: #0369a1;
+        font-weight: 600;
+        border-color: #bae6fd;
+    }
+    .sub-filter-pill.pill-danger.active {
+        background: #fee2e2;
+        color: #b91c1c;
+        font-weight: 600;
+        border-color: #fecaca;
+    }
+    .pill-count-badge {
+        background: #ef4444;
+        color: #ffffff;
+        font-size: 0.62rem;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 10px;
+        line-height: 1.2;
     }
 
     /* Clean Table Spacing & Smooth Row Transitions (No Stretched Single Rows) */
@@ -589,6 +737,31 @@
 
     /* Mobile Responsive Card Transformation (<768px) */
     @media (max-width: 767.98px) {
+        .etala-page-subtitle {
+            display: none !important;
+        }
+
+        .etala-page-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+        }
+
+        .etala-header-actions {
+            width: 100% !important;
+        }
+
+        .etala-header-actions .btn {
+            width: 100% !important;
+            justify-content: center !important;
+        }
+
+        /* Filter Row 100% on Mobile */
+        .filter-col-half {
+            width: 100% !important;
+            min-width: 100% !important;
+        }
+
         .table-responsive-cards table.data-table,
         .table-responsive-cards table.data-table tbody,
         .table-responsive-cards table.data-table tr,
@@ -602,22 +775,31 @@
         }
 
         .table-responsive-cards table.data-table tr {
-            background: var(--card-bg, #ffffff);
-            border: 1px solid var(--border-default, #e2e8f0) !important;
+            background: #ffffff;
+            border: 1px solid #e2e8f0 !important;
             border-radius: 12px !important;
-            padding: 14px 16px !important;
-            margin-bottom: 12px !important;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+            padding: 12px 14px !important;
+            margin-bottom: 10px !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+        }
+
+        .dark-mode .table-responsive-cards table.data-table tr,
+        [data-bs-theme="dark"] .table-responsive-cards table.data-table tr {
+            background: #0f172a !important;
+            border-color: #1e293b !important;
         }
 
         .table-responsive-cards table.data-table td {
             border: none !important;
-            padding: 4px 0 !important;
+            padding: 3px 0 !important;
             text-align: left !important;
         }
 
         .table-responsive-cards table.data-table td.text-end {
             text-align: left !important;
+            margin-top: 4px !important;
+            font-size: 0.74rem !important;
+            color: #64748b !important;
         }
     }
 
@@ -715,14 +897,14 @@
         if (tabName === 'audit') {
             if (btnAudit) btnAudit.classList.add('active');
             if (btnLogin) btnLogin.classList.remove('active');
-            if (colAction) colAction.style.display = 'block';
-            if (colLogin) colLogin.style.display = 'none';
+            if (colAction) colAction.classList.remove('d-none');
+            if (colLogin) colLogin.classList.add('d-none');
             if (searchInput) searchInput.placeholder = 'Search action or staff...';
         } else {
             if (btnAudit) btnAudit.classList.remove('active');
             if (btnLogin) btnLogin.classList.add('active');
-            if (colAction) colAction.style.display = 'none';
-            if (colLogin) colLogin.style.display = 'block';
+            if (colAction) colAction.classList.add('d-none');
+            if (colLogin) colLogin.classList.remove('d-none');
             if (searchInput) searchInput.placeholder = 'Search email, IP address...';
         }
 
@@ -901,8 +1083,22 @@
             });
         });
 
-        // Event delegation for filter chips click & pagination inside tablesWrapper
+        // Event delegation for filter chips, pills & pagination inside tablesWrapper
         document.addEventListener('click', function (e) {
+            // Status Pill clicks inside Login History
+            const pillLink = e.target.closest('#loginStatusPills a');
+            if (pillLink) {
+                e.preventDefault();
+                const url = pillLink.getAttribute('href');
+                if (url && url !== '#') {
+                    const urlParams = new URLSearchParams(url.split('?')[1] || '');
+                    const statSel = document.querySelector('select[name="status"]');
+                    if (statSel) statSel.value = urlParams.get('status') || 'all';
+                    updateLogsTableAJAX(url);
+                }
+                return;
+            }
+
             // Chip clear or Reset all
             const chipLink = e.target.closest('.active-filter-chips a');
             if (chipLink) {
@@ -942,6 +1138,33 @@
         }
         updateSettingsExportUrl();
     });
+
+    function copyAccountIdentifier(text) {
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (window.showToast) {
+                    showToast('success', 'Copied to Clipboard', text);
+                }
+            }).catch(() => {
+                _fallbackCopyAccount(text);
+            });
+        } else {
+            _fallbackCopyAccount(text);
+        }
+    }
+
+    function _fallbackCopyAccount(text) {
+        const temp = document.createElement('textarea');
+        temp.value = text;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        if (window.showToast) {
+            showToast('success', 'Copied to Clipboard', text);
+        }
+    }
 </script>
 
 </div>

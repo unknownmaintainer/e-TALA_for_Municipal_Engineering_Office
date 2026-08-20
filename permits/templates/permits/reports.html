@@ -1,7 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters humanize %}
 
-{% block title %}Reports & Analytics | eTala{% endblock %}
+{% block title %}Reports &amp; Accomplishments | eTala{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -11,7 +11,7 @@
             color: #000000 !important;
             padding-top: 0 !important;
         }
-        .sidebar, .etala-header, .btn, button, nav, .d-print-none, .card-header-actions, .filter-bar, .nav-pills {
+        .sidebar, .etala-header, .btn, button, nav, .d-print-none, .card-header-actions, .filter-bar, .report-toolbar-wrapper, .report-tab-pill-group {
             display: none !important;
         }
         .etala-content {
@@ -19,7 +19,7 @@
             padding: 0 !important;
         }
         .content-card {
-            border: 1px solid #e2e8f0 !important;
+            border: 1px solid #cbd5e1 !important;
             box-shadow: none !important;
             background: #ffffff !important;
             break-inside: avoid;
@@ -31,48 +31,57 @@
             border-bottom: 2px solid #002855;
             padding-bottom: 1rem;
         }
+        .tab-pane {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
     }
 
-    /* ── 4-Metric Grid Strip ── */
-    .stat-strip {
+    /* ── 4-Card Executive KPI Grid ── */
+    .executive-kpi-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 14px;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
     }
-    .stat-strip-item {
+    .kpi-card {
         background: var(--card-bg, #ffffff);
         border: 1px solid var(--border-default, #e2e8f0);
-        border-radius: 14px;
+        border-radius: 12px;
         padding: 16px 18px;
-        text-align: left;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        min-height: 110px;
+        overflow: hidden;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
     }
-    .stat-strip-item:hover {
+    .kpi-card:hover {
         transform: translateY(-2px);
         border-color: #cbd5e1;
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
     }
-    .stat-strip-item .stat-label-wrapper {
+    .kpi-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
-    .stat-strip-item .stat-label {
-        font-size: 0.74rem;
+    .kpi-title {
+        font-size: 0.72rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .stat-strip-item .stat-icon-badge {
-        width: 28px;
-        height: 28px;
+    .kpi-icon {
+        width: 32px;
+        height: 32px;
         border-radius: 8px;
         display: inline-flex;
         align-items: center;
@@ -80,400 +89,470 @@
         font-size: 13px;
         flex-shrink: 0;
     }
-    .stat-strip-item .stat-value {
-        font-size: 1.65rem;
+    .kpi-value {
+        font-size: 1.55rem;
         font-weight: 800;
-        line-height: 1.1;
+        line-height: 1.15;
         color: var(--text-primary, #0f172a);
         margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .stat-strip-item .stat-sub {
+    .kpi-value.currency-val {
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: -0.3px;
+    }
+    .kpi-sub {
         font-size: 0.74rem;
         color: var(--text-muted, #64748b);
+        line-height: 1.35;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .dark-mode .stat-strip-item {
+    .dark-mode .kpi-card {
         background: #1e293b;
         border-color: #334155;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
     }
-    .dark-mode .stat-strip-item:hover {
+    .dark-mode .kpi-card:hover {
         border-color: #475569;
     }
-    .dark-mode .stat-strip-item .stat-value {
+    .dark-mode .kpi-value {
         color: #f8fafc;
     }
-    .dark-mode .stat-strip-item .stat-label,
-    .dark-mode .stat-strip-item .stat-sub {
+    .dark-mode .kpi-title,
+    .dark-mode .kpi-sub {
         color: #94a3b8;
     }
 
     @media (max-width: 992px) {
-        .stat-strip {
-            grid-template-columns: repeat(2, 1fr);
+        .executive-kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
         }
     }
-
     @media (max-width: 576px) {
-        .stat-strip {
+        .executive-kpi-grid {
             grid-template-columns: 1fr;
             gap: 10px;
         }
-        .stat-strip-item {
-            padding: 14px 16px;
-        }
-        .stat-strip-item .stat-value {
-            font-size: 1.4rem;
-        }
     }
 
-    .status-badge-expired {
-        background: #fef2f2;
-        color: #dc2626;
-        border: 1px solid #fecaca;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 3px 8px;
-        border-radius: 6px;
-        white-space: nowrap;
-    }
-    .status-badge-warning {
-        background: #fffbeb;
-        color: #d97706;
-        border: 1px solid #fde68a;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 3px 8px;
-        border-radius: 6px;
-        white-space: nowrap;
-    }
-    .dark-mode .status-badge-expired {
-        background: rgba(220, 38, 38, 0.18);
-        color: #fca5a5;
-        border-color: rgba(220, 38, 38, 0.35);
-    }
-    .dark-mode .status-badge-warning {
-        background: rgba(217, 119, 6, 0.18);
-        color: #fde68a;
-        border-color: rgba(217, 119, 6, 0.35);
-    }
-
-    /* ── Breakdown list ── */
-    .breakdown-row {
+    /* ── Seamless Segmented Tabs Control ── */
+    .report-toolbar-wrapper {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px solid var(--border-default, #f1f5f9);
-        font-size: 0.84rem;
-        transition: background-color 0.15s ease;
+        gap: 12px;
+        flex-wrap: nowrap;
+        background: var(--bg-surface-subtle, rgba(0,0,0,0.015));
     }
-    .breakdown-row:last-child { border-bottom: none; }
-    .breakdown-row .b-label {
+    .report-tab-pill-group {
+        background: #f1f5f9;
+        padding: 3px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        flex-shrink: 0;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+    .dark-mode .report-tab-pill-group {
+        background: #0f172a;
+        border: 1px solid #334155;
+    }
+    .report-tab-btn {
+        border: none;
+        background: transparent;
+        color: #64748b;
+        font-size: 0.78rem;
         font-weight: 600;
-        color: var(--text-primary, #1e293b);
+        padding: 6px 12px;
+        border-radius: 7px;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+    }
+    .report-tab-btn:hover {
+        color: #0f172a;
+    }
+    .report-tab-btn.active {
+        background: #ffffff;
+        color: #0284c7;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        font-weight: 700;
+    }
+    .dark-mode .report-tab-btn {
+        color: #94a3b8;
+    }
+    .dark-mode .report-tab-btn:hover {
+        color: #f8fafc;
+    }
+    .dark-mode .report-tab-btn.active {
+        background: #1e293b;
+        color: #38bdf8;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    .report-filters-group {
         display: flex;
         align-items: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+        flex-shrink: 1;
     }
-    .breakdown-row .b-count {
-        font-weight: 700;
-        color: var(--text-primary, #0f172a);
-        background: #f1f5f9;
-        padding: 3px 12px;
-        border-radius: 20px;
-        font-size: 0.78rem;
-        min-width: 36px;
-        text-align: center;
+
+    @media (max-width: 991px) {
+        .report-toolbar-wrapper {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+        .report-tab-pill-group {
+            width: 100%;
+            overflow-x: auto;
+            justify-content: flex-start;
+        }
+        .report-filters-group {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 6px;
+        }
+        .report-filters-group select {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
     }
-    .dark-mode .breakdown-row {
+
+    /* ── Metric Box Container (Matching Left & Right) ── */
+    .metric-panel-card {
+        background: #f8fafc;
+        border: 1px solid var(--border-default, #e2e8f0);
+        border-radius: 12px;
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .dark-mode .metric-panel-card {
+        background: rgba(15, 23, 42, 0.6);
+        border-color: #334155;
+    }
+    .metric-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border-default, #e2e8f0);
+        padding-bottom: 12px;
+        margin-bottom: 14px;
+    }
+    .dark-mode .metric-panel-header {
         border-bottom-color: #334155;
     }
-    .dark-mode .breakdown-row .b-label {
-        color: #f8fafc;
+    .metric-panel-title {
+        font-size: 0.76rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin: 0;
     }
-    .dark-mode .breakdown-row .b-count {
-        background: #334155;
-        color: #f8fafc;
+    .dark-mode .metric-panel-title {
+        color: #94a3b8;
+    }
+
+    /* ── Metric Ledger Item ── */
+    .metric-ledger-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9.5px 0;
+        border-bottom: 1px solid var(--border-default, #f1f5f9);
+        font-size: 0.84rem;
+    }
+    .metric-ledger-item:last-child {
+        border-bottom: none;
+    }
+    .dark-mode .metric-ledger-item {
+        border-bottom-color: #334155;
     }
 </style>
 {% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item active">Reports &amp; Analytics</span>
+<span class="breadcrumb-item active">Reports &amp; Accomplishments</span>
 {% endblock %}
 
 {% block content %}
 <!-- Print Header (Hidden on screen, shown in print) -->
 <div class="print-header d-none">
     <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
-        <img src="{% static 'carigara_logo.png' %}" alt="Municipal Logo" style="width: 50px; height: 50px; object-fit: contain;">
+        <img src="{% static 'carigara_logo.png' %}" alt="Municipal Logo" style="width: 55px; height: 55px; object-fit: contain;">
         <div class="text-start">
-            <h4 class="fw-bold m-0" style="color: #002855;">Municipal Engineering Office</h4>
-            <h6 class="text-muted m-0">Engineering Records Summary Report</h6>
+            <h4 class="fw-bold m-0" style="color: #002855;">MUNICIPAL ENGINEERING OFFICE</h4>
+            <h6 class="text-muted m-0">Official Engineering &amp; Regulatory Accomplishment Report</h6>
         </div>
     </div>
-    <div class="text-center text-muted small mt-2">
-        Municipality of Carigara, Leyte • Generated: {% now "F d, Y" %}
+    <div class="text-center text-muted small mt-1">
+        Municipality of Carigara, Province of Leyte • Generated: {% now "F d, Y" %}
     </div>
 </div>
 
-<!-- ══ PAGE HEADER ════════════════════════════════════════════════════════════ -->
+<!-- ══ 1. MINIMAL EXECUTIVE HEADER ═════════════════════════════════════════════ -->
 <div class="etala-page-header d-print-none mb-3">
     <div>
-        <h1 class="etala-page-title mb-1">Reports &amp; Analytics</h1>
-        <p class="etala-page-subtitle mb-0">Official accomplishment summaries, project infrastructure tracking, and permit compliance.</p>
+        <h1 class="etala-page-title mb-1">Reports &amp; Accomplishments</h1>
+        <p class="etala-page-subtitle mb-0">Official accomplishment records, infrastructure development, permit registry, and regulatory compliance.</p>
     </div>
-    <div class="etala-header-actions">
+    <div class="etala-header-actions d-flex align-items-center gap-2">
+        <button type="button" onclick="window.print()" class="btn btn-sm btn-light border d-inline-flex align-items-center gap-1.5 shadow-2xs" style="height: 36px; border-radius: 8px; font-weight: 600; font-size: 0.80rem;" title="Print official report view">
+            <i class="fa-solid fa-print text-secondary"></i>
+            <span>Print View</span>
+        </button>
+        <button type="button" onclick="triggerExport('excel')" class="btn btn-sm btn-light border d-inline-flex align-items-center gap-1.5 shadow-2xs" style="height: 36px; border-radius: 8px; font-weight: 600; font-size: 0.80rem;" title="Export Excel Spreadsheet">
+            <i class="fa-solid fa-file-excel text-success"></i>
+            <span>Export Excel</span>
+        </button>
         <button type="button" onclick="triggerExport('pdf')" class="premium-btn btn-export text-nowrap d-flex align-items-center" title="Download Official Master Summary Report (PDF)">
             <span class="btn-icon"><i class="fa-solid fa-file-pdf text-danger"></i></span>
             <span class="btn-divider"></span>
-            <span>Export Official PDF</span>
+            <span>Export PDF</span>
         </button>
     </div>
 </div>
 
-<!-- ══ FILTERS (Compact Unified Bar) ═════════════════════════════════════════ -->
-<div class="content-card mb-4 d-print-none" style="border-radius: 14px;">
-    <div class="content-card-body p-2.5 px-3">
-        <form method="GET" action="{% url 'reports' %}" class="d-flex align-items-center flex-wrap gap-2 m-0" id="filterForm">
-            <div class="d-flex align-items-center gap-1.5 text-muted me-1 small fw-semibold">
-                <i class="fa-solid fa-filter text-primary" style="font-size: 12px;"></i>
-                <span class="d-none d-sm-inline">Filter:</span>
+<!-- ══ 2. 4 EXECUTIVE BALANCED KPI METRICS ════════════════════════════════════ -->
+<div class="executive-kpi-grid">
+    <!-- Card 1: Total Records -->
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-title" title="Total encoded records">Total Records</span>
+            <div class="kpi-icon" style="background: #e0f2fe; color: #0284c7;">
+                <i class="fa-solid fa-folder-tree"></i>
             </div>
+        </div>
+        <div class="kpi-value">{{ total_count }}</div>
+        <div class="kpi-sub">{{ total_projects }} Projects · {{ total_permits }} Permits</div>
+    </div>
 
-            <select name="record_type" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.80rem; height: 36px; width: auto; min-width: 140px; cursor: pointer;">
-                <option value="">All Categories</option>
-                <option value="Permit" {% if selected_record_type == 'Permit' %}selected{% endif %}>Permits</option>
-                <option value="Project" {% if selected_record_type == 'Project' %}selected{% endif %}>Projects</option>
-            </select>
+    <!-- Card 2: Infrastructure Projects -->
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-title" title="Infrastructure development projects">Infra Projects</span>
+            <div class="kpi-icon" style="background: #fef3c7; color: #d97706;">
+                <i class="fa-solid fa-building-columns"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ total_projects }}</div>
+        <div class="kpi-sub">{{ ongoing_projects_count }} Ongoing · {{ completed_projects_count }} Completed</div>
+    </div>
 
-            <select name="barangay" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.80rem; height: 36px; width: auto; min-width: 150px; cursor: pointer;">
-                <option value="">All Barangays</option>
+    <!-- Card 3: Permits Issued -->
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-title" title="Issued permits registry">Permits Issued</span>
+            <div class="kpi-icon" style="background: #ccfbf1; color: #0d9488;">
+                <i class="fa-solid fa-file-signature"></i>
+            </div>
+        </div>
+        <div class="kpi-value">{{ total_permits }}</div>
+        <div class="kpi-sub">{{ building_permits_count }} Building · {{ electrical_permits_count }} Electrical · {{ occupancy_permits_count }} Occupancy</div>
+    </div>
+
+    <!-- Card 4: Total Project Budget (Clean Scaling & No Clipping) -->
+    <div class="kpi-card" title="Total Budget: ₱{{ total_projects_budget|intcomma|default:'0.00' }}">
+        <div class="kpi-header">
+            <span class="kpi-title" title="Total public works valuation">Total Project Budget</span>
+            <div class="kpi-icon" style="background: #dcfce7; color: #15803d;">
+                <i class="fa-solid fa-peso-sign"></i>
+            </div>
+        </div>
+        <div class="kpi-value currency-val" style="font-size: clamp(1rem, 1.35vw, 1.35rem); line-height: 1.25; overflow: hidden; text-overflow: ellipsis;" title="₱{{ total_projects_budget|intcomma|default:'0.00' }}">
+            ₱{{ total_projects_budget|intcomma|default:"0.00" }}
+        </div>
+        <div class="kpi-sub">{{ municipal_projects_count }} Municipal · {{ barangay_projects_count }} Barangay</div>
+    </div>
+</div>
+
+<!-- ══ 3. UNIFIED SINGLE-SURFACE REPORT CONTAINER ═════════════════════════════ -->
+<div class="content-card" style="border-radius: 14px;">
+    
+    <!-- Unified Header Toolbar: Tabs Left + Clean Context Filters Right -->
+    <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2.5 report-toolbar-wrapper" style="background: var(--bg-surface-subtle, rgba(0,0,0,0.015));">
+        
+        <!-- Left: Pill Tabs (Category Switcher) -->
+        <div class="report-tab-pill-group d-print-none">
+            <button class="report-tab-btn active" id="tab-btn-overview" data-bs-toggle="pill" data-bs-target="#tab-overview" type="button">
+                <i class="fa-solid fa-chart-pie me-1.5"></i>
+                <span>Summary &amp; Breakdown</span>
+            </button>
+            <button class="report-tab-btn" id="tab-btn-projects" data-bs-toggle="pill" data-bs-target="#tab-projects" type="button">
+                <i class="fa-solid fa-building-columns me-1.5"></i>
+                <span>Projects ({{ total_projects }})</span>
+            </button>
+            <button class="report-tab-btn" id="tab-btn-permits" data-bs-toggle="pill" data-bs-target="#tab-permits" type="button">
+                <i class="fa-solid fa-file-contract me-1.5"></i>
+                <span>Permits ({{ total_permits }})</span>
+            </button>
+            <button class="report-tab-btn" id="tab-btn-violations" data-bs-toggle="pill" data-bs-target="#tab-violations" type="button">
+                <i class="fa-solid fa-triangle-exclamation me-1.5"></i>
+                <span>Violations ({{ total_illegal_cases }})</span>
+            </button>
+        </div>
+
+        <!-- Right: Inline Filter Dropdowns (Barangay, Year, Status) -->
+        <form method="GET" action="{% url 'reports' %}" class="report-filters-group d-print-none m-0" id="filterForm">
+            <select name="barangay" class="form-select form-select-sm rounded-2" onchange="this.form.submit()" style="font-size: 0.78rem; height: 32px; width: auto; min-width: 130px; cursor: pointer;">
+                <option value="">— Barangay —</option>
                 {% for b in barangays %}
                 <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
                 {% endfor %}
             </select>
 
-            <select name="year" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.80rem; height: 36px; width: auto; min-width: 110px; cursor: pointer;">
-                <option value="">All Years</option>
+            <select name="year" class="form-select form-select-sm rounded-2" onchange="this.form.submit()" style="font-size: 0.78rem; height: 32px; width: auto; min-width: 95px; cursor: pointer;">
+                <option value="">— Year —</option>
                 {% for y in year_choices %}
                 <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
                 {% endfor %}
             </select>
 
-            <select name="status" class="form-select form-select-sm rounded-3" onchange="this.form.submit()" style="font-size: 0.80rem; height: 36px; width: auto; min-width: 130px; cursor: pointer;">
-                <option value="">All Statuses</option>
+            <select name="status" class="form-select form-select-sm rounded-2" onchange="this.form.submit()" style="font-size: 0.78rem; height: 32px; width: auto; min-width: 105px; cursor: pointer;">
+                <option value="">— Status —</option>
                 {% for val, lbl in status_choices %}
                 <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ lbl }}</option>
                 {% endfor %}
             </select>
 
             {% if active_filters %}
-            <a href="{% url 'reports' %}" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1.5 ms-auto" style="height: 34px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;" title="Reset filters">
+            <a href="{% url 'reports' %}" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" style="height: 32px; border-radius: 6px; font-size: 0.76rem; font-weight: 600;" title="Reset filters">
                 <i class="fa-solid fa-rotate-left"></i>
-                <span>Reset Filters</span>
+                <span class="d-none d-sm-inline">Reset</span>
             </a>
             {% endif %}
         </form>
     </div>
-</div>
 
-<!-- ══ 4 EXECUTIVE KPI SUMMARY CARDS ═════════════════════════════════════════ -->
-<div class="stat-strip">
-    <!-- 1. Total Records -->
-    <div class="stat-strip-item">
-        <div class="stat-label-wrapper">
-            <span class="stat-label">Total Archive</span>
-            <div class="stat-icon-badge" style="background: #e0f2fe; color: #0284c7;">
-                <i class="fa-solid fa-folder-tree"></i>
-            </div>
-        </div>
-        <div class="stat-value">{{ total_count }}</div>
-        <div class="stat-sub">{{ total_active }} active · {{ total_archived }} archived</div>
-    </div>
-
-    <!-- 2. Municipal Permits -->
-    <div class="stat-strip-item">
-        <div class="stat-label-wrapper">
-            <span class="stat-label">Permits Issued</span>
-            <div class="stat-icon-badge" style="background: #ccfbf1; color: #0d9488;">
-                <i class="fa-solid fa-file-signature"></i>
-            </div>
-        </div>
-        <div class="stat-value">{{ total_permits }}</div>
-        <div class="stat-sub">
-            {% if expired_count > 0 %}
-            <span class="text-danger fw-bold">{{ expired_count }} expired</span> · {{ valid_permits_count }} valid
-            {% else %}
-            <span class="text-success fw-bold">All permits valid</span>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- 3. Infrastructure Projects -->
-    <div class="stat-strip-item">
-        <div class="stat-label-wrapper">
-            <span class="stat-label">Infra Projects</span>
-            <div class="stat-icon-badge" style="background: #fef3c7; color: #d97706;">
-                <i class="fa-solid fa-building-columns"></i>
-            </div>
-        </div>
-        <div class="stat-value">{{ total_projects }}</div>
-        <div class="stat-sub">{{ municipal_projects_count }} municipal · {{ barangay_projects_count }} barangay</div>
-    </div>
-
-    <!-- 4. Estimated Project Valuation -->
-    <div class="stat-strip-item">
-        <div class="stat-label-wrapper">
-            <span class="stat-label">Total Valuation</span>
-            <div class="stat-icon-badge" style="background: #dcfce7; color: #15803d;">
-                <i class="fa-solid fa-peso-sign"></i>
-            </div>
-        </div>
-        <div class="stat-value" style="font-size: 1.35rem;">₱{{ total_projects_budget|intcomma|default:"0.00" }}</div>
-        <div class="stat-sub">{{ completion_rate_pct }}% document compliance rate</div>
-    </div>
-</div>
-
-<!-- ══ 3 STRUCTURED LGU REPORT TABS ══════════════════════════════════════════ -->
-<div class="scope-segmented-control mb-4 d-print-none" style="height: 38px; max-width: 680px;">
-    <button class="scope-pill-btn active" id="overview-tab" data-bs-toggle="pill" data-bs-target="#tab-overview" type="button" role="tab">
-        <i class="fa-solid fa-chart-pie me-1.5"></i>
-        <span>1. Accomplishment Summary</span>
-    </button>
-    <button class="scope-pill-btn" id="projects-tab" data-bs-toggle="pill" data-bs-target="#tab-projects" type="button" role="tab">
-        <i class="fa-solid fa-city me-1.5"></i>
-        <span>2. Infrastructure Projects ({{ total_projects }})</span>
-    </button>
-    <button class="scope-pill-btn" id="permits-tab" data-bs-toggle="pill" data-bs-target="#tab-permits" type="button" role="tab">
-        <i class="fa-solid fa-file-contract me-1.5"></i>
-        <span>3. Permit Compliance ({% if expired_count %}<span class="text-danger fw-bold">{{ expired_count }}</span>{% else %}0{% endif %})</span>
-    </button>
-</div>
-
-<!-- ══ TAB CONTENT ═══════════════════════════════════════════════════════════ -->
-<div class="tab-content" id="reportTabContent">
-
-    <!-- ── TAB 1: ACCOMPLISHMENT & CATEGORY BREAKDOWN ── -->
-    <div class="tab-pane fade show active" id="tab-overview" role="tabpanel">
-        <div class="row g-4">
-            <!-- Category Distribution Doughnut Chart -->
-            <div class="col-lg-6 col-12">
-                <div class="content-card h-100" style="border-radius: 14px;">
-                    <div class="content-card-body p-4 d-flex flex-column h-100">
-                        <div class="d-flex align-items-center justify-content-between border-bottom pb-2.5 mb-3">
-                            <h6 class="fw-bold title-text-adaptive m-0" style="font-size: 0.94rem;">
-                                Records by Category Distribution
-                            </h6>
-                            <span class="text-muted small" style="font-size: 0.75rem;">Proportions</span>
+    <!-- Main Body Area -->
+    <div class="content-card-body p-4">
+        <div class="tab-content">
+            
+            <!-- ── TAB 1: ACCOMPLISHMENT SUMMARY & BREAKDOWN (Symmetric Balanced Cards) ── -->
+            <div class="tab-pane fade show active" id="tab-overview">
+                <div class="row g-4 align-items-stretch">
+                    
+                    <!-- Left: Category Distribution Card -->
+                    <div class="col-lg-6 col-12">
+                        <div class="metric-panel-card">
+                            <div class="metric-panel-header">
+                                <h6 class="metric-panel-title">Category Distribution</h6>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style="font-size: 0.70rem;">{{ total_count }} Records</span>
+                            </div>
+                            <div class="flex-grow-1 d-flex flex-column align-items-center justify-content-center" style="min-height: 240px;">
+                                {% if total_count > 0 %}
+                                <div style="height: 190px; width: 100%; max-width: 250px; position: relative;">
+                                    <canvas id="categoryChart"></canvas>
+                                </div>
+                                {% else %}
+                                <div class="text-center py-4 text-muted">
+                                    <i class="fa-solid fa-inbox mb-1" style="font-size: 24px;"></i>
+                                    <div class="small">No records match current filters.</div>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
-                        {% if total_count > 0 %}
-                        <div class="flex-grow-1 position-relative" style="min-height: 250px; height: 260px;">
-                            <canvas id="categoryChart"></canvas>
-                        </div>
-                        {% else %}
-                        <div class="text-center py-5 text-muted">
-                            <i class="fa-solid fa-inbox mb-2" style="font-size: 32px;"></i>
-                            <h6>No records found.</h6>
-                        </div>
-                        {% endif %}
                     </div>
+
+                    <!-- Right: Accomplishment Ledger Card -->
+                    <div class="col-lg-6 col-12">
+                        <div class="metric-panel-card">
+                            <div class="metric-panel-header">
+                                <h6 class="metric-panel-title">Official Accomplishment Ledger</h6>
+                                <span class="text-muted small" style="font-size: 0.72rem;">Category Volume</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="metric-ledger-item">
+                                    <span class="fw-semibold"><i class="fa-solid fa-landmark text-warning me-2" style="width: 16px;"></i>Municipal Projects</span>
+                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ municipal_projects_count }}</span>
+                                </div>
+                                <div class="metric-ledger-item">
+                                    <span class="fw-semibold"><i class="fa-solid fa-map-location-dot text-info me-2" style="width: 16px;"></i>Barangay Projects</span>
+                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ barangay_projects_count }}</span>
+                                </div>
+                                <div class="metric-ledger-item">
+                                    <span class="fw-semibold"><i class="fa-solid fa-building text-primary me-2" style="width: 16px;"></i>Building Permits</span>
+                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ building_permits_count }}</span>
+                                </div>
+                                <div class="metric-ledger-item">
+                                    <span class="fw-semibold"><i class="fa-solid fa-house-chimney-user text-success me-2" style="width: 16px;"></i>Occupancy Permits</span>
+                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ occupancy_permits_count }}</span>
+                                </div>
+                                <div class="metric-ledger-item">
+                                    <span class="fw-semibold"><i class="fa-solid fa-border-all text-secondary me-2" style="width: 16px;"></i>Fencing Permits</span>
+                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ fencing_permits_count }}</span>
+                                </div>
+                                <div class="metric-ledger-item">
+                                    <span class="fw-semibold"><i class="fa-solid fa-bolt text-danger me-2" style="width: 16px;"></i>Electrical Permits</span>
+                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ electrical_permits_count }}</span>
+                                </div>
+                                {% if total_illegal_cases > 0 %}
+                                <div class="metric-ledger-item pt-2" style="border-top: 2px solid rgba(220, 38, 38, 0.15);">
+                                    <span class="fw-semibold text-danger"><i class="fa-solid fa-triangle-exclamation me-2" style="width: 16px;"></i>Illegal Construction Cases</span>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 fw-bold">{{ total_illegal_cases }} ({{ resolved_illegal_cases }} Regularized)</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
-            <!-- Detailed Subtype Breakdown Table -->
-            <div class="col-lg-6 col-12">
-                <div class="content-card h-100" style="border-radius: 14px;">
-                    <div class="content-card-body p-4">
-                        <div class="d-flex align-items-center justify-content-between border-bottom pb-2.5 mb-3">
-                            <h6 class="fw-bold title-text-adaptive m-0" style="font-size: 0.94rem;">
-                                Engineering Subtype Breakdown
-                            </h6>
-                            <span class="text-muted small" style="font-size: 0.75rem;">Volume &amp; Category</span>
-                        </div>
-                        <div>
-                            <div class="breakdown-row">
-                                <span class="b-label"><i class="fa-solid fa-landmark me-2 text-warning" style="width: 16px;"></i>Municipal Projects</span>
-                                <span class="b-count">{{ municipal_projects_count }}</span>
-                            </div>
-                            <div class="breakdown-row">
-                                <span class="b-label"><i class="fa-solid fa-map-location-dot me-2 text-info" style="width: 16px;"></i>Barangay Projects</span>
-                                <span class="b-count">{{ barangay_projects_count }}</span>
-                            </div>
-                            <div class="breakdown-row">
-                                <span class="b-label"><i class="fa-solid fa-building me-2 text-primary" style="width: 16px;"></i>Building Permits</span>
-                                <span class="b-count">{{ building_permits_count }}</span>
-                            </div>
-                            <div class="breakdown-row">
-                                <span class="b-label"><i class="fa-solid fa-house-chimney-user me-2 text-success" style="width: 16px;"></i>Occupancy Permits</span>
-                                <span class="b-count">{{ occupancy_permits_count }}</span>
-                            </div>
-                            <div class="breakdown-row">
-                                <span class="b-label"><i class="fa-solid fa-border-all me-2 text-warning" style="width: 16px;"></i>Fencing Permits</span>
-                                <span class="b-count">{{ fencing_permits_count }}</span>
-                            </div>
-                            <div class="breakdown-row">
-                                <span class="b-label"><i class="fa-solid fa-bolt me-2 text-danger" style="width: 16px;"></i>Electrical Permits</span>
-                                <span class="b-count">{{ electrical_permits_count }}</span>
-                            </div>
-                            {% if total_illegal_cases > 0 %}
-                            <div class="breakdown-row" style="border-top: 2px solid #fecaca; margin-top: 8px; padding-top: 12px;">
-                                <span class="b-label"><i class="fa-solid fa-triangle-exclamation me-2 text-danger" style="width: 16px;"></i>Illegal Construction Violations</span>
-                                <span class="b-count" style="background: #fef2f2; color: #dc2626;">{{ total_illegal_cases }}</span>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ── TAB 2: INFRASTRUCTURE PROJECTS MONITORING LEDGER ── -->
-    <div class="tab-pane fade" id="tab-projects" role="tabpanel">
-        <div class="content-card" style="border-radius: 14px;">
-            <div class="content-card-body p-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom pb-3 mb-3">
-                    <div>
-                        <h6 class="fw-bold title-text-adaptive m-0" style="font-size: 0.95rem;">
-                            Infrastructure Projects Monitoring Ledger
-                        </h6>
-                        <span class="text-muted small" style="font-size: 0.75rem;">Summary of municipal and barangay development projects</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 rounded-pill fw-bold">₱{{ total_projects_budget|intcomma|default:"0.00" }} Total Budget</span>
-                    </div>
-                </div>
-
+            <!-- ── TAB 2: INFRASTRUCTURE PROJECTS LEDGER ── -->
+            <div class="tab-pane fade" id="tab-projects">
                 {% if monitoring_projects_list %}
                 <div class="table-responsive">
                     <table class="data-table mb-0" style="width: 100%;">
                         <thead>
                             <tr>
                                 <th style="width: 32%;">PROJECT TITLE &amp; TYPE</th>
-                                <th style="width: 16%;">SCOPE</th>
-                                <th style="width: 18%;">BARANGAY LOCATION</th>
-                                <th style="width: 18%;">CONTRACTOR / IMPL.</th>
-                                <th style="width: 16%; text-align: right;">ESTIMATED BUDGET</th>
+                                <th style="width: 14%;">SCOPE</th>
+                                <th style="width: 18%;">BARANGAY</th>
+                                <th style="width: 16%;">CONTRACTOR / IMPL.</th>
+                                <th style="width: 10%; text-align: center;">STATUS</th>
+                                <th style="width: 10%; text-align: right;">ESTIMATED BUDGET</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in monitoring_projects_list %}
                             <tr data-href="{% url 'record_detail' p.record_id %}" style="cursor: pointer;">
                                 <td>
-                                    <div class="fw-bold title-text-adaptive text-truncate">{{ p.title|default:"Untitled Project" }}</div>
-                                    <div class="text-muted small text-truncate" style="font-size: 0.74rem;">{{ p.specific_type_label }}</div>
+                                    <div class="cell-title">{{ p.title|default:"Untitled Project" }}</div>
+                                    <div class="text-muted small" style="font-size: 0.74rem;">{{ p.specific_type_label }}</div>
                                 </td>
                                 <td>
                                     {% if p.project_scope == 'Barangay' %}
-                                    <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-2 py-0.5" style="font-size: 0.72rem; font-weight: 600;">Barangay Scope</span>
+                                    <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-2 py-0.5" style="font-size: 0.72rem; font-weight: 600;">Barangay</span>
                                     {% else %}
-                                    <span class="badge bg-teal-subtle text-teal border border-teal-subtle px-2 py-0.5" style="font-size: 0.72rem; font-weight: 600;">Municipal Scope</span>
+                                    <span class="badge bg-teal-subtle text-teal border border-teal-subtle px-2 py-0.5" style="font-size: 0.72rem; font-weight: 600;">Municipal</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-muted text-truncate">{{ p.barangay.barangay_name|default:"Unassigned" }}</td>
-                                <td class="text-muted text-truncate">{{ p.project_detail.contractor|default:"—" }}</td>
+                                <td class="text-muted">{{ p.barangay.barangay_name|default:"Unassigned" }}</td>
+                                <td class="text-muted">{{ p.project_detail.contractor|default:"—" }}</td>
+                                <td class="text-center">
+                                    {% if p.status == 'completed' %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5" style="font-size: 0.72rem;">Completed</span>
+                                    {% else %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style="font-size: 0.72rem;">Ongoing</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end fw-bold font-monospace title-text-adaptive">
                                     {% if p.project_detail.project_cost %}
                                     ₱{{ p.project_detail.project_cost|intcomma }}
@@ -493,50 +572,86 @@
                 </div>
                 {% endif %}
             </div>
-        </div>
-    </div>
 
-    <!-- ── TAB 3: PERMIT COMPLIANCE & EXPIRATION TRACKER ── -->
-    <div class="tab-pane fade" id="tab-permits" role="tabpanel">
-        <div class="content-card" style="border-radius: 14px;">
-            <div class="content-card-body p-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom pb-3 mb-3">
-                    <div>
-                        <h6 class="fw-bold title-text-adaptive m-0" style="font-size: 0.95rem;">
-                            Permit Expiration &amp; Compliance Ledger
-                        </h6>
-                        <span class="text-muted small" style="font-size: 0.75rem;">Keep track of overdue and near-expiry municipal permits</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1.5 rounded-pill fw-bold">{{ expired_count }} Expired</span>
-                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1.5 rounded-pill fw-bold">{{ expiring_soon_count }} Expiring Soon</span>
-                    </div>
-                </div>
-
-                {% if expiring_soon_list %}
+            <!-- ── TAB 3: PERMITS REGISTRY ── -->
+            <div class="tab-pane fade" id="tab-permits">
+                {% if monitoring_permits_list %}
                 <div class="table-responsive">
                     <table class="data-table mb-0" style="width: 100%;">
                         <thead>
                             <tr>
-                                <th style="width: 22%;">PERMIT NO.</th>
-                                <th style="width: 28%;">APPLICANT</th>
-                                <th style="width: 20%;">BARANGAY</th>
-                                <th style="width: 15%;">EXPIRY DATE</th>
-                                <th style="width: 15%;">COMPLIANCE STATUS</th>
+                                <th style="width: 20%;">PERMIT NO.</th>
+                                <th style="width: 30%;">APPLICANT / OWNER</th>
+                                <th style="width: 18%;">BARANGAY</th>
+                                <th style="width: 16%;">PERMIT TYPE</th>
+                                <th style="width: 16%;">DATE ISSUED</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for p in expiring_soon_list %}
+                            {% for p in monitoring_permits_list %}
                             <tr data-href="{% url 'record_detail' p.record_id %}" style="cursor: pointer;">
-                                <td class="fw-bold title-text-adaptive">{{ p.permit_number }}</td>
-                                <td class="fw-semibold title-text-adaptive text-truncate" title="{{ p.applicant_name }}">{% if p.applicant_name|is_valid_applicant %}{{ p.applicant_name }}{% else %}—{% endif %}</td>
-                                <td class="text-muted text-truncate">{{ p.barangay_name }}</td>
-                                <td class="cell-date">{{ p.expiry_date|date:"M d, Y" }}</td>
+                                <td class="fw-bold title-text-adaptive font-monospace">{{ p.permit_detail.permit_number|default:p.title }}</td>
+                                <td class="fw-semibold title-text-adaptive">
+                                    {{ p.permit_detail.applicant_name|default:p.title }}
+                                </td>
+                                <td class="text-muted">{{ p.barangay.barangay_name|default:"Unassigned" }}</td>
                                 <td>
-                                    {% if p.is_expired %}
-                                    <span class="status-badge-expired">{{ p.days_left }} days overdue</span>
+                                    <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
+                                        {{ p.permit_detail.permit_type|default:"Permit" }}
+                                    </span>
+                                </td>
+                                <td class="cell-date text-muted">
+                                    {% if p.permit_detail.date_issued %}
+                                    {{ p.permit_detail.date_issued|date:"M d, Y" }}
+                                    {% elif p.date_started %}
+                                    {{ p.date_started|date:"M d, Y" }}
                                     {% else %}
-                                    <span class="status-badge-warning">{{ p.days_left }} days left</span>
+                                    —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-file-signature text-secondary mb-2" style="font-size: 36px;"></i>
+                    <h6>No issued permits found matching the filter criteria.</h6>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ── TAB 4: VIOLATIONS MONITORING ── -->
+            <div class="tab-pane fade" id="tab-violations">
+                {% if monitoring_violations_list %}
+                <div class="table-responsive">
+                    <table class="data-table mb-0" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">ID</th>
+                                <th style="width: 32%;">STRUCTURE / INCIDENT</th>
+                                <th style="width: 20%;">PROPERTY OWNER</th>
+                                <th style="width: 16%;">BARANGAY</th>
+                                <th style="width: 12%;">DATE REPORTED</th>
+                                <th style="width: 10%; text-align: center;">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in monitoring_violations_list %}
+                            <tr data-href="{% url 'record_detail' c.record_id %}" style="cursor: pointer;">
+                                <td class="fw-bold title-text-adaptive">#{{ c.record_id }}</td>
+                                <td class="fw-semibold title-text-adaptive">{{ c.title }}</td>
+                                <td class="text-muted">{{ c.permit_detail.applicant_name|default:"Unspecified" }}</td>
+                                <td class="text-muted">{{ c.barangay.barangay_name|default:"Unassigned" }}</td>
+                                <td class="text-muted cell-date">{{ c.date_started|default:c.created_at|date:"M d, Y" }}</td>
+                                <td class="text-center">
+                                    {% if c.illegal_compliance_status == 'resolved' %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5" style="font-size: 0.72rem;">Regularized</span>
+                                    {% elif c.illegal_compliance_status == 'pending_permit' %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-0.5" style="font-size: 0.72rem;">Permit Filed</span>
+                                    {% else %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5" style="font-size: 0.72rem;">Active Violation</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -547,68 +662,13 @@
                 {% else %}
                 <div class="text-center py-5 text-muted">
                     <i class="fa-solid fa-circle-check text-success mb-2" style="font-size: 36px;"></i>
-                    <h6 class="title-text-adaptive">All municipal permits are compliant and up-to-date.</h6>
+                    <h6>No illegal construction records found matching criteria.</h6>
                 </div>
                 {% endif %}
             </div>
-        </div>
 
-        <!-- Illegal Construction Violations (if any) -->
-        {% if total_illegal_cases > 0 %}
-        <div class="content-card mt-4" style="border-radius: 14px;">
-            <div class="content-card-body p-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border-bottom pb-3 mb-3">
-                    <div>
-                        <h6 class="fw-bold title-text-adaptive m-0" style="font-size: 0.95rem;">
-                            Building Violations &amp; Illegal Construction Cases
-                        </h6>
-                        <span class="text-muted small" style="font-size: 0.75rem;">Active building violations requiring municipal compliance</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1.5 rounded-pill fw-bold">{{ active_illegal_cases }} Active</span>
-                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1.5 rounded-pill fw-bold">{{ resolved_illegal_cases }} Resolved</span>
-                    </div>
-                </div>
-
-                {% if illegal_cases_list %}
-                <div class="table-responsive">
-                    <table class="data-table mb-0" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th style="width: 12%;">CASE ID</th>
-                                <th style="width: 38%;">VIOLATION TITLE</th>
-                                <th style="width: 22%;">BARANGAY</th>
-                                <th style="width: 14%;">DATE REPORTED</th>
-                                <th style="width: 14%;">STATUS</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in illegal_cases_list %}
-                            <tr data-href="{% url 'record_detail' c.record_id %}" style="cursor: pointer;">
-                                <td class="fw-bold title-text-adaptive">#{{ c.record_id }}</td>
-                                <td class="cell-title">{{ c.title }}</td>
-                                <td class="text-muted">{{ c.barangay.barangay_name }}</td>
-                                <td class="text-muted cell-date">{{ c.created_at|date:"M d, Y" }}</td>
-                                <td>
-                                    <span class="badge {{ c.illegal_status_info.badge_class }}" style="font-size: 0.72rem; padding: 4px 9px;">
-                                        {{ c.illegal_status_info.label }}
-                                    </span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center py-4 text-muted">
-                    <h6>No active illegal construction cases.</h6>
-                </div>
-                {% endif %}
-            </div>
         </div>
-        {% endif %}
     </div>
-
 </div>
 
 {% endblock %}
@@ -625,9 +685,8 @@
 document.addEventListener("DOMContentLoaded", function() {
     const isDark = document.body.classList.contains('dark-mode') || document.documentElement.getAttribute('data-bs-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#64748b';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9';
 
-    // 1. Records by Category Doughnut Chart
+    // Records by Category Doughnut Chart
     const ctxCategory = document.getElementById('categoryChart');
     if (ctxCategory) {
         const rawCategoryElem = document.getElementById('category-data-script');
@@ -655,10 +714,10 @@ document.addEventListener("DOMContentLoaded", function() {
                     legend: {
                         position: 'bottom',
                         labels: {
-                            boxWidth: 12,
-                            padding: 15,
+                            boxWidth: 10,
+                            padding: 10,
                             color: textColor,
-                            font: { size: 11, family: 'Inter, sans-serif' }
+                            font: { size: 10, family: 'Inter, sans-serif' }
                         }
                     }
                 }
@@ -666,86 +725,14 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // 2. Growth Trend Chart
-    const ctxGrowth = document.getElementById('growthChart');
-    if (ctxGrowth) {
-        const rawGrowthElem = document.getElementById('growth-data-script');
-        const rawGrowth = rawGrowthElem ? JSON.parse(rawGrowthElem.textContent || '[]') : [];
-        const growthMonths = rawGrowth.map(function(g) { return g.month; });
-        const growthCounts = rawGrowth.map(function(g) { return g.count; });
-        new Chart(ctxGrowth, {
-            type: 'line',
-            data: {
-                labels: growthMonths,
-                datasets: [{
-                    label: 'Cumulative Records',
-                    data: growthCounts,
-                    borderColor: '#0284c7',
-                    backgroundColor: 'rgba(2, 132, 199, 0.12)',
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.35,
-                    pointRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { 
-                        beginAtZero: true, 
-                        grid: { color: gridColor },
-                        ticks: { stepSize: 1, color: textColor, font: { size: 10 } } 
-                    },
-                    x: { 
-                        grid: { display: false },
-                        ticks: { color: textColor, font: { size: 10 } } 
-                    }
-                }
+    // Row Click Redirection
+    document.querySelectorAll('tr[data-href]').forEach(row => {
+        row.addEventListener('click', function (e) {
+            if (!e.target.closest('a') && !e.target.closest('button')) {
+                window.location.href = this.dataset.href;
             }
         });
-    }
-
-    // 3. Records by Barangay Bar Chart
-    const ctxBarangay = document.getElementById('barangayChart');
-    if (ctxBarangay) {
-        const rawBarangayElem = document.getElementById('barangay-data-script');
-        const rawBarangay = rawBarangayElem ? JSON.parse(rawBarangayElem.textContent || '[]') : [];
-        const barangayNames = rawBarangay.map(function(b) {
-            return b.barangay__barangay_name ? 'Brgy. ' + b.barangay__barangay_name : 'Unassigned';
-        });
-        const barangayCounts = rawBarangay.map(function(b) { return b.count; });
-        new Chart(ctxBarangay, {
-            type: 'bar',
-            data: {
-                labels: barangayNames,
-                datasets: [{
-                    label: 'Records',
-                    data: barangayCounts,
-                    backgroundColor: '#0d9488',
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { 
-                        beginAtZero: true, 
-                        grid: { color: gridColor },
-                        ticks: { stepSize: 1, color: textColor, font: { size: 10 } } 
-                    },
-                    y: { 
-                        grid: { display: false },
-                        ticks: { color: textColor, font: { size: 10 } } 
-                    }
-                }
-            }
-        });
-    }
+    });
 });
 
 function triggerExport(format) {
@@ -753,7 +740,7 @@ function triggerExport(format) {
     urlParams.set('export', format);
     const exportUrl = `${window.location.pathname}?${urlParams.toString()}`;
     const ext = format === 'excel' ? 'xlsx' : 'pdf';
-    const filename = `eTala_Engineering_Records_Report.${ext}`;
+    const filename = `eTala_Engineering_Accomplishment_Report.${ext}`;
     
     const formatUpper = format === 'excel' ? 'Excel Spreadsheet' : 'PDF Report';
     
@@ -775,27 +762,5 @@ function triggerExport(format) {
         downloadFrame.src = exportUrl;
     }
 }
-
-// Auto-switch tabs from URL param ?tab=
-document.addEventListener("DOMContentLoaded", function () {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab') || urlParams.get('type');
-    if (tabParam) {
-        let targetTabBtn = null;
-        if (tabParam === 'permits' || tabParam === 'permit' || tabParam === 'illegal') {
-            targetTabBtn = document.getElementById('permits-tab');
-        } else if (tabParam === 'analytics' || tabParam === 'barangay') {
-            targetTabBtn = document.getElementById('analytics-tab');
-        } else {
-            targetTabBtn = document.getElementById('overview-tab');
-        }
-        if (targetTabBtn && window.bootstrap && window.bootstrap.Tab) {
-            const tabInstance = new bootstrap.Tab(targetTabBtn);
-            tabInstance.show();
-        } else if (targetTabBtn) {
-            targetTabBtn.click();
-        }
-    }
-});
 </script>
 {% endblock %}

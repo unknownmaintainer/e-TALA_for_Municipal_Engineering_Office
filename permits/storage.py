@@ -165,14 +165,36 @@ class SupabaseStorage(Storage):
         return self.open(name, mode)
 
     def url(self, name, expires_in=3600):
-        """Generates a secure authenticated URL or local fallback URL."""
+        """Generates a secure browser-accessible Signed URL from Supabase Storage."""
         clean_name = self._clean_path(name)
         
         if not self._is_configured():
             return self.fallback_storage.url(clean_name)
 
-        url, _, bucket = self._get_supabase_config()
-        return f"{url}/storage/v1/object/authenticated/{bucket}/{clean_name}"
+        url, key, bucket = self._get_supabase_config()
+        
+        # Request a signed URL from Supabase Storage so browsers can view/download directly
+        try:
+            session = get_http_session()
+            sign_endpoint = f"{url}/storage/v1/object/sign/{bucket}/{clean_name}"
+            headers = self._headers()
+            headers['Content-Type'] = 'application/json'
+            resp = session.post(sign_endpoint, headers=headers, json={'expiresIn': expires_in}, timeout=(3.0, 6.0))
+            if resp.status_code == 200:
+                data = resp.json()
+                signed_path = data.get('signedURL') or data.get('signedUrl', '')
+                if signed_path:
+                    if signed_path.startswith('http://') or signed_path.startswith('https://'):
+                        return signed_path
+                    if signed_path.startswith('/storage/v1'):
+                        return f"{url}{signed_path}"
+                    return f"{url}/storage/v1{signed_path}"
+        except Exception as exc:
+            logger.debug(f"Failed generating signed URL for {clean_name}: {exc}")
+
+        # Fallback to public bucket endpoint or fallback storage
+        return f"{url}/storage/v1/object/public/{bucket}/{clean_name}"
+
 
     def delete(self, name):
         clean_name = self._clean_path(name)

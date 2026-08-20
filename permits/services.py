@@ -262,11 +262,20 @@ def build_record_zip_buffer(record, stream_getter_func):
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for doc in record.documents.select_related('requirement_item', 'requirement_item__parent'):
             try:
-                file_obj, _, _ = stream_getter_func(doc)
+                file_obj, _, url = stream_getter_func(doc)
+                if not file_obj and url:
+                    try:
+                        import requests
+                        r = requests.get(url, timeout=15)
+                        if r.status_code == 200:
+                            file_obj = io.BytesIO(r.content)
+                    except Exception:
+                        pass
                 if file_obj:
                     file_data = file_obj.read()
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
+
 
                     raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
                     _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
@@ -318,11 +327,20 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
         for req in sub_reqs:
             if req.document and req.document.document_id not in processed_doc_ids:
                 try:
-                    file_obj, _, _ = stream_getter_func(req.document)
+                    file_obj, _, url = stream_getter_func(req.document)
+                    if not file_obj and url:
+                        try:
+                            import requests
+                            r = requests.get(url, timeout=15)
+                            if r.status_code == 200:
+                                file_obj = io.BytesIO(r.content)
+                        except Exception:
+                            pass
                     if file_obj:
                         file_data = file_obj.read()
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
+
                         raw_fname = req.document.file_name or (req.document.file.name if req.document.file else 'document')
                         _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
                         clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
@@ -435,7 +453,15 @@ def build_barangay_zip_buffer(barangay, stream_getter_func):
             
             for doc in record.documents.all():
                 try:
-                    file_obj, _, _ = stream_getter_func(doc)
+                    file_obj, _, url = stream_getter_func(doc)
+                    if not file_obj and url:
+                        try:
+                            import requests
+                            r = requests.get(url, timeout=15)
+                            if r.status_code == 200:
+                                file_obj = io.BytesIO(r.content)
+                        except Exception:
+                            pass
                     if file_obj:
                         file_data = file_obj.read()
                         if hasattr(file_obj, 'close'):
@@ -444,6 +470,7 @@ def build_barangay_zip_buffer(barangay, stream_getter_func):
                         raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
                         _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
                         clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+
                         
                         group_folder = get_document_group_folder(doc, record)
                         req_item = doc.requirement_item
@@ -514,11 +541,20 @@ def build_municipal_zip_buffer(stream_getter_func):
 
             for doc in record.documents.all():
                 try:
-                    file_obj, _, _ = stream_getter_func(doc)
+                    file_obj, _, url = stream_getter_func(doc)
+                    if not file_obj and url:
+                        try:
+                            import requests
+                            r = requests.get(url, timeout=15)
+                            if r.status_code == 200:
+                                file_obj = io.BytesIO(r.content)
+                        except Exception:
+                            pass
                     if file_obj:
                         file_data = file_obj.read()
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
+
 
                         raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
                         _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
@@ -577,7 +613,7 @@ def send_document_expiry_alerts():
     if not recipients:
         return False, "No active admin/staff email recipients found."
 
-    expired_items = "".join([f"<li><strong>{d.requirement_item.name if d.requirement_item else d.document_type}</strong> — {d.engineering_record.title} (Expired: {d.expiry_date.strftime('%b %d, %Y')})</li>" for d in expired_docs[:10]])
+    expired_items = "".join([f"<li><strong>{d.requirement_item.name if d.requirement_item else d.document_type}</strong> — {d.engineering_record.title} (Expired last {d.expiry_date.strftime('%b %d, %Y')})</li>" for d in expired_docs[:10]])
     expiring_items = "".join([f"<li><strong>{d.requirement_item.name if d.requirement_item else d.document_type}</strong> — {d.engineering_record.title} (Expires: {d.expiry_date.strftime('%b %d, %Y')})</li>" for d in expiring_docs[:10]])
 
     expired_section = f"<h3 style='color:#b91c1c; font-size:14px; margin:16px 0 8px 0;'>🚨 Expired Documents ({expired_docs.count()})</h3><ul style='padding-left:20px; color:#475569; font-size:13px;'>{expired_items}</ul>" if expired_docs.exists() else ""
@@ -661,7 +697,15 @@ def build_activity_logs_csv_rows(tab, query, date_filter, action_type, current_u
                 ]
         return f"eTala_Login_Attempts_{now.strftime('%Y%m%d_%H%M')}.csv", row_generator()
     else:
-        qs = AuditLog.objects.all().select_related('user').order_by('-performed_at')
+        qs = AuditLog.objects.all().select_related('user').exclude(
+            Q(action__iexact='Logged out') |
+            Q(action__iexact='Failed login attempt') |
+            Q(action__icontains='Exported') |
+            Q(action__icontains='profile picture') |
+            Q(action__startswith='NOTIF_') |
+            Q(action__startswith='Downloaded ') |
+            Q(action__startswith='Requirement ')
+        ).order_by('-performed_at')
         if current_user.role != 'admin':
             qs = qs.filter(user=current_user)
             
@@ -746,7 +790,10 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
     if barangay_id:
         qs = qs.filter(barangay_id=barangay_id)
     if status:
-        qs = qs.filter(status=status)
+        if status in ['active', 'in_progress', 'ongoing']:
+            qs = qs.filter(status__in=['active', 'in_progress', 'ongoing'])
+        else:
+            qs = qs.filter(status=status)
     if year:
         try:
             qs = qs.filter(year=int(year))
@@ -767,3 +814,157 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
         qs = qs.exclude(is_illegal_construction=True, illegal_compliance_status__in=['unresolved', 'pending_permit'])
 
     return qs
+
+
+# ─── DEVICE AUTHORIZATION & SECURITY NOTIFICATION SERVICES ───────────────────
+
+import secrets
+import threading
+from django.urls import reverse
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
+
+
+def parse_device_user_agent(ua_string):
+    """Parses raw user agent string into friendly Device Name (OS + Browser)."""
+    if not ua_string:
+        return "Windows PC • Browser"
+
+    ua = ua_string.lower()
+
+    # Detect OS
+    os_name = "Desktop PC"
+    if "windows nt 10.0" in ua or "windows nt 11.0" in ua or "windows nt" in ua:
+        os_name = "Windows PC"
+    elif "macintosh" in ua or "mac os x" in ua:
+        os_name = "Apple Mac"
+    elif "iphone" in ua:
+        os_name = "iPhone"
+    elif "ipad" in ua:
+        os_name = "iPad"
+    elif "android" in ua:
+        os_name = "Android Mobile"
+    elif "linux" in ua:
+        os_name = "Linux PC"
+
+    # Detect Browser
+    browser_name = "Browser"
+    if "edg/" in ua or "edge" in ua:
+        browser_name = "Microsoft Edge"
+    elif "chrome/" in ua or "crios/" in ua:
+        browser_name = "Google Chrome"
+    elif "firefox/" in ua:
+        browser_name = "Mozilla Firefox"
+    elif "safari/" in ua and "chrome/" not in ua:
+        browser_name = "Apple Safari"
+    elif "opera/" in ua or "opr/" in ua:
+        browser_name = "Opera"
+
+    return f"{os_name} • {browser_name}"
+
+
+def get_client_device_token(request):
+    """Retrieves existing device token from cookie or creates a unique 48-char random hex token."""
+    token = request.COOKIES.get('etala_device_token', '').strip()
+    if not token or len(token) < 16:
+        token = secrets.token_hex(24)
+    return token
+
+
+def dispatch_device_approval_request(user, device, request):
+    """Sends background Brevo email alert to all active Administrators to approve new staff device."""
+    from .models import CustomUser
+
+    admin_emails = list(CustomUser.objects.filter(role='admin', is_active=True).values_list('email', flat=True))
+    if not admin_emails:
+        return
+
+    approve_url = request.build_absolute_uri(
+        reverse('approve_device') + f"?token={device.approval_token}"
+    )
+    reject_url = request.build_absolute_uri(
+        reverse('reject_device') + f"?token={device.approval_token}"
+    )
+
+    user_display = user.full_name or user.username
+    subject = f'🛡️ eTala — Device Authorization Required for {user_display}'
+
+    html_content = render_to_string('emails/email_device_approval_request.html', {
+        'user_display_name': user_display,
+        'user_email': user.email or user.username,
+        'device_name': device.device_name,
+        'ip_address': device.ip_address or 'Unknown IP',
+        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'approve_url': approve_url,
+        'reject_url': reject_url,
+    })
+
+    plain_content = (
+        f"Device Authorization Request\n\n"
+        f"Staff {user_display} ({user.email}) is requesting access from a new device: {device.device_name} (IP: {device.ip_address}).\n\n"
+        f"Approve: {approve_url}\n"
+        f"Reject: {reject_url}\n"
+    )
+
+    def _send_admin_email():
+        try:
+            send_mail(
+                subject=subject,
+                message=plain_content,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=admin_emails,
+                html_message=html_content,
+                fail_silently=False,
+            )
+            logger.info(f"Device approval email dispatched to admins for staff {user.username}")
+        except Exception as exc:
+            logger.warning(f"Failed sending device approval email: {exc}")
+            # Local dev log
+            print("\n" + "=" * 72)
+            print(f"🛡️ [eTala Device Approval Link for {user.username}]:")
+            print(f"👉 Approve: {approve_url}")
+            print(f"👉 Reject:  {reject_url}")
+            print("=" * 72 + "\n")
+
+    threading.Thread(target=_send_admin_email, daemon=True).start()
+
+
+def dispatch_new_device_login_alert(user, device, request):
+    """Sends immediate security alert email to user's registered Gmail when logging in from a new device."""
+    if not user.email or '@' not in user.email:
+        return
+
+    user_display = user.full_name or user.username
+    subject = f'🛡️ eTala Security Notice — New Device Login Detected'
+    timestamp_str = timezone.now().strftime('%b %d, %Y • %I:%M %p')
+
+    html_content = render_to_string('emails/email_new_device_alert.html', {
+        'user_display_name': user_display,
+        'device_name': device.device_name,
+        'ip_address': device.ip_address or 'Unknown IP',
+        'timestamp': timestamp_str,
+    })
+
+    plain_content = (
+        f"Hello {user_display},\n\n"
+        f"Your eTala account was recently logged into from a new device: {device.device_name} (IP: {device.ip_address}) on {timestamp_str}.\n"
+        f"If this was you, no action is needed.\n"
+        f"If you did not log in, please contact the Municipal Engineering Office Administrator immediately.\n"
+    )
+
+    def _send_user_alert():
+        try:
+            send_mail(
+                subject=subject,
+                message=plain_content,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                html_message=html_content,
+                fail_silently=False,
+            )
+            logger.info(f"New device alert sent to user email: {user.email}")
+        except Exception as exc:
+            logger.warning(f"Failed sending new device alert to {user.email}: {exc}")
+
+    threading.Thread(target=_send_user_alert, daemon=True).start()
+

@@ -1,8 +1,7 @@
 import logging
 from django.contrib.auth import logout
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.contrib import messages
-from django.http import HttpResponseForbidden
 from .models import BlockedIP
 from .utils import get_client_ip
 
@@ -41,7 +40,10 @@ class IPBlockMiddleware:
         try:
             ip = get_client_ip(request)
             if ip and BlockedIP.objects.filter(ip_address=ip).exists():
-                return HttpResponseForbidden("Access Denied: Your IP address has been blocked by the administrator.")
+                return render(request, 'permits/access_denied.html', {
+                    'is_blocked_ip': True,
+                    'blocked_ip': ip,
+                }, status=403)
         except Exception as exc:
             logger.debug(f"IPBlockMiddleware check skipped during startup: {exc}")
 

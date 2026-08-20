@@ -4,10 +4,21 @@ register = template.Library()
 
 @register.filter(name='dict_get')
 def dict_get(dictionary, key):
-    """Retrieves a value from a dictionary given its key."""
-    if not isinstance(dictionary, dict):
+    """Retrieves a value from a dictionary given its key, matching both int and str representations."""
+    if not isinstance(dictionary, dict) or key is None:
         return ''
-    return dictionary.get(key, '')
+    if key in dictionary:
+        return dictionary[key]
+    str_k = str(key)
+    if str_k in dictionary:
+        return dictionary[str_k]
+    try:
+        int_k = int(str_k)
+        if int_k in dictionary:
+            return dictionary[int_k]
+    except (ValueError, TypeError):
+        pass
+    return ''
 
 
 import re

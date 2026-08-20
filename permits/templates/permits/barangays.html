@@ -848,7 +848,14 @@
 
 
     <!-- Cards Column -->
-    <div class="col-12" id="cardsColumn">
+    <div class="col-12 position-relative" id="cardsColumn">
+        <!-- Circle Loading Spinner Overlay (Matching Dashboard Style) -->
+        <div id="barangaysLoadingOverlay" class="checklist-loading-overlay">
+            <div class="checklist-spinner-card">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; color: #2563eb;"></i>
+            </div>
+        </div>
+
         <!-- Dynamic client-side empty state -->
         <div class="content-card d-none mb-4 p-4 text-center" id="noBarangaysState"
             style="border-radius: 12px; border: 1px solid #E3E5E8;">
@@ -1259,41 +1266,49 @@
     window.selectSortOption = function (sortVal) {
         const grid = document.getElementById('barangayGrid');
         if (!grid) return;
-        const cardsArray = Array.from(document.querySelectorAll('.barangay-card-wrapper'));
 
-        if (sortVal === 'most_records') {
-            cardsArray.sort((a, b) => {
-                const countA = parseInt(a.getAttribute('data-total') || '0', 10);
-                const countB = parseInt(b.getAttribute('data-total') || '0', 10);
-                if (countB !== countA) return countB - countA;
-                const nameA = (a.getAttribute('data-name') || '').toLowerCase();
-                const nameB = (b.getAttribute('data-name') || '').toLowerCase();
-                return nameA.localeCompare(nameB);
-            });
-        } else {
-            cardsArray.sort((a, b) => {
-                const nameA = (a.getAttribute('data-name') || '').toLowerCase();
-                const nameB = (b.getAttribute('data-name') || '').toLowerCase();
-                return nameA.localeCompare(nameB);
-            });
-        }
+        const overlay = document.getElementById('barangaysLoadingOverlay');
+        if (overlay) overlay.classList.add('show');
 
-        // Re-append in sorted order without reloading
-        cardsArray.forEach(card => grid.appendChild(card));
-
-        // Update active UI tab pill
+        // Update active UI tab pill immediately
         document.querySelectorAll('.scope-segmented-control .scope-pill-btn').forEach(btn => {
             btn.classList.remove('active');
         });
         const activeBtn = document.querySelector(`.scope-segmented-control a[onclick*="'${sortVal}'"]`);
         if (activeBtn) activeBtn.classList.add('active');
 
-        // Update URL state smoothly without reload
-        try {
-            const url = new URL(window.location.href);
-            url.searchParams.set('sort', sortVal);
-            window.history.replaceState({}, '', url.toString());
-        } catch (e) {}
+        setTimeout(() => {
+            const cardsArray = Array.from(document.querySelectorAll('.barangay-card-wrapper'));
+
+            if (sortVal === 'most_records') {
+                cardsArray.sort((a, b) => {
+                    const countA = parseInt(a.getAttribute('data-total') || '0', 10);
+                    const countB = parseInt(b.getAttribute('data-total') || '0', 10);
+                    if (countB !== countA) return countB - countA;
+                    const nameA = (a.getAttribute('data-name') || '').toLowerCase();
+                    const nameB = (b.getAttribute('data-name') || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+            } else {
+                cardsArray.sort((a, b) => {
+                    const nameA = (a.getAttribute('data-name') || '').toLowerCase();
+                    const nameB = (b.getAttribute('data-name') || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+            }
+
+            // Re-append in sorted order without reloading
+            cardsArray.forEach(card => grid.appendChild(card));
+
+            if (overlay) overlay.classList.remove('show');
+
+            // Update URL state smoothly without reload
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('sort', sortVal);
+                window.history.replaceState({}, '', url.toString());
+            } catch (e) {}
+        }, 160);
     };
 
 

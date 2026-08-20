@@ -5,11 +5,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Access Restricted | eTala</title>
+    <title>Device Verification | eTala</title>
     <link rel="icon" type="image/png" href="{% static 'carigara_logo.png' %}">
     <link rel="apple-touch-icon" href="{% static 'carigara_logo.png' %}">
     <meta name="description"
-        content="Access restriction notice for the Engineering Records Management and Archiving System of the Municipal Engineering Office, Carigara, Leyte.">
+        content="Device verification for the Engineering Records Management and Archiving System of the Municipal Engineering Office, Carigara, Leyte.">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="{% static 'js/fa_adapter.js' %}"></script>
@@ -25,7 +25,7 @@
             --slate-500: #64748b;
             --slate-400: #94a3b8;
             --border-soft: #e2e8f0;
-            --err-red: #dc2626;
+            --bg-card-inner: #f8fafc;
         }
 
         * {
@@ -198,10 +198,61 @@
             margin: 0 auto 1.05rem auto;
         }
 
-        /* ── Security Alert Box ── */
-        .security-notice-card {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+        /* ── Clean Unified Account & Device Card ── */
+        .auth-identity-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 13px 15px;
+            margin-bottom: 0.95rem;
+            text-align: left;
+        }
+
+        .user-avatar-circle {
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #002855 0%, #0284c7 100%);
+            color: #ffffff;
+            font-size: 0.84rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 40, 85, 0.15);
+            flex-shrink: 0;
+        }
+
+        .badge-new-device {
+            background: #fffbeb;
+            color: #b45309;
+            border: 1px solid #fde68a;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+
+        .device-strip {
+            margin-top: 11px;
+            padding: 8px 12px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.77rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        /* ── Live Waiting State Box (Comfortable Blue/Neutral) ── */
+        .status-live-card {
+            background: #f0f7ff;
+            border: 1px solid #d0e3ff;
             border-radius: 13px;
             padding: 13px 15px;
             margin-bottom: 0.95rem;
@@ -209,47 +260,47 @@
             align-items: flex-start;
             gap: 13px;
             text-align: left;
+            transition: all 0.3s ease;
         }
 
-        .security-notice-icon {
-            width: 32px;
-            height: 32px;
-            min-width: 32px;
+        .status-live-icon {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
             border-radius: 50%;
-            background: #fee2e2;
-            color: #dc2626;
+            background: #e0effe;
+            color: #0284c7;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
+            font-size: 12px;
             margin-top: 1px;
             flex-shrink: 0;
         }
 
         /* ── Clean Action Button ── */
-        .btn-action-primary {
+        .btn-cancel-clean {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             width: 100%;
             height: 42px;
-            background: #002855;
-            color: #ffffff;
-            border: none;
+            background: #f8fafc;
+            color: var(--slate-600);
+            border: 1px solid #cbd5e1;
             border-radius: 10px;
             font-size: 0.83rem;
             font-weight: 600;
             text-decoration: none;
             transition: all 0.2s ease;
             margin-bottom: 0.2rem;
-            box-shadow: 0 4px 12px rgba(0, 40, 85, 0.2);
         }
 
-        .btn-action-primary:hover {
-            background: #003b7a;
-            color: #ffffff;
-            transform: translateY(-1px);
+        .btn-cancel-clean:hover {
+            background: #f1f5f9;
+            color: var(--ph-navy);
+            border-color: #94a3b8;
         }
 
         /* ── Regulatory Footer ── */
@@ -313,34 +364,61 @@
         </div>
 
         <h1 class="brand-heading">
-            <span style="color: #0284c7;">e</span>Tala Security Notice
+            <span style="color: #0284c7;">e</span>Tala Verification
         </h1>
         <div class="brand-subtitle">
-            Municipal Engineering Records &amp; Document Archiving System
+            Device authorization required for security access
         </div>
 
-        <!-- Security Notice Info Card -->
-        <div class="security-notice-card">
-            <div class="security-notice-icon">
-                <i class="fa-solid fa-shield-halved"></i>
+        <!-- 1. Single Clean Account & Device Summary Card -->
+        <div class="auth-identity-card">
+            <!-- Account Row -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="user-avatar-circle">
+                    {{ pending_user.full_name|default:pending_user.username|slice:":1"|upper }}
+                </div>
+                <div class="text-start flex-grow-1 min-w-0">
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                        <div class="fw-bold text-dark text-truncate" style="font-size: 0.86rem; line-height: 1.2;">
+                            {{ pending_user.full_name|default:pending_user.username }}
+                        </div>
+                        <span class="badge-new-device">New Device</span>
+                    </div>
+                    <div class="text-muted text-truncate" style="font-size: 0.7rem; margin-top: 2px;">
+                        {{ pending_user.designation|default:pending_user.get_role_display|default:"Engineering Staff" }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Detail Capsule Strip -->
+            <div class="device-strip">
+                <i class="fa-solid fa-laptop-code text-primary" style="font-size: 13px; width: 16px; text-align: center; flex-shrink: 0;"></i>
+                <span class="text-truncate" style="letter-spacing: -0.1px;">{{ device.device_name }}</span>
+            </div>
+        </div>
+
+        <!-- 2. Live Waiting Status Box (Comfortable Blue/Neutral theme) -->
+        <div class="status-live-card" id="statusLiveCard">
+            <div class="status-live-icon" id="statusLiveIcon">
+                <i class="fa-solid fa-spinner fa-spin"></i>
             </div>
             <div style="flex: 1; min-width: 0;">
-                <div class="fw-bold" style="font-size: 0.82rem; color: #b91c1c; line-height: 1.25;">
-                    Access Temporarily Restricted
+                <div class="fw-bold" id="statusTitle" style="font-size: 0.81rem; color: #0284c7; line-height: 1.25;">
+                    Waiting for Administrator Approval
                 </div>
-                <div class="text-muted mt-1" style="font-size: 0.71rem; line-height: 1.4; color: #64748b;">
-                    Access from this connection has been restricted by the Administrator. If this was a mistake, please contact the Municipal Engineering Office.
+                <div class="text-muted mt-1" id="statusDesc" style="font-size: 0.71rem; line-height: 1.4; color: #64748b;">
+                    Authorization request sent to the Admin. This screen will automatically open once approved.
                 </div>
             </div>
         </div>
 
-        <!-- Action Button -->
-        <a href="{% url 'landing' %}" class="btn-action-primary">
+        <!-- 3. Return to Login Button -->
+        <a href="{% url 'login' %}" class="btn-cancel-clean">
             <i class="fa-solid fa-arrow-left" style="font-size: 12px; margin-right: 2px;"></i>
-            <span>Return to eTala Portal</span>
+            <span>Cancel &amp; Return to Sign In</span>
         </a>
 
-        <!-- Regulatory Footer -->
+        <!-- 4. Regulatory Footer -->
         <div class="login-footer text-center">
             <span class="footer-badge-pill">
                 <i class="fa-solid fa-shield-halved" style="font-size: 10px; margin-right: 2px;"></i>
@@ -349,6 +427,90 @@
         </div>
 
     </div>
+
+    <!-- Live Auto-Polling Engine -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let checkTimer = null;
+        let isChecking = false;
+
+        function checkApprovalStatus() {
+            if (isChecking) return;
+            isChecking = true;
+
+            fetch("{% url 'check_device_approval_ajax' %}", {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Cache-Control': 'no-cache'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                isChecking = false;
+
+                if (data.status === 'approved') {
+                    const statusCard = document.getElementById('statusLiveCard');
+                    const statusIcon = document.getElementById('statusLiveIcon');
+                    const statusTitle = document.getElementById('statusTitle');
+                    const statusDesc = document.getElementById('statusDesc');
+
+                    if (statusCard) {
+                        statusCard.style.background = '#f0fdf4';
+                        statusCard.style.borderColor = '#86efac';
+                    }
+                    if (statusIcon) {
+                        statusIcon.style.background = '#dcfce7';
+                        statusIcon.style.color = '#16a34a';
+                        statusIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    }
+                    if (statusTitle) {
+                        statusTitle.innerText = 'Device Authorized!';
+                        statusTitle.style.color = '#15803d';
+                    }
+                    if (statusDesc) {
+                        statusDesc.innerText = 'Redirecting to your Dashboard...';
+                    }
+
+                    clearInterval(checkTimer);
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url || "{% url 'dashboard' %}";
+                    }, 800);
+                } else if (data.status === 'rejected') {
+                    const statusCard = document.getElementById('statusLiveCard');
+                    const statusIcon = document.getElementById('statusLiveIcon');
+                    const statusTitle = document.getElementById('statusTitle');
+                    const statusDesc = document.getElementById('statusDesc');
+
+                    if (statusCard) {
+                        statusCard.style.background = '#fef2f2';
+                        statusCard.style.borderColor = '#fecaca';
+                    }
+                    if (statusIcon) {
+                        statusIcon.style.background = '#fee2e2';
+                        statusIcon.style.color = '#dc2626';
+                        statusIcon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    }
+                    if (statusTitle) {
+                        statusTitle.innerText = 'Authorization Declined';
+                        statusTitle.style.color = '#b91c1c';
+                    }
+                    if (statusDesc) {
+                        statusDesc.innerText = 'Please contact the Administrator for assistance.';
+                    }
+
+                    clearInterval(checkTimer);
+                }
+            })
+            .catch(err => {
+                isChecking = false;
+            });
+        }
+
+        // Poll every 3 seconds
+        checkTimer = setInterval(checkApprovalStatus, 3000);
+    });
+    </script>
 </body>
 
 </html>

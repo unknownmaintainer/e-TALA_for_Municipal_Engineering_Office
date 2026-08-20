@@ -8,6 +8,67 @@
 {% endblock %}
 
 {% block content %}
+<style>
+    /* ── Bulletproof Premium Button Alignment ── */
+    .premium-btn,
+    a.premium-btn,
+    button.premium-btn {
+        display: inline-flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 7px !important;
+        padding: 0 14px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        line-height: normal !important;
+        vertical-align: middle !important;
+        box-sizing: border-box !important;
+        text-decoration: none !important;
+        white-space: nowrap !important;
+    }
+    .premium-btn .btn-icon,
+    a.premium-btn .btn-icon,
+    button.premium-btn .btn-icon {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+        font-size: 13px !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .premium-btn .btn-icon i,
+    a.premium-btn .btn-icon i,
+    button.premium-btn .btn-icon i {
+        display: inline-block !important;
+        line-height: 1 !important;
+        vertical-align: 0 !important;
+        font-size: 13px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .premium-btn .btn-divider,
+    a.premium-btn .btn-divider,
+    button.premium-btn .btn-divider {
+        display: inline-block !important;
+        width: 1px !important;
+        height: 14px !important;
+        background: rgba(203, 213, 225, 0.6) !important;
+        flex-shrink: 0 !important;
+        vertical-align: middle !important;
+        margin: 0 1px !important;
+    }
+    .premium-btn span:not(.btn-icon):not(.btn-divider) {
+        display: inline-flex !important;
+        align-items: center !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+    }
+</style>
 <!-- ══ PAGE TITLE & ACTIONS ═══════════════════════════════════════════════ -->
 <div class="etala-page-header">
     <div>
@@ -133,12 +194,11 @@
 
                 <!-- Status filter -->
                 <div class="col-md-4 col-sm-6">
-                    <label class="form-label small fw-bold text-muted mb-1">Status</label>
+                    <label class="form-label small fw-bold text-muted mb-1">Project Status</label>
                     <select name="status" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1;">
                         <option value="">All Statuses</option>
-                        {% for val, label in status_choices %}
-                        <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
+                        <option value="in_progress" {% if selected_status == 'in_progress' %}selected{% endif %}>Ongoing</option>
+                        <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
                     </select>
                 </div>
             </div>
@@ -205,9 +265,9 @@
                     <!-- Type Tag -->
                     <td data-label="Category">
                         {% if record.record_type == 'Permit' %}
-                        <span class="tag tag-permit">{{ record.specific_type_label }}</span>
+                        <span class="tag tag-permit" title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
                         {% else %}
-                        <span class="tag tag-project">{{ record.specific_type_label }}</span>
+                        <span class="tag tag-project" title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
                         {% endif %}
                     </td>
 
@@ -223,17 +283,7 @@
 
                     <!-- Status -->
                     <td data-label="Status">
-                        {% if record.record_type == 'Project' and record.status == 'in_progress' %}
-                        <span class="status-text-standard">Ongoing</span>
-                        {% elif record.status == 'completed' %}
-                        <span class="status-text-standard">Completed</span>
-                        {% elif record.status == 'in_progress' %}
-                        <span class="status-text-standard">In Review</span>
-                        {% elif record.status == 'archived' %}
-                        <span class="text-muted">Archived</span>
-                        {% else %}
-                        <span class="status-text-standard">Active</span>
-                        {% endif %}
+                        <span class="status-text-standard">{{ record.status_label }}</span>
                     </td>
 
                     <!-- Actions -->

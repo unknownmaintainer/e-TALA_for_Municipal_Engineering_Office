@@ -441,63 +441,95 @@
             background: linear-gradient(135deg, #001e3d 0%, #001226 100%);
         }
 
-        /* ── Unified System Flash Alert Boxes ── */
+        /* ── Form Submitting Locked State ── */
+        .form-submitting {
+            pointer-events: none !important;
+            user-select: none !important;
+        }
+
+        .form-submitting input {
+            background-color: #f8fafc !important;
+            cursor: wait !important;
+            border-color: #cbd5e1 !important;
+            color: #64748b !important;
+        }
+
+        .form-submitting .password-toggle-btn,
+        .form-submitting .checkbox-container,
+        .form-submitting .forgot-password-link {
+            pointer-events: none !important;
+            opacity: 0.55;
+            cursor: wait !important;
+        }
+
+        /* ── Unified System Flash Alert Boxes (Balanced & User-Friendly) ── */
         .auth-alert {
             display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 9px 13px;
-            border-radius: 10px;
+            align-items: flex-start;
+            gap: 11px;
+            padding: 10px 14px;
+            border-radius: 12px;
             font-size: 0.81rem;
-            font-weight: 500;
-            line-height: 1.35;
+            line-height: 1.45;
             margin-bottom: 1.15rem;
             text-align: left;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
             border: 1px solid transparent;
             word-break: break-word;
             overflow-wrap: break-word;
+            animation: fadeInAlert 0.3s ease;
         }
 
-        .auth-alert span {
+        @keyframes fadeInAlert {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .auth-alert .alert-icon-wrap {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .auth-alert .alert-icon-wrap i {
+            font-size: 13px;
+        }
+
+        .auth-alert .alert-content-wrap {
             flex: 1;
             min-width: 0;
         }
 
-        .auth-alert-success {
-            background: #f0fdf4;
-            border-color: #bbf7d0;
-            color: #166534;
+        .auth-alert .alert-title {
+            font-weight: 700;
+            font-size: 0.81rem;
+            margin-bottom: 2px;
+            display: block;
+            letter-spacing: 0.2px;
         }
 
-        .auth-alert-success i {
-            color: #16a34a;
-            font-size: 15px;
-            flex-shrink: 0;
+        .auth-alert .alert-msg {
+            font-weight: 500;
+            font-size: 0.77rem;
+            display: block;
+            opacity: 0.94;
+            line-height: 1.4;
         }
 
         .auth-alert-danger {
-            background: #fef2f2;
-            border-color: #fecaca;
-            color: #991b1b;
+            background: #fff1f2;
+            border-color: #fecdd3;
+            color: #9f1239;
         }
 
-        .auth-alert-danger i {
-            color: #dc2626;
-            font-size: 15px;
-            flex-shrink: 0;
-        }
-
-        .auth-alert-info {
-            background: #eff6ff;
-            border-color: #bfdbfe;
-            color: #1e40af;
-        }
-
-        .auth-alert-info i {
-            color: #2563eb;
-            font-size: 15px;
-            flex-shrink: 0;
+        .auth-alert-danger .alert-icon-wrap {
+            background: #ffe4e6;
+            color: #e11d48;
         }
 
         .auth-alert-warning {
@@ -506,10 +538,31 @@
             color: #92400e;
         }
 
-        .auth-alert-warning i {
+        .auth-alert-warning .alert-icon-wrap {
+            background: #fef3c7;
             color: #d97706;
-            font-size: 15px;
-            flex-shrink: 0;
+        }
+
+        .auth-alert-success {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+
+        .auth-alert-success .alert-icon-wrap {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .auth-alert-info {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1e40af;
+        }
+
+        .auth-alert-info .alert-icon-wrap {
+            background: #dbeafe;
+            color: #2563eb;
         }
 
         /* ── Footer ── */
@@ -657,8 +710,19 @@
         <div class="mb-2 text-start">
             {% for message in messages %}
             <div class="auth-alert {% if message.tags == 'success' %}auth-alert-success{% elif message.tags == 'info' %}auth-alert-info{% elif message.tags == 'warning' %}auth-alert-warning{% else %}auth-alert-danger{% endif %}" role="alert">
-                <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% elif message.tags == 'info' %}fa-circle-info{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-exclamation{% endif %}"></i>
-                <span>{{ message }}</span>
+                <div class="alert-icon-wrap">
+                    <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% elif message.tags == 'info' %}fa-circle-info{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-exclamation{% endif %}"></i>
+                </div>
+                <div class="alert-content-wrap">
+                    <span class="alert-title">
+                        {% if message.tags == 'success' %}Success
+                        {% elif message.tags == 'info' %}Notice
+                        {% elif message.tags == 'warning' %}Attention
+                        {% else %}Access Notice
+                        {% endif %}
+                    </span>
+                    <span class="alert-msg">{{ message }}</span>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -750,6 +814,8 @@
             const emailInput = document.getElementById('loginEmail');
             const rememberMeInput = document.getElementById('rememberMe');
 
+            const pwInput = document.getElementById('loginPassword');
+
             // Auto-fill remembered email if saved in browser storage
             const savedEmail = localStorage.getItem('etala_remembered_email');
             if (savedEmail && emailInput && rememberMeInput) {
@@ -770,6 +836,11 @@
                         localStorage.removeItem('etala_remembered_email');
                     }
 
+                    // Lock all fields, links, toggles & rememberMe visually and functionally without breaking POST data
+                    loginForm.classList.add('form-submitting');
+                    if (emailInput) emailInput.readOnly = true;
+                    if (pwInput) pwInput.readOnly = true;
+
                     // Disable button to prevent double-submit
                     btnLogin.disabled = true;
                     btnLogin.classList.add('is-loading');
@@ -783,6 +854,23 @@
                     }
                 });
             }
+
+            // Restore form state if navigated back via browser history (bfcache)
+            window.addEventListener('pageshow', function () {
+                if (loginForm) loginForm.classList.remove('form-submitting');
+                if (btnLogin) {
+                    btnLogin.disabled = false;
+                    btnLogin.classList.remove('is-loading');
+                }
+                if (btnIcon) {
+                    btnIcon.className = 'fa-solid fa-right-to-bracket';
+                }
+                if (btnText) {
+                    btnText.textContent = 'Sign In';
+                }
+                if (emailInput) emailInput.readOnly = false;
+                if (pwInput) pwInput.readOnly = false;
+            });
         });
     </script>
 </body>

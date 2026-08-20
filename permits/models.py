@@ -5,7 +5,7 @@ from django.utils import timezone
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = (
-        ('admin', 'Engineering Office Head (Admin)'),
+        ('admin', 'Engineering Office Admin'),
         ('staff', 'Engineering Staff'),
     )
     full_name = models.CharField(max_length=255, blank=True)
@@ -192,7 +192,14 @@ class EngineeringRecord(models.Model):
                     if pt.lower().startswith('violation') or 'violation' in pt.lower():
                         return "Violation Report"
                     return pt if pt.lower().endswith('permit') else f"{pt} Permit"
-            return "Permit"
+            # Fallback based on title keyword analysis if available
+            t_lower = (self.title or '').lower()
+            for known in ['building', 'occupancy', 'fencing', 'electrical', 'mechanical', 'sanitary', 'demolition', 'excavation']:
+                if known in t_lower:
+                    return f"{known.capitalize()} Permit"
+            if self.title and self.title.lower().endswith('permit') and self.title.strip().lower() != 'permit':
+                return self.title.strip()
+            return "Building Permit"
         else: # Project
             if hasattr(self, 'project_detail') and self.project_detail and self.project_detail.project_type:
                 pt = self.project_detail.get_project_type_display() or self.project_detail.project_type
@@ -200,6 +207,25 @@ class EngineeringRecord(models.Model):
                     return pt if pt.lower().endswith('project') else f"{pt} Project"
             scope = self.get_project_scope_display() or self.project_scope
             return f"{scope} Project" if scope else "Project"
+
+    @property
+    def status_label(self):
+        """Returns clean contextual status label for digital storage and archiving."""
+        if self.status == 'archived':
+            return "Archived"
+        if self.record_type == 'Project':
+            if self.status in ['in_progress', 'active', 'pending']:
+                return "Ongoing"
+            elif self.status == 'completed':
+                return "Completed"
+            return "Ongoing"
+        else: # Permit
+            if self.is_illegal_construction and self.illegal_compliance_status == 'resolved':
+                return "Regularized"
+            if hasattr(self, 'permit_detail') and self.permit_detail:
+                if not self.permit_detail.permit_number and not self.permit_detail.date_issued:
+                    return "Pending Issuance"
+            return "Issued"
 
     @property
     def illegal_status_info(self):
@@ -354,11 +380,8 @@ class ProjectDetail(models.Model):
         ('Others', 'Others'),
     )
     PROJECT_STATUS_CHOICES = (
-        ('Planning', 'Planning'),
-        ('Procurement', 'Procurement'),
         ('Ongoing', 'Ongoing'),
         ('Completed', 'Completed'),
-        ('Suspended', 'Suspended'),
     )
 
     FUNDING_SOURCE_CHOICES = (
@@ -386,7 +409,7 @@ class ProjectDetail(models.Model):
     funding_source_other = models.CharField(max_length=255, blank=True, default='', help_text='Specified if Funding Source is Others')
     contractor = models.CharField(max_length=255, blank=True, default='')
     project_cost = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
-    project_status = models.CharField(max_length=20, choices=PROJECT_STATUS_CHOICES, default='Planning')
+    project_status = models.CharField(max_length=20, choices=PROJECT_STATUS_CHOICES, default='Ongoing')
 
     def __str__(self):
         return f"{self.project_type} — {self.engineering_record.title}"
@@ -660,3 +683,31 @@ class BlockedIP(models.Model):
 
     def __str__(self):
         return f"{self.ip_address} (Blocked)"
+
+
+class UserDevice(models.Model):
+    STATUS_CHOICES = [
+        ('approved', 'Approved'),
+        ('pending', 'Pending Approval'),
+        ('rejected', 'Rejected'),
+    ]
+
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='devices')
+    device_token = models.CharField(max_length=128, db_index=True)
+    device_name = models.CharField(max_length=255, default='Unknown Device')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    approval_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    approved_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_devices')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-last_seen_at']
+        unique_together = ('user', 'device_token')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.device_name} ({self.status})"
+

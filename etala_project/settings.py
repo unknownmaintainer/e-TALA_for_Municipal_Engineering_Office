@@ -292,6 +292,8 @@ AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_TEMPLATE = 'permits/access_denied.html'
 AXES_LOCKOUT_PARAMETERS = [["ip_address", "username"]]
 AXES_CLIENT_IP_CALLABLE = 'permits.utils.get_client_ip'
+AXES_RESET_ON_SUCCESS = True
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
 AXES_VERBOSE = False  # Suppress noisy terminal output during development
 
 # CORS

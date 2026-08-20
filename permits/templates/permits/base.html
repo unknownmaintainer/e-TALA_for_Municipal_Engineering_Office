@@ -26,58 +26,39 @@
         })();
     </script>
     <style>
-        /* Instant Root Canvas Colors */
-        html.dark-mode, html.dark-mode body { background-color: #0b1329 !important; color: #f8fafc; color-scheme: dark; }
-        html:not(.dark-mode), html:not(.dark-mode) body { background-color: #f8fafc !important; }
+        /* ══ STABLE SCROLLBAR & INSTANT CANVAS (Prevents page jumping and theme flicker) ══ */
+        html {
+            scrollbar-gutter: stable;
+            overflow-y: scroll;
+        }
 
-        /* ══ ULTRA-SMOOTH SYNCHRONIZED THEME CROSSFADE (Header + Table + Cards + Canvas) ══ */
-        html,
-        body,
-        .etala-main,
-        .etala-content,
-        .etala-header,
-        .etala-header-container,
-        .header-left,
-        .header-right,
-        .header-back-btn,
-        .etala-breadcrumb-capsule,
-        .breadcrumb-home-circle,
-        .breadcrumb-chevron,
-        .breadcrumb-item,
-        .user-profile-header-card,
-        .notification-btn,
-        .content-card,
-        .content-card-body,
-        .content-card-header,
-        .content-card-table,
-        #recordsTableCard,
-        .card,
-        .card-body,
-        .card-header,
-        .table-responsive,
-        .data-table,
-        .data-table thead,
-        .data-table thead tr,
-        .data-table thead th,
-        .data-table tbody,
-        .data-table tbody tr,
-        .data-table tbody td,
-        .data-table .cell-title,
-        .data-table .cell-subtitle,
-        .compact-data-table,
-        .compact-data-table thead th,
-        .compact-data-table tbody td,
-        .filter-panel-unified,
-        .scope-segmented-control,
-        .scope-pill-btn,
-        .etala-search-pill-wrapper,
-        .etala-search-pill-input,
-        .user-group-card,
-        .user-row-item {
-            transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                        border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                        color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                        box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        /* Instant Root Canvas Colors */
+        html.dark-mode, html.dark-mode body {
+            background-color: #0b1329 !important;
+            color: #f8fafc !important;
+            color-scheme: dark !important;
+        }
+        html:not(.dark-mode), html:not(.dark-mode) body {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+            color-scheme: light !important;
+        }
+
+        /* Critical Sidebar Instant Dimensions */
+        html.sidebar-is-collapsed #sidebar,
+        html.sidebar-is-collapsed .etala-sidebar {
+            width: 72px !important;
+        }
+        html.sidebar-is-collapsed .etala-main {
+            margin-left: 72px !important;
+        }
+
+        /* ══ SCOPED SYNCHRONIZED THEME CROSSFADE (Active only during theme switch) ══ */
+        html.theme-transitioning,
+        html.theme-transitioning *,
+        html.theme-transitioning *::before,
+        html.theme-transitioning *::after {
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease !important;
         }
 
         /* ══ ULTRA-SMOOTH MODAL OPEN & CLOSE ANIMATIONS ═════════════════════════ */
@@ -136,54 +117,99 @@
             transform: none !important;
         }
 
-        /* Top Nano-Progress Bar (Ultra-Smooth Glowing Progress Sweep) */
-        .etala-top-progress-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 3.5px;
-            width: 0%;
-            background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 30%, #38bdf8 70%, #06b6d4 100%);
-            z-index: 9999999;
-            opacity: 0;
-            pointer-events: none;
-            box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), 0 0 4px rgba(37, 99, 235, 0.9);
-            border-radius: 0 2px 2px 0;
-        }
-        .etala-top-progress-bar::after {
-            content: '';
+        /* ══ UNIVERSAL CIRCULAR SPINNER LOADING OVERLAY ══════════════════════ */
+        .table-loading-overlay,
+        .card-loading-overlay,
+        .checklist-loading-overlay {
             position: absolute;
             top: 0;
-            right: 0;
-            width: 80px;
+            left: 0;
+            width: 100%;
             height: 100%;
-            box-shadow: 0 0 14px 4px rgba(56, 189, 248, 0.9), 0 0 6px 2px rgba(37, 99, 235, 0.9);
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(2.5px);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.14s ease, visibility 0.14s ease;
+            pointer-events: none;
+            border-radius: inherit;
+        }
+
+        .table-loading-overlay.show,
+        .card-loading-overlay.show,
+        .checklist-loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .dark-mode .table-loading-overlay,
+        .dark-mode .card-loading-overlay,
+        .dark-mode .checklist-loading-overlay,
+        [data-bs-theme="dark"] .table-loading-overlay,
+        [data-bs-theme="dark"] .card-loading-overlay,
+        [data-bs-theme="dark"] .checklist-loading-overlay {
+            background: rgba(15, 23, 42, 0.75) !important;
+        }
+
+        .checklist-spinner-card,
+        .spinner-circle-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
             border-radius: 50%;
-            opacity: 0.95;
+            width: 46px;
+            height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2563eb;
         }
-        .etala-top-progress-bar.loading-start {
-            opacity: 1;
-            width: 35%;
-            transition: width 0.22s cubic-bezier(0.2, 0.8, 0.25, 1), opacity 0.12s ease;
+
+        .dark-mode .checklist-spinner-card,
+        .dark-mode .spinner-circle-card,
+        [data-bs-theme="dark"] .checklist-spinner-card,
+        [data-bs-theme="dark"] .spinner-circle-card {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+            color: #60a5fa !important;
         }
-        .etala-top-progress-bar.loading-mid {
-            opacity: 1;
-            width: 78%;
-            transition: width 0.35s cubic-bezier(0.2, 0.8, 0.25, 1);
+
+        /* ══ FORM & MODAL SUBMITTING NON-INTERACTIVE LOCK ENGINE ═════════════ */
+        form.form-submitting,
+        .modal.is-submitting .modal-content {
+            pointer-events: none !important;
+            user-select: none !important;
         }
-        .etala-top-progress-bar.loading-creep {
-            opacity: 1;
-            width: 92%;
-            transition: width 0.8s cubic-bezier(0.1, 0.8, 0.3, 1);
+
+        form.form-submitting input,
+        form.form-submitting select,
+        form.form-submitting textarea,
+        form.form-submitting button,
+        form.form-submitting a,
+        .modal.is-submitting input,
+        .modal.is-submitting select,
+        .modal.is-submitting textarea,
+        .modal.is-submitting button,
+        .modal.is-submitting .btn-close,
+        .modal.is-submitting a {
+            pointer-events: none !important;
+            cursor: wait !important;
         }
-        .etala-top-progress-bar.complete {
-            width: 100% !important;
-            opacity: 1 !important;
-            transition: width 0.2s cubic-bezier(0.2, 0.9, 0.3, 1);
-        }
-        .etala-top-progress-bar.fade-out {
-            opacity: 0 !important;
-            transition: opacity 0.25s ease;
+
+        form.form-submitting input:not([type="submit"]):not([type="button"]),
+        form.form-submitting select,
+        form.form-submitting textarea,
+        .modal.is-submitting input:not([type="submit"]):not([type="button"]),
+        .modal.is-submitting select,
+        .modal.is-submitting textarea {
+            background-color: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.03)) !important;
+            opacity: 0.85 !important;
         }
 
         /* ─── UNIFIED SINGLE SLIM SCROLLBAR (ZERO REDUNDANCY) ─── */
@@ -296,6 +322,24 @@
             opacity: 1 !important;
         }
 
+        /* ── Dark Mode Table System ── */
+        .dark-mode table,
+        .dark-mode .table,
+        .dark-mode .data-table,
+        .dark-mode .compact-data-table,
+        [data-bs-theme="dark"] table,
+        [data-bs-theme="dark"] .table,
+        [data-bs-theme="dark"] .data-table,
+        [data-bs-theme="dark"] .compact-data-table {
+            --bs-table-bg: transparent !important;
+            --bs-table-color: #f8fafc !important;
+            --bs-table-striped-bg: rgba(255, 255, 255, 0.02) !important;
+            --bs-table-hover-bg: #334155 !important;
+            --bs-table-border-color: #334155 !important;
+            background-color: transparent !important;
+            color: #f8fafc !important;
+        }
+
         .dark-mode .data-table thead,
         .dark-mode .compact-data-table thead,
         .dark-mode .table thead,
@@ -312,8 +356,8 @@
         [data-bs-theme="dark"] .compact-data-table thead tr,
         [data-bs-theme="dark"] .table thead tr,
         [data-bs-theme="dark"] .table-responsive thead tr {
-            background-color: #1e293b !important;
-            background: #1e293b !important;
+            background-color: #0f172a !important;
+            background: #0f172a !important;
         }
 
         .dark-mode .data-table thead th,
@@ -324,11 +368,11 @@
         [data-bs-theme="dark"] .compact-data-table thead th,
         [data-bs-theme="dark"] .table thead th,
         [data-bs-theme="dark"] .table-responsive thead th {
-            background-color: #1e293b !important;
-            background: #1e293b !important;
+            background-color: #0f172a !important;
+            background: #0f172a !important;
             box-shadow: inset 0 -1px 0 #334155 !important;
             border-bottom-color: #334155 !important;
-            color: #cbd5e1 !important;
+            color: #94a3b8 !important;
             opacity: 1 !important;
         }
 
@@ -349,15 +393,56 @@
         }
 
         .dark-mode .data-table tbody td,
-        [data-bs-theme="dark"] .data-table tbody td {
+        .dark-mode .compact-data-table tbody td,
+        .dark-mode .table tbody td,
+        [data-bs-theme="dark"] .data-table tbody td,
+        [data-bs-theme="dark"] .compact-data-table tbody td,
+        [data-bs-theme="dark"] .table tbody td {
             border-bottom-color: #334155 !important;
+            color: #f8fafc !important;
+            background-color: transparent !important;
+        }
+
+        .dark-mode .data-table tbody tr,
+        .dark-mode .compact-data-table tbody tr,
+        .dark-mode .table-card-responsive tbody tr,
+        [data-bs-theme="dark"] .data-table tbody tr,
+        [data-bs-theme="dark"] .compact-data-table tbody tr,
+        [data-bs-theme="dark"] .table-card-responsive tbody tr {
+            background-color: transparent !important;
+            color: #f8fafc !important;
         }
 
         .dark-mode .data-table tbody tr:hover,
+        .dark-mode .compact-data-table tbody tr:hover,
         .dark-mode .table-card-responsive tbody tr:hover,
         [data-bs-theme="dark"] .data-table tbody tr:hover,
+        [data-bs-theme="dark"] .compact-data-table tbody tr:hover,
         [data-bs-theme="dark"] .table-card-responsive tbody tr:hover {
             background-color: #334155 !important;
+        }
+
+        .dark-mode .cell-title,
+        .dark-mode .data-table .cell-title,
+        [data-bs-theme="dark"] .cell-title,
+        [data-bs-theme="dark"] .data-table .cell-title {
+            color: #f8fafc !important;
+        }
+
+        .dark-mode .cell-subtitle,
+        .dark-mode .data-table .cell-subtitle,
+        .dark-mode .cell-subtitle .subtitle-row,
+        [data-bs-theme="dark"] .cell-subtitle,
+        [data-bs-theme="dark"] .data-table .cell-subtitle,
+        [data-bs-theme="dark"] .cell-subtitle .subtitle-row {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .cell-subtitle strong,
+        .dark-mode .cell-subtitle b,
+        [data-bs-theme="dark"] .cell-subtitle strong,
+        [data-bs-theme="dark"] .cell-subtitle b {
+            color: #cbd5e1 !important;
         }
 
         /* ══ FRACTIONAL SPACING, GAP & PADDING UTILITY EXTENSIONS ═════════════ */
@@ -577,6 +662,19 @@
             box-shadow: none !important;
             padding: 2.5rem 1rem !important;
             text-align: center;
+        }
+        .empty-state-unified .btn i,
+        .empty-state-unified .premium-btn i,
+        .empty-state-unified .action-btn i,
+        .empty-state-unified a i,
+        .empty-state-unified button i {
+            width: auto !important;
+            height: auto !important;
+            display: inline-block !important;
+            margin: 0 !important;
+            opacity: 1 !important;
+            vertical-align: 0 !important;
+            line-height: 1 !important;
         }
         .empty-state-icon-circle {
             width: 64px;
@@ -975,6 +1073,14 @@
             background-color: #ffffff !important;
         }
 
+        .dark-mode .content-card-header,
+        .dark-mode .card-header-sticky,
+        [data-bs-theme="dark"] .content-card-header,
+        [data-bs-theme="dark"] .card-header-sticky {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+
         /* Global Sticky Table Header Solid Backgrounds (Prevent scroll bleed-through & transparency) */
         .data-table {
             border-collapse: separate !important;
@@ -986,18 +1092,35 @@
             position: sticky !important;
             top: 0 !important;
             z-index: 10 !important;
-            background-color: #ffffff !important;
-            background: #ffffff !important;
+            background-color: #f8fafc !important;
+            background: #f8fafc !important;
         }
 
         .data-table thead th {
             position: sticky !important;
             top: 0 !important;
             z-index: 10 !important;
-            background-color: #ffffff !important;
-            background: #ffffff !important;
+            background-color: #f8fafc !important;
+            background: #f8fafc !important;
             background-clip: padding-box !important;
-            box-shadow: 0 1px 0 var(--border-default, #e2e8f0) !important;
+            box-shadow: 0 1px 0 #e2e8f0 !important;
+        }
+
+        .dark-mode .data-table thead,
+        .dark-mode .data-table thead tr,
+        [data-bs-theme="dark"] .data-table thead,
+        [data-bs-theme="dark"] .data-table thead tr {
+            background-color: #0f172a !important;
+            background: #0f172a !important;
+        }
+
+        .dark-mode .data-table thead th,
+        [data-bs-theme="dark"] .data-table thead th {
+            background-color: #0f172a !important;
+            background: #0f172a !important;
+            box-shadow: 0 1px 0 #334155 !important;
+            border-bottom-color: #334155 !important;
+            color: #94a3b8 !important;
         }
 
         /* Bulletproof inline Dark Mode overrides to prevent browser caching issues */
@@ -1578,6 +1701,164 @@
 
         .dark-mode .notification-subtext {
             color: #94a3b8 !important;
+        }
+
+        /* ── Notification Item Action Menu (Three-dots & Custom Popover) ── */
+        .notif-menu-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            min-width: 44px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .notif-item-action-btn {
+            width: 28px;
+            height: 28px;
+            padding: 0 !important;
+            border-radius: 50% !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b !important;
+            opacity: 0.85;
+            transition: all 0.18s ease;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .notification-item:hover .notif-item-action-btn {
+            opacity: 1;
+            color: #1e293b !important;
+        }
+
+        .notif-item-action-btn:hover,
+        .notif-item-action-btn.active {
+            background-color: rgba(0, 0, 0, 0.08) !important;
+            color: #0f172a !important;
+        }
+
+        .dark-mode .notif-item-action-btn {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .notification-item:hover .notif-item-action-btn {
+            color: #e2e8f0 !important;
+        }
+
+        .dark-mode .notif-item-action-btn:hover,
+        .dark-mode .notif-item-action-btn.active {
+            background-color: rgba(255, 255, 255, 0.14) !important;
+            color: #ffffff !important;
+        }
+
+        #notificationListContainer {
+            min-height: 140px !important;
+            max-height: 340px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            scrollbar-gutter: stable;
+        }
+
+        .notif-custom-popover-menu {
+            position: absolute !important;
+            top: 30px !important;
+            right: 0 !important;
+            z-index: 999999 !important;
+            min-width: 185px !important;
+            width: max-content !important;
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 10px !important;
+            padding: 6px !important;
+            display: none;
+            box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.25), 0 4px 12px -2px rgba(15, 23, 42, 0.15) !important;
+        }
+
+        .notif-custom-popover-menu.popover-open-up {
+            top: auto !important;
+            bottom: 28px !important;
+        }
+
+        .notif-custom-popover-menu.show-popover {
+            display: flex !important;
+            flex-direction: column !important;
+            animation: notifPopoverFade 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .notif-custom-popover-menu.show-popover.popover-open-up {
+            animation: notifPopoverFadeUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        @keyframes notifPopoverFade {
+            0% { opacity: 0; transform: translateY(-4px) scale(0.96); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes notifPopoverFadeUp {
+            0% { opacity: 0; transform: translateY(4px) scale(0.96); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .notif-popover-item {
+            width: 100%;
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            padding: 8px 12px !important;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #334155;
+            text-align: left;
+            white-space: nowrap !important;
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .notif-popover-item:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+
+        .notif-popover-item-danger {
+            color: #dc2626 !important;
+        }
+
+        .notif-popover-item-danger:hover {
+            background-color: #fef2f2 !important;
+            color: #b91c1c !important;
+        }
+
+        .dark-mode .notif-custom-popover-menu {
+            background: #1e293b !important;
+            border: 1px solid #475569 !important;
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.7) !important;
+        }
+
+        .dark-mode .notif-popover-item {
+            color: #e2e8f0 !important;
+        }
+
+        .dark-mode .notif-popover-item:hover {
+            background-color: #334155 !important;
+            color: #ffffff !important;
+        }
+
+        .dark-mode .notif-popover-item-danger {
+            color: #f87171 !important;
+        }
+
+        .dark-mode .notif-popover-item-danger:hover {
+            background-color: rgba(239, 68, 68, 0.18) !important;
+            color: #fca5a5 !important;
         }
 
         /* ── Official Government-Grade Carigara Emblem & eTala Header ── */
@@ -2924,15 +3205,20 @@
             a.premium-btn,
             button.premium-btn {
                 display: inline-flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
                 align-items: center !important;
                 justify-content: center !important;
                 gap: 7px !important;
                 padding: 0 14px !important;
                 height: 36px !important;
-                line-height: 36px !important;
+                min-height: 36px !important;
+                max-height: 36px !important;
+                line-height: normal !important;
                 vertical-align: middle !important;
                 box-sizing: border-box !important;
                 text-decoration: none !important;
+                white-space: nowrap !important;
             }
 
             .premium-btn .btn-icon,
@@ -2947,6 +3233,8 @@
                 height: auto !important;
                 vertical-align: middle !important;
                 flex-shrink: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
 
             .premium-btn .btn-icon i,
@@ -2956,6 +3244,8 @@
                 line-height: 1 !important;
                 vertical-align: 0 !important;
                 font-size: 13px !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
 
             .premium-btn .btn-divider,
@@ -2979,6 +3269,7 @@
                 display: inline-flex !important;
                 align-items: center !important;
                 line-height: 1 !important;
+                white-space: nowrap !important;
             }
 
             /* ── PREMIUM BUTTON MICRO-INTERACTIONS & EFFECTS ── */
@@ -4127,6 +4418,7 @@
         }
 
         .row-action-btn + .dropdown-menu,
+        .checklist-kebab-btn + .dropdown-menu,
         .user-row-item .dropdown-menu,
         .user-group-card .dropdown-menu,
         .data-table .dropdown-menu,
@@ -4137,6 +4429,7 @@
         }
 
         .dark-mode .row-action-btn + .dropdown-menu,
+        .dark-mode .checklist-kebab-btn + .dropdown-menu,
         .dark-mode .user-row-item .dropdown-menu,
         .dark-mode .user-group-card .dropdown-menu,
         .dark-mode .data-table .dropdown-menu,
@@ -4144,6 +4437,7 @@
         .dark-mode .barangay-card-wrapper .dropdown-menu,
         .dark-mode .brgy-card .dropdown-menu,
         [data-bs-theme="dark"] .row-action-btn + .dropdown-menu,
+        [data-bs-theme="dark"] .checklist-kebab-btn + .dropdown-menu,
         [data-bs-theme="dark"] .user-row-item .dropdown-menu,
         [data-bs-theme="dark"] .user-group-card .dropdown-menu,
         [data-bs-theme="dark"] .data-table .dropdown-menu,
@@ -4269,6 +4563,75 @@
             box-sizing: border-box !important;
             padding: 16px 20px !important;
             min-height: 66px !important;
+        }
+
+        /* ── SELECTED FILE PREVIEW CARD & READY BADGE (LIGHT & DARK MODE) ── */
+        .selected-file-preview-card {
+            background-color: #f8fafc !important;
+            border-color: #e2e8f0 !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .selected-file-icon-box {
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .upload-ready-badge {
+            background-color: #ecfdf5 !important;
+            color: #059669 !important;
+            border: 1px solid #a7f3d0 !important;
+            box-shadow: 0 1px 2px rgba(5, 150, 105, 0.06) !important;
+            line-height: 1.2 !important;
+        }
+
+        .selected-file-remove-btn {
+            color: #94a3b8 !important;
+            transition: color 0.15s ease, transform 0.15s ease !important;
+        }
+        .selected-file-remove-btn:hover {
+            color: #ef4444 !important;
+            transform: scale(1.1) !important;
+        }
+
+        .dark-mode .selected-file-preview-card,
+        [data-bs-theme="dark"] .selected-file-preview-card {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+
+        .dark-mode .selected-file-icon-box,
+        [data-bs-theme="dark"] .selected-file-icon-box {
+            background-color: #0f172a !important;
+            border-color: #334155 !important;
+        }
+
+        .dark-mode #singleSelectedFileName,
+        [data-bs-theme="dark"] #singleSelectedFileName {
+            color: #f8fafc !important;
+        }
+
+        .dark-mode #singleSelectedFileSizeBadge,
+        [data-bs-theme="dark"] #singleSelectedFileSizeBadge {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .upload-ready-badge,
+        [data-bs-theme="dark"] .upload-ready-badge {
+            background-color: rgba(16, 185, 129, 0.18) !important;
+            color: #34d399 !important;
+            border-color: rgba(16, 185, 129, 0.35) !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+        }
+
+        .dark-mode .selected-file-remove-btn,
+        [data-bs-theme="dark"] .selected-file-remove-btn {
+            color: #94a3b8 !important;
+        }
+        .dark-mode .selected-file-remove-btn:hover,
+        [data-bs-theme="dark"] .selected-file-remove-btn:hover {
+            color: #f87171 !important;
         }
 
         /* ── PERFECT ACCORDION CHEVRON TOGGLE (TRANSPARENT, SMOOTH 180° ROTATION) ── */
@@ -4505,29 +4868,25 @@
         ::view-transition-new(root) {
             animation: 160ms cubic-bezier(0.4, 0, 0.2, 1) both etalaThemeFadeIn;
         }
-        @keyframes etalaThemeFadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-        @keyframes etalaThemeFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        /* ══ CINEMATIC THEME FADE-OUT / FADE-IN DISSOLVE OVERLAY ═════════════════ */
+        .theme-fade-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999999;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.16s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.16s !important;
         }
 
-        /* ══ ULTRA-SMOOTH COMPONENT ENTRY & EXIT ANIMATIONS ═══════════════════ */
-        .etala-content {
-            animation: etalaContentEntrance 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-
-        @keyframes etalaContentEntrance {
-            from {
-                opacity: 0;
-                transform: translateY(6px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .theme-fade-overlay.fade-active {
+            opacity: 0.4;
+            visibility: visible;
         }
 
         /* ══ ULTRA-SMOOTH MODAL OPEN & CLOSE ANIMATIONS ═════════════════════════ */
@@ -4554,20 +4913,16 @@
 
         /* ══ ULTRA-SMOOTH DROPDOWN ENTRY & EXIT ANIMATION ══════════════════════ */
         .dropdown-menu {
-            display: block !important;
-            opacity: 0 !important;
-            visibility: hidden !important;
-            transform: translateY(-6px) scale(0.97) !important;
-            pointer-events: none !important;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
             transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
                         visibility 0.18s !important;
         }
 
         .dropdown-menu.show {
             opacity: 1 !important;
             visibility: visible !important;
-            transform: translateY(0) scale(1) !important;
             pointer-events: auto !important;
         }
 
@@ -4672,6 +5027,68 @@
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
+        }
+
+        /* ─── MASTER UNIFIED FORM CONTROLS & SELECT DROPDOWNS ────────────────── */
+        .form-control,
+        .form-select,
+        .cr-field,
+        input.form-control,
+        select.form-select,
+        textarea.form-control {
+            border-radius: 8px !important;
+            border: 1.2px solid #cbd5e1 !important;
+            padding: 8px 13px !important;
+            font-size: 0.86rem !important;
+            color: #1e293b !important;
+            background-color: #ffffff !important;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .form-control:hover,
+        .form-select:hover,
+        .cr-field:hover {
+            border-color: #94a3b8 !important;
+        }
+
+        .form-control:focus,
+        .form-select:focus,
+        .cr-field:focus,
+        input.form-control:focus,
+        select.form-select:focus,
+        textarea.form-control:focus {
+            border-color: #38bdf8 !important;
+            outline: 0 !important;
+            box-shadow: 0 0 0 3.5px rgba(56, 189, 248, 0.22) !important;
+            background-color: #ffffff !important;
+        }
+
+        .dark-mode .form-control,
+        .dark-mode .form-select,
+        .dark-mode .cr-field,
+        .dark-mode input.form-control,
+        .dark-mode select.form-select,
+        .dark-mode textarea.form-control,
+        [data-bs-theme="dark"] .form-control,
+        [data-bs-theme="dark"] .form-select,
+        [data-bs-theme="dark"] .cr-field {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f1f5f9 !important;
+        }
+
+        .dark-mode .form-control:hover,
+        .dark-mode .form-select:hover,
+        .dark-mode .cr-field:hover {
+            border-color: #475569 !important;
+        }
+
+        .dark-mode .form-control:focus,
+        .dark-mode .form-select:focus,
+        .dark-mode .cr-field:focus {
+            border-color: #38bdf8 !important;
+            box-shadow: 0 0 0 3.5px rgba(56, 189, 248, 0.28) !important;
+            background-color: #0f172a !important;
         }
 
         .etala-transition-spinner-box {
@@ -4839,9 +5256,8 @@
 </head>
 
 <body>
-    <!-- ══ TOP NANO PROGRESS BAR (INSTANT FEEDBACK FOR PAGE TRANSITIONS) ══ -->
-    <div id="etalaTopProgressBar" class="etala-top-progress-bar" aria-hidden="true"></div>
-
+    <!-- ══ CINEMATIC THEME FADE-OUT / FADE-IN DISSOLVE OVERLAY ═════════════════ -->
+    <div id="themeFadeOverlay" class="theme-fade-overlay" aria-hidden="true"></div>
     {% if request.user.is_authenticated %}
     <div class="etala-layout">
         <!-- ═══════════════════════════════════════════
@@ -4922,7 +5338,7 @@
 
                     <!-- Illegal Constructions -->
                     <a href="{% url 'illegal_constructions' %}"
-                        class="nav-item {% if active_tab == 'illegal' %}active{% endif %}"
+                        class="nav-item {% if active_tab == 'illegal' or active_tab == 'illegal_constructions' %}active{% endif %}"
                         title="Illegal Constructions">
                         <div class="nav-item-content">
                             <i class="fa-solid fa-triangle-exclamation"
@@ -5112,7 +5528,7 @@
                                     style="font-size: 9px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 4px; align-items: center; justify-content: center; top: -1px; right: -2px; border: 2px solid #ffffff; line-height: 1; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">{% if notifications_count > 99 %}99+{% else %}{{ notifications_count }}{% endif %}</span>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card dropdown-card-with-caret shadow-lg"
-                                style="min-width: 390px; max-width: 410px; border-radius: 18px; overflow: hidden; z-index: 99999; margin-top: 10px;">
+                                style="width: 390px; max-width: calc(100vw - 20px); border-radius: 18px; overflow: hidden; z-index: 99999; margin-top: 10px;">
                                 <!-- Header -->
                                 <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center notification-card-header" style="background: #ffffff;">
                                     <span class="fw-bold text-dark notification-card-title d-inline-flex align-items-center gap-2"
@@ -5131,16 +5547,16 @@
                                 </div>
 
                                 <!-- List -->
-                                <div class="d-flex flex-column custom-scrollbar"
-                                    style="max-height: 340px; overflow-y: auto;">
+                                <div class="d-flex flex-column custom-scrollbar" id="notificationListContainer"
+                                    style="min-height: 140px; max-height: 340px; overflow-y: auto;">
                                     {% for n in recent_notifications %}
-                                    <div class="px-4 py-3 border-bottom notification-item d-flex align-items-start gap-3"
-                                        style="cursor:pointer; transition: background 0.18s ease;"
+                                    <div class="px-4 py-3 border-bottom notification-item d-flex align-items-center gap-3 position-relative {% if not n.is_read %}is-unread-item{% endif %}"
+                                        style="cursor:pointer; transition: all 0.22s ease;"
                                         onclick="markItemAsRead(this, '{{ n.url }}')"
-                                        data-notification-id="{{ n.action|slugify }}">
+                                        data-notification-id="{{ n.id|default:n.action|slugify }}">
 
                                         <!-- Left Pastel Icon Circle (Fixed size on left) -->
-                                        <div class="notification-icon-wrapper flex-shrink-0 {% if n.type == 'security' %}notif-security{% elif 'FSIC' in n.action %}notif-fsic{% elif 'Electrical' in n.action %}notif-electrical{% elif 'Other' in n.action or 'Record' in n.action %}notif-record{% else %}notif-default{% endif %}">
+                                        <div class="notification-icon-wrapper flex-shrink-0 align-self-center {% if n.type == 'security' %}notif-security{% elif 'FSIC' in n.action %}notif-fsic{% elif 'Electrical' in n.action %}notif-electrical{% elif 'Other' in n.action or 'Record' in n.action %}notif-record{% else %}notif-default{% endif %}">
                                             {% if n.type == 'security' %}
                                             <i class="fa-solid fa-exclamation"
                                                 style="font-size: 14px; font-weight: 900;"></i>
@@ -5156,7 +5572,7 @@
                                         </div>
 
                                         <!-- Text Content (Wraps to multi-lines automatically) -->
-                                        <div class="notification-content-wrapper min-w-0">
+                                        <div class="notification-content-wrapper min-w-0 flex-grow-1">
                                             <div class="fw-bold notification-item-title" title="{{ n.action }}">
                                                 {{ n.action }}
                                             </div>
@@ -5165,21 +5581,38 @@
                                             </div>
                                         </div>
 
-                                        <!-- Right Unread Blue Dot Indicator -->
-                                        <div class="d-flex align-items-center flex-shrink-0 ms-1 mt-1">
+                                        <!-- Right Indicator & Action Menu -->
+                                        <div class="notif-menu-wrapper ms-auto flex-shrink-0" onclick="event.stopPropagation();">
                                             <span class="unread-blue-dot rounded-circle flex-shrink-0"
+                                                {% if n.is_read %}style="display: none;"{% endif %}
                                                 title="Unread notification"></span>
+                                            <button class="notif-item-action-btn" type="button" onclick="toggleNotifMenu(this, event);" title="Options">
+                                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                                            </button>
+                                            <div class="notif-custom-popover-menu shadow-lg">
+                                                <button type="button" class="notif-popover-item notif-item-toggle-read" onclick="toggleItemReadState(this, event);">
+                                                    {% if n.is_read %}
+                                                    <i class="fa-regular fa-envelope text-primary" style="width: 14px;"></i>
+                                                    <span>Mark as unread</span>
+                                                    {% else %}
+                                                    <i class="fa-solid fa-check text-primary" style="width: 14px;"></i>
+                                                    <span>Mark as read</span>
+                                                    {% endif %}
+                                                </button>
+                                                <button type="button" class="notif-popover-item notif-popover-item-danger" onclick="deleteNotification(this, event);">
+                                                    <i class="fa-solid fa-trash-can" style="width: 14px;"></i>
+                                                    <span>Delete notification</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                    {% empty %}
-                                    <div
-                                        class="py-5 px-4 text-center text-muted small d-flex flex-column align-items-center gap-2">
+                                    {% endfor %}
+                                    <div id="noNotificationsEmptyState"
+                                        class="py-5 px-4 text-center text-muted small d-flex flex-column align-items-center gap-2 {% if recent_notifications %}d-none{% endif %}">
                                         <i class="fa-regular fa-bell-slash text-muted"
                                             style="font-size: 22px; opacity: 0.4;"></i>
-                                        <span class="fw-medium" style="font-size: 0.82rem; color: #64748b;">No unread
-                                            notifications.</span>
+                                        <span class="fw-medium" style="font-size: 0.82rem; color: #64748b;">No new notifications.</span>
                                     </div>
-                                    {% endfor %}
                                 </div>
 
                                 <!-- Footer -->
@@ -5539,11 +5972,19 @@
             }
         });
 
-        // ⚡ 60FPS ZERO-LAG HARDWARE-ACCELERATED THEME SWITCH
+        // ⚡ CINEMATIC ULTRA-SMOOTH THEME FADE-OUT / FADE-IN DISSOLVE (Zero flicker)
         window.applyTheme = function(theme) {
             const isDark = theme === 'dark';
+            const overlay = document.getElementById('themeFadeOverlay');
 
-            const updateDOMTheme = function() {
+            // 1. Soft fade-out dissolve
+            if (overlay) {
+                overlay.style.backgroundColor = isDark ? '#0b1329' : '#f8fafc';
+                overlay.classList.add('fade-active');
+            }
+
+            setTimeout(function() {
+                // 2. Switch theme classes cleanly behind the soft dissolve
                 if (isDark) {
                     document.documentElement.classList.add('dark-mode');
                     document.documentElement.setAttribute('data-bs-theme', 'dark');
@@ -5569,15 +6010,14 @@
                     }
                     localStorage.setItem('theme', 'light');
                 }
-            };
 
-            // Hardware-accelerated GPU view transition (Instant & 0 Lag)
-            if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                updateDOMTheme();
-                return;
-            }
-
-            document.startViewTransition(updateDOMTheme);
+                // 3. Smooth fade-in dissolve (unveil the new theme)
+                setTimeout(function() {
+                    if (overlay) {
+                        overlay.classList.remove('fade-active');
+                    }
+                }, 30);
+            }, 100);
         };
 
         document.addEventListener("DOMContentLoaded", function () {
@@ -6312,17 +6752,68 @@
                 }
             });
 
-            // ── Form Submit Transition ────────────────────────────────────
-            // Add exit transition when forms are submitted (non-AJAX)
+            // ── Form Submit & Interactive Locking Engine ──────────────────
             document.addEventListener('submit', function (e) {
-                if (isTransitioning) return;
                 const form = e.target;
-                // Skip AJAX forms (ones with data-ajax or fetch-based)
-                if (form.hasAttribute('data-ajax') || form.hasAttribute('data-no-transition')) return;
+                if (!form || form.tagName !== 'FORM') return;
 
-                const content = document.querySelector('.etala-content');
-                if (content) {
-                    content.classList.add('page-exit');
+                // If native validation fails, don't lock
+                if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+                    return;
+                }
+
+                const isAjax = form.hasAttribute('data-ajax') || form.hasAttribute('data-no-transition');
+
+                // Apply locking class unless explicitly opted out
+                if (!form.hasAttribute('data-no-lock')) {
+                    form.classList.add('form-submitting');
+
+                    // Make inputs readOnly to prevent user modification without excluding values from POST
+                    const textInputs = form.querySelectorAll('input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea');
+                    textInputs.forEach(function(inp) {
+                        inp.readOnly = true;
+                    });
+
+                    // If form is inside a Bootstrap modal, lock the modal wrapper & close buttons
+                    const modal = form.closest('.modal');
+                    if (modal) {
+                        modal.classList.add('is-submitting');
+                        const closeBtns = modal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+                        closeBtns.forEach(function(btn) {
+                            btn.style.pointerEvents = 'none';
+                            btn.setAttribute('tabindex', '-1');
+                        });
+                    }
+
+                    // Disable submit button after micro-delay to let default POST payload serialize
+                    const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                    if (submitBtn && !submitBtn.disabled) {
+                        setTimeout(function() {
+                            submitBtn.disabled = true;
+                        }, 20);
+                    }
+                }
+
+                // Add exit transition when forms are submitted (non-AJAX)
+                if (!isAjax && !isTransitioning) {
+                    const content = document.querySelector('.etala-content');
+                    if (content) {
+                        content.classList.add('page-exit');
+                        // Safety auto-recovery: restore page in case response was a download/export file
+                        setTimeout(function () {
+                            if (content) content.classList.remove('page-exit');
+                            form.classList.remove('form-submitting');
+                            const textInputs = form.querySelectorAll('input, textarea');
+                            textInputs.forEach(function(inp) {
+                                if (!inp.hasAttribute('data-permanent-readonly')) {
+                                    inp.readOnly = false;
+                                }
+                            });
+                            const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                            if (submitBtn) submitBtn.disabled = false;
+                            isTransitioning = false;
+                        }, 4000);
+                    }
                 }
             });
 
@@ -6333,6 +6824,31 @@
                 if (content) {
                     content.classList.remove('page-exit');
                 }
+
+                // Restore all locked forms & modals
+                document.querySelectorAll('form.form-submitting').forEach(function(f) {
+                    f.classList.remove('form-submitting');
+                    const textInputs = f.querySelectorAll('input, textarea');
+                    textInputs.forEach(function(inp) {
+                        if (!inp.hasAttribute('data-permanent-readonly')) {
+                            inp.readOnly = false;
+                        }
+                    });
+                    const submitBtn = f.querySelector('button[type="submit"], input[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                });
+
+                document.querySelectorAll('.modal.is-submitting').forEach(function(m) {
+                    m.classList.remove('is-submitting');
+                    const closeBtns = m.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+                    closeBtns.forEach(function(btn) {
+                        btn.style.pointerEvents = '';
+                        btn.removeAttribute('tabindex');
+                    });
+                });
+
                 // Automatically re-query freshest data if loaded from browser history cache
                 if (e.persisted || (window.performance && window.performance.getEntriesByType && window.performance.getEntriesByType('navigation')[0]?.type === 'back_forward')) {
                     window.location.reload();
@@ -6360,47 +6876,106 @@
         window.handleSmartGlobalBack = function (btn) {
             const fallbackUrl = (btn && btn.dataset && btn.dataset.fallbackUrl) ? btn.dataset.fallbackUrl : "{% url 'dashboard' %}";
             const ref = document.referrer;
+            const currentPath = window.location.pathname;
             const currentHost = window.location.host;
 
-            // Detect if previous page was a form submission / create / edit action
-            const isFormAction = ref && (
-                ref.includes('/create') ||
-                ref.includes('/edit') ||
-                ref.includes('/delete') ||
-                ref.includes('/upload') ||
-                ref.includes('/login') ||
-                ref.includes('/register') ||
-                ref.includes('/reset-password')
-            );
+            // Visual active feedback animation
+            if (btn) {
+                btn.style.transform = 'scale(0.93)';
+                btn.style.opacity = '0.75';
+                setTimeout(() => {
+                    if (btn) {
+                        btn.style.transform = '';
+                        btn.style.opacity = '';
+                    }
+                }, 180);
+            }
 
+            // 1. Wizard Steps (Step 1, Step 2, Step 3) -> STRICT STEP BACKWARD NAVIGATION
+            if (currentPath.includes('/records/new') || currentPath.includes('/records/create') || currentPath.includes('/step') || currentPath.includes('/form/')) {
+                if (fallbackUrl && fallbackUrl !== currentPath) {
+                    window.location.href = fallbackUrl;
+                    return;
+                }
+            }
+
+            // 2. Edit Page & Requirement Detail -> ALWAYS GO TO RECORD DETAIL
+            if (currentPath.includes('/edit/') || currentPath.includes('/requirements/')) {
+                if (fallbackUrl && fallbackUrl !== currentPath) {
+                    window.location.href = fallbackUrl;
+                    return;
+                }
+            }
+
+            // 3. Record Detail Page (/records/<id>/) -> AVOID LOOPING BACK TO EDIT OR WIZARD
+            const isDetailPage = /^\/records\/\d+\/?$/.test(currentPath);
+            if (isDetailPage) {
+                const safeSavedList = sessionStorage.getItem('etala_last_list_url');
+                // If we came from creating a new record or editing an existing one, return to parent list
+                const isFormSubmitOrigin = !ref || ref.includes('/new') || ref.includes('/edit') || ref.includes('/form') || ref.includes('/step') || ref.includes('/create');
+                if (isFormSubmitOrigin) {
+                    window.location.href = safeSavedList || fallbackUrl;
+                    return;
+                }
+            }
+
+            // 4. If referrer is internal to the application and safe
+            if (ref && ref.includes(currentHost)) {
+                try {
+                    const refPath = new URL(ref).pathname;
+
+                    // Avoid self-referencing loop (e.g. page refreshed or form POSTed to self)
+                    if (refPath === currentPath) {
+                        window.location.href = fallbackUrl;
+                        return;
+                    }
+
+                    // Avoid looping back into auth/action screens
+                    const isTrapOrigin = refPath.includes('/login') || refPath.includes('/register') || refPath.includes('/delete') || refPath.includes('/bulk');
+                    if (isTrapOrigin) {
+                        const safeSavedList = sessionStorage.getItem('etala_last_list_url');
+                        window.location.href = safeSavedList || fallbackUrl;
+                        return;
+                    }
+
+                    // Smooth native browser back navigation
+                    if (window.history.length > 1) {
+                        window.history.back();
+                        return;
+                    }
+                } catch (e) {
+                    // Fallthrough to fallbackUrl
+                }
+            }
+
+            // 5. Fallback for direct URL, new tabs, or external origins
             const safeSavedList = sessionStorage.getItem('etala_last_list_url');
-
-            if (isFormAction) {
-                // Form submit bypass: jump directly to safe listing or parent fallback
-                window.location.href = safeSavedList || fallbackUrl;
-                return;
-            }
-
-            if (window.history.length > 1 && ref && ref.includes(currentHost)) {
-                window.history.back();
-            } else {
-                window.location.href = fallbackUrl;
-            }
+            window.location.href = fallbackUrl || safeSavedList || "{% url 'dashboard' %}";
         };
 
         // ── State & Scroll Position Memory Retention ──────────────────
         (function () {
             const currentPath = window.location.pathname;
-            const isListingPage = currentPath.includes('/records') || 
-                                  currentPath.includes('/permits') || 
-                                  currentPath.includes('/activity-logs') || 
-                                  currentPath.includes('/reports') || 
-                                  currentPath.includes('/barangays') || 
-                                  currentPath.includes('/illegal-constructions') || 
-                                  currentPath.includes('/users') || 
-                                  currentPath.includes('/archive');
+            const isFormOrWizard = currentPath.includes('/new') || 
+                                   currentPath.includes('/edit') || 
+                                   currentPath.includes('/step') || 
+                                   currentPath.includes('/form') || 
+                                   currentPath.includes('/login') || 
+                                   currentPath.includes('/register');
+            const isDetailPage = /^\/records\/\d+\/?$/.test(currentPath) || /^\/requirements\/\d+\/?$/.test(currentPath);
+            const isListingPage = !isFormOrWizard && !isDetailPage && (
+                currentPath.startsWith('/records') || 
+                currentPath.startsWith('/permits') || 
+                currentPath.startsWith('/activity-logs') || 
+                currentPath.startsWith('/reports') || 
+                currentPath.startsWith('/barangays') || 
+                currentPath.startsWith('/illegal-constructions') || 
+                currentPath.startsWith('/users') || 
+                currentPath.startsWith('/archive') ||
+                currentPath.startsWith('/search')
+            );
 
-            // 1. Remember list URL with current query parameters
+            // 1. Remember list URL with current query parameters (ONLY FOR REAL LISTS)
             if (isListingPage) {
                 sessionStorage.setItem('etala_last_list_url', window.location.href);
 
@@ -6669,75 +7244,320 @@
     </div>
 
     <script>
-        /* ══ NOTIFICATION UNREAD / ITEM READ HANDLING ══ */
+        /* ══ NOTIFICATION UNREAD / ITEM READ / DISMISS ENGINE ══ */
         function markItemAsRead(element, url) {
+            if (!element) return;
             const id = element.getAttribute('data-notification-id');
-            let readList = JSON.parse(localStorage.getItem('etala_read_notifs') || '[]');
+            let readList = [];
+            try {
+                readList = JSON.parse(localStorage.getItem('etala_read_notifs') || '[]');
+            } catch (e) {
+                readList = [];
+            }
             if (id && !readList.includes(id)) {
                 readList.push(id);
-                localStorage.setItem('etala_read_notifs', JSON.stringify(readList));
+                try {
+                    localStorage.setItem('etala_read_notifs', JSON.stringify(readList));
+                } catch (e) {}
             }
 
             const dot = element.querySelector('.unread-blue-dot');
             if (dot) {
-                dot.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                dot.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
                 dot.style.opacity = '0';
                 dot.style.transform = 'scale(0)';
-                setTimeout(() => { dot.style.display = 'none'; }, 250);
+                setTimeout(() => { dot.style.display = 'none'; }, 200);
             }
             element.classList.remove('is-unread-item');
 
             updateNotificationBadges();
 
             if (url && url !== '#' && url !== 'javascript:void(0)') {
+                // Auto-close notification dropdown menu cleanly
+                const bellBtn = document.getElementById('notificationBellBtn');
+                if (bellBtn && window.bootstrap && bootstrap.Dropdown) {
+                    try {
+                        const bsDropdown = bootstrap.Dropdown.getInstance(bellBtn);
+                        if (bsDropdown) bsDropdown.hide();
+                    } catch (e) {}
+                }
+
+                // Check if target URL is on the same page
+                try {
+                    const currentUrl = new URL(window.location.href);
+                    const targetUrl = new URL(url, window.location.origin);
+
+                    if (currentUrl.pathname === targetUrl.pathname) {
+                        // Same page destination: update browser query string and trigger immediate highlight
+                        window.history.pushState({}, '', targetUrl.toString());
+                        if (typeof window.handleDocumentDeepLink === 'function') {
+                            window.handleDocumentDeepLink();
+                        } else {
+                            window.location.href = url;
+                            window.location.reload();
+                        }
+                        return;
+                    }
+                } catch (err) {
+                    // Fallback to standard redirect
+                }
+
                 setTimeout(() => {
                     window.location.href = url;
-                }, 250);
+                }, 160);
             }
         }
 
-        function updateNotificationBadges() {
-            const readList = JSON.parse(localStorage.getItem('etala_read_notifs') || '[]');
+        function getNotifStorageKeys() {
+            const uid = '{{ request.user.id|default:"guest" }}';
+            return {
+                readKey: 'etala_read_notifs_' + uid,
+                deletedKey: 'etala_deleted_notifs_' + uid
+            };
+        }
+        function getReadNotifs() {
+            const { readKey } = getNotifStorageKeys();
+            try {
+                const val = localStorage.getItem(readKey) || localStorage.getItem('etala_read_notifs');
+                return val ? JSON.parse(val) : [];
+            } catch(e) { return []; }
+        }
+        function setReadNotifs(list) {
+            const { readKey } = getNotifStorageKeys();
+            try {
+                localStorage.setItem(readKey, JSON.stringify(list));
+                localStorage.setItem('etala_read_notifs', JSON.stringify(list));
+            } catch(e) {}
+        }
+        function getDeletedNotifs() {
+            const { deletedKey } = getNotifStorageKeys();
+            try {
+                const val = localStorage.getItem(deletedKey) || localStorage.getItem('etala_deleted_notifs');
+                return val ? JSON.parse(val) : [];
+            } catch(e) { return []; }
+        }
+        function setDeletedNotifs(list) {
+            const { deletedKey } = getNotifStorageKeys();
+            try {
+                localStorage.setItem(deletedKey, JSON.stringify(list));
+                localStorage.setItem('etala_deleted_notifs', JSON.stringify(list));
+            } catch(e) {}
+        }
+
+        function syncNotifToServer(actionType, notifId, notifIds) {
+            try {
+                const csrftoken = (document.cookie.split('; ').find(row => row.startsWith('csrftoken=')) || '').split('=')[1];
+                fetch('/notifications/action/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken || '',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        action_type: actionType,
+                        notification_id: notifId || '',
+                        notification_ids: notifIds || []
+                    })
+                }).catch(() => {});
+            } catch(e) {}
+        }
+
+        window.toggleNotifMenu = function(btn, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const targetBtn = btn || (event ? event.currentTarget || event.target : null);
+            if (!targetBtn) return;
+            const wrapper = targetBtn.closest('.notif-menu-wrapper');
+            if (!wrapper) return;
+            const popover = wrapper.querySelector('.notif-custom-popover-menu');
+            if (!popover) return;
+
+            const isOpen = popover.classList.contains('show-popover');
+            // Close any open popovers
+            document.querySelectorAll('.notif-custom-popover-menu.show-popover').forEach(p => {
+                p.classList.remove('show-popover');
+                p.classList.remove('popover-open-up');
+            });
+            document.querySelectorAll('.notif-item-action-btn.active').forEach(b => b.classList.remove('active'));
+
+            if (!isOpen) {
+                const container = document.getElementById('notificationListContainer');
+                if (container) {
+                    const btnRect = targetBtn.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
+                    // If near bottom of list container and has room above, flip upward
+                    if ((containerRect.bottom - btnRect.bottom < 85) && (btnRect.top - containerRect.top > 75)) {
+                        popover.classList.add('popover-open-up');
+                    } else {
+                        popover.classList.remove('popover-open-up');
+                    }
+                }
+                popover.classList.add('show-popover');
+                targetBtn.classList.add('active');
+            }
+        };
+
+        // Close notification mini-popovers when clicking anywhere outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.notif-menu-wrapper')) {
+                document.querySelectorAll('.notif-custom-popover-menu.show-popover').forEach(p => p.classList.remove('show-popover'));
+                document.querySelectorAll('.notif-item-action-btn.active').forEach(b => b.classList.remove('active'));
+            }
+        });
+
+        window.toggleItemReadState = function(btn, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            // Close popover
+            document.querySelectorAll('.notif-custom-popover-menu.show-popover').forEach(p => p.classList.remove('show-popover'));
+            document.querySelectorAll('.notif-item-action-btn.active').forEach(b => b.classList.remove('active'));
+
+            const item = btn.closest('.notification-item');
+            if (!item) return;
+            const id = item.getAttribute('data-notification-id');
+            if (!id) return;
+
+            let readList = getReadNotifs();
+            const isRead = readList.includes(id);
+            if (isRead) {
+                // Mark as unread
+                readList = readList.filter(itemX => itemX !== id);
+                syncNotifToServer('mark_unread', id);
+            } else {
+                // Mark as read
+                readList.push(id);
+                syncNotifToServer('mark_read', id);
+            }
+
+            setReadNotifs(readList);
+            updateNotificationBadges();
+        };
+
+        window.deleteNotification = function(btn, event) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            // Close popover
+            document.querySelectorAll('.notif-custom-popover-menu.show-popover').forEach(p => p.classList.remove('show-popover'));
+            document.querySelectorAll('.notif-item-action-btn.active').forEach(b => b.classList.remove('active'));
+
+            const item = btn.closest('.notification-item');
+            if (!item) return;
+            const id = item.getAttribute('data-notification-id');
+
+            let deletedList = getDeletedNotifs();
+            let readList = getReadNotifs();
+
+            if (id && !deletedList.includes(id)) {
+                deletedList.push(id);
+                setDeletedNotifs(deletedList);
+                syncNotifToServer('delete', id);
+            }
+
+            if (id && !readList.includes(id)) {
+                readList.push(id);
+                setReadNotifs(readList);
+            }
+
+            // Smooth collapse and fade-out animation
+            item.style.transition = 'all 0.24s cubic-bezier(0.4, 0, 0.2, 1)';
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(24px)';
+            item.style.maxHeight = '0px';
+            item.style.paddingTop = '0px';
+            item.style.paddingBottom = '0px';
+            item.style.overflow = 'hidden';
+            item.style.border = 'none';
+
+            setTimeout(() => {
+                item.remove();
+                updateNotificationBadges();
+            }, 240);
+        };
+
+        window.updateNotificationBadges = function() {
+            const readList = getReadNotifs();
+            const deletedList = getDeletedNotifs();
+
             const items = document.querySelectorAll('.notification-item');
+            let visibleCount = 0;
             let unreadCount = 0;
 
             items.forEach(el => {
                 const id = el.getAttribute('data-notification-id');
+                if (id && deletedList.includes(id)) {
+                    el.style.display = 'none';
+                    return;
+                }
+
+                visibleCount++;
                 const dot = el.querySelector('.unread-blue-dot');
-                if (readList.includes(id)) {
+                const toggleReadBtn = el.querySelector('.notif-item-toggle-read');
+
+                if (id && readList.includes(id)) {
                     if (dot) dot.style.display = 'none';
                     el.classList.remove('is-unread-item');
+                    if (toggleReadBtn) {
+                        toggleReadBtn.innerHTML = '<i class="fa-regular fa-envelope text-primary" style="width: 14px;"></i> <span>Mark as unread</span>';
+                    }
                 } else {
                     unreadCount++;
                     if (dot) dot.style.display = 'inline-block';
                     el.classList.add('is-unread-item');
+                    if (toggleReadBtn) {
+                        toggleReadBtn.innerHTML = '<i class="fa-solid fa-check text-primary" style="width: 14px;"></i> <span>Mark as read</span>';
+                    }
                 }
             });
 
-            const formattedCount = unreadCount > 99 ? '99+' : unreadCount;
-            const countBadge = document.getElementById('notificationCountBadge');
             const bellBadge = document.getElementById('notificationBadge');
+            const markBtn = document.getElementById('markAllReadBtn');
+            const emptyState = document.getElementById('noNotificationsEmptyState');
 
-            if (unreadCount > 0) {
-                if (countBadge) {
-                    countBadge.textContent = formattedCount;
-                    countBadge.style.display = 'inline-flex';
+            if (emptyState) {
+                if (visibleCount === 0) {
+                    emptyState.classList.remove('d-none');
+                } else {
+                    emptyState.classList.add('d-none');
                 }
-                if (bellBadge) {
-                    bellBadge.textContent = formattedCount;
+            }
+
+            if (bellBadge) {
+                if (unreadCount > 0) {
+                    bellBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
                     bellBadge.classList.remove('d-none');
                     bellBadge.style.display = 'inline-flex';
-                }
-            } else {
-                if (countBadge) countBadge.style.display = 'none';
-                if (bellBadge) {
+                } else {
                     bellBadge.classList.add('d-none');
                     bellBadge.style.display = 'none';
                 }
             }
-        }
 
-        function clearAllNotifications(btn) {
+            if (markBtn) {
+                if (visibleCount === 0) {
+                    markBtn.style.display = 'none';
+                } else if (unreadCount === 0) {
+                    markBtn.style.display = 'inline-flex';
+                    markBtn.style.opacity = '0.6';
+                    markBtn.style.pointerEvents = 'none';
+                    markBtn.innerHTML = '<i class="fa-solid fa-check text-muted" style="font-size: 11px;"></i> <span class="text-muted" style="font-size: 0.76rem;">All read</span>';
+                } else {
+                    markBtn.style.display = 'inline-flex';
+                    markBtn.style.opacity = '1';
+                    markBtn.style.pointerEvents = 'auto';
+                    markBtn.dataset.loading = 'false';
+                    markBtn.innerHTML = '<i class="fa-solid fa-check-double" style="font-size: 12px;"></i> <span>Mark all as read</span>';
+                }
+            }
+        };
+
+        window.clearAllNotifications = function(btn) {
             const markBtn = btn || document.getElementById('markAllReadBtn');
             if (markBtn) {
                 if (markBtn.dataset.loading === 'true') return;
@@ -6747,44 +7567,57 @@
             }
 
             const items = document.querySelectorAll('.notification-item');
-            let readList = JSON.parse(localStorage.getItem('etala_read_notifs') || '[]');
+            let readList = getReadNotifs();
+            const allIds = [];
             
             items.forEach(el => {
                 const id = el.getAttribute('data-notification-id');
-                if (id && !readList.includes(id)) readList.push(id);
+                if (id) {
+                    allIds.push(id);
+                    if (!readList.includes(id)) readList.push(id);
+                }
                 const dot = el.querySelector('.unread-blue-dot');
                 if (dot) {
-                    dot.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    dot.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
                     dot.style.opacity = '0';
                     dot.style.transform = 'scale(0)';
-                    setTimeout(() => { dot.style.display = 'none'; }, 300);
+                    setTimeout(() => { dot.style.display = 'none'; }, 250);
                 }
                 el.classList.remove('is-unread-item');
             });
 
-            localStorage.setItem('etala_read_notifs', JSON.stringify(readList));
+            setReadNotifs(readList);
+            syncNotifToServer('mark_all_read', null, allIds);
 
-            const countBadge = document.getElementById('notificationCountBadge');
             const bellBadge = document.getElementById('notificationBadge');
-            [countBadge, bellBadge].forEach(b => {
-                if (b) {
-                    b.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-                    b.style.opacity = '0';
-                    b.style.transform = 'scale(0.5)';
-                    setTimeout(() => { b.style.display = 'none'; }, 250);
-                }
-            });
+            if (bellBadge) {
+                bellBadge.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                bellBadge.style.opacity = '0';
+                bellBadge.style.transform = 'scale(0.5)';
+                setTimeout(() => { 
+                    bellBadge.classList.add('d-none');
+                    bellBadge.style.display = 'none';
+                    bellBadge.style.opacity = '';
+                    bellBadge.style.transform = '';
+                }, 200);
+            }
 
             setTimeout(() => {
                 if (markBtn) {
                     markBtn.innerHTML = '<i class="fa-solid fa-circle-check text-success" style="font-size: 12px;"></i> <span class="text-success fw-bold">All marked as read</span>';
                     setTimeout(() => {
-                        markBtn.style.opacity = '0.5';
-                        markBtn.style.pointerEvents = 'none';
-                    }, 1200);
+                        updateNotificationBadges();
+                    }, 600);
+                } else {
+                    updateNotificationBadges();
                 }
-            }, 350);
+            }, 250);
         }
+
+        // Run immediately & on DOMContentLoaded to guarantee persistent badge count and read/unread states on refresh
+        updateNotificationBadges();
+        document.addEventListener('DOMContentLoaded', updateNotificationBadges);
+        window.addEventListener('load', updateNotificationBadges);
 
         // ── Universal Viewport Modal & Backdrop Manager ──
         document.addEventListener('show.bs.modal', function (event) {
@@ -6833,6 +7666,13 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             updateNotificationBadges();
+
+            const bellBtn = document.getElementById('notificationBellBtn');
+            if (bellBtn) {
+                bellBtn.addEventListener('show.bs.dropdown', function () {
+                    updateNotificationBadges();
+                });
+            }
 
             const helpModal = document.getElementById('globalHelpModal');
             if (helpModal) {
@@ -6949,68 +7789,7 @@
         }
         window.showZipDownloadToast = showZipDownloadToast;
 
-        // ══ PAGE TRANSITION ULTRA-SMOOTH NANO PROGRESS BAR ══════════════════
-        const topProgressBar = document.getElementById('etalaTopProgressBar');
-        let progressTimers = [];
-
-        function clearProgressTimers() {
-            progressTimers.forEach(t => clearTimeout(t));
-            progressTimers = [];
-        }
-
-        function startPageProgress() {
-            if (!topProgressBar) return;
-            clearProgressTimers();
-            topProgressBar.classList.remove('complete', 'fade-out', 'loading-mid', 'loading-creep');
-            topProgressBar.style.width = '0%';
-            
-            // Phase 1: Fast initial burst to 35%
-            requestAnimationFrame(() => {
-                topProgressBar.classList.add('loading-start');
-            });
-
-            // Phase 2: Smooth climb to 78%
-            progressTimers.push(setTimeout(() => {
-                if (!topProgressBar.classList.contains('complete')) {
-                    topProgressBar.classList.add('loading-mid');
-                }
-            }, 180));
-
-            // Phase 3: Steady creep to 92% if still loading
-            progressTimers.push(setTimeout(() => {
-                if (!topProgressBar.classList.contains('complete')) {
-                    topProgressBar.classList.add('loading-creep');
-                }
-            }, 450));
-        }
-
-        function finishPageProgress() {
-            if (!topProgressBar) return;
-            clearProgressTimers();
-            
-            // Sweep all the way across to 100%
-            topProgressBar.classList.remove('loading-start', 'loading-mid', 'loading-creep');
-            topProgressBar.classList.add('complete');
-            
-            // Fade out smoothly after reaching 100%
-            progressTimers.push(setTimeout(() => {
-                topProgressBar.classList.add('fade-out');
-                progressTimers.push(setTimeout(() => {
-                    topProgressBar.classList.remove('complete', 'fade-out');
-                    topProgressBar.style.width = '0%';
-                }, 280));
-            }, 180));
-        }
-
-        window.addEventListener('pageshow', function() {
-            finishPageProgress();
-            document.body.classList.remove('page-is-exiting');
-        });
-
         document.addEventListener('DOMContentLoaded', function() {
-            finishPageProgress();
-            document.body.classList.remove('page-is-exiting');
-
             document.addEventListener('click', function(e) {
                 const zipBtn = e.target.closest('a[href*="download-zip"], a[href*="download_zip"], a[href*="download_category_zip"], a[href*="download_record_zip"], a[href*="download_barangay_zip"], .zip-download-btn');
                 if (zipBtn && !zipBtn.hasAttribute('onclick')) {
@@ -7024,21 +7803,12 @@
                     }
                 }
 
-                // Smooth page navigation progress indicator (Skip downloads & exports)
+                // Instant active highlight feedback for sidebar navigation items
                 const link = e.target.closest('a[href]');
                 if (link && !e.defaultPrevented && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-                    const href = link.getAttribute('href');
-                    const target = link.getAttribute('target');
-                    const isDownloadOrExport = href && (href.includes('/export') || href.includes('/download') || href.includes('export=') || href.includes('/serve/'));
-                    if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:') && !href.startsWith('tel:') && target !== '_blank' && !link.hasAttribute('download') && !link.classList.contains('no-progress') && !isDownloadOrExport) {
-                        startPageProgress();
-                        document.body.classList.add('page-is-exiting');
-
-                        // Instant active highlight feedback for sidebar navigation items
-                        if (link.classList.contains('nav-item')) {
-                            document.querySelectorAll('#sidebar .nav-item').forEach(n => n.classList.remove('active'));
-                            link.classList.add('active');
-                        }
+                    if (link.classList.contains('nav-item')) {
+                        document.querySelectorAll('#sidebar .nav-item').forEach(n => n.classList.remove('active'));
+                        link.classList.add('active');
                     }
                 }
 
@@ -7047,28 +7817,38 @@
                 if (row && !e.target.closest('a, button, input, select, textarea, .dropdown, [data-bs-toggle], .action-menu-cell')) {
                     const href = row.getAttribute('data-href');
                     if (href) {
-                        startPageProgress();
-                        document.body.classList.add('page-is-exiting');
                         window.location.href = href;
                     }
                 }
             });
 
-            // ══ SMART AUTO-DROPUP FOR TABLE ACTION MENUS ═════════════════════
-            // Only flips dropdown upwards when genuinely near bottom of viewport with enough room above
+            // ══ SMART AUTO-DROPUP FOR TABLE & CHECKLIST ACTION MENUS ═════════════════════
+            // Auto-flips dropdown upwards when in the bottom rows or near viewport/card boundary
             document.addEventListener('show.bs.dropdown', function (e) {
-                const btn = e.target.closest('.row-action-btn, [data-bs-toggle="dropdown"]');
+                const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, [data-bs-toggle="dropdown"]');
                 if (!btn) return;
                 const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell');
                 if (!parentDropdown) return;
+
+                const row = btn.closest('tr');
+                const tbody = row ? row.closest('tbody') : null;
+                const isLastRow = row && tbody && !row.nextElementSibling;
+                const isSecondToLastRow = row && tbody && row.nextElementSibling && !row.nextElementSibling.nextElementSibling;
 
                 const rect = btn.getBoundingClientRect();
                 const spaceBelowViewport = window.innerHeight - rect.bottom;
                 const spaceAboveViewport = rect.top;
 
-                // Always drop DOWN if there is at least 180px below or if near the top of viewport (< 200px from top)
-                // Only drop UP if viewport bottom is cramped (< 180px) AND there is ample room above (>= 200px)
-                const shouldDropUp = spaceBelowViewport < 180 && spaceAboveViewport >= 200;
+                // Check distance to bottom of scrollable parent card / table container / viewport
+                const card = btn.closest('.content-card, .table-responsive, .table-responsive-cards, #recordsTableCard, .card-body');
+                let spaceBelowCard = Infinity;
+                if (card) {
+                    const cardRect = card.getBoundingClientRect();
+                    spaceBelowCard = cardRect.bottom - rect.bottom;
+                }
+
+                // Drop UP if viewport or card bottom is close (< 240px) or if in last 2 rows, provided there is enough room above (>= 120px)
+                const shouldDropUp = (spaceBelowViewport < 240 || spaceBelowCard < 200 || isLastRow || (isSecondToLastRow && spaceBelowViewport < 260)) && spaceAboveViewport >= 120;
 
                 if (shouldDropUp) {
                     parentDropdown.classList.add('dropup');
@@ -7082,7 +7862,7 @@
             });
 
             document.addEventListener('hidden.bs.dropdown', function (e) {
-                const btn = e.target.closest('.row-action-btn, [data-bs-toggle="dropdown"]');
+                const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, [data-bs-toggle="dropdown"]');
                 if (btn) {
                     const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell');
                     if (parentDropdown) {
@@ -7105,6 +7885,7 @@
             const dateInputs = root.querySelectorAll('input[type="date"], input.date-picker');
             dateInputs.forEach(el => {
                 if (!el._flatpickr) {
+                    const customPlaceholder = el.getAttribute('placeholder') || 'Select date (e.g. Oct 24, 2026)';
                     flatpickr(el, {
                         dateFormat: 'Y-m-d',
                         altInput: true,
@@ -7115,6 +7896,9 @@
                         prevArrow: '<i class="fa-solid fa-chevron-left" style="font-size: 11px;"></i>',
                         nextArrow: '<i class="fa-solid fa-chevron-right" style="font-size: 11px;"></i>',
                         onReady: function(selectedDates, dateStr, instance) {
+                            if (instance.altInput && (!instance.altInput.getAttribute('placeholder') || instance.altInput.getAttribute('placeholder') === '')) {
+                                instance.altInput.setAttribute('placeholder', customPlaceholder);
+                            }
                             if (!instance.calendarContainer.querySelector('.flatpickr-footer-actions')) {
                                 const footer = document.createElement('div');
                                 footer.className = 'flatpickr-footer-actions d-flex align-items-center justify-content-between';

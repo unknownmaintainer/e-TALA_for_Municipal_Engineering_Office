@@ -82,7 +82,7 @@ class PermitsTestCase(TestCase):
 
         locked, msg = check_lockout('staffuser@gmail.com', '127.0.0.1')
         self.assertTrue(locked)
-        self.assertIn("Account temporarily locked", msg)
+        self.assertIn("Security cooldown active", msg)
 
     def test_permanent_lockout(self):
         # Simulate 10 failed logins total
@@ -93,7 +93,7 @@ class PermitsTestCase(TestCase):
         self.staff.refresh_from_db()
         self.assertFalse(self.staff.is_active)  # Account should be deactivated
         self.assertTrue(locked)
-        self.assertIn("Account locked. Please contact the administrator", msg)
+        self.assertIn("Account access is restricted", msg)
 
     def test_virus_scan_hook(self):
         # Filename containing 'eicar' should fail virus scan

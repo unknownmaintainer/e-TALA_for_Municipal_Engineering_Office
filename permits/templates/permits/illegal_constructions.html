@@ -121,6 +121,119 @@
         background-color: rgba(0, 40, 85, 0.05) !important;
         box-shadow: 0 0 0 1px #002855;
     }
+
+    /* ── Bulletproof Premium Button Alignment ── */
+    .premium-btn,
+    a.premium-btn,
+    button.premium-btn {
+        display: inline-flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 7px !important;
+        padding: 0 14px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        line-height: normal !important;
+        vertical-align: middle !important;
+        box-sizing: border-box !important;
+        text-decoration: none !important;
+        white-space: nowrap !important;
+    }
+    .premium-btn .btn-icon,
+    a.premium-btn .btn-icon,
+    button.premium-btn .btn-icon {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+        font-size: 13px !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .premium-btn .btn-icon i,
+    a.premium-btn .btn-icon i,
+    button.premium-btn .btn-icon i {
+        display: inline-block !important;
+        line-height: 1 !important;
+        vertical-align: 0 !important;
+        font-size: 13px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .premium-btn .btn-divider,
+    a.premium-btn .btn-divider,
+    button.premium-btn .btn-divider {
+        display: inline-block !important;
+        width: 1px !important;
+        height: 14px !important;
+        background: rgba(203, 213, 225, 0.6) !important;
+        flex-shrink: 0 !important;
+        vertical-align: middle !important;
+        margin: 0 1px !important;
+    }
+    .premium-btn span:not(.btn-icon):not(.btn-divider) {
+        display: inline-flex !important;
+        align-items: center !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+    }
+
+    /* ── Mobile Responsive Optimization for Illegal Constructions ── */
+    @media (max-width: 767.98px) {
+        .etala-page-subtitle {
+            display: none !important;
+        }
+
+        .etala-page-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+        }
+
+        .etala-header-actions {
+            width: 100% !important;
+        }
+
+        .etala-header-actions .premium-btn {
+            width: 100% !important;
+            justify-content: center !important;
+            height: 38px !important;
+        }
+
+        .records-filter-toolbar {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+        }
+
+        .filter-tabs {
+            width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding-bottom: 2px !important;
+        }
+
+        .filter-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .records-filter-toolbar > div:last-child {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+        }
+
+        .etala-search-pill-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 38px !important;
+        }
+    }
 </style>
 
 <!-- ══ HEADING ════════════════════════════════════════════════════════ -->
@@ -143,22 +256,53 @@
 
 <form method="GET" action="{% url 'illegal_constructions' %}" id="filterForm">
     <input type="hidden" name="scope" value="{{ selected_scope }}">
+    <input type="hidden" name="stage" value="{{ stage_filter }}">
 
-    <!-- ══ ONE-LINE ACTION & FILTER BAR ══════════════════════════════════ -->
-    <div class="records-filter-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3">
-        <!-- Left Group: Integrated Search & Filter Pill -->
-        <div class="d-flex align-items-center flex-grow-1" style="max-width: 420px; min-width: 240px;">
-            <div class="etala-search-pill-wrapper">
-                <button type="submit"
-                    class="etala-search-pill-icon search-btn-icon"
-                    style="cursor: pointer;" title="Search records">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+    <!-- ══ UNIFIED COMPACT 1-LINE TOOLBAR (Tabs Left, Compact Search Right) ══ -->
+    <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
+        style="border-bottom: 1px solid var(--border-default, rgba(0,0,0,0.06)); max-width: 100%; box-sizing: border-box;">
+        
+        <!-- Left: Category Stage Tabs -->
+        <div class="filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
+            style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 0 1 auto; min-width: 0; overflow-x: auto;">
+            <a href="?stage=active{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+                class="filter-tab {% if stage_filter == 'active' or not stage_filter %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
+                title="Active violation reports & ongoing compliance (Not yet in Master Records)">
+                Active Violations <span class="tab-count {% if stage_filter == 'active' or not stage_filter %}tab-count-active{% else %}tab-count-default{% endif %}">{{ active_count }}</span>
+            </a>
+            <a href="?stage=pending_permit{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+                class="filter-tab {% if stage_filter == 'pending_permit' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
+                title="Property owner filed for regularization / pending evaluation">
+                Permit Filed <span class="tab-count {% if stage_filter == 'pending_permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ pending_count }}</span>
+            </a>
+            <a href="?stage=resolved{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+                class="filter-tab {% if stage_filter == 'resolved' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
+                title="Regularized cases recorded as official permits in Master Records">
+                Regularized <span class="tab-count {% if stage_filter == 'resolved' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ resolved_count }}</span>
+            </a>
+            <a href="?stage=all{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+                class="filter-tab {% if stage_filter == 'all' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
+                title="Show all violation cases">
+                All Cases <span class="tab-count {% if stage_filter == 'all' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
+            </a>
+        </div>
+
+        <!-- Right: Compact Search Pill (Contained, no overflow) -->
+        <div class="d-flex align-items-center ms-auto" style="flex: 0 0 240px; width: 240px; max-width: 240px;">
+            <div class="etala-search-pill-wrapper w-100" style="height: 34px; padding: 0 10px; gap: 6px;">
+                <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer;" title="Search records">
+                    <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
                 </button>
                 <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                    placeholder="Search records, owner, year..." value="{{ q|default:'' }}" autocomplete="off">
+                    placeholder="Search violation, owner..." value="{{ q|default:'' }}" autocomplete="off"
+                    style="font-size: 0.78rem;">
 
                 <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                    style="width: 13px; height: 13px;">
+                    style="width: 12px; height: 12px;">
                     <span class="visually-hidden">Searching...</span>
                 </div>
 
@@ -166,52 +310,24 @@
                 <a href="?stage={{ stage_filter }}&barangay={{ selected_barangay }}&year={{ selected_year }}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
                     class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon"
                     style="background: transparent;" title="Clear search">
-                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                    <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
                 </a>
                 {% endif %}
 
-                <span class="etala-search-pill-divider"></span>
+                <span class="etala-search-pill-divider" style="height: 14px;"></span>
 
-                <!-- Integrated Filter Icon Button -->
                 <button class="etala-search-pill-filter-btn"
-                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
-                    <i class="fa-solid fa-sliders"></i>
+                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters"
+                    style="padding: 2px;">
+                    <i class="fa-solid fa-sliders" style="font-size: 12px;"></i>
                 </button>
             </div>
         </div>
-
-        <!-- Right Side: Scope Toggle ("My Cases" vs "All Cases") -->
-        <div class="scope-segmented-control flex-shrink-0 ms-auto">
-            <a href="?{% param_replace scope='my' page=1 %}"
-                class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}"
-                title="Show cases reported by you">
-                <i class="fa-solid fa-user"></i>
-                <span>My Cases</span>
-                <span class="scope-count-badge">{{ my_scope_count }}</span>
-            </a>
-            <a href="?{% param_replace scope='all' page=1 %}"
-                class="scope-pill-btn {% if selected_scope == 'all' or not selected_scope %}active{% endif %}"
-                title="Show all municipal violation cases">
-                <i class="fa-solid fa-layer-group"></i>
-                <span>All Cases</span>
-                <span class="scope-count-badge">{{ all_scope_count }}</span>
-            </a>
-        </div>
     </div>
 
-    <!-- Active Filter Chips -->
+    <!-- Active Filter Chips (Secondary Filters Only) -->
     {% if active_filters_count > 0 %}
     <div class="active-filter-chips">
-        {% if stage_filter %}
-        <div class="filter-chip">
-            <span>Status: <strong>
-                {% if stage_filter == 'unresolved' %}Unresolved
-                {% elif stage_filter == 'pending_permit' %}Permit Filed
-                {% elif stage_filter == 'resolved' %}Regularized{% endif %}
-            </strong></span>
-            <button type="button" class="clear-chip-btn" data-filter-name="stage">&times;</button>
-        </div>
-        {% endif %}
         {% if selected_barangay %}
         <div class="filter-chip">
             <span>Barangay: <strong>
@@ -222,6 +338,12 @@
             <button type="button" class="clear-chip-btn" data-filter-name="barangay">&times;</button>
         </div>
         {% endif %}
+        {% if selected_scope and selected_scope == 'my' %}
+        <div class="filter-chip">
+            <span>Reported By: <strong>My Reports Only</strong></span>
+            <button type="button" class="clear-chip-btn" data-filter-name="scope">&times;</button>
+        </div>
+        {% endif %}
         {% if selected_year %}
         <div class="filter-chip">
             <span>Year: <strong>{{ selected_year }}</strong></span>
@@ -229,7 +351,7 @@
         </div>
         {% endif %}
 
-        <a href="{% url 'illegal_constructions' %}{% if q %}?q={{ q }}{% endif %}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
+        <a href="?stage={{ stage_filter }}{% if q %}&q={{ q }}{% endif %}"
             class="action-btn action-btn-ghost action-btn-xs ms-auto"
             style="font-size: var(--text-2xs); padding: 2px 6px;">
             Reset All
@@ -237,11 +359,11 @@
     </div>
     {% endif %}
 
-    <!-- Collapsible filters panel -->
-    <div class="collapse {% if selected_barangay or selected_year or stage_filter %}show{% endif %}"
+    <!-- Collapsible filters panel (Barangay, Reported By, Year) -->
+    <div class="collapse {% if selected_barangay or selected_year or selected_scope == 'my' %}show{% endif %}"
         id="advancedFiltersCollapse">
         <div class="filter-panel-unified py-2 px-3 rounded-3 border mb-2">
-            <div class="row row-cols-md-3 row-cols-sm-2 row-cols-1 g-2 align-items-end">
+            <div class="row row-cols-md-3 row-cols-sm-3 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
@@ -255,13 +377,11 @@
                 </div>
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
-                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
-                    <select name="stage" class="form-select form-select-sm filter-dropdown-ajax"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Reported By</label>
+                    <select name="scope" class="form-select form-select-sm filter-dropdown-ajax"
                         style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
-                        <option value="">All Statuses</option>
-                        <option value="unresolved" {% if stage_filter == 'unresolved' %}selected{% endif %}>Unresolved</option>
-                        <option value="pending_permit" {% if stage_filter == 'pending_permit' %}selected{% endif %}>Permit Filed</option>
-                        <option value="resolved" {% if stage_filter == 'resolved' %}selected{% endif %}>Regularized</option>
+                        <option value="all" {% if selected_scope == 'all' or not selected_scope %}selected{% endif %}>All Staff Reports</option>
+                        <option value="my" {% if selected_scope == 'my' %}selected{% endif %}>My Reports Only</option>
                     </select>
                 </div>
                 <div class="col">
@@ -522,30 +642,31 @@
         <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 380px;">
             <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle"
                 style="width: 64px; height: 64px; background: rgba(220, 38, 38, 0.12); color: #dc2626;">
-                {% if q or selected_status or selected_barangay or selected_year %}
+                {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or stage_filter and stage_filter != 'active' %}
                 <i class="fa-solid fa-magnifying-glass" style="font-size: 26px;"></i>
                 {% else %}
                 <i class="fa-solid fa-triangle-exclamation" style="font-size: 26px;"></i>
                 {% endif %}
             </div>
             <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size: 1.05rem;">
-                {% if q or selected_status or selected_barangay or selected_year %}
+                {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or stage_filter and stage_filter != 'active' %}
                 No matching incident reports found
                 {% else %}
                 No illegal constructions reported
                 {% endif %}
             </h5>
             <p class="text-muted small mb-4" style="font-size: 0.84rem; max-width: 440px; line-height: 1.55;">
-                {% if q or selected_status or selected_barangay or selected_year %}
+                {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or stage_filter and stage_filter != 'active' %}
                 We couldn't find any incident records matching your search or filters. Try adjusting your query or resetting filters.
                 {% else %}
                 No active violations or unpermitted constructions are currently registered.
                 {% endif %}
             </p>
-            {% if q or selected_status or selected_barangay or selected_year %}
+            {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or stage_filter and stage_filter != 'active' %}
             <a href="{% url 'illegal_constructions' %}"
-                class="premium-btn btn-view text-decoration-none" style="border-radius: 8px; font-size: 0.82rem; padding: 6px 16px;">
-                <i class="fa-solid fa-rotate-left me-1.5" style="font-size: 11px;"></i>
+                class="premium-btn btn-view text-decoration-none" style="border-radius: 8px;">
+                <span class="btn-icon"><i class="fa-solid fa-rotate-left"></i></span>
+                <span class="btn-divider"></span>
                 <span>Clear all filters</span>
             </a>
             {% elif request.user.role == 'staff' or request.user.role == 'admin' %}
@@ -786,13 +907,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const doc = parser.parseFromString(text, 'text/html');
 
             const newTableCard = doc.getElementById('recordsTableCard') || doc.querySelector('.content-card');
-            const newScopeControl = doc.querySelector('.scope-segmented-control');
-            const currentScopeControl = document.querySelector('.scope-segmented-control');
+            const newFilterTabs = doc.querySelector('.filter-tabs');
+            const currentFilterTabs = document.querySelector('.filter-tabs');
             const newChipsContainer = doc.querySelector('.active-filter-chips');
             const currentChipsContainer = document.querySelector('.active-filter-chips');
 
-            if (newScopeControl && currentScopeControl) {
-                currentScopeControl.innerHTML = newScopeControl.innerHTML;
+            if (newFilterTabs && currentFilterTabs) {
+                currentFilterTabs.innerHTML = newFilterTabs.innerHTML;
             }
 
             if (tableCard && newTableCard) {
@@ -850,11 +971,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 5. Intercept Click Events (Scope Buttons, Pagination, Clear Search, Reset All)
     document.addEventListener('click', function (e) {
-        // Scope Pill Buttons (My Cases vs All Cases)
-        const scopeLink = e.target.closest('.scope-segmented-control .scope-pill-btn');
-        if (scopeLink) {
+        // Category Filter Tabs (Active Violations vs Permit Filed vs Solved vs All)
+        const catTab = e.target.closest('.filter-tabs a.filter-tab');
+        if (catTab) {
             e.preventDefault();
-            const url = scopeLink.getAttribute('href');
+            const url = catTab.getAttribute('href');
             if (url && url !== '#') {
                 updateIllegalTableAJAX(url);
             }

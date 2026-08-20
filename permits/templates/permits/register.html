@@ -331,6 +331,35 @@
         .btn-register:active {
             transform: translateY(1px);
         }
+        .btn-register:disabled,
+        .btn-register.is-loading {
+            opacity: 0.85;
+            cursor: wait;
+            pointer-events: none;
+        }
+
+        /* ── Form Submitting Locked State ── */
+        .form-submitting {
+            pointer-events: none !important;
+            user-select: none !important;
+        }
+
+        .form-submitting input,
+        .form-submitting select {
+            background-color: #f1f5f9 !important;
+            cursor: wait !important;
+            border-color: #cbd5e1 !important;
+            color: #64748b !important;
+        }
+
+        .form-submitting .btn-secondary-custom,
+        .form-submitting .step-btn,
+        .form-submitting .pw-toggle,
+        .form-submitting a {
+            pointer-events: none !important;
+            opacity: 0.55;
+            cursor: wait !important;
+        }
         .btn-secondary-custom {
             background: var(--slate-100);
             color: var(--slate-700);
@@ -770,13 +799,30 @@
             return false;
         }
 
-        // Apply loading spinner to submit button
+        // Apply loading spinner to submit button and lock form
+        const registerForm = document.getElementById('registerForm') || document.querySelector('form');
+        if (registerForm) {
+            registerForm.classList.add('form-submitting');
+        }
         const submitBtn = document.getElementById('btnSubmit');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1.5"></i><span>Registering...</span>';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1.5"></i><span>Registering...</span>';
+        }
 
         return true;
     }
+
+    // Restore form state if navigated back via browser history (bfcache)
+    window.addEventListener('pageshow', function () {
+        const registerForm = document.getElementById('registerForm') || document.querySelector('form');
+        if (registerForm) registerForm.classList.remove('form-submitting');
+        const submitBtn = document.getElementById('btnSubmit');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-user-plus me-1.5"></i><span>Complete Registration</span>';
+        }
+    });
 
     function togglePassword(inputId, iconId) {
         const input = document.getElementById(inputId);

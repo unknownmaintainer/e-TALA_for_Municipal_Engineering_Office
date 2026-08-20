@@ -9,6 +9,7 @@ import mimetypes
 import os
 import re
 import zipfile
+import secrets
 
 import hashlib
 from django.shortcuts import render, redirect, get_object_or_404
@@ -18,6 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.http import require_http_methods, require_POST
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed, FileResponse, Http404, StreamingHttpResponse, HttpResponseNotModified
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError, ImproperlyConfigured
@@ -33,7 +35,7 @@ from .models import (
     AuditLog, LoginAttempt, PasswordHistory,
     EngineeringRecord, PermitDetail, ProjectDetail,
     RequirementTemplate, RequirementItem, RecordRequirement,
-    BlockedIP,
+    BlockedIP, UserDevice,
 )
 from .validators import validate_document_file, sanitize_input, validate_password_strength
 from .utils import get_client_ip, process_avatar_image
@@ -44,7 +46,9 @@ from .services import (
     build_municipal_zip_buffer,
     sanitize_zip_name, sanitize_file_name, get_record_export_name,
     send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records,
-    parse_decimal_safely
+    parse_decimal_safely,
+    parse_device_user_agent, get_client_device_token,
+    dispatch_device_approval_request, dispatch_new_device_login_alert
 )
 
 
@@ -54,13 +58,23 @@ logger = logging.getLogger('permits')
 
 
 def log_audit(user, action, target_record_id=None, request=None):
-    # Prevent logging repetitive routine activities to keep AuditLogs clean and readable
-    ignored_actions = [
+    # Prevent logging repetitive routine activities to keep AuditLogs clean, secure, and readable
+    ignored_exact = {
         "Logged out",
         "Logged in successfully",
-        "Logged in successfully from a new IP/device"
-    ]
-    if action in ignored_actions:
+        "Logged in successfully from a new IP/device",
+        "Updated profile details",
+        "Updated profile picture",
+        "Removed profile picture",
+    }
+    ignored_prefixes = (
+        "NOTIF_",
+        "Downloaded ",
+        "Exported ",
+        "Requirement ",
+        "Triggered Document Expiry Email Alerts",
+    )
+    if not action or action in ignored_exact or action.startswith(ignored_prefixes):
         return
         
     ip = get_client_ip(request) if request else None
@@ -74,18 +88,26 @@ def log_audit(user, action, target_record_id=None, request=None):
 
 def check_lockout(email, ip_address):
     fifteen_mins_ago = timezone.now() - timedelta(minutes=15)
-    total_failures = LoginAttempt.objects.filter(email_attempted=email, success=False).count()
+    
+    # 1. Tier 2: Permanent Device & Account Lockout (10 cumulative failed attempts)
+    total_failures = LoginAttempt.objects.filter(
+        Q(ip_address=ip_address) | Q(email_attempted=email),
+        success=False
+    ).count()
     if total_failures >= 10:
         User = get_user_model()
-        user_obj = User.objects.filter(email=email).first()
+        user_obj = User.objects.filter(Q(email=email) | Q(username=email)).first()
         if user_obj and user_obj.is_active:
             user_obj.is_active = False
             user_obj.save()
             log_audit(user_obj, "Account locked out permanently (10 failed attempts)", request=None)
-        return True, "Account locked. Please contact the administrator for unlock."
+        if ip_address:
+            BlockedIP.objects.get_or_create(ip_address=ip_address)
+        return True, "Account access is restricted due to security protection. Please contact the Engineering Office Admin to reactivate."
 
+    # 2. Tier 1: Temporary 15-Minute Cooldown (5 failed attempts in past 15 mins)
     recent_failures = LoginAttempt.objects.filter(
-        email_attempted=email,
+        Q(ip_address=ip_address) | Q(email_attempted=email),
         success=False,
         timestamp__gte=fifteen_mins_ago
     ).order_by('-timestamp')
@@ -95,7 +117,7 @@ def check_lockout(email, ip_address):
         elapsed = timezone.now() - fifth_failure.timestamp
         remaining = 15 - int(elapsed.total_seconds() / 60)
         if remaining > 0:
-            return True, f"Account temporarily locked. Try again in {remaining} minutes."
+            return True, f"Too many failed login attempts. Security cooldown active, please try again in {remaining} minute(s)."
 
     return False, None
 
@@ -158,23 +180,144 @@ def login_view(request):
         password = request.POST.get('password', '')
         ip_address = get_client_ip(request)
 
-        is_locked, lockout_msg = check_lockout(login_input, ip_address)
-        if is_locked:
-            messages.error(request, lockout_msg)
-            return render(request, 'permits/login.html')
-
         User = get_user_model()
         user_obj = User.objects.filter(
-            Q(email__iexact=login_input) | Q(username__iexact=login_input)
+            Q(email__iexact=login_input) | Q(username__iexact=login_input) | Q(full_name__iexact=login_input)
         ).first()
-        username = user_obj.username if user_obj else login_input
 
+        # If user credentials are valid, clear previous lockouts and authenticate
+        if user_obj and user_obj.check_password(password):
+            LoginAttempt.objects.filter(
+                Q(email_attempted=login_input) | Q(email_attempted=user_obj.email) | Q(email_attempted=user_obj.username)
+            ).delete()
+            try:
+                from axes.utils import reset as axes_reset
+                axes_reset(username=user_obj.username)
+                axes_reset(username=login_input)
+            except Exception:
+                pass
+            try:
+                from axes.utils import reset_request
+                reset_request(request)
+            except Exception:
+                pass
+            try:
+                from axes.models import AccessAttempt
+                AccessAttempt.objects.filter(
+                    Q(username=user_obj.username) | Q(username=login_input) | Q(ip_address=ip_address)
+                ).delete()
+            except Exception:
+                pass
+        else:
+            is_locked, lockout_msg = check_lockout(login_input, ip_address)
+            if is_locked:
+                messages.error(request, lockout_msg)
+                return render(request, 'permits/login.html')
+
+        if user_obj and not user_obj.is_active:
+            if user_obj.check_password(password):
+                LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
+                messages.error(request, "This account is temporarily locked. Please contact the administrator.")
+                return render(request, 'permits/login.html')
+
+        username = user_obj.username if user_obj else login_input
         user = authenticate(request, username=username, password=password)
+
+        # Fallback direct auth if authenticate backend was intercepted by stale axes lock
+        if user is None and user_obj and user_obj.check_password(password) and user_obj.is_active:
+            user = user_obj
+
         if user is not None:
             if not user.is_active:
                 LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-                messages.error(request, "Account is locked. Please contact the administrator.")
+                messages.error(request, "This account is temporarily locked. Please contact the administrator.")
                 return render(request, 'permits/login.html')
+
+            device_token = get_client_device_token(request)
+            user_agent_str = request.META.get('HTTP_USER_AGENT', '')
+            device_name = parse_device_user_agent(user_agent_str)
+
+            # ── 1. ADMIN USER: Auto-register / Authorize device & notify Gmail ──
+            if user.role == 'admin':
+                device, created = UserDevice.objects.get_or_create(
+                    user=user,
+                    device_token=device_token,
+                    defaults={
+                        'device_name': device_name,
+                        'ip_address': ip_address,
+                        'user_agent': user_agent_str,
+                        'status': 'approved',
+                        'approved_by': user,
+                        'approved_at': timezone.now()
+                    }
+                )
+                if created:
+                    dispatch_new_device_login_alert(user, device, request)
+                else:
+                    device.last_seen_at = timezone.now()
+                    device.ip_address = ip_address
+                    device.save()
+
+                if user.session_key:
+                    try:
+                        Session.objects.filter(session_key=user.session_key).delete()
+                    except Exception as e:
+                        logger.error(f"Error terminating previous session: {e}")
+
+                LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=ip_address)
+                login(request, user)
+
+                remember_me = request.POST.get('remember_me')
+                if remember_me:
+                    request.session.set_expiry(1209600)
+                else:
+                    request.session.set_expiry(0)
+
+                user.session_key = request.session.session_key
+                user.save()
+
+                log_audit(user, "Logged in successfully (Admin)", request=request)
+                response = redirect('dashboard')
+                response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
+                return response
+
+            # ── 2. STAFF USER: Device Gatekeeping & Approval Flow ──
+            device = UserDevice.objects.filter(user=user, device_token=device_token).first()
+
+            if device and device.status == 'rejected':
+                LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
+                messages.error(request, "Access Denied: This device has been rejected by the administrator.")
+                return render(request, 'permits/login.html')
+
+            if not device or device.status != 'approved':
+                if not device:
+                    approval_token = secrets.token_urlsafe(32)
+                    device = UserDevice.objects.create(
+                        user=user,
+                        device_token=device_token,
+                        device_name=device_name,
+                        ip_address=ip_address,
+                        user_agent=user_agent_str,
+                        status='pending',
+                        approval_token=approval_token
+                    )
+                    dispatch_device_approval_request(user, device, request)
+                    dispatch_new_device_login_alert(user, device, request)
+
+                # Store pending authentication state in session
+                request.session['pending_user_id'] = user.id
+                request.session['pending_device_id'] = device.id
+                request.session['pending_remember_me'] = bool(request.POST.get('remember_me'))
+                request.session['pending_login_input'] = login_input
+
+                response = redirect('device_pending_approval')
+                response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
+                return response
+
+            # Device is ALREADY APPROVED: Proceed with direct login
+            device.last_seen_at = timezone.now()
+            device.ip_address = ip_address
+            device.save()
 
             if user.session_key:
                 try:
@@ -185,36 +328,200 @@ def login_view(request):
             LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=ip_address)
             login(request, user)
 
-            # Handle Remember Me checkbox (Standard Security Best Practice)
             remember_me = request.POST.get('remember_me')
             if remember_me:
-                # 14 days (2 weeks) industry standard session persistence
                 request.session.set_expiry(1209600)
             else:
-                # Expire session on browser close if unchecked
                 request.session.set_expiry(0)
 
             user.session_key = request.session.session_key
             user.save()
 
-            # Check if this is a login from a new IP/device
-            has_previous_login = AuditLog.objects.filter(
-                user=user,
-                action__icontains="Logged in",
-                ip_address=ip_address
-            ).exists()
-            
-            action_text = "Logged in successfully"
-            if ip_address and not has_previous_login:
-                action_text = "Logged in successfully from a new IP/device"
-
-            log_audit(user, action_text, request=request)
-            return redirect('dashboard')
+            log_audit(user, f"Logged in successfully from authorized device: {device.device_name}", request=request)
+            response = redirect('dashboard')
+            response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
+            return response
         else:
             LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
             messages.error(request, "Incorrect email or password.")
 
     return render(request, 'permits/login.html')
+
+
+def device_pending_approval_view(request):
+    """Holding screen for staff users waiting for Admin device authorization."""
+    pending_user_id = request.session.get('pending_user_id')
+    pending_device_id = request.session.get('pending_device_id')
+
+    if not pending_user_id or not pending_device_id:
+        # Preview mode for direct URL access & UI designing
+        pending_user = request.user if request.user.is_authenticated else CustomUser.objects.filter(role='staff').first()
+        if not pending_user:
+            pending_user = CustomUser.objects.first()
+
+        class MockPreviewDevice:
+            device_name = "Windows PC • Google Chrome"
+            ip_address = get_client_ip(request) or "127.0.0.1"
+            status = "pending"
+
+        return render(request, 'permits/device_pending_approval.html', {
+            'pending_user': pending_user,
+            'device': MockPreviewDevice(),
+            'is_preview': True,
+        })
+
+    pending_user = CustomUser.objects.filter(id=pending_user_id).first()
+    device = UserDevice.objects.filter(id=pending_device_id).first()
+
+    if not pending_user or not device:
+        return redirect('login')
+
+    # If already approved in background, log in directly
+    if device.status == 'approved':
+        login(request, pending_user)
+        if request.session.get('pending_remember_me'):
+            request.session.set_expiry(1209600)
+        else:
+            request.session.set_expiry(0)
+        login_input = request.session.pop('pending_login_input', pending_user.username)
+        request.session.pop('pending_user_id', None)
+        request.session.pop('pending_device_id', None)
+        request.session.pop('pending_remember_me', None)
+        LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=device.ip_address)
+        log_audit(pending_user, f"Logged in from newly authorized device: {device.device_name}", request=request)
+        return redirect('dashboard')
+
+    return render(request, 'permits/device_pending_approval.html', {
+        'pending_user': pending_user,
+        'device': device,
+    })
+
+
+def check_device_approval_ajax(request):
+    """AJAX endpoint polled by device_pending_approval screen to detect instant Admin approval."""
+    pending_user_id = request.session.get('pending_user_id')
+    pending_device_id = request.session.get('pending_device_id')
+
+    if not pending_user_id or not pending_device_id:
+        return JsonResponse({'status': 'pending'})
+
+    device = UserDevice.objects.filter(id=pending_device_id).first()
+    pending_user = CustomUser.objects.filter(id=pending_user_id).first()
+
+    if not device or not pending_user:
+        return JsonResponse({'status': 'pending'})
+
+    if device.status == 'approved':
+        login(request, pending_user)
+        if request.session.get('pending_remember_me'):
+            request.session.set_expiry(1209600)
+        else:
+            request.session.set_expiry(0)
+        login_input = request.session.pop('pending_login_input', pending_user.username)
+        request.session.pop('pending_user_id', None)
+        request.session.pop('pending_device_id', None)
+        request.session.pop('pending_remember_me', None)
+        LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=device.ip_address)
+        log_audit(pending_user, f"Logged in from newly authorized device: {device.device_name}", request=request)
+        return JsonResponse({'status': 'approved', 'redirect_url': reverse('dashboard')})
+    elif device.status == 'rejected':
+        return JsonResponse({'status': 'rejected', 'redirect_url': reverse('login')})
+
+    return JsonResponse({'status': 'pending'})
+
+
+def approve_device_view(request):
+    """Handles 1-click token approval from email or in-app button by Admin."""
+    token = request.GET.get('token', '').strip()
+    device_id = request.POST.get('device_id') or request.GET.get('device_id')
+
+    device = None
+    if token:
+        device = UserDevice.objects.filter(approval_token=token).first()
+    elif device_id and request.user.is_authenticated and request.user.role == 'admin':
+        device = UserDevice.objects.filter(id=device_id).first()
+
+    if not device:
+        messages.error(request, "Invalid or expired device authorization request.")
+        return redirect('dashboard' if request.user.is_authenticated else 'login')
+
+    device.status = 'approved'
+    device.approved_by = request.user if request.user.is_authenticated else None
+    device.approved_at = timezone.now()
+    device.save()
+
+    log_audit(request.user if request.user.is_authenticated else device.user,
+              f"Authorized device access ({device.device_name}) for staff: {device.user.full_name or device.user.username}",
+              request=request)
+
+    messages.success(request, f"Device ({device.device_name}) for {device.user.full_name or device.user.username} has been successfully authorized!")
+    return redirect('dashboard' if request.user.is_authenticated else 'login')
+
+
+def reject_device_view(request):
+    """Handles rejection of a device authorization request."""
+    token = request.GET.get('token', '').strip()
+    device_id = request.POST.get('device_id') or request.GET.get('device_id')
+
+    device = None
+    if token:
+        device = UserDevice.objects.filter(approval_token=token).first()
+    elif device_id and request.user.is_authenticated and request.user.role == 'admin':
+        device = UserDevice.objects.filter(id=device_id).first()
+
+    if not device:
+        messages.error(request, "Invalid or expired device request.")
+        return redirect('dashboard' if request.user.is_authenticated else 'login')
+
+    device.status = 'rejected'
+    device.save()
+
+    log_audit(request.user if request.user.is_authenticated else device.user,
+              f"Rejected device access ({device.device_name}) for: {device.user.full_name or device.user.username}",
+              request=request)
+
+    messages.warning(request, f"Device access ({device.device_name}) for {device.user.full_name or device.user.username} was rejected.")
+    return redirect('dashboard' if request.user.is_authenticated else 'login')
+
+
+def access_restricted_view(request):
+    """Direct preview or display for access restricted / blocked devices."""
+    ip = get_client_ip(request)
+    return render(request, 'permits/access_denied.html', {
+        'is_blocked_ip': True,
+        'blocked_ip': ip or '127.0.0.1',
+    }, status=403)
+
+
+def email_preview_device_approval_view(request):
+    """Browser preview for Admin Device Authorization Email."""
+    return render(request, 'emails/email_device_approval_request.html', {
+        'user_display_name': 'Joyce Bustillo',
+        'user_email': 'joycebustillo@gmail.com',
+        'device_name': 'Windows PC • Google Chrome',
+        'ip_address': '127.0.0.1',
+        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'approve_url': '#',
+        'reject_url': '#',
+    })
+
+
+def email_preview_new_device_view(request):
+    """Browser preview for New Device Login Alert Email."""
+    return render(request, 'emails/email_new_device_alert.html', {
+        'user_display_name': 'Joyce Bustillo',
+        'device_name': 'Android Mobile • Google Chrome',
+        'ip_address': '127.0.0.1',
+        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+    })
+
+
+def email_preview_password_reset_view(request):
+    """Browser preview for Password Reset Email."""
+    return render(request, 'emails/email_password_reset.html', {
+        'user_display_name': 'Joyce Bustillo',
+        'reset_url': '#',
+    })
 
 
 def logout_view(request):
@@ -422,9 +729,13 @@ def register_view(request):
 
 @login_required
 def dashboard_view(request):
-    records = EngineeringRecord.objects.exclude(status='archived')
+    all_unarchived = EngineeringRecord.objects.exclude(status='archived')
+    records = all_unarchived.exclude(
+        is_illegal_construction=True,
+        illegal_compliance_status__in=['unresolved', 'pending_permit']
+    )
 
-    # Summary stats
+    # Summary stats (Master Digitized Records)
     total_permits = records.filter(record_type='Permit').count()
     total_municipal = records.filter(record_type='Project', project_scope='Municipal').count()
     total_barangay = records.filter(record_type='Project', project_scope='Barangay').count()
@@ -553,7 +864,7 @@ def dashboard_view(request):
     chart_permit_counts = [p['count'] for p in permit_query]
 
     # Illegal Construction Tracking Stats
-    illegal_qs = records.filter(is_illegal_construction=True)
+    illegal_qs = all_unarchived.filter(is_illegal_construction=True)
     illegal_total = illegal_qs.count()
     illegal_unresolved = illegal_qs.filter(illegal_compliance_status='unresolved').count()
     illegal_pending = illegal_qs.filter(illegal_compliance_status='pending_permit').count()
@@ -766,10 +1077,15 @@ def barangays_view(request):
     sort = request.GET.get('sort', 'a-z').strip().lower()
     query = request.GET.get('q', '').strip()
 
+    master_filter = ~Q(engineering_records__status='archived') & ~Q(
+        engineering_records__is_illegal_construction=True,
+        engineering_records__illegal_compliance_status__in=['unresolved', 'pending_permit']
+    )
+
     base_qs = Barangay.objects.annotate(
-        total_records=Count('engineering_records', filter=~Q(engineering_records__status='archived')),
-        permit_count=Count('engineering_records', filter=Q(engineering_records__record_type='Permit') & ~Q(engineering_records__status='archived')),
-        project_count=Count('engineering_records', filter=Q(engineering_records__record_type='Project') & ~Q(engineering_records__status='archived')),
+        total_records=Count('engineering_records', filter=master_filter),
+        permit_count=Count('engineering_records', filter=Q(engineering_records__record_type='Permit') & master_filter),
+        project_count=Count('engineering_records', filter=Q(engineering_records__record_type='Project') & master_filter),
     )
 
     if query:
@@ -802,7 +1118,10 @@ def barangays_view(request):
 def barangay_workspace_view(request, barangay_id):
     ensure_barangay_schema()
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
-    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').select_related(
+    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').exclude(
+        is_illegal_construction=True,
+        illegal_compliance_status__in=['unresolved', 'pending_permit']
+    ).select_related(
         'created_by', 'barangay', 'permit_detail', 'project_detail'
     ).prefetch_related(
         'requirements__requirement_item', 'requirements__document'
@@ -1008,7 +1327,7 @@ def records_browse_view(request):
         'selected_project_type': project_type,
         'selected_permit_type': permit_type,
         'year_choices': year_choices,
-        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
+        'status_choices': [('active', 'Ongoing / Active'), ('completed', 'Completed'), ('pending', 'Pending')],
         'project_type_choices': [choice[0] for choice in ProjectDetail.PROJECT_TYPE_CHOICES],
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'active_tab': 'records',
@@ -1034,7 +1353,7 @@ def illegal_constructions_view(request):
     query = request.GET.get('q', '').strip()
     barangay_id = request.GET.get('barangay', '')
     year = request.GET.get('year', '')
-    stage_filter = request.GET.get('stage', '').strip()  # 'unresolved', 'pending_permit', 'resolved'
+    stage_filter = request.GET.get('stage', 'active').strip()  # 'active', 'unresolved', 'pending_permit', 'resolved', 'all'
 
     # Filter base
     qs = base_records
@@ -1067,15 +1386,21 @@ def illegal_constructions_view(request):
 
     # Incident status metrics
     all_count = qs.count()
+    active_count = qs.filter(illegal_compliance_status__in=['unresolved', 'pending_permit']).count()
     unresolved_count = qs.filter(illegal_compliance_status='unresolved').count()
     pending_count = qs.filter(illegal_compliance_status='pending_permit').count()
     resolved_count = qs.filter(illegal_compliance_status='resolved').count()
 
     # Stage filtering
-    if stage_filter in ['unresolved', 'pending_permit', 'resolved']:
+    if stage_filter == 'active':
+        records = qs.filter(illegal_compliance_status__in=['unresolved', 'pending_permit'])
+    elif stage_filter in ['unresolved', 'pending_permit', 'resolved']:
         records = qs.filter(illegal_compliance_status=stage_filter)
-    else:
+    elif stage_filter == 'all':
         records = qs
+    else:
+        stage_filter = 'active'
+        records = qs.filter(illegal_compliance_status__in=['unresolved', 'pending_permit'])
 
     total_count = records.count()
     per_page = get_per_page(request, 10)
@@ -1083,7 +1408,7 @@ def illegal_constructions_view(request):
     page_obj = paginator.get_page(request.GET.get('page'))
 
     year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [barangay_id, year, stage_filter] if val)
+    active_filters_count = sum(1 for val in [barangay_id, year, ('my' if selected_scope == 'my' else '')] if val)
 
     context = {
         'per_page': per_page,
@@ -1091,6 +1416,7 @@ def illegal_constructions_view(request):
         'page_obj': page_obj,
         'total_count': total_count,
         'all_count': all_count,
+        'active_count': active_count,
         'unresolved_count': unresolved_count,
         'pending_count': pending_count,
         'resolved_count': resolved_count,
@@ -1278,6 +1604,15 @@ def record_create_step3_view(request):
         if record_type == 'Permit':
             chosen_subtype = request.POST.get('permit_type', subtype) or subtype
             date_issued_val = request.POST.get('date_issued', '').strip() or None
+            if date_issued_val and not record.date_started:
+                try:
+                    from datetime import datetime
+                    parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
+                    record.date_started = parsed_d
+                    record.year = parsed_d.year
+                    record.save(update_fields=['date_started', 'year'])
+                except (ValueError, TypeError):
+                    pass
             PermitDetail.objects.create(
                 engineering_record=record,
                 permit_type=chosen_subtype,
@@ -1826,11 +2161,14 @@ def record_detail_view(request, record_id):
     doc_lgu_name_map = {}
     for doc in all_docs:
         lgu_fn = get_lgu_document_filename(doc)
-        doc_lgu_name_map[doc.document_id] = lgu_fn
-        doc_url_map[doc.document_id] = reverse('serve_document_named', kwargs={
+        url = reverse('serve_document_named', kwargs={
             'token': signing.dumps({'document_id': doc.document_id}, salt='document-download'),
             'filename': lgu_fn
         })
+        doc_lgu_name_map[doc.document_id] = lgu_fn
+        doc_lgu_name_map[str(doc.document_id)] = lgu_fn
+        doc_url_map[doc.document_id] = url
+        doc_url_map[str(doc.document_id)] = url
 
     # Get detail
     permit_detail = None
@@ -1906,7 +2244,7 @@ def record_detail_view(request, record_id):
         'related_records': related_records,
         'can_edit': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
         'can_archive': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
-        'active_tab': 'illegal' if (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved') else 'records',
+        'active_tab': 'illegal' if record.is_illegal_construction else 'records',
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'today': today,
@@ -1951,17 +2289,23 @@ def record_requirement_detail_view(request, record_id, req_id):
     doc_lgu_name_map = {}
     for doc in all_docs:
         lgu_fn = get_lgu_document_filename(doc)
-        doc_lgu_name_map[doc.document_id] = lgu_fn
-        doc_url_map[doc.document_id] = reverse('serve_document_named', kwargs={
+        url = reverse('serve_document_named', kwargs={
             'token': signing.dumps({'document_id': doc.document_id}, salt='document-download'),
             'filename': lgu_fn
         })
+        doc_lgu_name_map[doc.document_id] = lgu_fn
+        doc_lgu_name_map[str(doc.document_id)] = lgu_fn
+        doc_url_map[doc.document_id] = url
+        doc_url_map[str(doc.document_id)] = url
 
     can_edit = (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user))
 
     # Stats
     total_sub = len(sub_reqs) if sub_reqs else 1
     fulfilled_sub = sum(1 for s in sub_reqs if s.is_fulfilled) if sub_reqs else (1 if req.is_fulfilled else 0)
+
+    today = timezone.now().date()
+    thirty_days_later = today + datetime.timedelta(days=30)
 
     context = {
         'record': record,
@@ -1973,6 +2317,8 @@ def record_requirement_detail_view(request, record_id, req_id):
         'doc_lgu_name_map': doc_lgu_name_map,
         'can_edit': can_edit,
         'active_tab': 'records',
+        'today': today,
+        'thirty_days_later': thirty_days_later,
     }
     return render(request, 'permits/record_requirement_detail.html', context)
 
@@ -2093,7 +2439,7 @@ def flag_illegal_construction_view(request):
         description = sanitize_input(request.POST.get('description', '')).strip()
         date_discovered_str = request.POST.get('date_discovered', '')
         remarks = sanitize_input(request.POST.get('remarks', '')).strip()
-        owner_name = sanitize_input(request.POST.get('owner_name', '')).strip()
+        owner_name = sanitize_input(request.POST.get('applicant_name', '') or request.POST.get('owner_name', '')).strip()
         
         if not title:
             title = "Unpermitted Structure Discovered"
@@ -2157,7 +2503,7 @@ def flag_illegal_construction_view(request):
         PermitDetail.objects.create(
             engineering_record=record,
             permit_type='Violation Report',
-            applicant_name=owner_name if owner_name else 'Under Investigation',
+            applicant_name=owner_name or '',
             building_type=structure_type if structure_type else 'Residential'
         )
 
@@ -2290,12 +2636,13 @@ def record_edit_view(request, record_id):
             except PermitDetail.DoesNotExist:
                 detail = None
             
+            if not detail and (record.is_illegal_construction or request.POST.get('permit_number') or request.POST.get('permit_type')):
+                p_type = request.POST.get('permit_type', 'Building') or 'Building'
+                detail = PermitDetail.objects.create(engineering_record=record, permit_type=p_type)
+            
             if detail:
-                # Normal permit record — update detail fields
-                applicant_name_val = sanitize_input(request.POST.get('applicant_name', '')).strip()
-                if not applicant_name_val:
-                    messages.error(request, "Applicant / Property Owner name is required.")
-                    return redirect('edit_record', record_id=record.record_id)
+                # Normal or regularized permit record — update detail fields
+                applicant_name_val = sanitize_input(request.POST.get('applicant_name', '')).strip() or record.title
                 old_subtype = detail.permit_type
                 new_subtype = request.POST.get('permit_type', '') or old_subtype
                 
@@ -2311,17 +2658,29 @@ def record_edit_view(request, record_id):
                         return redirect('edit_record', record_id=record.record_id)
                 detail.permit_number = new_permit_num
                 detail.applicant_name = applicant_name_val
+                date_issued_val = request.POST.get('date_issued', '').strip()
+                detail.date_issued = date_issued_val if date_issued_val else None
+                if date_issued_val:
+                    try:
+                        from datetime import datetime
+                        parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
+                        record.date_started = parsed_d
+                        record.year = parsed_d.year
+                    except (ValueError, TypeError):
+                        pass
                 detail.resolution_required = request.POST.get('resolution_required') == 'on'
                 detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
                 detail.save()
                 
-                # Auto-sync record.title with updated permit_number / applicant_name
-                if detail.permit_number and detail.applicant_name:
-                    record.title = f"{detail.permit_number} — {detail.applicant_name}"
-                elif detail.applicant_name:
-                    record.title = detail.applicant_name
-                elif detail.permit_number:
-                    record.title = detail.permit_number
+                # Auto-sync record.title with updated permit_number / applicant_name ONLY for regular permits
+                # For illegal constructions, preserve the explicit structure/incident name entered by the user
+                if not record.is_illegal_construction:
+                    if detail.permit_number and detail.applicant_name:
+                        record.title = f"{detail.permit_number} — {detail.applicant_name}"
+                    elif detail.applicant_name:
+                        record.title = detail.applicant_name
+                    elif detail.permit_number:
+                        record.title = detail.permit_number
                 record.save()
                 
                 if not record.requirements.exists() or old_subtype != new_subtype:
@@ -2403,7 +2762,7 @@ def record_edit_view(request, record_id):
         'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
         'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
         'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
-        'active_tab': 'records',
+        'active_tab': 'illegal_constructions' if record.is_illegal_construction else 'records',
     }
     return render(request, 'permits/edit_record.html', context)
 
@@ -2468,13 +2827,23 @@ def _get_document_stream(doc):
         except Exception:
             pass
 
-    # Check Supabase / remote URL
+    # Check Supabase / remote URL and fetch content into stream
     try:
         url = doc.file.url
         if url and str(url).startswith(('http://', 'https://')):
+            try:
+                import requests
+                resp = requests.get(url, timeout=15)
+                if resp.status_code == 200:
+                    bio = io.BytesIO(resp.content)
+                    bio.name = file_name
+                    return bio, content_type, url
+            except Exception as req_err:
+                logger.warning(f"Error fetching document from URL {url}: {req_err}")
             return None, content_type, url
     except Exception:
         pass
+
 
     # In-memory fallback if sample/seed file is missing on local server
     record_title = doc.engineering_record.title if doc.engineering_record else "Engineering Record"
@@ -2706,7 +3075,8 @@ def document_upload_view(request, record_id):
     if request.method == 'POST':
         document_file = request.FILES.get('document_file')
         requirement_item_id = request.POST.get('requirement_item_id', '').strip()
-        document_type = request.POST.get('document_type', 'Other').strip()
+        default_doc_type = "Incident Evidence" if record.is_illegal_construction else "Supporting Document"
+        document_type = request.POST.get('document_type', '').strip() or default_doc_type
         expiry_date = request.POST.get('expiry_date', '').strip()
 
         if not document_file:
@@ -3316,7 +3686,7 @@ def reports_view(request):
             return response
 
         elif export_format == 'pdf':
-            from reportlab.lib.pagesizes import letter, landscape
+            from reportlab.lib.pagesizes import letter
             from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, HRFlowable, Image
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib import colors
@@ -3330,12 +3700,9 @@ def reports_view(request):
 
             # Register Unicode TTF Font for native Peso Sign (₱) rendering across OS environments
             font_candidates = [
-                # Local project assets font
                 (os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans.ttf'), os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans-Bold.ttf')),
-                # Windows system fonts
                 (r'C:\Windows\Fonts\segoeui.ttf', r'C:\Windows\Fonts\segoeuib.ttf'),
                 (r'C:\Windows\Fonts\arial.ttf', r'C:\Windows\Fonts\arialbd.ttf'),
-                # Linux / Container fonts (Debian / Ubuntu / Render)
                 ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
                 ('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'),
                 ('/usr/share/fonts/truetype/freefont/FreeSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'),
@@ -3358,11 +3725,11 @@ def reports_view(request):
             # Running Numbered Canvas with Header & Footer for Portrait Letter (612 x 792 pt)
             class NumberedCanvas(canvas.Canvas):
                 def __init__(self, *args, **kwargs):
-                    canvas.Canvas.__init__(self, *args, **kwargs)
+                    super().__init__(*args, **kwargs)
                     self._saved_page_states = []
-                    self.setTitle("eTala Engineering Records Summary Report")
+                    self.setTitle("eTala Engineering Accomplishment Report")
                     self.setAuthor("Municipal Engineering Office — LGU Carigara")
-                    self.setSubject("Official Engineering Records Summary Report")
+                    self.setSubject("Official Engineering & Regulatory Accomplishment Report")
                     self.setCreator("eTala Management System")
 
                 def showPage(self):
@@ -3374,8 +3741,8 @@ def reports_view(request):
                     for state in self._saved_page_states:
                         self.__dict__.update(state)
                         self.draw_page_decorations(num_pages)
-                        canvas.Canvas.showPage(self)
-                    canvas.Canvas.save(self)
+                        super().showPage()
+                    super().save()
 
                 def draw_page_decorations(self, page_count):
                     self.saveState()
@@ -3386,7 +3753,7 @@ def reports_view(request):
                         self.drawString(36, 762, "MUNICIPAL ENGINEERING OFFICE — CARIGARA, LEYTE")
                         self.setFont(main_font, 7.5)
                         self.setFillColor(colors.HexColor("#64748B"))
-                        self.drawRightString(576, 762, "Engineering Records Summary Report")
+                        self.drawRightString(576, 762, "Official Accomplishment & Regulatory Report")
                         self.setStrokeColor(colors.HexColor("#CBD5E1"))
                         self.setLineWidth(0.5)
                         self.line(36, 756, 576, 756)
@@ -3405,9 +3772,9 @@ def reports_view(request):
             doc = SimpleDocTemplate(
                 buffer,
                 pagesize=letter,
-                title="eTala Engineering Records Summary Report",
+                title="eTala Engineering Accomplishment Report",
                 author="Municipal Engineering Office — LGU Carigara",
-                subject="Official Engineering Records Summary Report",
+                subject="Official Engineering Accomplishment Report",
                 creator="eTala Management System",
                 rightMargin=36,
                 leftMargin=36,
@@ -3454,12 +3821,12 @@ def reports_view(request):
                 'ReportTitleStyle',
                 parent=styles['Heading2'],
                 fontName=bold_font,
-                fontSize=10,
-                leading=13,
+                fontSize=10.5,
+                leading=13.5,
                 textColor=NAVY,
                 alignment=1,
                 spaceAfter=4,
-                spaceBefore=4
+                spaceBefore=3
             )
             meta_label_style = ParagraphStyle(
                 'MetaLabelStyle',
@@ -3513,13 +3880,13 @@ def reports_view(request):
             # Official Header Layout: Logo + Letterhead side-by-side
             logo_path = os.path.join(settings.BASE_DIR, 'assets', 'carigara_logo.png')
             if os.path.exists(logo_path):
-                logo_img = Image(logo_path, width=42, height=42)
+                logo_img = Image(logo_path, width=44, height=44)
                 header_text = [
                     Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style),
                     Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style),
-                    Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER</b>", office_title_style),
+                    Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER &amp; BUILDING OFFICIAL</b>", office_title_style),
                 ]
-                header_table = Table([[logo_img, header_text]], colWidths=[50, 490])
+                header_table = Table([[logo_img, header_text]], colWidths=[52, 488])
                 header_table.setStyle(TableStyle([
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                     ('ALIGN', (0, 0), (0, 0), 'CENTER'),
@@ -3531,24 +3898,30 @@ def reports_view(request):
             else:
                 story.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style))
                 story.append(Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style))
-                story.append(Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER</b>", office_title_style))
+                story.append(Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER &amp; BUILDING OFFICIAL</b>", office_title_style))
 
             story.append(Spacer(1, 4))
             story.append(HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceAfter=2, spaceBefore=2))
             story.append(HRFlowable(width="100%", thickness=0.5, color=GOLD, spaceAfter=4, spaceBefore=0))
             
-            # Document Title
-            story.append(Paragraph("ENGINEERING RECORDS MASTER SUMMARY REPORT", report_title_style))
+            # Dynamic Report Title based on Category Filter
+            if selected_record_type == 'Permit':
+                doc_title = "BUILDING &amp; ANCILLARY PERMITS ACCOMPLISHMENT REPORT"
+            elif selected_record_type == 'Project':
+                doc_title = "INFRASTRUCTURE DEVELOPMENT &amp; PUBLIC WORKS PROGRESS REPORT"
+            else:
+                doc_title = "ENGINEERING &amp; REGULATORY ACCOMPLISHMENT MASTER REPORT"
+            story.append(Paragraph(doc_title, report_title_style))
 
-            # Structured 2-Column Metadata Box (Total: 540pt)
+            # 1. Metadata Box (Total: 540pt)
             meta_data = [
                 [
-                    Paragraph(f"<b>Scope / Filter:</b> {active_filter_str}", meta_label_style),
+                    Paragraph(f"<b>Filter Scope:</b> {active_filter_str}", meta_label_style),
                     Paragraph(f"<b>Generated At:</b> {gen_timestamp} PST", meta_label_style),
                 ],
                 [
                     Paragraph(f"<b>Exported By:</b> {request.user.full_name or request.user.username} ({request.user.get_role_display()})", meta_label_style),
-                    Paragraph(f"<b>Total Count:</b> <b>{records.count()} Record(s)</b>", meta_label_style),
+                    Paragraph(f"<b>Total Matched Records:</b> <b>{records.count()} Record(s)</b>", meta_label_style),
                 ]
             ]
             meta_box = Table(meta_data, colWidths=[270, 270])
@@ -3564,17 +3937,61 @@ def reports_view(request):
             story.append(meta_box)
             story.append(Spacer(1, 6))
 
-            # Column Widths for Portrait Letter (Total: 540pt across 36pt margins)
-            col_widths = [24, 118, 76, 74, 32, 54, 82, 58, 22]
+            # 2. Executive 4-KPI Metric Strip Table (540pt)
+            kpi_th_style = ParagraphStyle('KPITh', parent=styles['Normal'], fontName=bold_font, fontSize=6.5, leading=8, textColor=colors.HexColor('#475569'), alignment=1)
+            kpi_val_style = ParagraphStyle('KPIVal', parent=styles['Normal'], fontName=bold_font, fontSize=9.5, leading=11.5, textColor=NAVY, alignment=1)
+            kpi_sub_style = ParagraphStyle('KPISub', parent=styles['Normal'], fontName=main_font, fontSize=6.5, leading=8, textColor=colors.HexColor('#64748B'), alignment=1)
+
+            total_rec_cnt = records.count()
+            permits_cnt = records.filter(record_type='Permit').count()
+            projects_cnt = records.filter(record_type='Project').count()
+            from django.db.models import Sum
+            total_budget_sum = records.filter(record_type='Project').aggregate(s=Sum('project_detail__project_cost'))['s'] or 0
+
+            kpi_table_data = [
+                [
+                    Paragraph("TOTAL ARCHIVE", kpi_th_style),
+                    Paragraph("INFRA PROJECTS", kpi_th_style),
+                    Paragraph("PERMITS ISSUED", kpi_th_style),
+                    Paragraph("TOTAL PROJECT COST", kpi_th_style),
+                ],
+                [
+                    Paragraph(f"<b>{total_rec_cnt}</b>", kpi_val_style),
+                    Paragraph(f"<b>{projects_cnt}</b>", kpi_val_style),
+                    Paragraph(f"<b>{permits_cnt}</b>", kpi_val_style),
+                    Paragraph(f"<b>₱ {total_budget_sum:,.2f}</b>", kpi_val_style),
+                ],
+                [
+                    Paragraph(f"{records.exclude(status='archived').count()} Active • {records.filter(status='archived').count()} Archived", kpi_sub_style),
+                    Paragraph(f"{records.filter(record_type='Project', status='active').count()} Ongoing • {records.filter(record_type='Project', status='completed').count()} Done", kpi_sub_style),
+                    Paragraph(f"{records.filter(record_type='Permit', permit_detail__permit_type__iexact='Building').count()} Building • {records.filter(record_type='Permit', permit_detail__permit_type__iexact='Electrical').count()} Elec", kpi_sub_style),
+                    Paragraph(f"{records.filter(record_type='Project', project_scope='Municipal').count()} Municipal • {records.filter(record_type='Project', project_scope='Barangay').count()} Brgy", kpi_sub_style),
+                ]
+            ]
+            kpi_table = Table(kpi_table_data, colWidths=[135, 135, 135, 135])
+            kpi_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F5F9')),
+                ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#CBD5E1')),
+                ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#CBD5E1')),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            story.append(kpi_table)
+            story.append(Spacer(1, 6))
+
+            # 3. Main Data Ledger Table (Total: 540pt across 36pt margins)
+            col_widths = [20, 85, 80, 65, 30, 55, 115, 65, 25]
             table_data = [[
                 Paragraph("#", header_center_style),
-                Paragraph("Record / Permit No.", header_cell_style),
-                Paragraph("Category", header_cell_style),
+                Paragraph("Record / Ref No.", header_cell_style),
+                Paragraph("Type / Scope", header_cell_style),
                 Paragraph("Barangay", header_cell_style),
                 Paragraph("Year", header_center_style),
                 Paragraph("Status", header_center_style),
                 Paragraph("Applicant / Contractor", header_cell_style),
-                Paragraph("Budget / Cost", header_right_style),
+                Paragraph("Cost / Budget", header_right_style),
                 Paragraph("Docs", header_center_style)
             ]]
 
@@ -3586,20 +4003,26 @@ def reports_view(request):
 
                 if is_violation:
                     if violation_status == 'unresolved':
-                        status_html = '<font color="#B91C1C"><b>Unresolved</b></font>'
+                        status_html = '<font color="#DC2626"><b>Unresolved</b></font>'
                         violation_rows_info[row_idx] = colors.HexColor('#FFF1F2')
                     elif violation_status == 'pending_permit':
-                        status_html = '<font color="#B45309"><b>Permit Filed</b></font>'
+                        status_html = '<font color="#D97706"><b>Permit Filed</b></font>'
                         violation_rows_info[row_idx] = colors.HexColor('#FFFBEB')
                     elif violation_status == 'resolved':
-                        status_html = '<font color="#15803D"><b>Regularized</b></font>'
+                        status_html = '<font color="#16A34A"><b>Regularized</b></font>'
                         violation_rows_info[row_idx] = colors.HexColor('#F0FDF4')
                     else:
-                        status_html = '<font color="#B91C1C"><b>Violation</b></font>'
+                        status_html = '<font color="#DC2626"><b>Violation</b></font>'
                         violation_rows_info[row_idx] = colors.HexColor('#FFF1F2')
                 else:
-                    status_label = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
-                    status_html = status_label
+                    if r.status == 'completed':
+                        status_html = '<font color="#16A34A"><b>Completed</b></font>'
+                    elif r.status == 'active':
+                        status_html = '<font color="#0284C7"><b>Active</b></font>'
+                    elif r.status == 'pending':
+                        status_html = '<font color="#D97706"><b>Pending</b></font>'
+                    else:
+                        status_html = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
                 
                 # Resolve Record Title cleanly
                 if r.record_type == 'Permit':
@@ -3619,11 +4042,11 @@ def reports_view(request):
                 if r.record_type == 'Permit':
                     if is_violation:
                         if violation_status == 'resolved':
-                            specific_type = '<font color="#15803D"><b>Regularized Building</b></font>'
+                            specific_type = '<font color="#16A34A"><b>Regularized Building</b></font>'
                         elif violation_status == 'pending_permit':
-                            specific_type = '<font color="#B45309"><b>Violation (Permit Filed)</b></font>'
+                            specific_type = '<font color="#D97706"><b>Violation (Permit Filed)</b></font>'
                         else:
-                            specific_type = '<font color="#B91C1C"><b>Violation Report</b></font>'
+                            specific_type = '<font color="#DC2626"><b>Violation Notice</b></font>'
                     elif hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_type:
                         specific_type = r.specific_type_label
                     else:
@@ -3655,11 +4078,11 @@ def reports_view(request):
                 c_stats = r.completion_stats
                 if c_stats['total'] > 0:
                     if c_stats['is_complete']:
-                        doc_para = Paragraph(f'<font color="#15803D"><b>{c_stats["fulfilled"]}/{c_stats["total"]}</b></font>', cell_center)
+                        doc_para = Paragraph(f'<font color="#16A34A"><b>{c_stats["fulfilled"]}/{c_stats["total"]}</b></font>', cell_center)
                     elif c_stats['fulfilled'] > 0:
-                        doc_para = Paragraph(f'<font color="#B45309">{c_stats["fulfilled"]}/{c_stats["total"]}</font>', cell_center)
+                        doc_para = Paragraph(f'<font color="#D97706">{c_stats["fulfilled"]}/{c_stats["total"]}</font>', cell_center)
                     else:
-                        doc_para = Paragraph(f'<font color="#B91C1C">0/{c_stats["total"]}</font>', cell_center)
+                        doc_para = Paragraph(f'<font color="#DC2626">0/{c_stats["total"]}</font>', cell_center)
                 else:
                     doc_para = Paragraph(f'<font color="#64748B">{r.documents.count()}f</font>' if is_violation else '<font color="#94A3B8">—</font>', cell_center)
 
@@ -3724,25 +4147,30 @@ def reports_view(request):
             t.setStyle(TableStyle(t_style_cmds))
             story.append(t)
 
-            # Official Sign-off block (Total: 540pt)
-            sign_style_left = ParagraphStyle('SignLeft', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK)
-            sign_style_right = ParagraphStyle('SignRight', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=2)
+            # Formal 3-Column Signatory Block (Total: 540pt -> 180, 180, 180)
+            sign_style_1 = ParagraphStyle('SignCol1', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=0)
+            sign_style_2 = ParagraphStyle('SignCol2', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=1)
+            sign_style_3 = ParagraphStyle('SignCol3', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=2)
+            
+            user_name_str = request.user.full_name or request.user.username
+            user_role_str = request.user.get_role_display()
             
             signatory_data = [
                 [
-                    Paragraph(f"<b>Prepared &amp; Exported by:</b><br/><br/><br/><u><b>{request.user.full_name or request.user.username}</b></u><br/>{request.user.get_role_display()}", sign_style_left),
-                    Paragraph("<b>Certified Correct:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office — Carigara, Leyte", sign_style_right)
+                    Paragraph(f"<b>Prepared by:</b><br/><br/><br/><u><b>{user_name_str}</b></u><br/>{user_role_str}, MEO", sign_style_1),
+                    Paragraph("<b>Verified &amp; Checked by:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office", sign_style_2),
+                    Paragraph("<b>Approved by:</b><br/><br/><br/><u><b>MUNICIPAL MAYOR</b></u><br/>Local Chief Executive", sign_style_3)
                 ]
             ]
-            sign_table = Table(signatory_data, colWidths=[270, 270])
+            sign_table = Table(signatory_data, colWidths=[180, 180, 180])
             sign_table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('TOPPADDING', (0, 0), (-1, -1), 14),
+                ('TOPPADDING', (0, 0), (-1, -1), 16),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
 
             story.append(KeepTogether([
-                Spacer(1, 12),
+                Spacer(1, 14),
                 sign_table
             ]))
 
@@ -3751,7 +4179,7 @@ def reports_view(request):
             buffer.close()
 
             response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename=eTala_Engineering_Records_{timezone.now().strftime("%Y%m%d_%H%M")}.pdf'
+            response['Content-Disposition'] = f'attachment; filename=eTala_Engineering_Accomplishment_Report_{timezone.now().strftime("%Y%m%d_%H%M")}.pdf'
             response.write(pdf_data)
             return response
 
@@ -3818,7 +4246,7 @@ def reports_view(request):
     if selected_year:
         active_filters.append(f"Year: {selected_year}")
     if selected_status:
-        status_name = dict(EngineeringRecord.STATUS_CHOICES).get(selected_status, selected_status)
+        status_name = dict([('active', 'Ongoing / Active'), ('completed', 'Completed'), ('pending', 'Pending')]).get(selected_status, selected_status)
         active_filters.append(f"Status: {status_name}")
 
     # ── PDF GUIDE COMPLIANT SUMMARY METRICS ──
@@ -3914,7 +4342,13 @@ def reports_view(request):
     total_projects_budget = projects_qs.aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
     municipal_projects_budget = projects_qs.filter(project_scope='Municipal').aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
     barangay_projects_budget = projects_qs.filter(project_scope='Barangay').aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
-    monitoring_projects_list = projects_qs.select_related('barangay', 'project_detail').order_by('-created_at')[:30]
+    ongoing_projects_count = projects_qs.filter(status='active').count()
+    completed_projects_count = projects_qs.filter(status='completed').count()
+    monitoring_projects_list = projects_qs.select_related('barangay', 'project_detail').order_by('-created_at')[:40]
+    
+    # 6. Permits & Violation Monitoring Records for Ledger Tabs
+    monitoring_permits_list = permits_qs.exclude(is_illegal_construction=True).select_related('barangay', 'permit_detail').order_by('-created_at')[:40]
+    monitoring_violations_list = records.filter(is_illegal_construction=True).select_related('barangay', 'permit_detail').order_by('-created_at')[:40]
 
     barangays = Barangay.objects.all()
 
@@ -3925,10 +4359,14 @@ def reports_view(request):
         'total_projects': total_projects,
         'municipal_projects_count': municipal_projects_count,
         'barangay_projects_count': barangay_projects_count,
+        'ongoing_projects_count': ongoing_projects_count,
+        'completed_projects_count': completed_projects_count,
         'total_projects_budget': total_projects_budget,
         'municipal_projects_budget': municipal_projects_budget,
         'barangay_projects_budget': barangay_projects_budget,
         'monitoring_projects_list': monitoring_projects_list,
+        'monitoring_permits_list': monitoring_permits_list,
+        'monitoring_violations_list': monitoring_violations_list,
         'total_permits': total_permits,
         'building_permits_count': building_permits_count,
         'occupancy_permits_count': occupancy_permits_count,
@@ -3953,7 +4391,7 @@ def reports_view(request):
         'selected_barangay': selected_barangay,
         'selected_year': selected_year,
         'selected_status': selected_status,
-        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
+        'status_choices': [('active', 'Ongoing / Active'), ('completed', 'Completed'), ('pending', 'Pending')],
         'year_choices': get_year_choices(),
         'active_filters': active_filters,
         'active_tab': 'reports',
@@ -3977,49 +4415,62 @@ def activity_logs_view(request):
             ip = request.POST.get('ip_address')
             if ip:
                 BlockedIP.objects.get_or_create(ip_address=ip, blocked_by=request.user)
-                log_audit(request.user, f"Blocked IP address: {ip}", request=request)
-                messages.success(request, f"Successfully blocked IP address: {ip}")
-            return redirect('activity_logs')
+                log_audit(request.user, "Blocked device access for suspicious login attempts", request=request)
+                messages.success(request, "Successfully restricted device access.")
+            return redirect(f"{reverse('activity_logs')}?tab=login")
         elif action == 'unblock_ip':
             ip = request.POST.get('ip_address')
             if ip:
                 BlockedIP.objects.filter(ip_address=ip).delete()
-                log_audit(request.user, f"Unblocked IP address: {ip}", request=request)
-                messages.success(request, f"Successfully unblocked IP address: {ip}")
-            return redirect('activity_logs')
+                log_audit(request.user, "Restored device access", request=request)
+                messages.success(request, "Successfully restored device access.")
+            return redirect(f"{reverse('activity_logs')}?tab=login")
         elif action == 'block_email':
             email = request.POST.get('email', '').strip()
             ip = request.POST.get('ip_address', '').strip()
             if email:
-                user_obj = CustomUser.objects.filter(email__iexact=email).first()
+                user_obj = CustomUser.objects.filter(
+                    Q(email__iexact=email) | Q(username__iexact=email) | Q(full_name__iexact=email)
+                ).first()
                 if user_obj:
                     user_obj.is_active = False
                     user_obj.save()
+                    display_acc = user_obj.full_name or user_obj.email or user_obj.username
+                else:
+                    display_acc = email
                 if ip:
                     BlockedIP.objects.get_or_create(ip_address=ip, blocked_by=request.user)
-                log_audit(request.user, f"Blocked login for email: {email}", request=request)
-                messages.success(request, f"Successfully blocked email access for: {email}")
-            return redirect('activity_logs')
+                log_audit(request.user, f"Blocked login access for account: {display_acc}", request=request)
+                messages.success(request, f"Successfully blocked access for account: {display_acc}")
+            return redirect(f"{reverse('activity_logs')}?tab=login")
         elif action == 'unblock_email':
             email = request.POST.get('email', '').strip()
             ip = request.POST.get('ip_address', '').strip()
             if email:
-                user_obj = CustomUser.objects.filter(email__iexact=email).first()
+                user_obj = CustomUser.objects.filter(
+                    Q(email__iexact=email) | Q(username__iexact=email) | Q(full_name__iexact=email)
+                ).first()
                 if user_obj:
                     user_obj.is_active = True
                     user_obj.save()
+                    display_acc = user_obj.full_name or user_obj.email or user_obj.username
+                else:
+                    display_acc = email
                 if ip:
                     BlockedIP.objects.filter(ip_address=ip).delete()
-                log_audit(request.user, f"Unblocked login for email: {email}", request=request)
-                messages.success(request, f"Successfully restored email access for: {email}")
-            return redirect('activity_logs')
+                log_audit(request.user, f"Restored login access for account: {display_acc}", request=request)
+                messages.success(request, f"Successfully restored access for account: {display_acc}")
+            return redirect(f"{reverse('activity_logs')}?tab=login")
 
     # 1. Audit Logs (High-Priority Operations Only)
     audit_logs = AuditLog.objects.select_related('user').exclude(
         Q(action__iexact='Logged out') |
         Q(action__iexact='Failed login attempt') |
         Q(action__icontains='Exported') |
-        Q(action__icontains='profile picture')
+        Q(action__icontains='profile picture') |
+        Q(action__startswith='NOTIF_') |
+        Q(action__startswith='Downloaded ') |
+        Q(action__startswith='Requirement ')
     ).order_by('-performed_at')
     if request.user.role != 'admin':
         audit_logs = audit_logs.filter(user=request.user)
@@ -4068,7 +4519,34 @@ def activity_logs_view(request):
     # 2. Login History Attempts
     login_page_obj = None
     status_filter = 'all'
+    blocked_ips = []
+    active_user_identifiers = []
+    inactive_user_identifiers = []
+    blocked_attempts_count = 0
+
     if request.user.role == 'admin':
+        user_map = {}
+        for u in CustomUser.objects.all():
+            if u.email:
+                user_map[u.email.lower().strip()] = u
+            if u.username:
+                user_map[u.username.lower().strip()] = u
+            if u.full_name:
+                user_map[u.full_name.lower().strip()] = u
+
+        blocked_ips = list(BlockedIP.objects.values_list('ip_address', flat=True))
+        for u in CustomUser.objects.all():
+            if u.is_active:
+                if u.email:
+                    active_user_identifiers.append(u.email.lower().strip())
+                if u.username:
+                    active_user_identifiers.append(u.username.lower().strip())
+            else:
+                if u.email:
+                    inactive_user_identifiers.append(u.email.lower().strip())
+                if u.username:
+                    inactive_user_identifiers.append(u.username.lower().strip())
+
         login_attempts = LoginAttempt.objects.all().order_by('-timestamp')
         if query:
             login_attempts = login_attempts.filter(
@@ -4087,9 +4565,42 @@ def activity_logs_view(request):
             login_attempts = login_attempts.filter(success=True)
         elif status_filter == 'failed':
             login_attempts = login_attempts.filter(success=False)
+        elif status_filter == 'blocked':
+            login_attempts = login_attempts.filter(
+                Q(ip_address__in=blocked_ips) | Q(email_attempted__in=inactive_user_identifiers)
+            )
+
+        # Count total blocked/restricted attempts & active restrictions
+        total_blocked_ips = len(blocked_ips)
+        total_locked_accounts = CustomUser.objects.filter(is_active=False).count()
+        total_rejected_devices = UserDevice.objects.filter(status='rejected').count()
+        total_security_restrictions = total_blocked_ips + total_locked_accounts + total_rejected_devices
+
+        blocked_attempts_count = LoginAttempt.objects.filter(
+            Q(ip_address__in=blocked_ips) | Q(email_attempted__in=inactive_user_identifiers)
+        ).count()
 
         login_paginator = Paginator(login_attempts, per_page)
         login_page_obj = login_paginator.get_page(request.GET.get('login_page'))
+
+        # Smart resolver: Attach official profile to each login attempt row
+        for attempt in login_page_obj:
+            lookup_key = (attempt.email_attempted or '').lower().strip()
+            matched = user_map.get(lookup_key)
+            if matched:
+                attempt.matched_user = matched
+                attempt.display_name = matched.full_name or matched.username
+                attempt.display_email = matched.email or matched.username
+                attempt.display_role = matched.designation or matched.get_role_display()
+                attempt.is_registered_staff = True
+                attempt.is_active_staff = matched.is_active
+            else:
+                attempt.matched_user = None
+                attempt.display_name = attempt.email_attempted or "Unknown"
+                attempt.display_email = attempt.email_attempted or "Unknown"
+                attempt.display_role = "Unregistered / External Account"
+                attempt.is_registered_staff = False
+                attempt.is_active_staff = False
 
     # Determine active tab
     active_log_tab = request.GET.get('tab', '').strip()
@@ -4098,11 +4609,6 @@ def activity_logs_view(request):
             active_log_tab = 'login'
         else:
             active_log_tab = 'audit'
-
-    # Fetch currently blocked IP addresses
-    blocked_ips = []
-    if request.user.role == 'admin':
-        blocked_ips = list(BlockedIP.objects.values_list('ip_address', flat=True))
 
     context = {
         'per_page': per_page,
@@ -4113,6 +4619,13 @@ def activity_logs_view(request):
         'date_filter': date_filter,
         'action_type': action_type,
         'blocked_ips': blocked_ips,
+        'active_user_identifiers': active_user_identifiers,
+        'inactive_user_identifiers': inactive_user_identifiers,
+        'blocked_attempts_count': blocked_attempts_count,
+        'total_blocked_ips': total_blocked_ips if request.user.role == 'admin' else 0,
+        'total_locked_accounts': total_locked_accounts if request.user.role == 'admin' else 0,
+        'total_rejected_devices': total_rejected_devices if request.user.role == 'admin' else 0,
+        'total_security_restrictions': total_security_restrictions if request.user.role == 'admin' else 0,
         'active_log_tab': active_log_tab,
         'active_tab': 'activity_logs',
     }
@@ -4341,7 +4854,10 @@ def export_activity_logs_view(request):
             Q(action__iexact='Logged out') |
             Q(action__iexact='Failed login attempt') |
             Q(action__icontains='Exported') |
-            Q(action__icontains='profile picture')
+            Q(action__icontains='profile picture') |
+            Q(action__startswith='NOTIF_') |
+            Q(action__startswith='Downloaded ') |
+            Q(action__startswith='Requirement ')
         ).order_by('-performed_at')
         if request.user.role != 'admin':
             qs = qs.filter(user=request.user)
@@ -4391,21 +4907,26 @@ def export_activity_logs_view(request):
     ]))
     elements.append(log_table)
 
-    # Official Sign-off block (Total: 540pt)
+    # Official 3-Column Signatory Block (Total: 540pt -> 180, 180, 180)
     from reportlab.platypus import KeepTogether
-    sign_style_left = ParagraphStyle('SignLeft', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=11, textColor=TEXT_DARK)
-    sign_style_right = ParagraphStyle('SignRight', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=2)
+    sign_style_1 = ParagraphStyle('LogSignCol1', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=0)
+    sign_style_2 = ParagraphStyle('LogSignCol2', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=1)
+    sign_style_3 = ParagraphStyle('LogSignCol3', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=2)
     
+    user_name_str = request.user.full_name or request.user.username
+    user_role_str = request.user.get_role_display()
+
     signatory_data = [
         [
-            Paragraph(f"<b>Prepared &amp; Exported by:</b><br/><br/><br/><u><b>{request.user.full_name or request.user.username}</b></u><br/>{request.user.get_role_display()}", sign_style_left),
-            Paragraph("<b>Certified Correct:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office — Carigara, Leyte", sign_style_right)
+            Paragraph(f"<b>Prepared by:</b><br/><br/><br/><u><b>{user_name_str}</b></u><br/>{user_role_str}, MEO", sign_style_1),
+            Paragraph("<b>Verified &amp; Checked by:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office", sign_style_2),
+            Paragraph("<b>Approved by:</b><br/><br/><br/><u><b>MUNICIPAL MAYOR</b></u><br/>Local Chief Executive", sign_style_3)
         ]
     ]
-    sign_table = Table(signatory_data, colWidths=[270, 270])
+    sign_table = Table(signatory_data, colWidths=[180, 180, 180])
     sign_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 14),
+        ('TOPPADDING', (0, 0), (-1, -1), 16),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
 
@@ -4795,6 +5316,16 @@ def settings_view(request):
             tmpl.save()
             status_str = "activated" if tmpl.is_active else "deactivated"
             log_audit(request.user, f"{status_str.title()} checklist template '{tmpl}'", request=request)
+
+            is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json' or 'application/json' in request.headers.get('Accept', '')
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'is_active': tmpl.is_active,
+                    'status_str': status_str,
+                    'message': f"Checklist '{tmpl}' {status_str} successfully."
+                })
+
             messages.success(request, f"Checklist '{tmpl}' {status_str} successfully.")
             return redirect(f"{reverse('settings')}?tab=templates")
 
@@ -5035,7 +5566,11 @@ def toggle_user_active_view(request, user_id):
         raise PermissionDenied("Only admins can manage user accounts.")
 
     user_to_toggle = get_object_or_404(CustomUser, id=user_id)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json' or 'application/json' in request.headers.get('Accept', '')
+
     if user_to_toggle == request.user:
+        if is_ajax:
+            return JsonResponse({'success': False, 'message': "You cannot deactivate your own account."}, status=400)
         messages.error(request, "You cannot deactivate your own account.")
         return redirect('settings')
 
@@ -5043,6 +5578,15 @@ def toggle_user_active_view(request, user_id):
     user_to_toggle.save()
     status_str = "activated" if user_to_toggle.is_active else "deactivated"
     log_audit(request.user, f"Toggled user '{user_to_toggle.username}' to {status_str}", request=request)
+
+    if is_ajax:
+        return JsonResponse({
+            'success': True,
+            'is_active': user_to_toggle.is_active,
+            'status_str': status_str,
+            'message': f"User '{user_to_toggle.username}' has been {status_str}."
+        })
+
     messages.success(request, f"User '{user_to_toggle.username}' has been {status_str}.")
     return redirect('settings')
 
@@ -5057,23 +5601,27 @@ def users_view(request):
 
         if action == 'add_user':
             email = sanitize_input(request.POST.get('email', '')).strip().lower()
-            username = email.split('@')[0]
+            username = email.split('@')[0] if '@' in email else email
             full_name = sanitize_input(request.POST.get('full_name', '')).strip()
-            role = request.POST.get('role', 'staff')
+            role = request.POST.get('role', 'staff') or 'staff'
             designation = sanitize_input(request.POST.get('designation', '')).strip()
             password = request.POST.get('password', '')
 
             if not email or not password or not full_name:
-                messages.error(request, "All fields are required.")
+                messages.error(request, "Please fill in all required fields: Full Name, Email, Role, and Password.")
                 return redirect('users')
 
-            if CustomUser.objects.filter(email=email).exists():
-                messages.error(request, "Email already exists.")
+            if '@' not in email or '.' not in email.split('@')[-1]:
+                messages.error(request, "Please provide a valid work email address (e.g. staff@carigara.gov.ph or name@gmail.com).")
+                return redirect('users')
+
+            if CustomUser.objects.filter(email__iexact=email).exists():
+                messages.error(request, f"An account with email '{email}' already exists in the system.")
                 return redirect('users')
 
             base_username = username
             counter = 1
-            while CustomUser.objects.filter(username=username).exists():
+            while CustomUser.objects.filter(username__iexact=username).exists():
                 username = f"{base_username}{counter}"
                 counter += 1
 
@@ -5089,20 +5637,24 @@ def users_view(request):
                 password=password,
                 full_name=full_name,
                 role=role,
-                designation=designation
+                designation=designation or ("Engineering Office Admin" if role == 'admin' else "Engineering Staff")
             )
             if role == 'admin':
                 new_user.is_staff = True
             new_user.save()
 
-            log_audit(request.user, f"Created user '{username}' with role '{role}' and designation '{designation}'", request=request)
-            messages.success(request, f"User {full_name} created successfully.")
+            log_audit(request.user, f"Created new {new_user.get_role_display()} account: '{new_user.full_name}' ({new_user.email})", request=request)
+            messages.success(request, f"Successfully registered user account for {full_name} ({email}).")
             return redirect('users')
 
         elif action == 'toggle_status':
             user_id = request.POST.get('user_id')
             user_to_toggle = get_object_or_404(CustomUser, id=user_id)
+            is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json' or 'application/json' in request.headers.get('Accept', '')
+
             if user_to_toggle == request.user:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "You cannot deactivate your own account."}, status=400)
                 messages.error(request, "You cannot deactivate your own account.")
                 return redirect('users')
 
@@ -5111,6 +5663,17 @@ def users_view(request):
             status_str = "activated" if user_to_toggle.is_active else "deactivated"
             target_name = user_to_toggle.full_name or user_to_toggle.username
             log_audit(request.user, f"Toggled user '{user_to_toggle.username}' to {status_str}", request=request)
+
+            if is_ajax:
+                active_count = CustomUser.objects.filter(is_active=True).count()
+                return JsonResponse({
+                    'success': True,
+                    'is_active': user_to_toggle.is_active,
+                    'status_str': status_str,
+                    'message': f"{target_name} has been {status_str}.",
+                    'active_count': active_count,
+                })
+
             messages.success(request, f"{target_name} has been {status_str}.")
             return redirect('users')
 
@@ -5279,7 +5842,7 @@ def alerts_list_json_view(request):
                 'label': doc_label,
                 'record_title': doc.engineering_record.title,
                 'record_url': reverse('record_detail', args=[doc.engineering_record.record_id]),
-                'date_info': f"Expired on {doc.expiry_date.strftime('%b %d, %Y')}",
+                'date_info': f"Expired last {doc.expiry_date.strftime('%b %d, %Y')}",
             })
     elif alert_type == 'expiring':
         docs = alert_docs.filter(expiry_date__range=(today_date, thirty_days_later)).order_by('expiry_date')
@@ -5456,10 +6019,11 @@ def batch_upload_documents_view(request, record_id):
                 except Exception as e:
                     logger.error(f"Error replacing old batch document: {e}")
 
+            doc_type = matched_req.requirement_item.name[:50] if matched_req else ("Incident Evidence" if record.is_illegal_construction else "Additional Document")
             doc = Document.objects.create(
                 engineering_record=record,
                 requirement_item=matched_req.requirement_item if matched_req else None,
-                document_type=matched_req.requirement_item.name[:50] if matched_req else "Batch Upload",
+                document_type=doc_type,
                 file=f,
                 file_name=f.name,
                 file_size=f.size,
@@ -5597,6 +6161,55 @@ def bad_request(request, exception=None):
     """Custom 400 handler that renders friendly, non-technical recovery page."""
     status_code = 200 if request.path.startswith('/errors/') else 400
     return render(request, 'errors/400.html', status=status_code)
+
+
+# ─── NOTIFICATION ACTIONS API (CROSS-DEVICE SYNC) ──────────────────────────────
+
+@login_required
+@require_http_methods(["POST"])
+def notification_sync_action_view(request):
+    """
+    Synchronizes notification actions (mark_read, mark_unread, delete, mark_all_read)
+    to the database so notification states persist across all devices.
+    """
+    try:
+        import json
+        if request.body:
+            try:
+                data = json.loads(request.body.decode('utf-8'))
+            except Exception:
+                data = request.POST
+        else:
+            data = request.POST
+
+        action_type = data.get('action_type') # 'mark_read', 'mark_unread', 'delete', 'mark_all_read'
+        notif_id = str(data.get('notification_id', '')).strip()
+        notif_ids = data.get('notification_ids', [])
+
+        if not action_type:
+            return JsonResponse({'success': False, 'error': 'Missing action_type'}, status=400)
+
+        if action_type == 'mark_read' and notif_id:
+            AuditLog.objects.get_or_create(user=request.user, action=f"NOTIF_READ:{notif_id}")
+        elif action_type == 'mark_unread' and notif_id:
+            AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{notif_id}").delete()
+        elif action_type == 'delete' and notif_id:
+            AuditLog.objects.get_or_create(user=request.user, action=f"NOTIF_DELETED:{notif_id}")
+            AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{notif_id}").delete()
+        elif action_type == 'mark_all_read':
+            if isinstance(notif_ids, list):
+                for nid in notif_ids:
+                    if nid:
+                        AuditLog.objects.get_or_create(user=request.user, action=f"NOTIF_READ:{nid}")
+
+        # Invalidate user notification cache
+        cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}_v2"
+        cache.delete(cache_key)
+
+        return JsonResponse({'success': True})
+    except Exception as e:
+        logger.error(f"notification_sync_action_view error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 
