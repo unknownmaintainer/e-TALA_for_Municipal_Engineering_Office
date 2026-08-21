@@ -6279,9 +6279,14 @@
     </style>
 
     <script>
-        function showToast(type, title, message, duration = 4000) {
+        function showToast(type, title, message, duration = 3000) {
             const container = document.getElementById('toastContainer');
             if (!container) return;
+
+            // Auto-dismiss any currently active toasts to prevent stacking
+            container.querySelectorAll('.custom-app-toast').forEach(t => {
+                dismissToast(t.id);
+            });
 
             const tagLower = (type || '').toLowerCase();
             const isSuccess = tagLower.includes('success');
@@ -6296,11 +6301,6 @@
             const msgLower = (message || '').toLowerCase();
 
             if (isSuccess) {
-                // Auto-dismiss any active info/preparing toasts to prevent stacking
-                container.querySelectorAll('.toast-variant-info').forEach(t => {
-                    dismissToast(t.id);
-                });
-
                 variantClass = 'toast-variant-success';
                 iconBg = '#10b981';
                 iconHtml = '<i class="fa-solid fa-circle-check" style="font-size: 14px;"></i>';

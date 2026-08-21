@@ -5677,7 +5677,7 @@ def users_view(request):
             user_to_toggle.is_active = not user_to_toggle.is_active
             user_to_toggle.save()
             status_str = "activated" if user_to_toggle.is_active else "deactivated"
-            target_name = user_to_toggle.full_name or user_to_toggle.username
+            target_name = (user_to_toggle.full_name or user_to_toggle.username).title()
             log_audit(request.user, f"Toggled user '{user_to_toggle.username}' to {status_str}", request=request)
 
             if is_ajax:
