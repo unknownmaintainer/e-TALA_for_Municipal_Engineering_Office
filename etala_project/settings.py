@@ -53,6 +53,7 @@ if render_host and render_host not in ALLOWED_HOSTS:
 
 # Allow Render's HTTPS proxy headers when deployed
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
