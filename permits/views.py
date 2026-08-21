@@ -613,33 +613,50 @@ def forgot_password_view(request):
             plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 24 hours.'
 
             def _async_send():
-                # Method 1: Instant HTTP API Dispatch via Resend (300ms delivery)
-                resend_api_key = os.getenv('RESEND_API_KEY', '').strip()
-                if resend_api_key:
+                # Method 1: Instant Brevo HTTP REST API (Sub-second delivery, 100% bypasses cloud SMTP port blocks)
+                brevo_key = os.getenv('BREVO_API_KEY', '').strip() or os.getenv('SENDINBLUE_API_KEY', '').strip()
+                if not brevo_key:
+                    email_pass_raw = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
+                    if email_pass_raw.startswith('xkeysib-'):
+                        brevo_key = email_pass_raw
+
+                if brevo_key:
                     try:
                         import requests
+                        sender_email = os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER', 'noreply@etala.gov.ph')).strip()
                         resp = requests.post(
-                            "https://api.resend.com/emails",
+                            "https://api.brevo.com/v3/smtp/email",
                             headers={
-                                "Authorization": f"Bearer {resend_api_key}",
-                                "Content-Type": "application/json",
+                                "accept": "application/json",
+                                "api-key": brevo_key,
+                                "content-type": "application/json",
                             },
                             json={
-                                "from": os.getenv('DEFAULT_FROM_EMAIL', 'eTala <onboarding@resend.dev>'),
-                                "to": [user.email],
+                                "sender": {
+                                    "name": "eTala Carigara MEO",
+                                    "email": sender_email,
+                                },
+                                "to": [
+                                    {
+                                        "email": user.email,
+                                        "name": user_display_name,
+                                    }
+                                ],
                                 "subject": subject,
-                                "html": html_message,
-                                "text": plain_message,
+                                "htmlContent": html_message,
+                                "textContent": plain_message,
                             },
                             timeout=8,
                         )
-                        if resp.status_code in (200, 201):
-                            logger.info(f"Password reset sent via Resend HTTP API to {user.email}")
+                        if resp.status_code in (200, 201, 202):
+                            logger.info(f"Password reset sent via Brevo HTTP API to {user.email}")
                             return
-                    except Exception as resend_err:
-                        logger.warning(f"Resend HTTP API failed, falling back to SMTP: {resend_err}")
+                        else:
+                            logger.warning(f"Brevo HTTP API responded with {resp.status_code}: {resp.text}")
+                    except Exception as brevo_err:
+                        logger.warning(f"Brevo HTTP API failed, falling back to SMTP: {brevo_err}")
 
-                # Method 2: Standard Django SMTP Delivery
+                # Method 2: Standard Django SMTP Delivery (Brevo SMTP Relay / Custom SMTP)
                 try:
                     send_mail(
                         subject=subject,
