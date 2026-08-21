@@ -7832,8 +7832,10 @@
 
                 const row = btn.closest('tr');
                 const tbody = row ? row.closest('tbody') : null;
-                const isLastRow = row && tbody && !row.nextElementSibling;
-                const isSecondToLastRow = row && tbody && row.nextElementSibling && !row.nextElementSibling.nextElementSibling;
+                const isFirstRow = row && tbody && !row.previousElementSibling;
+                const totalRows = tbody ? tbody.children.length : 1;
+                const isLastRow = row && tbody && !row.nextElementSibling && totalRows > 2;
+                const isSecondToLastRow = row && tbody && row.nextElementSibling && !row.nextElementSibling.nextElementSibling && totalRows > 3;
 
                 const rect = btn.getBoundingClientRect();
                 const spaceBelowViewport = window.innerHeight - rect.bottom;
@@ -7847,8 +7849,8 @@
                     spaceBelowCard = cardRect.bottom - rect.bottom;
                 }
 
-                // Drop UP if viewport or card bottom is close (< 240px) or if in last 2 rows, provided there is enough room above (>= 120px)
-                const shouldDropUp = (spaceBelowViewport < 240 || spaceBelowCard < 200 || isLastRow || (isSecondToLastRow && spaceBelowViewport < 260)) && spaceAboveViewport >= 120;
+                // Drop UP ONLY when NOT the first row, there are multiple rows, and bottom space is genuinely tight while top space is ample
+                const shouldDropUp = !isFirstRow && totalRows > 2 && (spaceBelowViewport < 200 || spaceBelowCard < 160 || isLastRow) && spaceAboveViewport >= 180;
 
                 if (shouldDropUp) {
                     parentDropdown.classList.add('dropup');
