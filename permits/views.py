@@ -623,7 +623,12 @@ def forgot_password_view(request):
                 if brevo_key:
                     try:
                         import requests
-                        sender_email = os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER', 'noreply@etala.gov.ph')).strip()
+                        from email.utils import parseaddr
+                        raw_sender = os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER', 'noreply@etala.gov.ph')).strip()
+                        parsed_name, parsed_email = parseaddr(raw_sender)
+                        sender_name = parsed_name or "eTala Carigara MEO"
+                        sender_email = parsed_email or raw_sender
+
                         resp = requests.post(
                             "https://api.brevo.com/v3/smtp/email",
                             headers={
@@ -633,7 +638,7 @@ def forgot_password_view(request):
                             },
                             json={
                                 "sender": {
-                                    "name": "eTala Carigara MEO",
+                                    "name": sender_name,
                                     "email": sender_email,
                                 },
                                 "to": [
