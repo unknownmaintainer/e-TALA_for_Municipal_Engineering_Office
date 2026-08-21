@@ -309,6 +309,8 @@ email_user = os.getenv('EMAIL_HOST_USER', '').strip()
 email_pass = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
 resend_key = os.getenv('RESEND_API_KEY', '').strip()
 
+EMAIL_TIMEOUT = 10  # 10s timeout to prevent long SMTP hangs
+
 if email_host and email_user and email_pass:
     EMAIL_BACKEND       = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
     EMAIL_HOST          = email_host

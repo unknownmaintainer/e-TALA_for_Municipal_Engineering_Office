@@ -613,6 +613,33 @@ def forgot_password_view(request):
             plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 24 hours.'
 
             def _async_send():
+                # Method 1: Instant HTTP API Dispatch via Resend (300ms delivery)
+                resend_api_key = os.getenv('RESEND_API_KEY', '').strip()
+                if resend_api_key:
+                    try:
+                        import requests
+                        resp = requests.post(
+                            "https://api.resend.com/emails",
+                            headers={
+                                "Authorization": f"Bearer {resend_api_key}",
+                                "Content-Type": "application/json",
+                            },
+                            json={
+                                "from": os.getenv('DEFAULT_FROM_EMAIL', 'eTala <onboarding@resend.dev>'),
+                                "to": [user.email],
+                                "subject": subject,
+                                "html": html_message,
+                                "text": plain_message,
+                            },
+                            timeout=8,
+                        )
+                        if resp.status_code in (200, 201):
+                            logger.info(f"Password reset sent via Resend HTTP API to {user.email}")
+                            return
+                    except Exception as resend_err:
+                        logger.warning(f"Resend HTTP API failed, falling back to SMTP: {resend_err}")
+
+                # Method 2: Standard Django SMTP Delivery
                 try:
                     send_mail(
                         subject=subject,
