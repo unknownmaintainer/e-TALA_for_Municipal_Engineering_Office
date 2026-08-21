@@ -31,12 +31,7 @@ DEBUG = os.getenv('DEBUG', 'True').strip().lower() in ('true', '1', 't', 'y', 'y
 TESTING = 'test' in sys.argv
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
-if not SECRET_KEY:
-    if DEBUG or TESTING:
-        SECRET_KEY = 'django-insecure-dev-only-key-change-in-production'
-    else:
-        raise ImproperlyConfigured("SECRET_KEY environment variable must be set in production!")
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-64+!3%r70+c5h+*ehfee))*fq)@a7-qun24q4igv%me&cp53bd')
 
 
 raw_hosts = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,etala-carigara-meo.onrender.com')

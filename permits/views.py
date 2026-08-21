@@ -27,6 +27,9 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Count, Sum, F
 from django.utils import timezone
 from django.core import signing
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.sessions.models import Session
 
@@ -584,17 +587,15 @@ def forgot_password_view(request):
             return render(request, 'permits/forgot_password.html')
 
 
-        # User exists: generate secure signed token (valid for 1 hour)
+        # User exists: generate secure signed token & Django default token
         try:
-            token_data = {
-                'user_id': user.pk,
-                'email': user.email,
-            }
-            token = signing.dumps(token_data, salt='password-reset')
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            sig = signing.dumps({'user_id': user.pk, 'email': user.email}, salt='password-reset')
 
-            # Build reset URL
+            # Build reset URL supporting both uidb64+token and sig
             reset_url = request.build_absolute_uri(
-                reverse('reset_password') + f'?token={token}'
+                reverse('reset_password') + f'?uid={uidb64}&token={token}&sig={sig}'
             )
 
             # Asynchronous background email sending for instant UI response
@@ -648,6 +649,8 @@ def forgot_password_view(request):
 def reset_password_view(request):
     """Handle the password reset link — validate token and allow new password."""
     token = request.GET.get('token') or request.POST.get('token', '')
+    uidb64 = request.GET.get('uid') or request.POST.get('uid', '')
+    sig = request.GET.get('sig') or request.POST.get('sig', '')
 
     if request.method == 'GET' and request.GET.get('preview'):
         preview = request.GET.get('preview', '').strip().lower()
@@ -659,23 +662,38 @@ def reset_password_view(request):
             messages.error(request, "Password must be at least 8 characters.")
         elif preview in ['reuse', 'recent']:
             messages.error(request, "Cannot reuse recent passwords.")
-        return render(request, 'permits/reset_password.html', {'token': 'preview-token'})
+        return render(request, 'permits/reset_password.html', {'token': 'preview-token', 'uid': 'preview-uid', 'sig': 'preview-sig'})
 
-    # Validate token (valid for 1 hour matching PASSWORD_RESET_TIMEOUT)
+    user = None
     reset_timeout = getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)
-    try:
-        token_data = signing.loads(token, salt='password-reset', max_age=reset_timeout)  # 30 min
-    except signing.SignatureExpired:
-        messages.error(request, "Password reset link has expired.")
-        return redirect('forgot_password')
-    except signing.BadSignature:
-        messages.error(request, "Invalid password reset link.")
-        return redirect('forgot_password')
-
     User = get_user_model()
-    user = User.objects.filter(pk=token_data['user_id'], email=token_data['email']).first()
+
+    # 1. Standard Django default_token_generator validation
+    if uidb64 and token:
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            candidate = User.objects.filter(pk=uid).first()
+            if candidate and default_token_generator.check_token(candidate, token):
+                user = candidate
+        except Exception as e:
+            logger.debug(f"UID token check note: {e}")
+
+    # 2. Cryptographic signed token fallback
     if not user:
-        messages.error(request, "Invalid password reset link.")
+        for candidate_token in [sig, token]:
+            if not candidate_token:
+                continue
+            try:
+                token_data = signing.loads(candidate_token, salt='password-reset', max_age=reset_timeout)
+                candidate = User.objects.filter(pk=token_data['user_id'], email__iexact=token_data['email']).first()
+                if candidate:
+                    user = candidate
+                    break
+            except Exception as e:
+                logger.debug(f"Signed token check note: {e}")
+
+    if not user:
+        messages.error(request, "Password reset link has expired.")
         return redirect('forgot_password')
 
     if request.method == 'POST':
@@ -683,19 +701,19 @@ def reset_password_view(request):
         confirm_password = request.POST.get('confirm_password', '')
 
         if not new_password or len(new_password) < 8:
-            messages.error(request, "Password must be at least 8 characters long.")
-            return render(request, 'permits/reset_password.html', {'token': token})
+            messages.error(request, "Password must be at least 8 characters.")
+            return render(request, 'permits/reset_password.html', {'token': token, 'uid': uidb64, 'sig': sig})
 
         if new_password != confirm_password:
             messages.error(request, "Passwords do not match.")
-            return render(request, 'permits/reset_password.html', {'token': token})
+            return render(request, 'permits/reset_password.html', {'token': token, 'uid': uidb64, 'sig': sig})
 
         # Check password history (prevent reuse of last 5 passwords)
         recent_passwords = PasswordHistory.objects.filter(user=user).order_by('-created_at')[:5]
         for ph in recent_passwords:
             if check_password(new_password, ph.password_hash):
-                messages.error(request, "You cannot reuse recent passwords.")
-                return render(request, 'permits/reset_password.html', {'token': token})
+                messages.error(request, "Cannot reuse recent passwords.")
+                return render(request, 'permits/reset_password.html', {'token': token, 'uid': uidb64, 'sig': sig})
 
         # Set the new password
         user.set_password(new_password)
@@ -705,10 +723,10 @@ def reset_password_view(request):
         PasswordHistory.objects.create(user=user, password_hash=make_password(new_password))
 
         log_audit(user, "Password reset successfully via email link", request=request)
-        messages.success(request, "Password updated! You can now sign in.")
+        messages.success(request, "Password updated successfully.")
         return redirect('login')
 
-    return render(request, 'permits/reset_password.html', {'token': token})
+    return render(request, 'permits/reset_password.html', {'token': token, 'uid': uidb64, 'sig': sig})
 
 
 # ─── DASHBOARD ───────────────────────────────────────────────────────────────
