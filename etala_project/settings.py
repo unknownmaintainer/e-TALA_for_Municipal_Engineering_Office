@@ -249,7 +249,7 @@ SECURE_SSL_REDIRECT = not DEBUG and not TESTING
 CSRF_COOKIE_SECURE = not DEBUG and not TESTING
 SESSION_COOKIE_AGE = 7200  # 2 hours
 SESSION_SAVE_EVERY_REQUEST = True  # reset expiry timer on every request
-PASSWORD_RESET_TIMEOUT = 3600  # 1 hour password reset link expiration
+PASSWORD_RESET_TIMEOUT = 86400  # 24 hours password reset link validity
 SECURE_REFERRER_POLICY = 'same-origin'
 
 
