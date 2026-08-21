@@ -39,8 +39,8 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("SECRET_KEY environment variable must be set in production!")
 
 
-raw_hosts = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost')
-ALLOWED_HOSTS = []
+raw_hosts = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,etala-carigara-meo.onrender.com')
+ALLOWED_HOSTS = ['etala-carigara-meo.onrender.com']
 for host in raw_hosts.split(','):
     h = host.strip().strip("'\"")
     if h.startswith('http://'):
@@ -48,12 +48,12 @@ for host in raw_hosts.split(','):
     elif h.startswith('https://'):
         h = h[8:]
     h = h.split('/')[0].split(':')[0]
-    if h:
+    if h and h not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(h)
 
 # Automatically add Render host if deployed on Render
 render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
-if render_host:
+if render_host and render_host not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_host)
 
 # Allow Render's HTTPS proxy headers when deployed
@@ -64,6 +64,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1',
     'http://localhost',
+    'https://etala-carigara-meo.onrender.com',
 ]
 for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(','):
     o = origin.strip().strip("'\"")

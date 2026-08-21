@@ -26,7 +26,6 @@ urlpatterns = [
     path('auth/email-preview/password-reset/', views.email_preview_password_reset_view, name='preview_email_password_reset'),
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
     path('reset-password/', views.reset_password_view, name='reset_password'),
-    path('register/', views.register_view, name='register'),
 
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),

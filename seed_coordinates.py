@@ -94,9 +94,11 @@ for item in OFFICIAL_49_CARIGARA_BARANGAYS:
         print(f"  [OK] Updated Barangay: {name} (PSGC: {psgc})")
 
 # Purge non-official or dummy barangays that are not in official 49 list (e.g. Wang, Barugo)
+valid_psgcs = {item["psgc"] for item in OFFICIAL_49_CARIGARA_BARANGAYS}
 deleted_count = 0
 for b in Barangay.objects.all():
     name_clean = b.barangay_name.lower()
+    is_valid = (name_clean in valid_names) or (bool(b.psgc_code) and b.psgc_code in valid_psgcs)
     has_records = (hasattr(b, 'engineering_records') and b.engineering_records.exists()) or (hasattr(b, 'records') and b.records.exists())
     if not is_valid and not has_records:
         print(f"  [-] Removing non-official Barangay: {b.barangay_name}")

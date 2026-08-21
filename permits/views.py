@@ -87,37 +87,46 @@ def log_audit(user, action, target_record_id=None, request=None):
 
 
 def check_lockout(email, ip_address):
-    fifteen_mins_ago = timezone.now() - timedelta(minutes=15)
-    
-    # 1. Tier 2: Permanent Device & Account Lockout (10 cumulative failed attempts)
-    total_failures = LoginAttempt.objects.filter(
-        Q(ip_address=ip_address) | Q(email_attempted=email),
-        success=False
-    ).count()
-    if total_failures >= 10:
-        User = get_user_model()
-        user_obj = User.objects.filter(Q(email=email) | Q(username=email)).first()
-        if user_obj and user_obj.is_active:
-            user_obj.is_active = False
-            user_obj.save()
-            log_audit(user_obj, "Account locked out permanently (10 failed attempts)", request=None)
-        if ip_address:
-            BlockedIP.objects.get_or_create(ip_address=ip_address)
-        return True, "Account access is restricted due to security protection. Please contact the Engineering Office Admin to reactivate."
+    now = timezone.now()
+    fifteen_mins_ago = now - timedelta(minutes=15)
+    twenty_four_hours_ago = now - timedelta(hours=24)
+
+    # 1. Tier 2: Account Lockout (10 failed attempts for this account in past 24 hours)
+    if email:
+        account_failures = LoginAttempt.objects.filter(
+            Q(email_attempted__iexact=email),
+            success=False,
+            timestamp__gte=twenty_four_hours_ago
+        ).count()
+        if account_failures >= 10:
+            User = get_user_model()
+            user_obj = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
+            if user_obj and user_obj.is_active:
+                user_obj.is_active = False
+                user_obj.save()
+                log_audit(user_obj, "Account locked out permanently (10 failed attempts)", request=None)
+            if ip_address and ip_address not in ['127.0.0.1', '::1', 'localhost']:
+                BlockedIP.objects.get_or_create(ip_address=ip_address)
+            return True, "Account access is restricted."
 
     # 2. Tier 1: Temporary 15-Minute Cooldown (5 failed attempts in past 15 mins)
-    recent_failures = LoginAttempt.objects.filter(
-        Q(ip_address=ip_address) | Q(email_attempted=email),
-        success=False,
-        timestamp__gte=fifteen_mins_ago
-    ).order_by('-timestamp')
+    filter_q = Q(email_attempted__iexact=email) if email else Q()
+    if ip_address:
+        filter_q |= Q(ip_address=ip_address)
 
-    if recent_failures.count() >= 5:
-        fifth_failure = recent_failures[4]
-        elapsed = timezone.now() - fifth_failure.timestamp
-        remaining = 15 - int(elapsed.total_seconds() / 60)
-        if remaining > 0:
-            return True, f"Too many failed login attempts. Security cooldown active, please try again in {remaining} minute(s)."
+    if filter_q:
+        recent_failures = LoginAttempt.objects.filter(
+            filter_q,
+            success=False,
+            timestamp__gte=fifteen_mins_ago
+        ).order_by('-timestamp')
+
+        if recent_failures.count() >= 5:
+            fifth_failure = recent_failures[4]
+            elapsed = now - fifth_failure.timestamp
+            remaining = 15 - int(elapsed.total_seconds() / 60)
+            if remaining > 0:
+                return True, f"Security cooldown active, try again in {remaining} min."
 
     return False, None
 
@@ -175,6 +184,23 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
 
+    if request.method == 'GET':
+        preview = request.GET.get('preview', '').strip().lower()
+        if preview in ['lockout', 'restricted']:
+            messages.error(request, "Account access is restricted.")
+        elif preview in ['deactivated', 'locked']:
+            messages.error(request, "This account has been deactivated.")
+        elif preview in ['cooldown', 'rate_limit']:
+            messages.warning(request, "Security cooldown active, try again in 15 min.")
+        elif preview in ['rejected', 'device_rejected']:
+            messages.error(request, "Device authorization was declined.")
+        elif preview in ['invalid', 'credentials']:
+            messages.error(request, "Invalid email, username, or password.")
+        elif preview in ['reset_success', 'password_updated']:
+            messages.success(request, "Password updated successfully.")
+        elif preview in ['notice', 'info']:
+            messages.info(request, "Device authorized successfully.")
+
     if request.method == 'POST':
         login_input = request.POST.get('email', '').strip()
         password = request.POST.get('password', '')
@@ -217,7 +243,7 @@ def login_view(request):
         if user_obj and not user_obj.is_active:
             if user_obj.check_password(password):
                 LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-                messages.error(request, "This account is temporarily locked. Please contact the administrator.")
+                messages.error(request, "This account has been deactivated.")
                 return render(request, 'permits/login.html')
 
         username = user_obj.username if user_obj else login_input
@@ -230,7 +256,7 @@ def login_view(request):
         if user is not None:
             if not user.is_active:
                 LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-                messages.error(request, "This account is temporarily locked. Please contact the administrator.")
+                messages.error(request, "This account has been deactivated.")
                 return render(request, 'permits/login.html')
 
             device_token = get_client_device_token(request)
@@ -286,7 +312,7 @@ def login_view(request):
 
             if device and device.status == 'rejected':
                 LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-                messages.error(request, "Access Denied: This device has been rejected by the administrator.")
+                messages.error(request, "Device authorization was declined.")
                 return render(request, 'permits/login.html')
 
             if not device or device.status != 'approved':
@@ -343,7 +369,7 @@ def login_view(request):
             return response
         else:
             LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-            messages.error(request, "Incorrect email or password.")
+            messages.error(request, "Invalid email, username, or password.")
 
     return render(request, 'permits/login.html')
 
@@ -442,7 +468,7 @@ def approve_device_view(request):
         device = UserDevice.objects.filter(id=device_id).first()
 
     if not device:
-        messages.error(request, "Invalid or expired device authorization request.")
+        messages.error(request, "Invalid or expired authorization link.")
         return redirect('dashboard' if request.user.is_authenticated else 'login')
 
     device.status = 'approved'
@@ -454,7 +480,7 @@ def approve_device_view(request):
               f"Authorized device access ({device.device_name}) for staff: {device.user.full_name or device.user.username}",
               request=request)
 
-    messages.success(request, f"Device ({device.device_name}) for {device.user.full_name or device.user.username} has been successfully authorized!")
+    messages.success(request, f"Device ({device.device_name}) authorized successfully.")
     return redirect('dashboard' if request.user.is_authenticated else 'login')
 
 
@@ -470,7 +496,7 @@ def reject_device_view(request):
         device = UserDevice.objects.filter(id=device_id).first()
 
     if not device:
-        messages.error(request, "Invalid or expired device request.")
+        messages.error(request, "Invalid or expired request.")
         return redirect('dashboard' if request.user.is_authenticated else 'login')
 
     device.status = 'rejected'
@@ -480,7 +506,7 @@ def reject_device_view(request):
               f"Rejected device access ({device.device_name}) for: {device.user.full_name or device.user.username}",
               request=request)
 
-    messages.warning(request, f"Device access ({device.device_name}) for {device.user.full_name or device.user.username} was rejected.")
+    messages.warning(request, f"Device ({device.device_name}) access was rejected.")
     return redirect('dashboard' if request.user.is_authenticated else 'login')
 
 
@@ -533,21 +559,28 @@ def logout_view(request):
 
 
 def forgot_password_view(request):
+    if request.method == 'GET':
+        preview = request.GET.get('preview', '').strip().lower()
+        if preview in ['empty', 'required']:
+            messages.error(request, "Please enter your registered email.")
+        elif preview in ['not_found', 'invalid']:
+            messages.error(request, "No account found with this email.")
+        elif preview in ['success', 'sent']:
+            messages.success(request, "Password reset link sent to your email.")
+
     if request.method == 'POST':
         email = request.POST.get('email', '').strip().lower()
 
         if not email:
-            messages.error(request, "Please enter your registered email address.")
+            messages.error(request, "Please enter your registered email.")
             return render(request, 'permits/forgot_password.html')
 
         User = get_user_model()
-        user = User.objects.filter(
-            Q(email__iexact=email) | Q(username__iexact=email)
-        ).first()
+        user = User.objects.filter(email__iexact=email).first()
 
         # Check if user exists in database
         if not user or not user.email:
-            messages.error(request, "No account found with this email or username.")
+            messages.error(request, "No account found with this email.")
             return render(request, 'permits/forgot_password.html')
 
 
@@ -600,13 +633,13 @@ def forgot_password_view(request):
             threading.Thread(target=_async_send, daemon=True).start()
 
             log_audit(user, "Password reset requested", request=request)
-            messages.success(request, "Password reset link sent! Check your inbox.")
+            messages.success(request, "Password reset link sent to your email.")
             return redirect('login')
 
 
         except Exception as exc:
             logger.error(f"Unexpected error in password reset for {email}: {exc}")
-            messages.error(request, "An unexpected error occurred. Please try again later.")
+            messages.error(request, "An unexpected error occurred.")
             return render(request, 'permits/forgot_password.html')
 
     return render(request, 'permits/forgot_password.html')
@@ -616,12 +649,24 @@ def reset_password_view(request):
     """Handle the password reset link — validate token and allow new password."""
     token = request.GET.get('token') or request.POST.get('token', '')
 
+    if request.method == 'GET' and request.GET.get('preview'):
+        preview = request.GET.get('preview', '').strip().lower()
+        if preview in ['expired', 'invalid']:
+            messages.error(request, "Password reset link has expired.")
+        elif preview in ['mismatch', 'password_mismatch']:
+            messages.error(request, "Passwords do not match.")
+        elif preview in ['short', 'weak']:
+            messages.error(request, "Password must be at least 8 characters.")
+        elif preview in ['reuse', 'recent']:
+            messages.error(request, "Cannot reuse recent passwords.")
+        return render(request, 'permits/reset_password.html', {'token': 'preview-token'})
+
     # Validate token (valid for 1 hour matching PASSWORD_RESET_TIMEOUT)
     reset_timeout = getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)
     try:
         token_data = signing.loads(token, salt='password-reset', max_age=reset_timeout)  # 30 min
     except signing.SignatureExpired:
-        messages.error(request, "This password reset link has expired. Please request a new one.")
+        messages.error(request, "Password reset link has expired.")
         return redirect('forgot_password')
     except signing.BadSignature:
         messages.error(request, "Invalid password reset link.")
@@ -649,7 +694,7 @@ def reset_password_view(request):
         recent_passwords = PasswordHistory.objects.filter(user=user).order_by('-created_at')[:5]
         for ph in recent_passwords:
             if check_password(new_password, ph.password_hash):
-                messages.error(request, "You cannot reuse your recent passwords.")
+                messages.error(request, "You cannot reuse recent passwords.")
                 return render(request, 'permits/reset_password.html', {'token': token})
 
         # Set the new password
@@ -664,65 +709,6 @@ def reset_password_view(request):
         return redirect('login')
 
     return render(request, 'permits/reset_password.html', {'token': token})
-
-
-
-def register_view(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-
-    if request.method == 'POST':
-        full_name = sanitize_input(request.POST.get('full_name', '')).strip()
-        email = sanitize_input(request.POST.get('email', '')).strip().lower()
-        password = request.POST.get('password', '')
-        confirm_password = request.POST.get('confirm_password', '')
-        government_id = request.FILES.get('government_id')
-
-        if not full_name or not email or not password or not confirm_password or not government_id:
-            messages.error(request, "All required fields must be filled, including your Government ID.")
-            return render(request, 'permits/register.html')
-
-        try:
-            validate_document_file(government_id)
-        except ValidationError as ve:
-            messages.error(request, f"Government ID upload invalid: {ve.message}")
-            return render(request, 'permits/register.html')
-
-        if password != confirm_password:
-            messages.error(request, "Passwords do not match.")
-            return render(request, 'permits/register.html')
-
-        if CustomUser.objects.filter(email=email).exists():
-            messages.error(request, "An account with this email already exists.")
-            return render(request, 'permits/register.html')
-
-        username = email.split('@')[0]
-        base_username = username
-        counter = 1
-        while CustomUser.objects.filter(username=username).exists():
-            username = f"{base_username}{counter}"
-            counter += 1
-
-        ok, err_msg = validate_password_strength(password)
-        if not ok:
-            messages.error(request, err_msg)
-            return render(request, 'permits/register.html')
-
-        User = get_user_model()
-        new_user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password,
-            full_name=full_name,
-            role='staff'
-        )
-        new_user.save()
-
-        log_audit(new_user, "Registered account", request=request)
-        messages.success(request, "Account created successfully! Please sign in.")
-        return redirect('login')
-
-    return render(request, 'permits/register.html')
 
 
 # ─── DASHBOARD ───────────────────────────────────────────────────────────────
