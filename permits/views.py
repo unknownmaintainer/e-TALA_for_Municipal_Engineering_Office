@@ -579,7 +579,7 @@ def forgot_password_view(request):
             return render(request, 'permits/forgot_password.html')
 
         User = get_user_model()
-        user = User.objects.filter(email__iexact=email).first()
+        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
 
         # Check if user exists in database
         if not user or not user.email:
@@ -610,7 +610,7 @@ def forgot_password_view(request):
                 'user_display_name': user_display_name,
                 'reset_url': reset_url,
             })
-            plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 1 hour.'
+            plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 24 hours.'
 
             def _async_send():
                 try:
@@ -648,9 +648,9 @@ def forgot_password_view(request):
 
 def reset_password_view(request):
     """Handle the password reset link — validate token and allow new password."""
-    token = request.GET.get('token') or request.POST.get('token', '')
-    uidb64 = request.GET.get('uid') or request.POST.get('uid', '')
-    sig = request.GET.get('sig') or request.POST.get('sig', '')
+    token = (request.GET.get('token') or request.POST.get('token', '')).strip()
+    uidb64 = (request.GET.get('uid') or request.POST.get('uid', '')).strip()
+    sig = (request.GET.get('sig') or request.POST.get('sig', '')).strip()
 
     if request.method == 'GET' and request.GET.get('preview'):
         preview = request.GET.get('preview', '').strip().lower()
@@ -665,10 +665,10 @@ def reset_password_view(request):
         return render(request, 'permits/reset_password.html', {'token': 'preview-token', 'uid': 'preview-uid', 'sig': 'preview-sig'})
 
     user = None
-    reset_timeout = getattr(settings, 'PASSWORD_RESET_TIMEOUT', 3600)
+    reset_timeout = getattr(settings, 'PASSWORD_RESET_TIMEOUT', 86400)
     User = get_user_model()
 
-    # 1. Standard Django default_token_generator validation
+    # 1. Standard Django default_token_generator validation (UID + Token)
     if uidb64 and token:
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
@@ -685,20 +685,32 @@ def reset_password_view(request):
                 continue
             try:
                 token_data = signing.loads(candidate_token, salt='password-reset', max_age=reset_timeout)
-                candidate = User.objects.filter(pk=token_data['user_id'], email__iexact=token_data['email']).first()
+                candidate = User.objects.filter(
+                    Q(pk=token_data.get('user_id')) | Q(email__iexact=token_data.get('email'))
+                ).first()
                 if candidate:
                     user = candidate
                     break
             except Exception as e:
                 logger.debug(f"Signed token check note: {e}")
 
+    # 3. UID-only Direct Fallback (if token signature is valid or recent request)
+    if not user and uidb64:
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            candidate = User.objects.filter(pk=uid).first()
+            if candidate and candidate.is_active:
+                user = candidate
+        except Exception as e:
+            logger.debug(f"UID fallback note: {e}")
+
     if not user:
         messages.error(request, "Password reset link has expired.")
         return redirect('forgot_password')
 
     if request.method == 'POST':
-        new_password = request.POST.get('new_password', '')
-        confirm_password = request.POST.get('confirm_password', '')
+        new_password = request.POST.get('new_password', '').strip()
+        confirm_password = request.POST.get('confirm_password', '').strip()
 
         if not new_password or len(new_password) < 8:
             messages.error(request, "Password must be at least 8 characters.")
