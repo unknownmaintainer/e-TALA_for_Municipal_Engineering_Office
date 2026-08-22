@@ -1637,7 +1637,7 @@ def record_create_step3_view(request):
             title = sanitize_input(request.POST.get('title', '')).strip()
             contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
             if not contractor_val:
-                messages.error(request, "Contractor or Implementing Entity is required for projects (or specify 'By Administration').")
+                messages.error(request, "Contractor is required for projects (or specify 'By Administration').")
                 return render(request, 'permits/create_step3.html', context_extra)
             
         if not barangay_id or not title or not year:
@@ -2770,7 +2770,7 @@ def record_edit_view(request, record_id):
         elif record.record_type == 'Project':
             contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
             if not contractor_val:
-                messages.error(request, "Contractor or Implementing Entity is required for projects (or specify 'By Administration').")
+                messages.error(request, "Contractor is required for projects (or specify 'By Administration').")
                 return redirect('edit_record', record_id=record.record_id)
             detail, _ = ProjectDetail.objects.get_or_create(engineering_record=record)
             old_subtype = detail.project_type
