@@ -663,20 +663,27 @@ def forgot_password_view(request):
 
                 # Method 2: Standard Django SMTP Delivery (Brevo SMTP Relay / Custom SMTP)
                 try:
+                    from email.utils import parseaddr, formataddr
+                    raw_from = str(settings.DEFAULT_FROM_EMAIL).strip()
+                    p_name, p_email = parseaddr(raw_from)
+                    clean_from = formataddr((p_name, p_email)) if (p_name and p_email) else (p_email or raw_from)
+
+                    logger.info(f"Dispatching reset email to {user.email} from {clean_from} via {getattr(settings, 'EMAIL_HOST', 'default')}:{getattr(settings, 'EMAIL_PORT', 587)}...")
+
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        from_email=clean_from,
                         recipient_list=[user.email],
                         html_message=html_message,
                         fail_silently=False,
                     )
-                    logger.info(f"Password reset email sent to {email}")
+                    logger.info(f"✅ Password reset email successfully delivered to {user.email}")
                 except Exception as mail_exc:
-                    logger.warning(f"SMTP delivery note for {email}: {mail_exc}")
+                    logger.error(f"❌ SMTP delivery failed for {user.email}: {type(mail_exc).__name__}: {mail_exc}", exc_info=True)
                     # Log generated reset link to terminal for local admin/development testing
                     print("\n" + "=" * 72)
-                    print(f"🔑 [eTala Password Reset Link for {email}]:")
+                    print(f"🔑 [eTala Password Reset Link for {user.email}]:")
                     print(f"👉 {reset_url}")
                     print("=" * 72 + "\n")
 
