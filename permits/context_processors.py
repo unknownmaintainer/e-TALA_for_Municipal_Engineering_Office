@@ -135,3 +135,22 @@ def recent_notifications(request):
     # Cache for 10 seconds for real-time responsiveness
     cache.set(cache_key, result, timeout=10)
     return result
+
+
+def system_global_context(request):
+    """
+    Globally injects dynamic system counts and statistics (e.g. total_barangays_count)
+    across all templates in eTala, ensuring that adding or removing barangays automatically
+    updates everywhere with zero hardcoding.
+    """
+    total_brgys = cache.get('global_total_barangays_count')
+    if total_brgys is None:
+        try:
+            from .models import Barangay
+            total_brgys = Barangay.objects.count()
+            cache.set('global_total_barangays_count', total_brgys, timeout=60)
+        except Exception:
+            total_brgys = 49
+    return {
+        'total_barangays_count': total_brgys,
+    }

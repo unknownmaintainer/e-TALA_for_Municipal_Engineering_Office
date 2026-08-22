@@ -1069,9 +1069,7 @@ def ensure_barangay_schema():
                     b.latitude = lat
                     b.longitude = lng
                     b.save()
-            OFFICIAL_NAMES = [item["name"] for item in OFFICIAL_49_CARIGARA_BARANGAYS]
             Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()
-            Barangay.objects.exclude(barangay_name__in=OFFICIAL_NAMES).filter(engineering_records__isnull=True, records__isnull=True).delete()
     except Exception:
         pass
 
@@ -1105,6 +1103,8 @@ def barangays_view(request):
                         latitude=lat_val,
                         longitude=lng_val
                     )
+                    cache.delete('global_total_barangays_count')
+                    cache.delete('total_barangays_count')
                     log_audit(request.user, f"Created Barangay '{b.barangay_name}'", request=request)
                     messages.success(request, f"Barangay '{b.barangay_name}' has been created successfully.")
             return redirect('barangays')
@@ -1128,6 +1128,8 @@ def barangays_view(request):
                         try: barangay.longitude = float(longitude)
                         except (ValueError, TypeError): pass
                     barangay.save()
+                    cache.delete('global_total_barangays_count')
+                    cache.delete('total_barangays_count')
                     log_audit(request.user, f"Updated Barangay '{name}'", request=request)
                     messages.success(request, f"Barangay '{name}' updated successfully.")
             return redirect('barangays')
@@ -1142,6 +1144,8 @@ def barangays_view(request):
                 else:
                     name = barangay.barangay_name
                     barangay.delete()
+                    cache.delete('global_total_barangays_count')
+                    cache.delete('total_barangays_count')
                     log_audit(request.user, f"Deleted Barangay '{name}'", request=request)
                     messages.success(request, f"Barangay '{name}' deleted successfully.")
             return redirect('barangays')
