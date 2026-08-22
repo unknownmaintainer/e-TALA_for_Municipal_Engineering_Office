@@ -5537,6 +5537,36 @@
                                 <span id="notificationBadge"
                                     class="position-absolute bg-danger text-white rounded-pill notification-pulse-badge {% if not notifications_count %}d-none{% endif %}"
                                     style="font-size: 9px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 4px; align-items: center; justify-content: center; top: -1px; right: -2px; border: 2px solid #ffffff; line-height: 1; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">{% if notifications_count > 99 %}99+{% else %}{{ notifications_count }}{% endif %}</span>
+                                <script>
+                                    (function(){
+                                        try {
+                                            var uid = '{{ request.user.id|default:"guest" }}';
+                                            var readVal = localStorage.getItem('etala_read_notifs_' + uid) || localStorage.getItem('etala_read_notifs');
+                                            var deletedVal = localStorage.getItem('etala_deleted_notifs_' + uid) || localStorage.getItem('etala_deleted_notifs');
+                                            var readList = readVal ? JSON.parse(readVal) : [];
+                                            var deletedList = deletedVal ? JSON.parse(deletedVal) : [];
+                                            var serverIds = [{% for n in recent_notifications %}'{{ n.id|default:n.action|slugify }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+                                            var unreadCount = 0;
+                                            for (var i = 0; i < serverIds.length; i++) {
+                                                var sid = serverIds[i];
+                                                if (!deletedList.includes(sid) && !readList.includes(sid)) {
+                                                    unreadCount++;
+                                                }
+                                            }
+                                            var badge = document.getElementById('notificationBadge');
+                                            if (badge) {
+                                                if (unreadCount === 0) {
+                                                    badge.classList.add('d-none');
+                                                    badge.style.display = 'none';
+                                                } else {
+                                                    badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                                                    badge.classList.remove('d-none');
+                                                    badge.style.display = 'inline-flex';
+                                                }
+                                            }
+                                        } catch(e) {}
+                                    })();
+                                </script>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card dropdown-card-with-caret shadow-lg"
                                 style="width: 390px; max-width: calc(100vw - 20px); border-radius: 18px; overflow: hidden; z-index: 99999; margin-top: 10px;">
@@ -7522,6 +7552,12 @@
                     markBtn.dataset.loading = 'false';
                     markBtn.innerHTML = '<i class="fa-solid fa-check-double" style="font-size: 12px;"></i> <span>Mark all as read</span>';
                 }
+            }
+
+            // Auto-reconcile with server if localStorage has marked items as read
+            if (readList.length > 0 && !window._hasSyncedReadNotifs) {
+                window._hasSyncedReadNotifs = true;
+                syncNotifToServer('mark_all_read', null, readList);
             }
         };
 
