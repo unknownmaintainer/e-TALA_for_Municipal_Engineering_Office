@@ -6,7 +6,7 @@
 {% block title %}Records Management | eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item active">Records Archive</span>
+<span class="breadcrumb-item active">Records Management</span>
 {% endblock %}
 
 {% block content %}
@@ -248,6 +248,53 @@
             height: 38px !important;
         }
     }
+
+    /* ─── Premium Modern Filter Dropdowns & Panel ─── */
+    .filter-panel-unified {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .dark-mode .filter-panel-unified,
+    [data-bs-theme="dark"] .filter-panel-unified {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+
+    .filter-dropdown-ajax {
+        height: 38px !important;
+        font-size: 0.82rem !important;
+        font-weight: 550 !important;
+        color: #1e293b !important;
+        background-color: #f8fafc !important;
+        border: 1.5px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 6px 32px 6px 12px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        cursor: pointer !important;
+    }
+
+    .filter-dropdown-ajax:hover {
+        border-color: #94a3b8 !important;
+        background-color: #ffffff !important;
+    }
+
+    .filter-dropdown-ajax:focus {
+        border-color: #3b82f6 !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+        outline: none !important;
+    }
+
+    .dark-mode .filter-dropdown-ajax,
+    [data-bs-theme="dark"] .filter-dropdown-ajax {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+        color: #f1f5f9 !important;
+    }
 </style>
 
 <!-- ══ HEADING ════════════════════════════════════════════════════════ -->
@@ -368,10 +415,15 @@
         {% if selected_status %}
         <div class="filter-chip">
             <span>Status: <strong>
-                    {% for val, lbl in status_choices %}
-                    {% if val == selected_status %}{{ lbl }}{% endif %}
-                    {% endfor %}
-                </strong></span>
+                {% if selected_status == 'ongoing' or selected_status == 'in_progress' %}Ongoing
+                {% elif selected_status == 'completed' %}Completed
+                {% elif selected_status == 'issued' %}Issued
+                {% elif selected_status == 'pending' %}Pending Issuance
+                {% elif selected_status == 'regularized' %}Regularized
+                {% elif selected_status == 'active' %}Active / Issued
+                {% else %}{{ selected_status|title }}
+                {% endif %}
+            </strong></span>
             <button type="button" class="clear-chip-btn" data-filter-name="status">&times;</button>
         </div>
         {% endif %}
@@ -403,19 +455,16 @@
     <!-- Collapsible filters panel (Inline compact single-row design) -->
     <div class="collapse {% if selected_status or selected_barangay or selected_year or selected_project_type or selected_permit_type %}show{% endif %}"
         id="advancedFiltersCollapse">
-        <div class="filter-panel-unified py-2 px-3 rounded-3 border mb-2">
+        <div class="filter-panel-unified py-2.5 px-3 rounded-3 border mb-2">
             {% if selected_record_type == 'Permit' %}
-            <div class="row row-cols-md-3 row-cols-sm-3 row-cols-1 g-2 align-items-end">
+            <div class="row row-cols-md-4 row-cols-sm-2 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
-                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit
-                        Type</label>
-                    <select name="permit_type" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Type</label>
+                    <select name="permit_type" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Permit Types</option>
                         {% for val, label in permit_types %}
-                        <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}
-                        </option>
+                        <option value="{{ val }}" {% if selected_permit_type == val %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -423,8 +472,7 @@
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -434,9 +482,19 @@
 
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Status</label>
+                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax">
+                        <option value="">All Statuses</option>
+                        <option value="issued" {% if selected_status == 'issued' or selected_status == 'active' %}selected{% endif %}>Issued</option>
+                        <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending Issuance</option>
+                        <option value="regularized" {% if selected_status == 'regularized' %}selected{% endif %}>Regularized</option>
+                    </select>
+                </div>
+
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
-                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -448,14 +506,11 @@
             <div class="row row-cols-md-4 row-cols-sm-2 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
-                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project
-                        Type</label>
-                    <select name="project_type" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Type</label>
+                    <select name="project_type" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Project Types</option>
                         {% for type in project_type_choices %}
-                        <option value="{{ type }}" {% if selected_project_type == type %}selected{% endif %}>{{ type }}
-                        </option>
+                        <option value="{{ type }}" {% if selected_project_type == type %}selected{% endif %}>{{ type }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -463,8 +518,7 @@
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -475,10 +529,9 @@
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Status</label>
-                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Statuses</option>
-                        <option value="in_progress" {% if selected_status == 'in_progress' %}selected{% endif %}>Ongoing</option>
+                        <option value="ongoing" {% if selected_status == 'ongoing' or selected_status == 'in_progress' or selected_status == 'active' %}selected{% endif %}>Ongoing</option>
                         <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
                     </select>
                 </div>
@@ -486,8 +539,7 @@
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
-                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -496,13 +548,12 @@
                 </div>
             </div>
             {% else %}
-            <!-- All Tab: Universal filters (Barangay, Year) -->
-            <div class="row row-cols-md-2 row-cols-sm-2 row-cols-1 g-2 align-items-end">
+            <!-- All Tab: Universal filters (Barangay, Status, Year) -->
+            <div class="row row-cols-md-3 row-cols-sm-3 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
-                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Barangays</option>
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
@@ -511,9 +562,20 @@
                 </div>
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
+                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax">
+                        <option value="">All Statuses</option>
+                        <option value="ongoing" {% if selected_status == 'ongoing' or selected_status == 'in_progress' %}selected{% endif %}>Ongoing (Projects)</option>
+                        <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed (Projects)</option>
+                        <option value="issued" {% if selected_status == 'issued' %}selected{% endif %}>Issued (Permits)</option>
+                        <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending Issuance</option>
+                        <option value="regularized" {% if selected_status == 'regularized' %}selected{% endif %}>Regularized (Permits)</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
-                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax"
-                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
@@ -524,6 +586,7 @@
             {% endif %}
         </div>
     </div>
+</form>
 
 
 <!-- ══ DATA TABLE ════════════════════════════════════════════════════════ -->
@@ -536,18 +599,18 @@
             <table class="data-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th style="width: 28%; min-width: 185px;">Title</th>
-                        <th style="width: 18%; min-width: 140px;">Type</th>
-                        <th style="width: 16%; min-width: 125px;">Barangay</th>
-                        <th style="width: 8%; min-width: 60px;">Year</th>
-                        <th style="width: 14%; min-width: 95px;">Status</th>
-                        <th style="width: 11%; min-width: 80px;">Uploads</th>
-                        <th class="text-end" style="width: 5%; min-width: 44px; padding-right: 14px;"></th>
+                        <th style="width: 26%; min-width: 170px;">Title</th>
+                        <th style="width: 23%; min-width: 160px;">Type</th>
+                        <th style="width: 16%; min-width: 120px;">Barangay</th>
+                        <th style="width: 7%; min-width: 55px;">Year</th>
+                        <th style="width: 13%; min-width: 90px;">Status</th>
+                        <th style="width: 10%; min-width: 75px;">Uploads</th>
+                        <th class="text-end" style="width: 5%; min-width: 40px; padding-right: 14px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in page_obj %}
-                    <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer;">
+                    <tr data-href="{% url 'record_detail' r.record_id %}?from=records" style="cursor: pointer;">
                         <td>
                             <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
                                 <span title="{% if r.record_type == 'Permit' %}{% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}{{ r.permit_detail.applicant_name }}{% elif r.title and r.title != 'Permit' %}{{ r.title }}{% else %}{{ r.specific_type_label }}{% endif %}{% else %}{{ r.title }}{% endif %}">
@@ -563,25 +626,27 @@
                                         {{ r.title }}
                                     {% endif %}
                                 </span>
-                                {% if r.is_illegal_construction %}
-                                    {% if r.illegal_compliance_status == 'resolved' %}
-                                    <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Regularized Enforcement Case"><i class="fa-solid fa-shield-halved me-1"></i>Regularized</span>
-                                    {% else %}
-                                    <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Active Violation Incident"><i class="fa-solid fa-triangle-exclamation me-1"></i>Violation</span>
-                                    {% endif %}
-                                {% endif %}
                             </div>
                             <div class="cell-subtitle">
-                                {% if r.record_type == 'Permit' %}
+                                {% if r.is_illegal_construction and r.illegal_compliance_status == 'resolved' %}
                                     {% if r.permit_detail and r.permit_detail.permit_number %}
                                     <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
                                     {% else %}
-                                    <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1" style="font-size: 11px;"></i>Pending Permit Issuance</div>
+                                    <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Regularized Record</div>
+                                    {% endif %}
+                                {% elif r.is_illegal_construction %}
+                                    {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                    <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Property Owner: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                    {% else %}
+                                    <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
+                                    {% endif %}
+                                {% elif r.record_type == 'Permit' %}
+                                    {% if r.permit_detail and r.permit_detail.permit_number %}
+                                    <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
                                     {% endif %}
                                 {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
                                     <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>
                                 {% endif %}
-                                <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
                             </div>
                         </td>
                         <td>
@@ -614,25 +679,26 @@
                             {% with stats=r.completion_stats %}
                             {% if stats.total > 0 %}
                                 {% if stats.is_complete %}
-                                <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="All {{ stats.total }} documents uploaded">
-                                    ✓ {{ stats.fulfilled }}/{{ stats.total }}
+                                <span class="doc-badge doc-badge-complete" title="All {{ stats.total }} documents uploaded">
+                                    {{ stats.fulfilled }}/{{ stats.total }}
                                 </span>
                                 {% elif stats.fulfilled > 0 %}
-                                <span class="badge" style="background: #fef3c7; color: #b45309; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded. Missing: {{ stats.missing|join:', ' }}">
+                                <span class="doc-badge doc-badge-partial" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded. Missing: {{ stats.missing|join:', ' }}">
                                     {{ stats.fulfilled }}/{{ stats.total }}
                                 </span>
                                 {% else %}
-                                <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="No documents uploaded">
+                                <span class="doc-badge doc-badge-empty" title="No documents uploaded (0/{{ stats.total }})">
                                     0/{{ stats.total }}
                                 </span>
                                 {% endif %}
                             {% else %}
-                                {% if r.is_illegal_construction %}
-                                <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px;">
-                                    {{ r.documents.count }} files
+                                {% if r.documents.count > 0 %}
+                                <span class="d-inline-flex align-items-center gap-1.5 fw-semibold text-primary" style="font-size: 0.80rem;" title="{{ r.documents.count }} attached document{{ r.documents.count|pluralize }}">
+                                    <i class="fa-solid fa-paperclip" style="font-size: 11px;"></i>
+                                    <span>{{ r.documents.count }} file{{ r.documents.count|pluralize }}</span>
                                 </span>
                                 {% else %}
-                                <span class="text-muted small">—</span>
+                                <span class="text-muted" style="font-size: 0.82rem; opacity: 0.65;">—</span>
                                 {% endif %}
                             {% endif %}
                             {% endwith %}
@@ -649,9 +715,9 @@
                                     style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;"
                                     onclick="event.stopPropagation();">
                                     <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
-                                            href="{% url 'record_detail' r.record_id %}"><i class="fa-solid fa-eye" style="font-size: 13px; flex-shrink: 0;"></i> <span>View Details</span></a></li>
+                                            href="{% url 'record_detail' r.record_id %}?from=records"><i class="fa-solid fa-eye" style="font-size: 13px; flex-shrink: 0;"></i> <span>View Details</span></a></li>
                                     {% if r.status != 'archived' %}
-                                    {% if request.user.role == 'admin' or r.created_by == request.user %}
+                                    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                     <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                             href="{% url 'edit_record' r.record_id %}"><i class="fa-solid fa-pen-to-square" style="font-size: 13px; flex-shrink: 0;"></i> <span>Edit Record</span></a></li>
                                     {% endif %}
@@ -659,12 +725,12 @@
                                     <li>
                                         <hr class="dropdown-divider my-1">
                                     </li>
-                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-amber text-nowrap action-dropdown-warning"
+                                    <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap action-dropdown-danger"
                                             href="javascript:void(0)"
                                             data-url="{% url 'archive_record' r.record_id %}"
                                             data-title="{{ r.title|escapejs }}"
                                             onclick="confirmArchiveRecord(this.dataset.url, this.dataset.title)"><i
-                                                class="fa-solid fa-box-archive text-warning" style="font-size: 13px; flex-shrink: 0;"></i> <span>Move to Trash</span></a></li>
+                                                class="fa-solid fa-trash-can text-danger" style="font-size: 13px; flex-shrink: 0;"></i> <span>Move to Trash</span></a></li>
                                     {% endif %}
                                     {% endif %}
                                 </ul>
@@ -681,7 +747,7 @@
         <div class="d-block d-md-none">
             <div class="d-flex flex-column gap-0">
                 {% for r in page_obj %}
-                <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item">
+                <a href="{% url 'record_detail' r.record_id %}?from=records" class="mobile-record-item">
                     <div
                         class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
                         <i class="{% if r.record_type == 'Permit' %}fa-solid fa-file-shield{% elif r.project_scope == 'Municipal' %}fa-solid fa-landmark{% else %}fa-solid fa-location-dot{% endif %}"></i>
@@ -699,11 +765,11 @@
                             {% with stats=r.completion_stats %}
                             {% if stats.total > 0 %}
                                 {% if stats.is_complete %}
-                                <span class="badge" style="background:#dcfce7; color:#15803d; font-size:0.68rem; padding:2px 5px;">✓ Complete ({{ stats.fulfilled }}/{{ stats.total }})</span>
+                                <span class="doc-badge doc-badge-complete">{{ stats.fulfilled }}/{{ stats.total }}</span>
                                 {% elif stats.fulfilled > 0 %}
-                                <span class="badge" style="background:#fef3c7; color:#b45309; font-size:0.68rem; padding:2px 5px;">⏳ {{ stats.fulfilled }}/{{ stats.total }} Docs</span>
+                                <span class="doc-badge doc-badge-partial">{{ stats.fulfilled }}/{{ stats.total }}</span>
                                 {% else %}
-                                <span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:0.68rem; padding:2px 5px;">⚠️ 0/{{ stats.total }} Docs</span>
+                                <span class="doc-badge doc-badge-empty">0/{{ stats.total }}</span>
                                 {% endif %}
                             {% endif %}
                             {% endwith %}
@@ -1124,5 +1190,4 @@
             }
         }
     </script>
-    {% include 'permits/includes/flag_illegal_modal.html' %}
     {% endblock %}

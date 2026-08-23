@@ -80,6 +80,7 @@ urlpatterns = [
     path('reports/', views.reports_view, name='reports'),
     path('activity-logs/export/', views.export_activity_logs_view, name='export_activity_logs'),
     path('activity-logs/', views.activity_logs_view, name='activity_logs'),
+    path('notifications/action/', views.notification_sync_action_view, name='notification_sync_action'),
 
     # Profile & Settings
     path('profile/', views.profile_view, name='profile'),

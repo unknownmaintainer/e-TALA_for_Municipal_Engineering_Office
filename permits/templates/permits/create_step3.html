@@ -60,13 +60,14 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Applicant / Property Owner <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Applicant Name <span class="text-danger">*</span></label>
                         </div>
                         <input type="text" name="applicant_name" class="form-control rounded-3"
                                placeholder="e.g. Juan D. Dela Cruz" required autocomplete="off"
+                               value="{{ form_data.applicant_name|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                        <div class="invalid-feedback">Please provide the applicant or property owner's full name.</div>
-                        <input type="hidden" name="title" id="permitTitle">
+                        <div class="invalid-feedback">Please enter the applicant's full name.</div>
+                        <input type="hidden" name="title" id="permitTitle" value="{{ form_data.title|default:'' }}">
                     </div>
 
                     <div class="col-md-6">
@@ -75,16 +76,17 @@
                         </div>
                         <select name="barangay" class="form-select rounded-3" required
                                 style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            <option value="" disabled selected>— Select Barangay —</option>
+                            <option value="" disabled {% if not form_data.barangay %}selected{% endif %}>— Select Barangay —</option>
                             {% for b in barangays %}
-                            <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
+                            <option value="{{ b.barangay_id }}" {% if form_data.barangay == b.barangay_id|stringformat:"s" %}selected{% endif %}>{{ b.barangay_name }}</option>
                             {% endfor %}
                         </select>
+                        <div class="invalid-feedback">Please select a barangay location.</div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type <span class="text-danger">*</span></label>
                         </div>
                         <div class="form-control rounded-3 d-flex align-items-center bg-light text-dark fw-semibold" style="font-size: 0.86rem; height: 40px; border-color: #e2e8f0; color: #1e293b !important; cursor: default;">
                             <i class="fa-solid fa-file-signature text-primary me-2" style="font-size: 13px;"></i>
@@ -95,32 +97,35 @@
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Building Type</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Building Type <span class="text-danger">*</span></label>
                         </div>
-                        <select name="building_type" class="form-select rounded-3"
+                        <select name="building_type" class="form-select rounded-3" required
                                 style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            <option value="" disabled selected>— Select Building Type —</option>
+                            <option value="" disabled {% if not form_data.building_type and not subtype %}selected{% endif %}>— Select Building Type —</option>
                             {% for val, label in building_types %}
-                            <option value="{{ val }}" {% if val == 'Residential' %}selected{% endif %}>{{ label }}</option>
+                            <option value="{{ val }}" {% if form_data.building_type == val or not form_data and val == 'Residential' %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
+                        <div class="invalid-feedback">Please select the building classification.</div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-muted fw-normal">(Optional)</span></label>
                         </div>
                         <input type="text" name="permit_number" class="form-control rounded-3"
                                placeholder="e.g. {% if subtype == 'Building' %}BP-2026-001{% elif subtype == 'Electrical' %}EP-2026-001{% else %}BP-2026-001{% endif %}" autocomplete="off"
+                               value="{{ form_data.permit_number|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                     </div>
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-muted fw-normal">(Optional)</span></label>
                         </div>
                         <input type="date" name="date_issued" class="form-control rounded-3"
                                placeholder="Select date issued..."
+                               value="{{ form_data.date_issued|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                     </div>
 
@@ -134,7 +139,7 @@
                         </div>
                         <textarea name="remarks" class="form-control rounded-3 char-counted" rows="2" maxlength="250"
                                   placeholder="Optional description or remarks..."
-                                  style="font-size: 0.85rem; padding: 7px 12px; min-height: 54px; resize: vertical;"></textarea>
+                                  style="font-size: 0.85rem; padding: 7px 12px; min-height: 54px; resize: vertical;">{{ form_data.remarks|default:'' }}</textarea>
                     </div>
                 </div>
 
@@ -148,7 +153,9 @@
                         </div>
                         <input type="text" name="title" class="form-control rounded-3"
                                placeholder="e.g. Concreting of Barangay Road" required autocomplete="off"
+                               value="{{ form_data.title|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                        <div class="invalid-feedback">Please enter the project name.</div>
                     </div>
 
                     <div class="col-md-6">
@@ -162,6 +169,7 @@
                         </div>
                         <input type="text" name="contractor" id="contractorInput" class="form-control rounded-3"
                                placeholder="e.g. ABC Builders Corp. or By Administration" required autocomplete="off"
+                               value="{{ form_data.contractor|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                         <div class="invalid-feedback">Please specify the contractor or click By Administration.</div>
                     </div>
@@ -173,16 +181,17 @@
                         </div>
                         <select name="barangay" class="form-select rounded-3" required
                                 style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            <option value="" disabled selected>— Select Barangay —</option>
+                            <option value="" disabled {% if not form_data.barangay %}selected{% endif %}>— Select Barangay —</option>
                             {% for b in barangays %}
-                            <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
+                            <option value="{{ b.barangay_id }}" {% if form_data.barangay == b.barangay_id|stringformat:"s" %}selected{% endif %}>{{ b.barangay_name }}</option>
                             {% endfor %}
                         </select>
+                        <div class="invalid-feedback">Please select a barangay location.</div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Category / Type</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Category / Type <span class="text-danger">*</span></label>
                         </div>
                         <div class="form-control rounded-3 d-flex align-items-center bg-light text-dark fw-semibold" style="font-size: 0.86rem; height: 40px; border-color: #e2e8f0; color: #1e293b !important; cursor: default;">
                             <i class="fa-solid fa-folder-tree text-primary me-2" style="font-size: 13px;"></i>
@@ -191,58 +200,64 @@
                         <input type="hidden" name="project_type" value="{{ subtype|default:'Infrastructure Project' }}">
                     </div>
 
-                    <!-- Row 3: Project Budget / Cost (₱) | Funding Source -->
+                    <!-- Row 3: Project Budget / Cost (₱) * | Funding Source * -->
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Budget / Cost (₱)</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Budget / Cost (₱) <span class="text-danger">*</span></label>
                         </div>
-                        <input type="number" name="project_cost" class="form-control rounded-3"
+                        <input type="number" name="project_cost" class="form-control rounded-3" required
                                placeholder="₱ 0.00" step="0.01" min="0"
+                               value="{{ form_data.project_cost|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                        <div class="invalid-feedback">Please enter the project budget / cost.</div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Funding Source</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Funding Source <span class="text-danger">*</span></label>
                         </div>
-                        <select name="funding_source" id="fundingSourceSelect" class="form-select rounded-3" onchange="toggleFundingOther(this.value)"
+                        <select name="funding_source" id="fundingSourceSelect" class="form-select rounded-3" required onchange="toggleFundingOther(this.value)"
                                 style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            <option value="" disabled selected>— Select Funding Source —</option>
+                            <option value="" disabled {% if not form_data.funding_source %}selected{% endif %}>— Select Funding Source —</option>
                             {% for val, label in funding_sources %}
-                            <option value="{{ val }}">{{ label }}</option>
+                            <option value="{{ val }}" {% if form_data.funding_source == val %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
+                        <div class="invalid-feedback">Please select a funding source.</div>
                     </div>
 
-                    <!-- Row 4: Project Status | Date Completed -->
+                    <!-- Row 4: Project Status * | Date Completed (Optional) -->
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Status</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Status <span class="text-danger">*</span></label>
                         </div>
-                        <select name="project_status" class="form-select rounded-3"
+                        <select name="project_status" class="form-select rounded-3" required
                                 style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            <option value="" disabled selected>— Select Status —</option>
+                            <option value="" disabled {% if not form_data.project_status %}selected{% endif %}>— Select Status —</option>
                             {% for val, label in project_statuses %}
-                            <option value="{{ val }}">{{ label }}</option>
+                            <option value="{{ val }}" {% if form_data.project_status == val %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
+                        <div class="invalid-feedback">Please select the project status.</div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Completed</label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Completed <span class="text-muted fw-normal">(Optional)</span></label>
                         </div>
                         <input type="date" name="date_completed" class="form-control rounded-3"
                                placeholder="Select date completed..."
+                               value="{{ form_data.date_completed|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                     </div>
 
                     <!-- Row 5: Specify Other Funding Source (Conditional) -->
-                    <div class="col-12" id="fundingOtherWrapper" style="display: none;">
+                    <div class="col-12" id="fundingOtherWrapper" {% if form_data.funding_source == 'Others' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                         <div class="d-flex align-items-center justify-content-between form-label-row">
                             <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Specify Other Funding Source</label>
                         </div>
                         <input type="text" name="funding_source_other" class="form-control rounded-3" placeholder="Specify other funding source..."
+                               value="{{ form_data.funding_source_other|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                     </div>
 
@@ -256,20 +271,22 @@
                         </div>
                         <textarea name="description" class="form-control rounded-3 char-counted" rows="2" maxlength="250"
                                   placeholder="Optional description or remarks..."
-                                  style="font-size: 0.85rem; padding: 7px 12px; min-height: 54px; resize: vertical;"></textarea>
+                                  style="font-size: 0.85rem; padding: 7px 12px; min-height: 54px; resize: vertical;">{{ form_data.description|default:'' }}</textarea>
                     </div>
                 </div>
                 {% endif %}
 
-                <!-- Integrated Checklist Setup Banner -->
-                <div class="mt-3.5 pt-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.8rem;">
-                        <i class="fa-solid fa-circle-info text-primary" style="font-size: 13px;"></i>
-                        <span><strong>{% if template %}{{ template.active_items.count }}{% else %}Standard{% endif %} municipal checklist requirements</strong> will be prepared for upload upon saving.</span>
+                <!-- Integrated Checklist Setup Callout (Step-Indicator Style) -->
+                <div class="mt-3.5 p-2.5 rounded-3 d-flex align-items-center gap-2.5 checklist-step-callout"
+                     style="background: rgba(0, 40, 85, 0.04); border: 1px solid rgba(0, 40, 85, 0.12); font-size: 0.81rem; color: #1e293b;">
+                    <div class="checklist-callout-icon d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+                         style="width: 28px; height: 28px; background: rgba(0, 40, 85, 0.08); color: #002855;">
+                        <i class="fa-solid fa-folder-open" style="font-size: 13px;"></i>
                     </div>
-                    <span class="badge bg-light text-primary border px-2 py-0.5 rounded-2 fw-semibold" style="font-size: 0.72rem;">
-                        <i class="fa-solid fa-cloud-arrow-up me-1"></i>Available on Record View
-                    </span>
+                    <div class="d-flex align-items-center flex-wrap gap-1">
+                        <span class="fw-semibold text-primary" style="letter-spacing: -0.01em;">Next Step:</span>
+                        <span><strong>{% if template %}{{ template.active_items.count }}{% else %}Standard{% endif %} checklist slots</strong> will be ready for document attachments on Record View.</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -277,16 +294,16 @@
         <!-- NAVIGATION ACTIONS -->
         <div class="d-flex justify-content-between align-items-center mt-3.5">
             <div class="d-flex align-items-center gap-2">
-                <a href="{% url 'create_step2' %}" class="btn btn-outline-secondary px-3.5 rounded-3 d-inline-flex align-items-center gap-1.5" style="height: 38px; font-size: 0.86rem; font-weight: 500;">
+                <a href="{% url 'create_step2' %}" class="btn btn-outline-secondary px-3.5 rounded-3 d-inline-flex align-items-center gap-1.5" style="height: 36px; font-size: 0.84rem; font-weight: 500;">
                     <i class="fa-solid fa-arrow-left" style="font-size: 11px;"></i>
                     <span>Back</span>
                 </a>
-                <a href="{% url 'records_browse' %}" class="btn btn-light border px-3.5 rounded-3 text-muted d-inline-flex align-items-center" style="height: 38px; font-size: 0.86rem;">
+                <a href="{% url 'records_browse' %}" class="btn btn-light border px-3.5 rounded-3 text-muted d-inline-flex align-items-center" style="height: 36px; font-size: 0.84rem;">
                     Cancel
                 </a>
             </div>
             <button type="submit" class="btn text-white px-4 fw-semibold rounded-3 d-inline-flex align-items-center gap-2 shadow-2xs"
-                    style="background:#002855; height: 38px; font-size: 0.86rem;">
+                    style="background:#002855; height: 36px; font-size: 0.84rem;">
                 <i class="fa-solid fa-floppy-disk" style="font-size: 13px;"></i>
                 <span>Save Record</span>
             </button>
@@ -321,6 +338,32 @@ if (applicantInput && titleInput) {
     applicantInput.addEventListener('input', updateTitle);
     if (permitNumInput) permitNumInput.addEventListener('input', updateTitle);
 }
+
+// Client-side Instant Validation without page loss
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('step3CreateForm');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+                form.classList.add('was-validated');
+
+                // Find the first invalid element, scroll smoothly and focus
+                const firstInvalid = form.querySelector(':invalid');
+                if (firstInvalid) {
+                    firstInvalid.focus();
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Show a helpful non-intrusive warning notification if available
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Please fill in all required fields marked with *', 'warning');
+                    }
+                }
+            }
+        }, false);
+    }
+});
 </script>
 
 <style>
@@ -345,6 +388,18 @@ if (applicantInput && titleInput) {
     display: inline-flex !important;
     align-items: center !important;
     vertical-align: middle !important;
+}
+.dark-mode .checklist-step-callout {
+    background: rgba(59, 130, 246, 0.08) !important;
+    border-color: rgba(59, 130, 246, 0.2) !important;
+    color: #cbd5e1 !important;
+}
+.dark-mode .checklist-step-callout .checklist-callout-icon {
+    background: rgba(59, 130, 246, 0.18) !important;
+    color: #60a5fa !important;
+}
+.dark-mode .checklist-step-callout .text-primary {
+    color: #60a5fa !important;
 }
 </style>
 {% endblock %}

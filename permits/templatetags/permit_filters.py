@@ -185,8 +185,8 @@ def is_valid_applicant(name):
         return False
     if name_str.startswith('[') or 'Violation:' in name_str or 'Unpermitted' in name_str:
         return False
-    invalid_placeholders = [',,', ',', ', ', 'N/A', 'n/a', 'None', 'none', '—', '-', 'undefined', 'null']
-    if name_str in invalid_placeholders:
+    invalid_placeholders = [',,', ',', ', ', 'N/A', 'n/a', 'None', 'none', '—', '-', 'undefined', 'null', 'under investigation', 'unspecified']
+    if name_str.lower() in invalid_placeholders:
         return False
     return True
 

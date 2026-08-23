@@ -381,6 +381,15 @@ def device_pending_approval_view(request):
     """Holding screen for staff users waiting for Admin device authorization."""
     pending_user_id = request.session.get('pending_user_id')
     pending_device_id = request.session.get('pending_device_id')
+    device_token = request.COOKIES.get('etala_device_token')
+
+    if not pending_device_id and device_token:
+        found_device = UserDevice.objects.filter(device_token=device_token).order_by('-created_at').first()
+        if found_device:
+            pending_device_id = found_device.id
+            pending_user_id = found_device.user_id
+            request.session['pending_user_id'] = pending_user_id
+            request.session['pending_device_id'] = pending_device_id
 
     if not pending_user_id or not pending_device_id:
         # Preview mode for direct URL access & UI designing
@@ -389,6 +398,8 @@ def device_pending_approval_view(request):
             pending_user = CustomUser.objects.first()
 
         class MockPreviewDevice:
+            id = ""
+            device_token = ""
             device_name = "Windows PC • Google Chrome"
             ip_address = get_client_ip(request) or "127.0.0.1"
             status = "pending"
@@ -428,17 +439,25 @@ def device_pending_approval_view(request):
 
 def check_device_approval_ajax(request):
     """AJAX endpoint polled by device_pending_approval screen to detect instant Admin approval."""
-    pending_user_id = request.session.get('pending_user_id')
-    pending_device_id = request.session.get('pending_device_id')
+    device_id = request.GET.get('device_id') or request.session.get('pending_device_id')
+    device_token = request.GET.get('token') or request.COOKIES.get('etala_device_token')
 
-    if not pending_user_id or not pending_device_id:
+    device = None
+    if device_id and str(device_id).isdigit():
+        device = UserDevice.objects.filter(id=int(device_id)).first()
+
+    if not device and device_token:
+        device = UserDevice.objects.filter(device_token=device_token).order_by('-created_at').first()
+
+    if not device:
+        pending_user_id = request.session.get('pending_user_id')
+        if pending_user_id:
+            device = UserDevice.objects.filter(user_id=pending_user_id).order_by('-created_at').first()
+
+    if not device:
         return JsonResponse({'status': 'pending'})
 
-    device = UserDevice.objects.filter(id=pending_device_id).first()
-    pending_user = CustomUser.objects.filter(id=pending_user_id).first()
-
-    if not device or not pending_user:
-        return JsonResponse({'status': 'pending'})
+    pending_user = device.user
 
     if device.status == 'approved':
         login(request, pending_user)
@@ -463,6 +482,7 @@ def approve_device_view(request):
     """Handles 1-click token approval from email or in-app button by Admin."""
     token = request.GET.get('token', '').strip()
     device_id = request.POST.get('device_id') or request.GET.get('device_id')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax') == '1'
 
     device = None
     if token:
@@ -471,7 +491,15 @@ def approve_device_view(request):
         device = UserDevice.objects.filter(id=device_id).first()
 
     if not device:
+        if is_ajax:
+            return JsonResponse({'success': False, 'message': "Invalid or expired authorization link."}, status=400)
         messages.error(request, "Invalid or expired authorization link.")
+        return redirect('dashboard' if request.user.is_authenticated else 'login')
+
+    if device.status == 'approved':
+        if is_ajax:
+            return JsonResponse({'success': True, 'message': f"Device ({device.device_name}) is already authorized."})
+        messages.info(request, f"Device ({device.device_name}) is already authorized.")
         return redirect('dashboard' if request.user.is_authenticated else 'login')
 
     device.status = 'approved'
@@ -479,9 +507,19 @@ def approve_device_view(request):
     device.approved_at = timezone.now()
     device.save()
 
+    # Clear notification cache so the notification count immediately drops
+    try:
+        from django.core.cache import cache
+        cache.clear()
+    except Exception:
+        pass
+
     log_audit(request.user if request.user.is_authenticated else device.user,
               f"Authorized device access ({device.device_name}) for staff: {device.user.full_name or device.user.username}",
               request=request)
+
+    if is_ajax:
+        return JsonResponse({'success': True, 'message': f"Device ({device.device_name}) authorized successfully."})
 
     messages.success(request, f"Device ({device.device_name}) authorized successfully.")
     return redirect('dashboard' if request.user.is_authenticated else 'login')
@@ -500,6 +538,10 @@ def reject_device_view(request):
 
     if not device:
         messages.error(request, "Invalid or expired request.")
+        return redirect('dashboard' if request.user.is_authenticated else 'login')
+
+    if device.status == 'rejected':
+        messages.info(request, f"Device ({device.device_name}) access was already rejected.")
         return redirect('dashboard' if request.user.is_authenticated else 'login')
 
     device.status = 'rejected'
@@ -1189,24 +1231,28 @@ def barangays_view(request):
     return render(request, 'permits/barangays.html', context)
 
 
-
 @login_required
 def barangay_workspace_view(request, barangay_id):
     ensure_barangay_schema()
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
-    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').exclude(
-        is_illegal_construction=True,
-        illegal_compliance_status__in=['unresolved', 'pending_permit']
-    ).select_related(
+    records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').select_related(
         'created_by', 'barangay', 'permit_detail', 'project_detail'
     ).prefetch_related(
         'requirements__requirement_item', 'requirements__document'
     )
 
     # Stats
-    total_permits = records.filter(record_type='Permit').count()
+    total_permits = records.filter(record_type='Permit').exclude(
+        is_illegal_construction=True,
+        illegal_compliance_status__in=['unresolved', 'pending_permit']
+    ).count()
     total_projects = records.filter(record_type='Project').count()
+    total_violations = records.filter(
+        is_illegal_construction=True,
+        illegal_compliance_status__in=['unresolved', 'pending_permit']
+    ).count()
     total_documents = Document.objects.filter(engineering_record__barangay=barangay).count()
+    total_records = records.count()
 
     # Tab filter
     tab = request.GET.get('tab', 'all')
@@ -1215,9 +1261,17 @@ def barangay_workspace_view(request, barangay_id):
     
     filtered_records = records
     if tab == 'permits':
-        filtered_records = filtered_records.filter(record_type='Permit')
+        filtered_records = filtered_records.filter(record_type='Permit').exclude(
+            is_illegal_construction=True,
+            illegal_compliance_status__in=['unresolved', 'pending_permit']
+        )
     elif tab == 'projects':
         filtered_records = filtered_records.filter(record_type='Project')
+    elif tab == 'violations':
+        filtered_records = filtered_records.filter(
+            is_illegal_construction=True,
+            illegal_compliance_status__in=['unresolved', 'pending_permit']
+        )
 
     if query:
         search_filter = (
@@ -1268,11 +1322,14 @@ def barangay_workspace_view(request, barangay_id):
         
         calculated_list = []
         for b_item in all_other:
+            # Haversine Formula
             dlat = math.radians(b_item.latitude - b_lat)
-            dlon = math.radians(b_item.longitude - b_lng)
-            a = math.sin(dlat / 2)**2 + math.cos(math.radians(b_lat)) * math.cos(math.radians(b_item.latitude)) * math.sin(dlon / 2)**2
+            dlng = math.radians(b_item.longitude - b_lng)
+            a = (math.sin(dlat / 2) ** 2 +
+                 math.cos(math.radians(b_lat)) * math.cos(math.radians(b_item.latitude)) * math.sin(dlng / 2) ** 2)
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-            dist_km = round(6371.0 * c, 2)
+            dist_km = round(6371 * c, 2)
+            
             calculated_list.append({
                 'barangay': b_item,
                 'distance_km': dist_km
@@ -1287,8 +1344,9 @@ def barangay_workspace_view(request, barangay_id):
         'nearby_barangays': nearby_barangays,
         'total_permits': total_permits,
         'total_projects': total_projects,
+        'total_violations': total_violations,
         'total_documents': total_documents,
-        'total_records': total_permits + total_projects,
+        'total_records': total_records,
         'permit_breakdown': permit_breakdown,
         'project_breakdown': project_breakdown,
         'recent_activity': recent_activity,
@@ -1468,15 +1526,13 @@ def illegal_constructions_view(request):
     resolved_count = qs.filter(illegal_compliance_status='resolved').count()
 
     # Stage filtering
-    if stage_filter == 'active':
-        records = qs.filter(illegal_compliance_status__in=['unresolved', 'pending_permit'])
-    elif stage_filter in ['unresolved', 'pending_permit', 'resolved']:
+    if stage_filter in ['unresolved', 'pending_permit', 'resolved']:
         records = qs.filter(illegal_compliance_status=stage_filter)
     elif stage_filter == 'all':
         records = qs
     else:
-        stage_filter = 'active'
-        records = qs.filter(illegal_compliance_status__in=['unresolved', 'pending_permit'])
+        stage_filter = 'all'
+        records = qs
 
     total_count = records.count()
     per_page = get_per_page(request, 10)
@@ -1615,6 +1671,12 @@ def record_create_step3_view(request):
     }
 
     if request.method == 'POST':
+        def return_error_with_data(msg):
+            messages.error(request, msg)
+            ctx = dict(context_extra)
+            ctx['form_data'] = request.POST
+            return render(request, 'permits/create_step3.html', ctx)
+
         barangay_id = request.POST.get('barangay')
         year = request.POST.get('year') or None
         status = request.POST.get('status', 'active')
@@ -1624,29 +1686,24 @@ def record_create_step3_view(request):
             try:
                 year_val = int(year)
                 if year_val > current_year:
-                    messages.error(request, f"Filing year cannot be in the future (max {current_year}).")
-                    return render(request, 'permits/create_step3.html', context_extra)
+                    return return_error_with_data(f"Filing year cannot be in the future (max {current_year}).")
             except ValueError:
-                messages.error(request, "Invalid year value.")
-                return render(request, 'permits/create_step3.html', context_extra)
+                return return_error_with_data("Invalid year value.")
         
         if category == 'permit':
             applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
             if not applicant_name:
-                messages.error(request, "Applicant / Property Owner name is required for permits.")
-                return render(request, 'permits/create_step3.html', context_extra)
+                return return_error_with_data("Applicant Name is required for permits.")
             permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
             title = permit_number + ' — ' + applicant_name if permit_number else applicant_name
         else:
             title = sanitize_input(request.POST.get('title', '')).strip()
             contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
             if not contractor_val:
-                messages.error(request, "Contractor is required for projects (or specify 'By Administration').")
-                return render(request, 'permits/create_step3.html', context_extra)
+                return return_error_with_data("Contractor is required for projects (or specify 'By Administration').")
             
         if not barangay_id or not title or not year:
-            messages.error(request, "Please fill in all required fields.")
-            return render(request, 'permits/create_step3.html', context_extra)
+            return return_error_with_data("Please fill in all required fields.")
             
         is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
         illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
@@ -2300,6 +2357,29 @@ def record_detail_view(request, record_id):
         else:
             parent_reqs.append(req)
 
+    # Dynamic Origin Resolution (Context-Aware Navigation)
+    origin = request.GET.get('from', '').strip().lower()
+    if not origin:
+        referer = request.META.get('HTTP_REFERER', '')
+        if 'illegal-constructions' in referer:
+            origin = 'illegal'
+        elif 'barangays' in referer or 'barangay' in referer:
+            origin = 'barangay'
+        elif 'records' in referer:
+            origin = 'records'
+        else:
+            origin = 'illegal' if (record.is_illegal_construction and record.illegal_compliance_status != 'resolved') else 'records'
+
+    if origin == 'illegal':
+        active_tab = 'illegal'
+        back_fallback_url = reverse('illegal_constructions')
+    elif origin == 'barangay' and record.barangay_id:
+        active_tab = 'barangays'
+        back_fallback_url = reverse('barangay_workspace', kwargs={'barangay_id': record.barangay_id})
+    else:
+        active_tab = 'records'
+        back_fallback_url = reverse('records_browse')
+
     import datetime
     today = timezone.now().date()
     thirty_days_later = today + datetime.timedelta(days=30)
@@ -2317,10 +2397,13 @@ def record_detail_view(request, record_id):
         'permit_detail': permit_detail,
         'project_detail': project_detail,
         'timeline': timeline,
+        'latest_log': timeline.first(),
         'related_records': related_records,
-        'can_edit': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
+        'can_edit': (request.user.role in ['admin', 'staff']),
         'can_archive': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
-        'active_tab': 'illegal' if record.is_illegal_construction else 'records',
+        'active_tab': active_tab,
+        'origin': origin,
+        'back_fallback_url': back_fallback_url,
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'today': today,
@@ -2374,7 +2457,7 @@ def record_requirement_detail_view(request, record_id, req_id):
         doc_url_map[doc.document_id] = url
         doc_url_map[str(doc.document_id)] = url
 
-    can_edit = (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user))
+    can_edit = (request.user.role in ['admin', 'staff'])
 
     # Stats
     total_sub = len(sub_reqs) if sub_reqs else 1
@@ -2450,27 +2533,26 @@ def regularize_record_view(request, record_id):
         permit_type = sanitize_input(request.POST.get('permit_type', 'Building Permit')).strip()
         permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
         applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
-        building_type = sanitize_input(request.POST.get('building_type', 'Residential')).strip()
+        building_type = sanitize_input(request.POST.get('building_type', '')).strip()
+
+        if not permit_number or not applicant_name or not building_type:
+            messages.error(request, "Permit Number, Property Owner, and Building Type are all required to regularize this record.")
+            return redirect('record_detail', record_id=record.record_id)
 
         # Update or create PermitDetail
         permit_detail, created = PermitDetail.objects.get_or_create(engineering_record=record)
         permit_detail.permit_type = permit_type
-        if permit_number:
-            permit_detail.permit_number = permit_number
-        if applicant_name:
-            permit_detail.applicant_name = applicant_name
-        if building_type:
-            permit_detail.building_type = building_type
+        permit_detail.permit_number = permit_number
+        permit_detail.applicant_name = applicant_name
+        permit_detail.building_type = building_type
+        if not permit_detail.date_issued:
+            permit_detail.date_issued = timezone.now().date()
         permit_detail.save()
 
-        # Update EngineeringRecord
+        # Update EngineeringRecord — preserve original Structure Name in record.title
         record.record_type = 'Permit'
         record.is_illegal_construction = True
         record.illegal_compliance_status = 'resolved'
-        if permit_number and applicant_name:
-            record.title = f"{permit_number} — {applicant_name}"
-        elif applicant_name:
-            record.title = applicant_name
         record.save()
 
         # Auto-populate checklist slots for the regularized permit type
@@ -2494,6 +2576,9 @@ def regularize_record_view(request, record_id):
             request,
             f"Successfully regularized case into official {permit_type}! Record is now available in Master Records."
         )
+        origin_param = request.POST.get('from', '').strip() or 'illegal'
+        redirect_url = reverse('record_detail', kwargs={'record_id': record.record_id}) + f"?from={origin_param}"
+        return redirect(redirect_url)
 
     return redirect('record_detail', record_id=record.record_id)
 
@@ -2510,7 +2595,7 @@ def flag_illegal_construction_view(request):
         barangay_id = request.POST.get('barangay', '')
         location_address = sanitize_input(request.POST.get('location_address', '')).strip()
         violation_type = sanitize_input(request.POST.get('violation_type', 'Unpermitted Construction')).strip()
-        structure_type = sanitize_input(request.POST.get('structure_type', 'Residential')).strip()
+        structure_type = sanitize_input(request.POST.get('structure_type', '')).strip()
         action_taken = sanitize_input(request.POST.get('action_taken', 'Notice of Violation / Stop Order Issued')).strip()
         description = sanitize_input(request.POST.get('description', '')).strip()
         date_discovered_str = request.POST.get('date_discovered', '')
@@ -2545,22 +2630,36 @@ def flag_illegal_construction_view(request):
                 date_discovered = timezone.now().date()
         else:
             date_discovered = timezone.now().date()
-        
-        # Build a clear, structured description matching official LGU inspection forms
+
         desc_parts = []
         if violation_type:
-            desc_parts.append(f"Violation Category: {violation_type}")
+            desc_parts.append(f"Violation: {violation_type}")
         if structure_type:
-            desc_parts.append(f"Structure Type: {structure_type}")
+            desc_parts.append(f"Building Type: {structure_type}")
         if location_address:
             desc_parts.append(f"Location: {location_address}")
-        if action_taken:
-            desc_parts.append(f"Enforcement Action: {action_taken}")
         if description:
-            desc_parts.append(f"Inspection Notes: {description}")
-        import html
-        full_description = html.unescape('\n'.join(desc_parts)) if desc_parts else title
-        
+            desc_parts.append(description)
+        if remarks:
+            desc_parts.append(remarks)
+        full_description = " • ".join(desc_parts) if desc_parts else "Unpermitted Construction Incident Report"
+
+        # Parse latitude and longitude coordinates if pinpointed on map
+        lat_val = request.POST.get('latitude', '').strip()
+        lng_val = request.POST.get('longitude', '').strip()
+        lat = None
+        lng = None
+        if lat_val and lng_val:
+            try:
+                lat = float(lat_val)
+                lng = float(lng_val)
+            except (ValueError, TypeError):
+                lat = None
+                lng = None
+        if lat is None or lng is None:
+            lat = barangay.latitude
+            lng = barangay.longitude
+
         record = EngineeringRecord.objects.create(
             record_type='Permit',
             project_scope='',
@@ -2572,6 +2671,8 @@ def flag_illegal_construction_view(request):
             date_started=date_discovered,
             is_illegal_construction=True,
             illegal_compliance_status='unresolved',
+            latitude=lat,
+            longitude=lng,
             created_by=request.user
         )
         
@@ -2580,7 +2681,7 @@ def flag_illegal_construction_view(request):
             engineering_record=record,
             permit_type='Violation Report',
             applicant_name=owner_name or '',
-            building_type=structure_type if structure_type else 'Residential'
+            building_type=structure_type if structure_type else ''
         )
 
         # Handle photo/document upload (Digital Evidence Storage)
@@ -2654,9 +2755,7 @@ def toggle_requirement_waived_view(request, req_id):
 def record_edit_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
 
-    # Permission check
-    if request.user.role == 'staff' and record.created_by != request.user:
-        raise PermissionDenied("You can only edit your own records.")
+    # Permission check: All active staff and admins can edit
     if request.user.role not in ['staff', 'admin']:
         raise PermissionDenied("You do not have permission to edit records.")
 
@@ -2725,6 +2824,26 @@ def record_edit_view(request, record_id):
                 detail.permit_type = new_subtype
                 detail.building_type = request.POST.get('building_type', detail.building_type)
                 new_permit_num = sanitize_input(request.POST.get('permit_number', '')).strip()
+
+                # Enforce valid permit details when regularizing violations
+                if record.is_illegal_construction:
+                    if record.illegal_compliance_status == 'resolved':
+                        if not new_permit_num:
+                            messages.error(request, "Official Permit Number is required to regularize this violation record.")
+                            return redirect('edit_record', record_id=record.record_id)
+                        new_bldg_type = sanitize_input(request.POST.get('building_type', '')).strip()
+                        if not new_bldg_type:
+                            messages.error(request, "Building Type is required to regularize this violation record.")
+                            return redirect('edit_record', record_id=record.record_id)
+                        detail.building_type = new_bldg_type
+                        detail.permit_type = request.POST.get('permit_type', detail.permit_type or 'Building Permit')
+                        date_issued_val = request.POST.get('date_issued', '').strip()
+                        detail.date_issued = date_issued_val if date_issued_val else timezone.now().date()
+                    else:
+                        # Clear issued permit data if violation is not yet regularized
+                        new_permit_num = ''
+                        detail.date_issued = None
+
                 if new_permit_num:
                     dup_permit = PermitDetail.objects.filter(
                         permit_number__iexact=new_permit_num
@@ -2734,16 +2853,18 @@ def record_edit_view(request, record_id):
                         return redirect('edit_record', record_id=record.record_id)
                 detail.permit_number = new_permit_num
                 detail.applicant_name = applicant_name_val
-                date_issued_val = request.POST.get('date_issued', '').strip()
-                detail.date_issued = date_issued_val if date_issued_val else None
-                if date_issued_val:
-                    try:
-                        from datetime import datetime
-                        parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
-                        record.date_started = parsed_d
-                        record.year = parsed_d.year
-                    except (ValueError, TypeError):
-                        pass
+
+                if not record.is_illegal_construction:
+                    date_issued_val = request.POST.get('date_issued', '').strip()
+                    detail.date_issued = date_issued_val if date_issued_val else None
+                    if date_issued_val:
+                        try:
+                            from datetime import datetime
+                            parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
+                            record.date_started = parsed_d
+                            record.year = parsed_d.year
+                        except (ValueError, TypeError):
+                            pass
                 detail.resolution_required = request.POST.get('resolution_required') == 'on'
                 detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
                 detail.save()
@@ -5257,15 +5378,21 @@ def profile_view(request):
             confirm_new_password = request.POST.get('confirm_new_password', '')
 
             if not user.check_password(current_password):
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "Current password is incorrect."}, status=400)
                 messages.error(request, "Current password is incorrect.")
                 return redirect('profile')
 
             if new_password != confirm_new_password:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "New passwords do not match."}, status=400)
                 messages.error(request, "New passwords do not match.")
                 return redirect('profile')
 
             ok, err_msg = validate_password_strength(new_password)
             if not ok:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': err_msg}, status=400)
                 messages.error(request, err_msg)
                 return redirect('profile')
 
@@ -5280,6 +5407,8 @@ def profile_view(request):
                 matched_history = True
 
             if matched_history:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "Cannot reuse any of your last 3 passwords."}, status=400)
                 messages.error(request, "Cannot reuse the last 3 passwords.")
                 return redirect('profile')
 
@@ -5295,6 +5424,8 @@ def profile_view(request):
                     h.delete()
 
             log_audit(user, "Changed password", request=request)
+            if is_ajax:
+                return JsonResponse({'success': True, 'message': "Password changed successfully."})
             messages.success(request, "Password changed successfully.")
             return redirect('profile')
 
@@ -5953,7 +6084,7 @@ def download_record_zip_view(request, record_id):
         messages.warning(request, f"No uploaded documents found for '{record.title}' to download.")
         return redirect('record_detail', record_id=record.record_id)
 
-    buffer = build_record_zip_buffer(record, _get_document_stream)
+    buffer = build_record_zip_buffer(record, _get_document_stream, user=request.user)
     export_name = get_record_export_name(record, include_location=True)
     filename = f"{export_name}.zip"
     val = buffer.getvalue()
@@ -5995,15 +6126,15 @@ def download_category_zip_view(request, record_id, req_id):
 def download_barangay_zip_view(request, barangay_id):
     """Downloads all documents for an entire Barangay as a structured ZIP archive."""
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
-    doc_count = Document.objects.filter(
-        engineering_record__barangay=barangay
-    ).exclude(engineering_record__status='archived').count()
+    records_count = EngineeringRecord.objects.filter(
+        barangay=barangay
+    ).exclude(status='archived').count()
 
-    if doc_count == 0:
-        messages.warning(request, f"No uploaded documents found for Barangay {barangay.barangay_name} to download.")
+    if records_count == 0:
+        messages.warning(request, f"No records found for Barangay {barangay.barangay_name} to download.")
         return redirect(request.META.get('HTTP_REFERER') or 'barangays')
 
-    buffer = build_barangay_zip_buffer(barangay, _get_document_stream)
+    buffer = build_barangay_zip_buffer(barangay, _get_document_stream, user=request.user)
     clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30).replace(" ", "_")
     filename = f"{clean_b_name}.zip"
     val = buffer.getvalue()
@@ -6026,7 +6157,7 @@ def download_municipal_zip_view(request):
         messages.warning(request, "No uploaded documents found to download.")
         return redirect('records_browse')
 
-    buffer = build_municipal_zip_buffer(_get_document_stream)
+    buffer = build_municipal_zip_buffer(_get_document_stream, user=request.user)
     today_str = timezone.now().strftime('%Y-%m-%d')
     filename = f"Carigara_Engineering_Records_{today_str}.zip"
     val = buffer.getvalue()

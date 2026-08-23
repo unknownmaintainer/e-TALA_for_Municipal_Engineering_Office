@@ -1,86 +1,128 @@
 <!-- ══ LGU BUILDING OFFICIAL VIOLATION & INSPECTION REPORT MODAL ══ -->
 <div class="modal fade" id="flagIllegalModal" tabindex="-1" aria-labelledby="flagIllegalModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 560px;">
         <div class="modal-content border-0 shadow-xl" style="border-radius: 16px; overflow: hidden;">
 
             <!-- Modal Header -->
             <div class="modal-header border-bottom px-4 py-2.5 bg-white d-flex align-items-center justify-content-between flex-shrink-0">
                 <div class="d-flex align-items-center gap-2.5">
                     <div class="d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 34px; height: 34px; background: rgba(220, 38, 38, 0.12); border: 1px solid rgba(220, 38, 38, 0.25); border-radius: 9px; color: #dc2626;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 14px;"></i>
+                        style="width: 36px; height: 36px; background: rgba(220, 38, 38, 0.10); border: 1px solid rgba(220, 38, 38, 0.22); border-radius: 10px; color: #dc2626;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 15px;"></i>
                     </div>
                     <div>
                         <h5 class="modal-title fw-bold mb-0 text-dark" id="flagIllegalModalLabel"
-                            style="font-size: 0.96rem; letter-spacing: -0.01em;">
+                            style="font-size: 0.98rem; letter-spacing: -0.01em;">
                             Report Violation
                         </h5>
-                        <p class="mb-0 text-muted" style="font-size: 0.70rem;">
-                            Record illegal or unpermitted construction incident
+                        <p class="mb-0 text-muted" style="font-size: 0.72rem;">
+                            Log a building code or unpermitted construction incident
                         </p>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                    style="font-size: 0.70rem;"></button>
+                    style="font-size: 0.72rem;"></button>
             </div>
 
             <form method="POST" action="{% url 'flag_illegal_construction' %}" enctype="multipart/form-data"
                 id="flagIllegalForm" class="d-flex flex-column" style="margin-bottom: 0;">
                 {% csrf_token %}
 
-                <div class="modal-body px-4 py-2.5" style="overflow-y: hidden;">
-
-                    <!-- Section Header -->
-                    <div class="d-flex align-items-center gap-1.5 mb-2 pb-1 border-bottom violation-section-header">
-                        <i class="fa-solid fa-triangle-exclamation text-danger" style="font-size: 10px;"></i>
-                        <span class="fw-bold" style="font-size: 0.68rem; letter-spacing: 0.5px; text-transform: uppercase; color: #dc2626;">Violation Details</span>
-                    </div>
+                <div class="modal-body px-4 py-3" style="overflow-y: auto; max-height: calc(85vh - 110px);">
 
                     <div class="row g-2.5">
-                        <!-- Row 1: Structure/Incident Name & Barangay -->
+                        <!-- Row 1: Structure Name & Barangay -->
                         <div class="col-md-6">
-                            <label class="cr-label">Structure / Incident Name <span class="text-danger fw-bold">*</span></label>
+                            <label class="cr-label">Structure Name <span class="text-danger fw-bold">*</span></label>
                             <input type="text" name="title" class="form-control cr-field"
-                                placeholder="e.g. 2-Storey Commercial Building" maxlength="80" required>
+                                placeholder="e.g. Commercial Building" maxlength="80" required>
                         </div>
                         <div class="col-md-6">
                             <label class="cr-label">Barangay <span class="text-danger fw-bold">*</span></label>
-                            <select name="barangay" class="form-select cr-field" required>
+                            <select name="barangay" id="flagBarangaySelect" class="form-select cr-field" required>
                                 <option value="" disabled selected>— Select Barangay —</option>
                                 {% for b in barangays %}
-                                <option value="{{ b.barangay_id }}">{{ b.barangay_name }}</option>
+                                <option value="{{ b.barangay_id }}"
+                                    data-lat="{{ b.latitude|default:'' }}"
+                                    data-lng="{{ b.longitude|default:'' }}"
+                                    data-name="{{ b.barangay_name }}">{{ b.barangay_name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
 
-                        <!-- Row 2: Applicant / Owner & Violation Type -->
+                        <!-- Interactive GIS Map Location Pinpoint Section -->
+                        <div class="col-12 mt-1">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <label class="cr-label mb-0 d-flex align-items-center gap-1.5">
+                                    <i class="fa-solid fa-map-location-dot text-danger" style="font-size: 11px;"></i>
+                                    <span>Pinpoint Location on Map</span>
+                                    <span class="text-muted fw-normal" style="font-size: 0.69rem;">(Tap lot on map to set GPS)</span>
+                                </label>
+                                <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 d-none text-danger fw-semibold" id="flagResetPinBtn" style="font-size: 0.70rem;">
+                                    <i class="fa-solid fa-rotate-left me-1"></i>Clear Pin
+                                </button>
+                            </div>
+
+                            <!-- Hidden Lat/Lng Inputs -->
+                            <input type="hidden" name="latitude" id="flagLocationLat" value="">
+                            <input type="hidden" name="longitude" id="flagLocationLng" value="">
+
+                            <!-- Mini Map Card Container -->
+                            <div class="flag-map-wrapper rounded-3 overflow-hidden border position-relative shadow-2xs"
+                                style="height: 175px; background: #f8fafc; border-color: #cbd5e1 !important;">
+                                <!-- Layer Switcher Pill -->
+                                <div class="position-absolute end-0 top-0 m-2 z-3 d-flex align-items-center bg-white shadow-sm rounded-2 border p-0.5 flag-map-layer-pill"
+                                    style="font-size: 0.68rem; z-index: 1000;">
+                                    <button type="button" class="btn btn-xs px-2.5 py-0.5 rounded-1 fw-semibold flag-layer-btn active"
+                                        id="btnFlagSat" onclick="switchFlagMapLayer('satellite')" style="font-size: 0.68rem; line-height: 1.2;">Satellite</button>
+                                    <button type="button" class="btn btn-xs px-2.5 py-0.5 rounded-1 fw-semibold flag-layer-btn text-muted"
+                                        id="btnFlagStreet" onclick="switchFlagMapLayer('streets')" style="font-size: 0.68rem; line-height: 1.2;">Street</button>
+                                </div>
+
+                                <div id="flagLocationMap" style="width: 100%; height: 100%;"></div>
+
+                                <!-- Guide Badge Overlay -->
+                                <div id="flagMapGuideOverlay"
+                                    class="position-absolute start-50 bottom-0 translate-middle-x mb-2 text-white px-3 py-1 rounded-pill shadow-sm pointer-events-none d-flex align-items-center gap-1.5"
+                                    style="font-size: 0.68rem; z-index: 999; white-space: nowrap; background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(4px);">
+                                    <i class="fa-solid fa-crosshairs text-warning" style="font-size: 9px;" id="flagMapGuideIcon"></i>
+                                    <span id="flagMapGuideText">Select barangay or click map to drop GPS pin</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Property Owner & Violation Type -->
                         <div class="col-md-6">
-                            <label class="cr-label">Applicant / Property Owner</label>
+                            <label class="cr-label">Property Owner <span class="text-muted fw-normal">(Optional)</span></label>
                             <input type="text" name="applicant_name" class="form-control cr-field"
                                 placeholder="e.g. Juan Dela Cruz" maxlength="60">
                         </div>
                         <div class="col-md-6">
                             <label class="cr-label">Violation Type <span class="text-danger fw-bold">*</span></label>
                             <select name="violation_type" class="form-select cr-field" required>
-                                <option value="Unpermitted Construction" selected>Unpermitted Construction</option>
-                                <option value="Deviation from Approved Plans">Deviation from Approved Plans</option>
-                                <option value="Setback & Right-of-Way Encroachment">Setback / ROW Encroachment</option>
-                                <option value="Dangerous & Ruinous Structure">Dangerous / Ruinous Structure</option>
+                                <option value="" disabled selected>— Select Violation Type —</option>
+                                <option value="No Building Permit">No Building Permit</option>
+                                <option value="Illegal Renovation or Demolition">Illegal Renovation or Demolition</option>
+                                <option value="Plan Deviation">Plan Deviation</option>
+                                <option value="Road or Boundary Encroachment">Road or Boundary Encroachment</option>
                                 <option value="No Occupancy Permit">No Occupancy Permit</option>
-                                <option value="Other Non-compliance">Other Non-compliance</option>
+                                <option value="Dangerous or Damaged Structure">Dangerous or Damaged Structure</option>
+                                <option value="Safety & Hazard Violation">Safety & Hazard Violation</option>
+                                <option value="Other Violation">Other Violation</option>
                             </select>
                         </div>
 
-                        <!-- Row 3: Date Discovered / Inspected & Building Type -->
+                        <!-- Row 3: Date Inspected & Building Type -->
                         <div class="col-md-6">
-                            <label class="cr-label">Date Discovered / Inspected <span class="text-danger fw-bold">*</span></label>
+                            <label class="cr-label">Date Inspected <span class="text-danger fw-bold">*</span></label>
                             <input type="date" name="date_discovered" class="form-control cr-field"
                                 value="{% now 'Y-m-d' %}" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="cr-label">Building Type</label>
+                            <label class="cr-label">Building Type <span class="text-muted fw-normal">(Optional)</span></label>
                             <select name="structure_type" class="form-select cr-field">
-                                <option value="Residential" selected>Residential</option>
+                                <option value="" selected>— Select Building Type —</option>
+                                <option value="Residential">Residential</option>
                                 <option value="Commercial">Commercial</option>
                                 <option value="Industrial">Industrial</option>
                                 <option value="Institutional">Institutional</option>
@@ -127,12 +169,12 @@
                             </div>
                         </div>
 
-                        <!-- Row 5: Notes / Observations -->
+                        <!-- Row 5: Remarks / Notes -->
                         <div class="col-12">
-                            <label class="cr-label">Description / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
+                            <label class="cr-label">Remarks / Notes <span class="text-muted fw-normal">(Optional)</span></label>
                             <textarea name="description" class="form-control cr-field char-counted" rows="2"
                                 maxlength="250"
-                                placeholder="Location details, ongoing works, or notes..." style="height: auto; min-height: 42px; resize: none;"></textarea>
+                                placeholder="Enter additional notes or observations..." style="height: auto; min-height: 42px; resize: none;"></textarea>
                             <div class="text-end text-muted small mt-0.5 char-counter-lbl" style="font-size: 0.66rem;">0 / 250 characters</div>
                         </div>
                     </div>
@@ -145,7 +187,7 @@
                         data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.80rem; height: 34px;">
                         Cancel
                     </button>
-                    <button type="submit"
+                    <button type="submit" form="flagIllegalForm"
                         class="btn text-white px-3.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5"
                         style="border-radius: 8px; font-size: 0.80rem; height: 34px; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.22);">
                         <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
@@ -460,13 +502,291 @@
     .dark-mode .violation-section-header {
         border-bottom-color: #334155 !important;
     }
+
+    /* Flag Mini Map Styles */
+    .flag-layer-btn {
+        border: none;
+        background: transparent;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .flag-layer-btn.active {
+        background: #0284c7 !important;
+        color: #ffffff !important;
+    }
+    .dark-mode .flag-map-wrapper {
+        border-color: #334155 !important;
+        background: #0f172a !important;
+    }
+    .dark-mode .flag-layer-btn.active {
+        background: #38bdf8 !important;
+        color: #0f172a !important;
+    }
+
+    /* High-Contrast Leaflet Zoom Controls (Light & Dark Mode) */
+    #flagIllegalModal .leaflet-control-zoom,
+    .flag-map-wrapper .leaflet-control-zoom {
+        border: none !important;
+        margin-top: 8px !important;
+        margin-left: 8px !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    #flagIllegalModal .leaflet-control-zoom a,
+    .flag-map-wrapper .leaflet-control-zoom a,
+    #flagIllegalModal .leaflet-bar a,
+    .flag-map-wrapper .leaflet-bar a {
+        width: 26px !important;
+        height: 26px !important;
+        line-height: 24px !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important; /* Bold dark text in light mode */
+        border: none !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        border-radius: 0 !important;
+        transition: all 0.15s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-decoration: none !important;
+    }
+
+    #flagIllegalModal .leaflet-control-zoom a:last-child,
+    .flag-map-wrapper .leaflet-control-zoom a:last-child {
+        border-bottom: none !important;
+    }
+
+    #flagIllegalModal .leaflet-control-zoom a:hover,
+    .flag-map-wrapper .leaflet-control-zoom a:hover {
+        background-color: #f1f5f9 !important;
+        color: #dc2626 !important;
+    }
+
+    /* Dark Mode: Sleek dark-slate background with crisp white plus/minus */
+    .dark-mode #flagIllegalModal .leaflet-control-zoom a,
+    [data-bs-theme="dark"] #flagIllegalModal .leaflet-control-zoom a,
+    .dark-mode .flag-map-wrapper .leaflet-control-zoom a,
+    [data-bs-theme="dark"] .flag-map-wrapper .leaflet-control-zoom a,
+    .dark-mode #flagIllegalModal .leaflet-bar a,
+    [data-bs-theme="dark"] #flagIllegalModal .leaflet-bar a,
+    .dark-mode .flag-map-wrapper .leaflet-bar a,
+    [data-bs-theme="dark"] .flag-map-wrapper .leaflet-bar a {
+        background-color: #1e293b !important;
+        color: #ffffff !important; /* Crisp white text in dark mode */
+        border-bottom-color: #334155 !important;
+    }
+
+    .dark-mode #flagIllegalModal .leaflet-control-zoom a:hover,
+    [data-bs-theme="dark"] #flagIllegalModal .leaflet-control-zoom a:hover,
+    .dark-mode .flag-map-wrapper .leaflet-control-zoom a:hover,
+    [data-bs-theme="dark"] .flag-map-wrapper .leaflet-control-zoom a:hover {
+        background-color: #334155 !important;
+        color: #f87171 !important;
+    }
+
+    .dark-mode .flag-map-layer-pill,
+    [data-bs-theme="dark"] .flag-map-layer-pill {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
 </style>
 
+<!-- Leaflet Map CSS & JS Fallback -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+(function () {
+    if (window.flagModalScriptLoaded) return;
+    window.flagModalScriptLoaded = true;
+
+    window.flagMap = null;
+    window.flagMarker = null;
+    window.flagTileLayers = {};
+    window.flagActiveTileLayer = null;
+
+    window.switchFlagMapLayer = function (layerKey) {
+        if (!window.flagMap || !window.flagTileLayers[layerKey]) return;
+        if (window.flagActiveTileLayer && window.flagMap.hasLayer(window.flagActiveTileLayer)) {
+            window.flagMap.removeLayer(window.flagActiveTileLayer);
+        }
+        window.flagActiveTileLayer = window.flagTileLayers[layerKey];
+        window.flagActiveTileLayer.addTo(window.flagMap);
+
+        const btnSat = document.getElementById('btnFlagSat');
+        const btnStreet = document.getElementById('btnFlagStreet');
+        if (btnSat && btnStreet) {
+            if (layerKey === 'satellite') {
+                btnSat.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn active';
+                btnStreet.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn text-muted';
+            } else {
+                btnSat.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn text-muted';
+                btnStreet.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn active';
+            }
+        }
+    };
+
+    window.initFlagLocationMap = function () {
+        const mapEl = document.getElementById('flagLocationMap');
+        if (!mapEl || typeof L === 'undefined') return;
+
+        if (window.flagMap) {
+            setTimeout(() => window.flagMap.invalidateSize(), 150);
+            return;
+        }
+
+        const defaultLat = 11.2952;
+        const defaultLng = 124.6853;
+
+        window.flagMap = L.map('flagLocationMap', {
+            zoomControl: true,
+            attributionControl: false,
+            preferCanvas: true
+        }).setView([defaultLat, defaultLng], 13);
+
+        window.flagTileLayers['satellite'] = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
+            maxZoom: 19,
+            maxNativeZoom: 18,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
+
+        window.flagTileLayers['streets'] = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2', {
+            maxZoom: 19,
+            maxNativeZoom: 19,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
+
+        window.flagActiveTileLayer = window.flagTileLayers['satellite'];
+        window.flagActiveTileLayer.addTo(window.flagMap);
+
+        // Click anywhere on map to drop / move pin
+        window.flagMap.on('click', function (e) {
+            window.setFlagLocationPin(e.latlng.lat, e.latlng.lng);
+        });
+    };
+
+    window.createFlagPinIcon = function () {
+        return L.divIcon({
+            html: `
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 32px; height: 42px; cursor: pointer; filter: drop-shadow(0 4px 10px rgba(220, 38, 38, 0.6));">
+                <svg viewBox="0 0 32 38" width="32" height="38">
+                    <defs>
+                        <linearGradient id="flagPinRedGrad" x1="15%" y1="0%" x2="85%" y2="100%">
+                            <stop offset="0%" stop-color="#ff4d4d"/>
+                            <stop offset="50%" stop-color="#dc2626"/>
+                            <stop offset="100%" stop-color="#991b1b"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M 16 2 C 8.82 2 3 7.82 3 15 C 3 24 14.2 33.8 15.35 34.8 C 15.7 35.1 16.3 35.1 16.65 34.8 C 17.8 33.8 29 24 29 15 C 29 7.82 23.18 2 16 2 Z" fill="url(#flagPinRedGrad)"/>
+                    <circle cx="16" cy="14" r="5.2" fill="#ffffff"/>
+                    <circle cx="16" cy="14" r="2.8" fill="#991b1b"/>
+                </svg>
+            </div>`,
+            className: 'flag-custom-pin-icon',
+            iconSize: [32, 42],
+            iconAnchor: [16, 40]
+        });
+    };
+
+    window.setFlagLocationPin = function (lat, lng) {
+        const roundedLat = parseFloat(lat).toFixed(6);
+        const roundedLng = parseFloat(lng).toFixed(6);
+
+        const latInput = document.getElementById('flagLocationLat');
+        const lngInput = document.getElementById('flagLocationLng');
+        if (latInput) latInput.value = roundedLat;
+        if (lngInput) lngInput.value = roundedLng;
+
+        if (window.flagMarker) {
+            window.flagMarker.setLatLng([roundedLat, roundedLng]);
+        } else if (window.flagMap) {
+            window.flagMarker = L.marker([roundedLat, roundedLng], {
+                icon: window.createFlagPinIcon(),
+                draggable: true
+            }).addTo(window.flagMap);
+
+            window.flagMarker.on('dragend', function (e) {
+                const pos = e.target.getLatLng();
+                window.setFlagLocationPin(pos.lat, pos.lng);
+            });
+        }
+
+        const guideText = document.getElementById('flagMapGuideText');
+        const guideIcon = document.getElementById('flagMapGuideIcon');
+        const resetBtn = document.getElementById('flagResetPinBtn');
+        if (guideText) guideText.textContent = `GPS Pinpoint: ${roundedLat}, ${roundedLng}`;
+        if (guideIcon) guideIcon.className = 'fa-solid fa-location-dot text-danger';
+        if (resetBtn) resetBtn.classList.remove('d-none');
+    };
+
+    window.clearFlagLocationPin = function () {
+        if (window.flagMarker && window.flagMap) {
+            window.flagMap.removeLayer(window.flagMarker);
+            window.flagMarker = null;
+        }
+        const latInput = document.getElementById('flagLocationLat');
+        const lngInput = document.getElementById('flagLocationLng');
+        if (latInput) latInput.value = '';
+        if (lngInput) lngInput.value = '';
+
+        const guideText = document.getElementById('flagMapGuideText');
+        const guideIcon = document.getElementById('flagMapGuideIcon');
+        const resetBtn = document.getElementById('flagResetPinBtn');
+        if (guideText) guideText.textContent = 'Select barangay or click map to drop GPS pin';
+        if (guideIcon) guideIcon.className = 'fa-solid fa-crosshairs text-warning';
+        if (resetBtn) resetBtn.classList.add('d-none');
+    };
+
+    function setupFlagModalHandlers() {
         const modalEl = document.getElementById('flagIllegalModal');
         if (modalEl && modalEl.parentElement !== document.body) {
             document.body.appendChild(modalEl);
+        }
+
+        // Initialize map when modal is opened
+        if (modalEl) {
+            modalEl.addEventListener('shown.bs.modal', function () {
+                window.initFlagLocationMap();
+                if (window.flagMap) {
+                    setTimeout(() => window.flagMap.invalidateSize(), 200);
+                }
+            });
+
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                window.clearFlagLocationPin();
+            });
+        }
+
+        // Auto-center map when user selects a barangay
+        const brgySelect = document.getElementById('flagBarangaySelect');
+        if (brgySelect) {
+            brgySelect.addEventListener('change', function () {
+                const opt = this.options[this.selectedIndex];
+                if (opt) {
+                    const lat = parseFloat(opt.getAttribute('data-lat'));
+                    const lng = parseFloat(opt.getAttribute('data-lng'));
+                    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && window.flagMap) {
+                        window.flagMap.flyTo([lat, lng], 16, {
+                            animate: true,
+                            duration: 0.6
+                        });
+                    }
+                }
+            });
+        }
+
+        // Clear pin button
+        const resetBtn = document.getElementById('flagResetPinBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.clearFlagLocationPin();
+            });
         }
 
         const photoInput = document.getElementById('flagPhotoInput');
@@ -529,5 +849,12 @@
                 }
             });
         });
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupFlagModalHandlers);
+    } else {
+        setupFlagModalHandlers();
+    }
+})();
 </script>

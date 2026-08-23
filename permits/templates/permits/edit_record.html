@@ -73,14 +73,15 @@
 
                         <div class="row g-3.5">
 
-                            <!-- ── 1. ILLEGAL CONSTRUCTION VIOLATION FIELDS ───────── -->
+                            <!-- ── 1. ILLEGAL CONSTRUCTION FIELDS ───────── -->
                             {% if record.is_illegal_construction %}
+                            <!-- Row 1: Structure Name & Barangay -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Structure / Incident Name <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Structure Name <span class="text-danger fw-bold">*</span></label>
                                 </div>
                                 <input type="text" name="title" class="form-control rounded-3" value="{{ record.title }}" maxlength="80" required
-                                    placeholder="e.g. 2-Storey Commercial Building" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    placeholder="e.g. Commercial Building" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
@@ -96,10 +97,10 @@
                                 </select>
                             </div>
 
-                            <!-- Row 2: Owner/Violator Name & Compliance Status -->
+                            <!-- Row 2: Property Owner & Compliance Status -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Applicant / Property Owner</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Property Owner <span class="text-muted fw-normal">(Optional)</span></label>
                                 </div>
                                 <input type="text" name="applicant_name" class="form-control rounded-3"
                                     value="{% if permit_detail.applicant_name and permit_detail.applicant_name != 'Under Investigation' %}{{ permit_detail.applicant_name }}{% endif %}"
@@ -109,9 +110,9 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Compliance Status</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Compliance Status <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="illegal_compliance_status" id="complianceStatusSelect" class="form-select rounded-3"
+                                <select name="illegal_compliance_status" id="complianceStatusSelect" class="form-select rounded-3" required
                                     onchange="toggleViolationPermitFields(this.value)"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="unresolved" {% if record.illegal_compliance_status == 'unresolved' %}selected{% endif %}>Unresolved</option>
@@ -123,22 +124,24 @@
                             <!-- Row 3: Issued Permit Number & Permit Type (When Regularized) -->
                             <div class="col-md-6" id="violationPermitNumWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <input type="text" name="permit_number" class="form-control rounded-3"
+                                <input type="text" name="permit_number" id="violationPermitNumInput" class="form-control rounded-3"
                                     value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
+                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6" id="violationPermitTypeWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="permit_type" class="form-select rounded-3"
+                                <select name="permit_type" id="violationPermitTypeSelect" class="form-select rounded-3"
+                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select Permit Type —</option>
                                     {% for val, label in permit_types %}
-                                    <option value="{{ val }}" {% if permit_detail and permit_detail.permit_type == val %}selected{% endif %}>{{ label }}</option>
+                                    <option value="{{ val }}" {% if permit_detail and permit_detail.permit_type == val or not permit_detail.permit_type and val == 'Building Permit' %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -146,9 +149,9 @@
                             <!-- Row 4: Date Inspected & Date Issued -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Discovered / Inspected</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Inspected <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <input type="date" name="date_started" class="form-control rounded-3"
+                                <input type="date" name="date_started" class="form-control rounded-3" required
                                     placeholder="Select date inspected..."
                                     value="{{ record.date_started|date:'Y-m-d'|default:'' }}"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -156,21 +159,25 @@
 
                             <div class="col-md-6" id="violationDateIssuedWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <input type="date" name="date_issued" class="form-control rounded-3"
+                                <input type="date" name="date_issued" id="violationDateIssuedInput" class="form-control rounded-3"
                                     placeholder="Select date issued..."
                                     value="{{ permit_detail.date_issued|date:'Y-m-d'|default:'' }}"
+                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
-                            <div class="col-md-6" id="violationBuildingTypeWrapper" {% if record.illegal_compliance_status == 'resolved' %}style="display: none;"{% endif %}>
+                            <div class="col-md-6" id="violationBuildingTypeWrapper">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Building Type</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                        Building Type <span id="violationBldgTypeReq" class="{% if record.illegal_compliance_status == 'resolved' %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if record.illegal_compliance_status == 'resolved' %}*{% else %}(Optional){% endif %}</span>
+                                    </label>
                                 </div>
-                                <select name="building_type" class="form-select rounded-3"
+                                <select name="building_type" id="violationBuildingTypeSelect" class="form-select rounded-3"
+                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="" disabled selected>— Select Building Type —</option>
+                                    <option value="" disabled {% if not permit_detail or not permit_detail.building_type %}selected{% endif %}>— Select Building Type —</option>
                                     {% for val, label in building_types %}
                                     <option value="{{ val }}" {% if permit_detail and permit_detail.building_type == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -183,7 +190,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Applicant / Property Owner <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Applicant Name <span class="text-danger fw-bold">*</span></label>
                                 </div>
                                 <input type="text" name="applicant_name" class="form-control rounded-3"
                                     value="{{ permit_detail.applicant_name|default:record.title }}"
@@ -206,9 +213,9 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="permit_type" class="form-select rounded-3"
+                                <select name="permit_type" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select Permit Type —</option>
                                     {% for val, label in permit_types %}
@@ -219,9 +226,9 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Building Type</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Building Type <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="building_type" class="form-select rounded-3"
+                                <select name="building_type" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled selected>— Select Building Type —</option>
                                     {% for val, label in building_types %}
@@ -232,7 +239,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-muted fw-normal">(Optional)</span></label>
                                 </div>
                                 <input type="text" name="permit_number" class="form-control rounded-3"
                                     value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
@@ -241,7 +248,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-muted fw-normal">(Optional)</span></label>
                                 </div>
                                 <input type="date" name="date_issued" class="form-control rounded-3"
                                     placeholder="Select date issued..."
@@ -292,9 +299,9 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Category / Type</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Category / Type <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="project_type" class="form-select rounded-3"
+                                <select name="project_type" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select Project Type —</option>
                                     {% for val, label in project_types %}
@@ -305,18 +312,18 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Budget / Cost (₱)</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Budget / Cost (₱) <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <input type="number" name="project_cost" class="form-control rounded-3"
+                                <input type="number" name="project_cost" class="form-control rounded-3" required
                                     value="{{ project_detail.project_cost|default:'' }}" placeholder="₱ 0.00" step="0.01"
                                     min="0" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Funding Source</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Funding Source <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="funding_source" id="editFundingSourceSelect" class="form-select rounded-3"
+                                <select name="funding_source" id="editFundingSourceSelect" class="form-select rounded-3" required
                                     onchange="toggleEditFundingOther(this.value)"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select Funding Source —</option>
@@ -326,14 +333,14 @@
                                 </select>
                             </div>
 
-                            <!-- Row 5: Project Status | Date Completed -->
+                            <!-- Row 5: Project Status * | Date Completed (Optional) -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Status</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Status <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="project_status" class="form-select rounded-3"
+                                <select name="project_status" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="" disabled>— Select Status —</option>
+                                    <option value="" disabled {% if not project_detail or not project_detail.project_status %}selected{% endif %}>— Select Status —</option>
                                     {% for val, label in project_statuses %}
                                     <option value="{{ val }}" {% if project_detail and project_detail.project_status == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
@@ -342,7 +349,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Completed</label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Completed <span class="text-muted fw-normal">(Optional)</span></label>
                                 </div>
                                 <input type="date" name="date_completed" class="form-control rounded-3"
                                     placeholder="Select date completed..."
@@ -366,14 +373,14 @@
                             <input type="hidden" name="latitude" id="id_latitude" value="{{ record.latitude|default:'' }}">
                             <input type="hidden" name="longitude" id="id_longitude" value="{{ record.longitude|default:'' }}">
 
-                            <!-- Description -->
+                            <!-- Description / Remarks -->
                             <div class="col-12">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Description / Remarks <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Remarks / Notes <span class="text-muted fw-normal">(Optional)</span></label>
                                     <span class="text-muted small char-counter-lbl" style="font-size: 0.72rem;">0 / 250</span>
                                 </div>
                                 <textarea name="description" class="form-control rounded-3 char-counted" rows="2" maxlength="250"
-                                    placeholder="Optional description or remarks..."
+                                    placeholder="Enter additional notes or observations..."
                                     style="font-size: 0.85rem; padding: 7px 12px; min-height: 54px; resize: vertical;">{{ record.description }}</textarea>
                             </div>
                         </div>
@@ -441,12 +448,12 @@
                         </div>
                     </div>
 
-                    <!-- Applicant / Owner -->
+                    <!-- Applicant / Property Owner -->
                     {% if permit_detail and permit_detail.applicant_name|is_valid_applicant %}
                     <div class="py-1 border-bottom d-flex flex-column gap-0.5">
                         <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                             <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Applicant / Owner</span>
+                            <span>{% if record.is_illegal_construction %}Property Owner{% else %}Applicant Name{% endif %}</span>
                         </div>
                         <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
                             {{ permit_detail.applicant_name }}
@@ -608,20 +615,22 @@
                 <div class="pt-2 mt-2 border-top d-flex flex-column gap-1">
                     <div class="d-flex align-items-center gap-2 text-muted mb-1" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                         <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                        <span>Description &amp; Location Notes</span>
+                        <span>{% if record.is_illegal_construction %}Violation &amp; Inspection Notes{% else %}Description{% endif %}</span>
                     </div>
                     
                     {% for item in notes_list %}
-                    <div class="py-1 {% if not forloop.last %}border-bottom{% endif %} d-flex flex-column gap-0.5 ms-4">
+                    {% if item.value %}
+                    <div class="py-1 {% if not forloop.last %}border-bottom{% endif %} d-flex flex-column gap-0.5 ps-4">
                         {% if item.label %}
                         <div class="text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                             {{ item.label }}
                         </div>
                         {% endif %}
-                        <div class="fw-bold title-text-adaptive text-break" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ item.value }}
+                        <div class="title-text-adaptive text-break" style="font-size: 0.86rem; line-height: 1.45; font-weight: 500;">
+                            {{ item.value|linebreaksbr }}
                         </div>
                     </div>
+                    {% endif %}
                     {% endfor %}
                 </div>
                 {% endwith %}
@@ -643,12 +652,33 @@
     function toggleViolationPermitFields(status) {
         const isResolved = status === 'resolved';
         const numWrapper = document.getElementById('violationPermitNumWrapper');
+        const numInput = document.getElementById('violationPermitNumInput');
         const typeWrapper = document.getElementById('violationPermitTypeWrapper');
+        const typeSelect = document.getElementById('violationPermitTypeSelect');
         const dateIssuedWrapper = document.getElementById('violationDateIssuedWrapper');
-        const bldgTypeWrapper = document.getElementById('violationBuildingTypeWrapper');
+        const dateIssuedInput = document.getElementById('violationDateIssuedInput');
+        const bldgTypeReq = document.getElementById('violationBldgTypeReq');
+        const bldgTypeSelect = document.getElementById('violationBuildingTypeSelect');
+
         if (numWrapper) numWrapper.style.display = isResolved ? 'block' : 'none';
         if (typeWrapper) typeWrapper.style.display = isResolved ? 'block' : 'none';
         if (dateIssuedWrapper) dateIssuedWrapper.style.display = isResolved ? 'block' : 'none';
+
+        if (numInput) numInput.required = isResolved;
+        if (typeSelect) typeSelect.required = isResolved;
+        if (bldgTypeSelect) bldgTypeSelect.required = isResolved;
+        if (bldgTypeReq) {
+            bldgTypeReq.className = isResolved ? 'text-danger fw-bold' : 'text-muted fw-normal';
+            bldgTypeReq.textContent = isResolved ? '*' : '(Optional)';
+        }
+        if (dateIssuedInput) {
+            dateIssuedInput.required = isResolved;
+            if (isResolved && !dateIssuedInput.value) {
+                // Default to today if newly regularized and no date
+                const today = new Date().toISOString().split('T')[0];
+                dateIssuedInput.value = today;
+            }
+        }
     }
 </script>
 

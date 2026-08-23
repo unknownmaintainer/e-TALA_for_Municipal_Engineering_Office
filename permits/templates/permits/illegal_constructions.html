@@ -108,18 +108,58 @@
         max-width: 100%;
     }
 
+    /* ── Compact & Perfectly Aligned Status Option Cards ── */
     .status-option-card {
-        cursor: pointer;
-        transition: all 0.15s ease;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        padding: 10px 14px !important;
+        border-radius: 10px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        background: #ffffff !important;
+        cursor: pointer !important;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        margin-bottom: 0 !important;
     }
     .status-option-card:hover {
         border-color: #002855 !important;
-        background-color: rgba(0, 40, 85, 0.03) !important;
+        background-color: #f8fafc !important;
+        transform: translateY(-1px);
     }
-    .status-option-card:has(input:checked) {
+    .status-option-card:has(input:checked),
+    .status-option-card.active {
         border-color: #002855 !important;
-        background-color: rgba(0, 40, 85, 0.05) !important;
-        box-shadow: 0 0 0 1px #002855;
+        background-color: rgba(0, 40, 85, 0.04) !important;
+        box-shadow: 0 0 0 1px #002855, 0 2px 8px rgba(0, 40, 85, 0.08) !important;
+    }
+    .status-option-card .form-check-input {
+        width: 17px !important;
+        height: 17px !important;
+        min-width: 17px !important;
+        margin: 2px 0 0 0 !important;
+        cursor: pointer !important;
+        flex-shrink: 0 !important;
+    }
+    .status-option-card .status-option-content {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 2px !important;
+        flex-grow: 1 !important;
+        min-width: 0 !important;
+    }
+    .dark-mode .status-option-card {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode .status-option-card:hover {
+        background: #243044 !important;
+        border-color: #475569 !important;
+    }
+    .dark-mode .status-option-card:has(input:checked) {
+        background: rgba(37, 99, 235, 0.12) !important;
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 0 1px #38bdf8 !important;
     }
 
     /* ── Bulletproof Premium Button Alignment ── */
@@ -265,11 +305,17 @@
         <!-- Left: Category Stage Tabs -->
         <div class="filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
             style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 0 1 auto; min-width: 0; overflow-x: auto;">
-            <a href="?stage=active{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
-                class="filter-tab {% if stage_filter == 'active' or not stage_filter %}active{% endif %}"
+            <a href="?stage=all{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+                class="filter-tab {% if stage_filter == 'all' or not stage_filter %}active{% endif %}"
                 style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
-                title="Active violation reports & ongoing compliance (Not yet in Master Records)">
-                Active Violations <span class="tab-count {% if stage_filter == 'active' or not stage_filter %}tab-count-active{% else %}tab-count-default{% endif %}">{{ active_count }}</span>
+                title="Show all cases">
+                All Cases <span class="tab-count {% if stage_filter == 'all' or not stage_filter %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
+            </a>
+            <a href="?stage=unresolved{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
+                class="filter-tab {% if stage_filter == 'unresolved' %}active{% endif %}"
+                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
+                title="Unresolved violation reports & active stop orders">
+                Unresolved <span class="tab-count {% if stage_filter == 'unresolved' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ unresolved_count }}</span>
             </a>
             <a href="?stage=pending_permit{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
                 class="filter-tab {% if stage_filter == 'pending_permit' %}active{% endif %}"
@@ -280,14 +326,8 @@
             <a href="?stage=resolved{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
                 class="filter-tab {% if stage_filter == 'resolved' %}active{% endif %}"
                 style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
-                title="Regularized cases recorded as official permits in Master Records">
+                title="Regularized cases recorded as official permits">
                 Regularized <span class="tab-count {% if stage_filter == 'resolved' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ resolved_count }}</span>
-            </a>
-            <a href="?stage=all{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if q %}&q={{ q }}{% endif %}"
-                class="filter-tab {% if stage_filter == 'all' %}active{% endif %}"
-                style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;"
-                title="Show all violation cases">
-                All Cases <span class="tab-count {% if stage_filter == 'all' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_count }}</span>
             </a>
         </div>
 
@@ -359,11 +399,11 @@
     </div>
     {% endif %}
 
-    <!-- Collapsible filters panel (Barangay, Reported By, Year) -->
+    <!-- Collapsible filters panel (Barangay, Status, Reported By, Year) -->
     <div class="collapse {% if selected_barangay or selected_year or selected_scope == 'my' %}show{% endif %}"
         id="advancedFiltersCollapse">
         <div class="filter-panel-unified py-2 px-3 rounded-3 border mb-2">
-            <div class="row row-cols-md-3 row-cols-sm-3 row-cols-1 g-2 align-items-end">
+            <div class="row row-cols-md-4 row-cols-sm-2 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
@@ -373,6 +413,17 @@
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
                         {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Status</label>
+                    <select name="stage" class="form-select form-select-sm filter-dropdown-ajax"
+                        style="border-radius: 6px; height: 32px; font-size: 0.78rem;">
+                        <option value="all" {% if stage_filter == 'all' or not stage_filter %}selected{% endif %}>All Statuses</option>
+                        <option value="unresolved" {% if stage_filter == 'unresolved' %}selected{% endif %}>Unresolved</option>
+                        <option value="pending_permit" {% if stage_filter == 'pending_permit' %}selected{% endif %}>Permit Filed</option>
+                        <option value="resolved" {% if stage_filter == 'resolved' %}selected{% endif %}>Regularized</option>
                     </select>
                 </div>
                 <div class="col">
@@ -402,11 +453,11 @@
 
 <!-- ══ DATA TABLE (Matching Exact Records Layout) ═════════════════════ -->
 <div class="content-card" id="recordsTableCard"
-    style="height: auto !important; min-height: 220px !important; overflow: visible !important;">
-    <div class="card-body p-0" style="overflow: visible !important;">
+    style="min-height: 420px !important; display: flex; flex-direction: column; justify-content: space-between; overflow: visible !important;">
+    <div class="card-body p-0 d-flex flex-column justify-content-between flex-grow-1" style="overflow: visible !important;">
         {% if page_obj %}
         <!-- Desktop Table View -->
-        <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important;">
+        <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important; flex: 1 0 auto;">
             <table class="data-table" style="width: 100%; min-width: 680px; table-layout: fixed;">
                 <thead>
                     <tr>
@@ -421,17 +472,22 @@
                 </thead>
                 <tbody>
                     {% for r in page_obj %}
-                    <tr data-href="{% url 'record_detail' r.record_id %}" class="{% if r.illegal_compliance_status == 'unresolved' %}row-highlight-unresolved{% elif r.illegal_compliance_status == 'pending_permit' %}row-highlight-pending{% elif r.illegal_compliance_status == 'resolved' %}row-highlight-resolved{% endif %}" style="cursor: pointer;">
+                    <tr data-href="{% url 'record_detail' r.record_id %}?from=illegal" class="{% if r.illegal_compliance_status == 'unresolved' %}row-highlight-unresolved{% elif r.illegal_compliance_status == 'pending_permit' %}row-highlight-pending{% elif r.illegal_compliance_status == 'resolved' %}row-highlight-resolved{% endif %}" style="cursor: pointer;">
                         <td>
                             <div class="cell-title illegal-title-{{ r.illegal_compliance_status|default:'unresolved' }}"
                                 title="{{ r.title }}">
                                 {{ r.title }}
                             </div>
                             <div class="cell-subtitle">
-                                {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
-                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>{% if r.illegal_compliance_status == 'resolved' %}Applicant{% else %}Property Owner{% endif %}: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
-                                {% endif %}
-                                <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
+                                <div class="subtitle-row">
+                                    <i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>
+                                    <span>{% if r.illegal_compliance_status == 'resolved' %}Applicant{% else %}Property Owner{% endif %}:</span>
+                                    {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                    <strong class="text-dark ms-1">{{ r.permit_detail.applicant_name }}</strong>
+                                    {% else %}
+                                    <span class="text-muted fst-italic ms-1">Under Investigation</span>
+                                    {% endif %}
+                                </div>
                             </div>
                         </td>
                         <td>
@@ -465,15 +521,14 @@
                             <span class="status-text-unresolved">Unresolved</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="cell-uploads">
                             {% if r.documents.count > 0 %}
-                            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="{{ r.documents.count }} attached document{{ r.documents.count|pluralize }}">
-                                <i class="fa-solid fa-paperclip me-1" style="font-size: 10px;"></i>{{ r.documents.count }} file{{ r.documents.count|pluralize }}
+                            <span class="d-inline-flex align-items-center gap-1.5 fw-semibold text-primary" style="font-size: 0.80rem;" title="{{ r.documents.count }} attached document{{ r.documents.count|pluralize }}">
+                                <i class="fa-solid fa-paperclip" style="font-size: 11px;"></i>
+                                <span>{{ r.documents.count }} file{{ r.documents.count|pluralize }}</span>
                             </span>
                             {% else %}
-                            <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px;" title="No documents uploaded">
-                                0 files
-                            </span>
+                            <span class="text-muted" style="font-size: 0.82rem; opacity: 0.65;">—</span>
                             {% endif %}
                         </td>
                         <td class="text-end pe-3 action-menu-cell" style="width: 55px;"
@@ -489,32 +544,30 @@
                                     onclick="event.stopPropagation();">
                                     <li>
                                         <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
-                                            href="{% url 'record_detail' r.record_id %}">
+                                            href="{% url 'record_detail' r.record_id %}?from=illegal">
                                             <i class="fa-solid fa-eye text-primary" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
                                             <span>View Details</span>
                                         </a>
                                     </li>
                                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                     <li>
-                                        <button type="button" class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap border-0 bg-transparent w-100 text-start"
-                                            data-bs-toggle="modal" data-bs-target="#statusModal"
-                                            data-record-id="{{ r.record_id }}"
-                                            data-current-status="{{ r.illegal_compliance_status|default:'unresolved' }}">
-                                            <i class="fa-solid fa-sliders text-secondary" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
-                                            <span>Update Status</span>
-                                        </button>
+                                        <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                            href="{% url 'edit_record' r.record_id %}">
+                                            <i class="fa-solid fa-pen-to-square text-secondary" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
+                                            <span>Edit Record</span>
+                                        </a>
                                     </li>
                                     {% if r.status != 'archived' %}
                                     <li>
                                         <hr class="dropdown-divider my-1">
                                     </li>
                                     <li>
-                                        <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-amber text-nowrap action-dropdown-warning"
+                                        <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap action-dropdown-danger"
                                             href="javascript:void(0)"
                                             data-url="{% url 'archive_record' r.record_id %}"
                                             data-title="{{ r.title|escapejs }}"
                                             onclick="confirmArchiveRecord(this.dataset.url, this.dataset.title)">
-                                            <i class="fa-solid fa-box-archive text-warning" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
+                                            <i class="fa-solid fa-trash-can text-danger" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
                                             <span>Move to Trash</span>
                                         </a>
                                     </li>
@@ -529,37 +582,32 @@
             </table>
         </div>
 
-        <!-- Mobile Card List View -->
-        <div class="d-block d-md-none p-2.5">
-            <div class="d-flex flex-column gap-2.5">
+        <!-- Mobile Card List View (Matching Records Management Layout Exactly) -->
+        <div class="d-block d-md-none">
+            <div class="d-flex flex-column gap-0">
                 {% for r in page_obj %}
-                <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item text-decoration-none d-flex flex-column gap-2 p-3 rounded-3 border {% if r.illegal_compliance_status == 'unresolved' %}row-highlight-unresolved{% elif r.illegal_compliance_status == 'pending_permit' %}row-highlight-pending{% elif r.illegal_compliance_status == 'resolved' %}row-highlight-resolved{% endif %}">
-                    <div class="d-flex align-items-start justify-content-between gap-2">
-                        <div class="min-w-0 flex-grow-1">
-                            <span class="fw-bold text-dark d-block text-truncate illegal-title-{{ r.illegal_compliance_status|default:'unresolved' }}" style="font-size: 0.88rem;" title="{{ r.title }}">
-                                {{ r.title }}
+                <a href="{% url 'record_detail' r.record_id %}?from=illegal" class="mobile-record-item">
+                    <div class="mobile-record-icon {% if r.illegal_compliance_status == 'resolved' %}illegal-resolved{% elif r.illegal_compliance_status == 'pending_permit' %}illegal-pending{% else %}illegal-unresolved{% endif %}">
+                        <i class="{% if r.illegal_compliance_status == 'resolved' %}fa-solid fa-circle-check{% elif r.illegal_compliance_status == 'pending_permit' %}fa-solid fa-file-invoice{% else %}fa-solid fa-triangle-exclamation{% endif %}"></i>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="mobile-record-title illegal-title-{{ r.illegal_compliance_status|default:'unresolved' }}">
+                            {{ r.title }}
+                        </div>
+                        <div class="mobile-record-meta d-flex align-items-center flex-wrap gap-1.5 mt-0.5">
+                            <span>{{ r.barangay.barangay_name|default:"—" }} · {{ r.year|default:"—" }}</span>
+                            <span class="badge {{ r.illegal_status_info.badge_class }}" style="font-size: 0.68rem; padding: 2px 6px; font-weight: 600;">
+                                {{ r.illegal_status_info.short_label }}
                             </span>
-                            {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
-                            <div class="text-muted text-truncate mt-0.5" style="font-size: 0.76rem;">
-                                <i class="fa-solid fa-user me-1 text-muted"></i>{% if r.illegal_compliance_status == 'resolved' %}Applicant{% else %}Owner{% endif %}: <strong class="text-dark">{{ r.permit_detail.applicant_name }}</strong>
-                            </div>
+                            {% if r.documents.count > 0 %}
+                            <span class="text-primary fw-semibold d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                                <i class="fa-solid fa-paperclip" style="font-size: 9.5px;"></i>
+                                <span>{{ r.documents.count }}</span>
+                            </span>
                             {% endif %}
                         </div>
-                        <span class="badge {{ r.illegal_status_info.badge_class }} flex-shrink-0" style="font-size: 0.72rem;">
-                            {{ r.illegal_status_info.short_label }}
-                        </span>
                     </div>
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 text-muted pt-1.5 border-top" style="font-size: 0.76rem;">
-                        <span><i class="fa-solid fa-location-dot me-1 text-secondary"></i>{{ r.barangay.barangay_name|default:"—" }}</span>
-                        <span><i class="fa-solid fa-calendar me-1 text-secondary"></i>{{ r.year|default:"—" }}</span>
-                        <span>
-                            {% if r.documents.count > 0 %}
-                            <span class="text-primary fw-medium"><i class="fa-solid fa-paperclip me-1"></i>{{ r.documents.count }} file{{ r.documents.count|pluralize }}</span>
-                            {% else %}
-                            <span><i class="fa-solid fa-paperclip me-1 text-muted"></i>0 files</span>
-                            {% endif %}
-                        </span>
-                    </div>
+                    <i class="fa-solid fa-chevron-right flex-shrink-0" style="font-size: 12px; color: var(--gray-300);"></i>
                 </a>
                 {% endfor %}
             </div>
@@ -721,17 +769,18 @@
                             <input type="text" name="permit_number" class="form-control cr-field" placeholder="e.g. BP-2026-0042" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="cr-label">Building Type</label>
-                            <select name="building_type" class="form-select cr-field">
+                            <label class="cr-label">Building Type <span class="text-danger">*</span></label>
+                            <select name="building_type" class="form-select cr-field" required>
+                                <option value="" disabled selected>— Select Building Type —</option>
                                 {% for bt_val, bt_lbl in building_types %}
-                                <option value="{{ bt_val }}" {% if bt_val == 'Residential' %}selected{% endif %}>{{ bt_lbl }}</option>
+                                <option value="{{ bt_val }}">{{ bt_lbl }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                     </div>
 
                     <div class="mb-1">
-                        <label class="cr-label">Applicant / Owner Name <span class="text-danger">*</span></label>
+                        <label class="cr-label">Property Owner <span class="text-danger">*</span></label>
                         <input type="text" name="applicant_name" id="regApplicantInput" class="form-control cr-field" placeholder="e.g. Juan Dela Cruz" required>
                     </div>
                 </div>
@@ -747,106 +796,14 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- ══ UPDATE COMPLIANCE STATUS MODAL ════════════════════════════════ -->
-<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
-        <div class="modal-content border-0 shadow-xl" style="border-radius: 16px; overflow: hidden;">
-            <!-- Modal Header -->
-            <div class="modal-header border-bottom px-4 py-3 bg-white d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 36px; height: 36px; background: rgba(0, 40, 85, 0.08); color: var(--primary, #002855); border: 1px solid rgba(0, 40, 85, 0.15); border-radius: 10px;">
-                        <i class="fa-solid fa-sliders" style="font-size: 15px;"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold mb-0 text-dark" id="statusModalLabel" style="font-size: 1.02rem;">
-                            Update Compliance Status
-                        </h5>
-                        <p class="mb-0 text-muted" style="font-size: 0.74rem;">
-                            Select the current progress for this case
-                        </p>
-                    </div>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.75rem;"></button>
-            </div>
-
-            <form method="POST" id="statusForm" action="">
-                {% csrf_token %}
-                <div class="modal-body px-4 py-3.5 d-flex flex-column gap-2.5">
-                    <!-- Option 1: Unresolved -->
-                    <label class="status-option-card d-flex align-items-start gap-3 p-3 rounded-3 border cursor-pointer"
-                        style="transition: all 0.15s ease; background: var(--bg-surface, #ffffff);"
-                        for="st_unresolved">
-                        <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="illegal_compliance_status" value="unresolved" id="st_unresolved">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center gap-1.5 fw-bold text-danger" style="font-size: 0.88rem;">
-                                <i class="fa-solid fa-circle-exclamation" style="font-size: 13px;"></i>
-                                <span>Unresolved (Stop Order Active)</span>
-                            </div>
-                            <div class="text-muted mt-0.5" style="font-size: 0.76rem; line-height: 1.35;">
-                                Stop order in effect; awaiting violator response or compliance action.
-                            </div>
-                        </div>
-                    </label>
-
-                    <!-- Option 2: Pending Permit -->
-                    <label class="status-option-card d-flex align-items-start gap-3 p-3 rounded-3 border cursor-pointer"
-                        style="transition: all 0.15s ease; background: var(--bg-surface, #ffffff);"
-                        for="st_pending">
-                        <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="illegal_compliance_status" value="pending_permit" id="st_pending">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center gap-1.5 fw-bold" style="color: #b45309; font-size: 0.88rem;">
-                                <i class="fa-solid fa-file-circle-check" style="font-size: 13px;"></i>
-                                <span>Permit Application Filed (In Review)</span>
-                            </div>
-                            <div class="text-muted mt-0.5" style="font-size: 0.76rem; line-height: 1.35;">
-                                Owner has submitted building permit application / compliance documents.
-                            </div>
-                        </div>
-                    </label>
-
-                    <!-- Clean Helper Note -->
-                    <div class="d-flex align-items-center gap-2 p-2.5 rounded-3 mt-1"
-                        style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); font-size: 0.75rem; color: #15803d;">
-                        <i class="fa-solid fa-circle-info flex-shrink-0" style="font-size: 12px;"></i>
-                        <span>To fully regularize and issue an official permit number, use <strong>Regularize &amp; Issue Permit</strong>.</span>
-                    </div>
-                </div>
-
-                <!-- Modal Footer -->
-                <div class="modal-footer border-top px-4 py-2.5 bg-light d-flex align-items-center justify-content-end gap-2 flex-shrink-0">
-                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary"
-                        data-bs-dismiss="modal"
-                        style="border-radius: 8px; font-size: 0.82rem; height: 36px;">
-                        Cancel
-                    </button>
-                    <button type="submit" class="btn text-white px-4 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5"
-                        style="border-radius: 8px; font-size: 0.82rem; height: 36px; background: linear-gradient(135deg, #002855 0%, #001f3f 100%); border: none; box-shadow: 0 4px 12px rgba(0, 40, 85, 0.2);">
-                        <i class="fa-solid fa-floppy-disk" style="font-size: 12px;"></i>
-                        <span>Save Status</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-{% include 'permits/includes/flag_illegal_modal.html' %}
-
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const filterForm = document.getElementById('filterForm');
-    const searchInput = document.getElementById('liveSearchInput') || document.querySelector('input[name="q"]');
+    const searchInput = document.getElementById('illegalSearchInput');
     const searchSpinner = document.getElementById('searchSpinner');
-
-    // 1. Delegated Row Click Navigation
-    document.addEventListener('click', function (e) {
-        const row = e.target.closest('tr[data-href]');
-        if (row && !e.target.closest('.action-menu-cell') && !e.target.closest('.barangay-table-link') && !e.target.closest('.dropdown') && !e.target.closest('button') && !e.target.closest('a')) {
-            window.location.href = row.dataset.href;
-        }
-    });
+    const filterForm = document.getElementById('filterForm');
 
     // 2. Setup Regularize Modal Dynamic Action
     const regularizeModal = document.getElementById('regularizeModal');
@@ -864,27 +821,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 const appInput = document.getElementById('regApplicantInput');
                 if (appInput) appInput.value = applicant || '';
-            }
-        });
-    }
-
-    // 3. Setup Status Modal Dynamic Action
-    const statusModal = document.getElementById('statusModal');
-    if (statusModal) {
-        statusModal.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            if (button) {
-                const recordId = button.getAttribute('data-record-id');
-                const currentStatus = button.getAttribute('data-current-status');
-                const form = document.getElementById('statusForm');
-                if (form) form.action = `/records/${recordId}/illegal-status/`;
-                if (currentStatus === 'pending_permit') {
-                    const stPending = document.getElementById('st_pending');
-                    if (stPending) stPending.checked = true;
-                } else {
-                    const stUnresolved = document.getElementById('st_unresolved');
-                    if (stUnresolved) stUnresolved.checked = true;
-                }
             }
         });
     }

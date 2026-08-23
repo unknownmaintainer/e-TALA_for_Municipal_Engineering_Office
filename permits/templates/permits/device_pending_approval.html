@@ -155,18 +155,19 @@
 
         /* ── Municipal Seal ── */
         .seal-container {
-            width: 54px;
-            height: 54px;
-            margin: 0 auto 0.65rem auto;
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 0.75rem auto;
             border-radius: 50%;
             background: #ffffff;
-            padding: 3px;
-            border: 2px solid #e2e8f0;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            padding: 4px;
+            border: 2.5px solid rgba(0, 40, 85, 0.14);
+            box-shadow: 0 4px 14px rgba(0, 40, 85, 0.12);
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .seal-image {
@@ -397,6 +398,9 @@
         </div>
 
         <!-- 2. Live Waiting Status Box (Centered Pure Text) -->
+        <input type="hidden" id="pendingDeviceId" value="{{ device.id|default:'' }}">
+        <input type="hidden" id="pendingDeviceToken" value="{{ device.device_token|default:'' }}">
+        
         <div class="status-live-card" id="statusLiveCard">
             <div class="fw-bold" id="statusTitle" style="font-size: 0.8125rem; color: #0284c7; line-height: 1.4;">
                 Authorization Request Pending
@@ -432,7 +436,15 @@
             if (isChecking) return;
             isChecking = true;
 
-            fetch("{% url 'check_device_approval_ajax' %}", {
+            const devId = document.getElementById('pendingDeviceId')?.value || '';
+            const devTok = document.getElementById('pendingDeviceToken')?.value || '';
+            const queryParams = new URLSearchParams({
+                device_id: devId,
+                token: devTok,
+                _t: Date.now()
+            });
+
+            fetch("{% url 'check_device_approval_ajax' %}?" + queryParams.toString(), {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -501,8 +513,9 @@
             });
         }
 
-        // Poll every 3 seconds
-        checkTimer = setInterval(checkApprovalStatus, 3000);
+        // Immediate check on load + poll every 2 seconds
+        checkApprovalStatus();
+        checkTimer = setInterval(checkApprovalStatus, 2000);
     });
     </script>
 </body>

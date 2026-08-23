@@ -251,15 +251,267 @@ def get_document_group_folder(doc, record):
         return "06_Other_Supporting_Documents"
 
 
-def build_record_zip_buffer(record, stream_getter_func):
+def generate_record_summary_text(record, user=None):
+    """
+    Generates a clean, human-readable, jargon-free 00_RECORD_SUMMARY.txt content for an EngineeringRecord.
+    """
+    now = timezone.now()
+    now_str = now.strftime('%B %d, %Y by ') + (user.get_full_name() or user.username if user and hasattr(user, 'username') else 'Administrator')
+    if user and hasattr(user, 'role') and user.role:
+        now_str += f" ({user.role.title()})"
+
+    encoded_by_name = "Office Staff"
+    if record.created_by:
+        encoded_by_name = record.created_by.get_full_name() or record.created_by.username
+        if hasattr(record.created_by, 'role') and record.created_by.role:
+            encoded_by_name += f" ({record.created_by.role.title()})"
+    encoded_date_str = record.created_at.strftime('%B %d, %Y') + f" by {encoded_by_name}" if record.created_at else f"by {encoded_by_name}"
+
+    record_title = record.title
+    if record.record_type == 'Permit' and hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
+        applicant = record.permit_detail.applicant_name
+        record_title = f"{applicant} ({record.title or 'Building Permit'})"
+
+    type_str = f"{record.record_type}"
+    if record.record_type == 'Project' and record.project_scope:
+        type_str = f"{record.project_scope} Project"
+    elif record.record_type == 'Permit' and hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.permit_type:
+        type_str = f"{record.permit_detail.permit_type} Permit"
+    elif record.is_illegal_construction:
+        type_str = "Illegal Construction"
+
+    barangay_name = record.barangay.barangay_name if record.barangay else "Carigara, Leyte"
+    type_and_brgy = f"{type_str} • {barangay_name}"
+
+    cost_str = None
+    if record.record_type == 'Project' and hasattr(record, 'project_detail') and record.project_detail and record.project_detail.project_cost:
+        cost_str = f"PHP {record.project_detail.project_cost:,.2f}"
+    elif hasattr(record, 'permit_detail') and record.permit_detail and getattr(record.permit_detail, 'estimated_cost', None):
+        cost_str = f"PHP {record.permit_detail.estimated_cost:,.2f}"
+
+    # Calculate upload stats
+    leaf_reqs = record.requirements.filter(
+        requirement_item__is_group=False,
+        requirement_item__sub_items__isnull=True
+    ).select_related('requirement_item', 'requirement_item__parent', 'document').order_by('requirement_item__order', 'req_id')
+
+    total_leaf = leaf_reqs.count()
+    fulfilled_count = leaf_reqs.filter(is_fulfilled=True, document__isnull=False).count()
+    waived_count = leaf_reqs.filter(is_waived=True).count()
+    pending_count = total_leaf - fulfilled_count - waived_count
+    if pending_count < 0:
+        pending_count = 0
+
+    if total_leaf > 0:
+        if pending_count == 0:
+            upload_status = f"{fulfilled_count} of {total_leaf} Uploaded • 100% Completed"
+        else:
+            upload_status = f"{fulfilled_count} of {total_leaf} Uploaded • {pending_count} Pending"
+    else:
+        upload_status = f"{record.documents.count()} Files Uploaded"
+
+    lines = [
+        "=" * 80,
+        "                    OFFICE OF THE MUNICIPAL ENGINEER",
+        "                       Carigara, Leyte • eTala System",
+        "=" * 80,
+        "",
+        "RECORD SUMMARY",
+        "-" * 80,
+        f"Project / Record : {record_title}",
+        f"Type & Barangay  : {type_and_brgy}",
+    ]
+    if cost_str:
+        lines.append(f"Project Budget   : {cost_str}")
+    lines.extend([
+        f"Encoded Date     : {encoded_date_str}",
+        f"Downloaded Date  : {now_str}",
+        f"Upload Status    : {upload_status}",
+        "",
+        "=" * 80,
+        "LIST OF FILES & DOCUMENTS",
+        "=" * 80,
+        "",
+    ])
+
+    # Grouped Requirements vs Standalone
+    parent_groups = {}
+    standalone_items = []
+
+    for req in leaf_reqs:
+        parent = req.requirement_item.parent
+        if parent:
+            if parent.item_id not in parent_groups:
+                parent_groups[parent.item_id] = {
+                    'name': parent.name,
+                    'sequence': parent.order or 99,
+                    'items': []
+                }
+            parent_groups[parent.item_id]['items'].append(req)
+        else:
+            standalone_items.append(req)
+
+    sorted_groups = sorted(parent_groups.values(), key=lambda g: g['sequence'])
+    group_idx = 1
+
+    for group in sorted_groups:
+        clean_gname = re.sub(r'^\d+[\s_.-]*', '', group['name']).replace(' ', '_')
+        folder_label = f"0{group_idx}_{clean_gname}" if group_idx < 10 else f"{group_idx}_{clean_gname}"
+        lines.append(f"📁 {folder_label}/")
+        for idx, item in enumerate(group['items']):
+            is_last = (idx == len(group['items']) - 1)
+            prefix = "   └── " if is_last else "   ├── "
+            if item.is_fulfilled and item.document:
+                fname = item.document.file_name or (os.path.basename(item.document.file.name) if item.document.file else f"{item.requirement_item.name}.pdf")
+                lines.append(f"{prefix}[UPLOADED] {fname}")
+            elif item.is_waived:
+                lines.append(f"{prefix}[N/A]      {item.requirement_item.name} (Waived / Not Required)")
+            else:
+                lines.append(f"{prefix}[PENDING]  {item.requirement_item.name} (No file yet)")
+        lines.append("")
+        group_idx += 1
+
+    # Standalone items
+    if standalone_items:
+        lines.append("📄 OTHER DOCUMENTS")
+        for idx, item in enumerate(standalone_items):
+            is_last = (idx == len(standalone_items) - 1)
+            prefix = "   └── " if is_last else "   ├── "
+            if item.is_fulfilled and item.document:
+                fname = item.document.file_name or (os.path.basename(item.document.file.name) if item.document.file else f"{item.requirement_item.name}.pdf")
+                lines.append(f"{prefix}[UPLOADED] {fname}")
+            elif item.is_waived:
+                lines.append(f"{prefix}[N/A]      {item.requirement_item.name} (Waived / Not Required)")
+            else:
+                lines.append(f"{prefix}[PENDING]  {item.requirement_item.name} (No file yet)")
+        lines.append("")
+
+    # Additional attachments
+    extra_docs = record.documents.filter(requirement_item__isnull=True)
+    if extra_docs.exists():
+        att_folder = f"0{group_idx}_Additional_Attachments" if group_idx < 10 else f"{group_idx}_Additional_Attachments"
+        lines.append(f"📁 {att_folder}/")
+        for idx, edoc in enumerate(extra_docs):
+            is_last = (idx == extra_docs.count() - 1)
+            prefix = "   └── " if is_last else "   ├── "
+            fname = edoc.file_name or (os.path.basename(edoc.file.name) if edoc.file else 'attachment')
+            lines.append(f"{prefix}{fname}")
+        lines.append("")
+
+    lines.extend([
+        "=" * 80,
+        "Generated by eTala for Carigara Engineering Office Records.",
+        "=" * 80,
+        ""
+    ])
+
+    return "\n".join(lines)
+
+
+def generate_barangay_summary_text(barangay, records, user=None):
+    """
+    Generates a clean, human-readable 00_BARANGAY_SUMMARY.txt content for an entire Barangay archive.
+    """
+    now = timezone.now()
+    now_str = now.strftime('%B %d, %Y by ') + (user.get_full_name() or user.username if user and hasattr(user, 'username') else 'Administrator')
+    if user and hasattr(user, 'role') and user.role:
+        now_str += f" ({user.role.title()})"
+
+    total_records = records.count()
+    permits_count = records.filter(record_type='Permit').count()
+    muni_projects = records.filter(record_type='Project', project_scope='Municipal').count()
+    brgy_projects = records.filter(record_type='Project', project_scope='Barangay').count()
+    illegal_cases = records.filter(is_illegal_construction=True).count()
+
+    lines = [
+        "=" * 80,
+        "                    OFFICE OF THE MUNICIPAL ENGINEER",
+        "                       Carigara, Leyte • eTala System",
+        "=" * 80,
+        "",
+        "BARANGAY ARCHIVE SUMMARY",
+        "-" * 80,
+        f"Barangay Name    : {barangay.barangay_name}, Carigara, Leyte",
+        f"Downloaded Date  : {now_str}",
+        f"Total Records    : {total_records} Records (Municipal: {muni_projects} • Barangay: {brgy_projects} • Permits: {permits_count} • Violations: {illegal_cases})",
+        "",
+        "=" * 80,
+        "ARCHIVE FOLDER STRUCTURE",
+        "=" * 80,
+        "",
+        "📁 01_Municipal_Projects/",
+    ]
+
+    for rec in records.filter(record_type='Project', project_scope='Municipal'):
+        lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
+
+    lines.append("")
+    lines.append("📁 02_Barangay_Projects/")
+    for rec in records.filter(record_type='Project', project_scope='Barangay'):
+        lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
+
+    lines.append("")
+    lines.append("📁 03_Building_Permits/")
+    for rec in records.filter(record_type='Permit'):
+        lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
+
+    if illegal_cases > 0:
+        lines.append("")
+        lines.append("📁 04_Illegal_Constructions/")
+        for rec in records.filter(is_illegal_construction=True):
+            lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
+
+    lines.extend([
+        "",
+        "=" * 80,
+        "Generated by eTala for Carigara Engineering Office Records.",
+        "=" * 80,
+        ""
+    ])
+
+    return "\n".join(lines)
+
+
+def build_record_zip_buffer(record, stream_getter_func, user=None):
     """
     Generates an in-memory ZIP archive buffer containing all fulfilled documents for an EngineeringRecord.
-    Places all documents directly at the root of the ZIP with clear, descriptive, standardized filenames.
+    Structure:
+      ├── 00_RECORD_SUMMARY.txt
+      ├── 01_Building_Plans/ (Sub-folders only for multi-item parent groups)
+      │   └── Plan_and_Profiles.pdf
+      ├── 03_Specifications.pdf (Direct loose file for standalone requirements)
+      └── 06_Additional_Attachments/ (Photos / miscellaneous)
     """
     buffer = io.BytesIO()
     used_paths = set()
 
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # 1. Add 00_RECORD_SUMMARY.txt at root of ZIP
+        summary_text = generate_record_summary_text(record, user=user)
+        zip_file.writestr("00_RECORD_SUMMARY.txt", summary_text.encode('utf-8'))
+        used_paths.add("00_RECORD_SUMMARY.txt")
+
+        # Map parent group requirement items to sequence numbers
+        leaf_reqs = record.requirements.filter(
+            requirement_item__is_group=False,
+            requirement_item__sub_items__isnull=True
+        ).select_related('requirement_item', 'requirement_item__parent', 'document')
+
+        parent_groups = {}
+        for req in leaf_reqs:
+            parent = req.requirement_item.parent
+            if parent and parent.item_id not in parent_groups:
+                parent_groups[parent.item_id] = {
+                    'name': parent.name,
+                    'sequence': parent.order or 99
+                }
+        sorted_groups = sorted(parent_groups.items(), key=lambda x: x[1]['sequence'])
+        group_folder_map = {}
+        for g_idx, (p_id, p_info) in enumerate(sorted_groups, start=1):
+            clean_gname = re.sub(r'^\d+[\s_.-]*', '', p_info['name']).replace(' ', '_')
+            group_folder_map[p_id] = f"0{g_idx}_{clean_gname}" if g_idx < 10 else f"{g_idx}_{clean_gname}"
+
+        # 2. Add all documents
         for doc in record.documents.select_related('requirement_item', 'requirement_item__parent'):
             try:
                 file_obj, _, url = stream_getter_func(doc)
@@ -276,7 +528,6 @@ def build_record_zip_buffer(record, stream_getter_func):
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
 
-
                     raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
                     _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
                     clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
@@ -284,18 +535,24 @@ def build_record_zip_buffer(record, stream_getter_func):
                     req_item = doc.requirement_item
                     if req_item:
                         clean_item_name = re.sub(r'\s*\([a-z]\.\d+\)', '', req_item.name).strip()
+                        clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
                         item_file_name = sanitize_zip_name(clean_item_name, max_len=80).replace(" ", "_") + clean_ext
+
+                        if req_item.parent_id and req_item.parent_id in group_folder_map:
+                            folder_prefix = group_folder_map[req_item.parent_id]
+                            file_path = f"{folder_prefix}/{item_file_name}"
+                        else:
+                            file_path = item_file_name
                     else:
-                        item_file_name = sanitize_file_name(raw_fname, max_name_len=80).replace(" ", "_")
+                        clean_extra = sanitize_file_name(raw_fname, max_name_len=80).replace(" ", "_")
+                        file_path = f"Additional_Attachments/{clean_extra}"
 
-                    file_path = item_file_name
-
-                    # Prevent duplicate zip internal path collisions
+                    # Prevent duplicate zip path collisions & handle versioning
                     orig_path = file_path
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p}_{counter}{ext_p}"
+                        file_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
                         counter += 1
                     used_paths.add(file_path)
 
@@ -310,15 +567,14 @@ def build_record_zip_buffer(record, stream_getter_func):
 def build_category_zip_buffer(record, parent_req, stream_getter_func):
     """
     Generates an in-memory ZIP archive buffer containing all documents under a specific requirement parent category.
-    Places all files directly at the root of the archive with crystal-clear filenames.
     """
     parent_item = parent_req.requirement_item
     sub_items = list(parent_item.sub_items.all())
-    
+
     sub_reqs = RecordRequirement.objects.filter(
         record=record, requirement_item__in=sub_items
     ).select_related('requirement_item', 'document')
-    
+
     buffer = io.BytesIO()
     used_paths = set()
     processed_doc_ids = set()
@@ -352,7 +608,7 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                         counter = 2
                         while file_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            file_path = f"{base_p}_{counter}{ext_p}"
+                            file_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
                             counter += 1
                         used_paths.add(file_path)
                         processed_doc_ids.add(req.document.document_id)
@@ -382,7 +638,7 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p}_{counter}{ext_p}"
+                        file_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
                         counter += 1
                     used_paths.add(file_path)
                     processed_doc_ids.add(doc.document_id)
@@ -395,38 +651,37 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
     return buffer
 
 
-def build_barangay_zip_buffer(barangay, stream_getter_func):
+def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
     """
     Generates an in-memory ZIP archive buffer containing all documents for an entire Barangay.
     Clean structure:
-      Balilit/
-        ├── 01_Permits/
-        │   └── Juan_Dela_Cruz/
-        │       ├── 01_Application/
-        │       └── 02_Plans_and_Specifications/
-        ├── 02_Projects/
-        │   └── Barangay_Hall_Renovation/
-        │       └── 01_Planning/
-        └── 03_Illegal_Constructions/
-            └── Jose_Cruz/
-                └── 01_Inspection/
+      Barangay_Balilit/
+        ├── 00_BARANGAY_SUMMARY.txt
+        ├── 01_Municipal_Projects/
+        │   └── Water_System_Project/
+        │       ├── 00_RECORD_SUMMARY.txt
+        │       ├── 01_Building_Plans/
+        │       └── 03_Specifications.pdf
+        ├── 02_Barangay_Projects/
+        ├── 03_Building_Permits/
+        └── 04_Illegal_Constructions/
     """
     buffer = io.BytesIO()
     clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30).replace(" ", "_")
     records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').prefetch_related(
         'documents__requirement_item__parent'
     )
-    
+
     used_record_folders = {}
     assigned_folders = set()
     used_paths = set()
 
-    # Pre-assign unique and clean folder names to each record within its section
     for record in records:
         base_name = get_record_export_name(record, include_location=False)
         section = (
-            "03_Illegal_Constructions" if record.is_illegal_construction else
-            ("01_Permits" if record.record_type == 'Permit' else "02_Projects")
+            "04_Illegal_Constructions" if record.is_illegal_construction else
+            ("03_Building_Permits" if record.record_type == 'Permit' else
+             ("01_Municipal_Projects" if record.project_scope == 'Municipal' else "02_Barangay_Projects"))
         )
         unique_key = f"{section}/{base_name}"
         if unique_key in assigned_folders:
@@ -439,18 +694,49 @@ def build_barangay_zip_buffer(barangay, stream_getter_func):
                 unique_key = f"{section}/{base_name}"
                 counter += 1
         assigned_folders.add(unique_key)
-        used_record_folders[record.record_id] = base_name
+        used_record_folders[record.record_id] = (section, base_name)
 
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # 1. Add Master 00_BARANGAY_SUMMARY.txt
+        brgy_summary = generate_barangay_summary_text(barangay, records, user=user)
+        zip_file.writestr(f"{clean_b_name}/00_BARANGAY_SUMMARY.txt", brgy_summary.encode('utf-8'))
+        used_paths.add(f"{clean_b_name}/00_BARANGAY_SUMMARY.txt")
+
+        # 2. Add each record and its documents
         for record in records:
-            record_folder = used_record_folders.get(record.record_id, get_record_export_name(record, include_location=False))
-            if record.is_illegal_construction:
-                section = "03_Illegal_Constructions"
-            elif record.record_type == 'Permit':
-                section = "01_Permits"
-            else:
-                section = "02_Projects"
-            
+            section, record_folder = used_record_folders.get(
+                record.record_id,
+                ("01_Municipal_Projects", get_record_export_name(record, include_location=False))
+            )
+            rec_prefix = f"{clean_b_name}/{section}/{record_folder}"
+
+            # Add record's own summary file
+            rec_summary = generate_record_summary_text(record, user=user)
+            rec_summary_path = f"{rec_prefix}/00_RECORD_SUMMARY.txt"
+            if rec_summary_path not in used_paths:
+                zip_file.writestr(rec_summary_path, rec_summary.encode('utf-8'))
+                used_paths.add(rec_summary_path)
+
+            # Map parent groups
+            leaf_reqs = record.requirements.filter(
+                requirement_item__is_group=False,
+                requirement_item__sub_items__isnull=True
+            ).select_related('requirement_item', 'requirement_item__parent')
+
+            parent_groups = {}
+            for req in leaf_reqs:
+                parent = req.requirement_item.parent
+                if parent and parent.item_id not in parent_groups:
+                    parent_groups[parent.item_id] = {
+                        'name': parent.name,
+                        'sequence': parent.order or 99
+                    }
+            sorted_groups = sorted(parent_groups.items(), key=lambda x: x[1]['sequence'])
+            group_folder_map = {}
+            for g_idx, (p_id, p_info) in enumerate(sorted_groups, start=1):
+                clean_gname = re.sub(r'^\d+[\s_.-]*', '', p_info['name']).replace(' ', '_')
+                group_folder_map[p_id] = f"0{g_idx}_{clean_gname}" if g_idx < 10 else f"{g_idx}_{clean_gname}"
+
             for doc in record.documents.all():
                 try:
                     file_obj, _, url = stream_getter_func(doc)
@@ -466,31 +752,35 @@ def build_barangay_zip_buffer(barangay, stream_getter_func):
                         file_data = file_obj.read()
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
-                        
+
                         raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
                         _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
                         clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
 
-                        
-                        group_folder = get_document_group_folder(doc, record)
                         req_item = doc.requirement_item
                         if req_item:
-                            item_file_name = sanitize_zip_name(req_item.name, max_len=45).replace(" ", "_") + clean_ext
-                        else:
-                            item_file_name = sanitize_file_name(raw_fname, max_name_len=40).replace(" ", "_")
+                            clean_item_name = re.sub(r'\s*\([a-z]\.\d+\)', '', req_item.name).strip()
+                            clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
+                            item_file_name = sanitize_zip_name(clean_item_name, max_len=60).replace(" ", "_") + clean_ext
 
-                        folder_path = f"{clean_b_name}/{section}/{record_folder}/{group_folder}/{item_file_name}"
+                            if req_item.parent_id and req_item.parent_id in group_folder_map:
+                                folder_prefix = group_folder_map[req_item.parent_id]
+                                folder_path = f"{rec_prefix}/{folder_prefix}/{item_file_name}"
+                            else:
+                                folder_path = f"{rec_prefix}/{item_file_name}"
+                        else:
+                            clean_extra = sanitize_file_name(raw_fname, max_name_len=50).replace(" ", "_")
+                            folder_path = f"{rec_prefix}/Additional_Attachments/{clean_extra}"
 
                         orig_path = folder_path
                         counter = 2
                         while folder_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            folder_path = f"{base_p}_{counter}{ext_p}"
+                            folder_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
                             counter += 1
                         used_paths.add(folder_path)
 
                         zip_file.writestr(folder_path, file_data)
-
                 except Exception as exc:
                     logger.error(f"Error zipping barangay document {doc.document_id}: {exc}")
 
@@ -498,92 +788,50 @@ def build_barangay_zip_buffer(barangay, stream_getter_func):
     return buffer
 
 
-def build_municipal_zip_buffer(stream_getter_func):
+def build_municipal_zip_buffer(stream_getter_func, user=None):
     """
     Generates an in-memory ZIP archive buffer containing all documents for the entire Municipality.
-    Clean structure:
-      Carigara_Engineering_Records/
-        ├── 01_Permits/
-        │   └── Balilit/
-        │       └── Juan_Dela_Cruz/
-        │           ├── 01_Application/
-        │           └── 02_Plans_and_Specifications/
-        ├── 02_Projects/
-        │   ├── Municipal/
-        │   │   └── Municipal_Hall_Renovation/
-        │   └── Barangay/
-        │       └── Balilit/
-        │           └── Road_Improvement/
-        └── 03_Illegal_Constructions/
-            └── Balilit/
-                └── Jose_Cruz/
     """
     buffer = io.BytesIO()
-    root_folder = "Carigara_Engineering_Records"
-    records = EngineeringRecord.objects.exclude(status='archived').select_related(
-        'barangay', 'permit_detail', 'project_detail'
-    ).prefetch_related('documents__requirement_item__parent')
-
+    barangays = Barangay.objects.all().order_by('barangay_name')
+    today_str = timezone.now().strftime('%Y-%m-%d')
     used_paths = set()
 
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for record in records:
-            b_name = sanitize_zip_name(record.barangay.barangay_name, max_len=30).replace(" ", "_") if record.barangay else "Unassigned_Barangay"
-            rec_name = get_record_export_name(record, include_location=False)
+        summary_lines = [
+            "=" * 80,
+            "                    OFFICE OF THE MUNICIPAL ENGINEER",
+            "                       Carigara, Leyte • eTala System",
+            "=" * 80,
+            "",
+            "FULL MUNICIPAL ARCHIVE SUMMARY",
+            "-" * 80,
+            f"Exported Date    : {timezone.now().strftime('%B %d, %Y')}",
+            f"Total Barangays  : {barangays.count()} Barangays",
+            f"Total Records    : {EngineeringRecord.objects.exclude(status='archived').count()} Records",
+            "",
+            "=" * 80,
+            "BARANGAYS INCLUDED IN THIS ARCHIVE",
+            "=" * 80,
+        ]
+        for b in barangays:
+            summary_lines.append(f"📁 {sanitize_zip_name(b.barangay_name).replace(' ', '_')}/")
+        summary_lines.extend(["", "=" * 80, "Generated by eTala for Carigara Engineering Office Records.", "=" * 80, ""])
 
-            if record.is_illegal_construction:
-                section_path = f"{root_folder}/03_Illegal_Constructions/{b_name}/{rec_name}"
-            elif record.record_type == 'Permit':
-                section_path = f"{root_folder}/01_Permits/{b_name}/{rec_name}"
-            else:
-                scope = "Municipal" if record.project_scope == 'Municipal' else f"Barangay/{b_name}"
-                section_path = f"{root_folder}/02_Projects/{scope}/{rec_name}"
+        zip_file.writestr(f"Carigara_Engineering_Records_{today_str}/00_MUNICIPAL_SUMMARY.txt", "\n".join(summary_lines).encode('utf-8'))
 
-            for doc in record.documents.all():
-                try:
-                    file_obj, _, url = stream_getter_func(doc)
-                    if not file_obj and url:
-                        try:
-                            import requests
-                            r = requests.get(url, timeout=15)
-                            if r.status_code == 200:
-                                file_obj = io.BytesIO(r.content)
-                        except Exception:
-                            pass
-                    if file_obj:
-                        file_data = file_obj.read()
-                        if hasattr(file_obj, 'close'):
-                            file_obj.close()
-
-
-                        raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
-                        _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
-                        clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
-
-                        group_folder = get_document_group_folder(doc, record)
-                        req_item = doc.requirement_item
-                        if req_item:
-                            item_file_name = sanitize_zip_name(req_item.name, max_len=45).replace(" ", "_") + clean_ext
-                        else:
-                            item_file_name = sanitize_file_name(raw_fname, max_name_len=40).replace(" ", "_")
-
-                        folder_path = f"{section_path}/{group_folder}/{item_file_name}"
-
-                        orig_path = folder_path
-                        counter = 2
-                        while folder_path in used_paths:
-                            base_p, ext_p = os.path.splitext(orig_path)
-                            folder_path = f"{base_p}_{counter}{ext_p}"
-                            counter += 1
-                        used_paths.add(folder_path)
-
-                        zip_file.writestr(folder_path, file_data)
-                except Exception as exc:
-                    logger.error(f"Error zipping municipal document {doc.document_id}: {exc}")
+        for b in barangays:
+            b_buf = build_barangay_zip_buffer(b, stream_getter_func, user=user)
+            with zipfile.ZipFile(b_buf, 'r') as b_zip:
+                for item_name in b_zip.namelist():
+                    b_data = b_zip.read(item_name)
+                    dest_path = f"Carigara_Engineering_Records_{today_str}/{item_name}"
+                    if dest_path not in used_paths:
+                        zip_file.writestr(dest_path, b_data)
+                        used_paths.add(dest_path)
 
     buffer.seek(0)
     return buffer
-
 
 
 def send_document_expiry_alerts():
@@ -790,8 +1038,21 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
     if barangay_id:
         qs = qs.filter(barangay_id=barangay_id)
     if status:
-        if status in ['active', 'in_progress', 'ongoing']:
-            qs = qs.filter(status__in=['active', 'in_progress', 'ongoing'])
+        if status in ['ongoing', 'in_progress']:
+            qs = qs.filter(record_type='Project', status__in=['active', 'in_progress', 'pending'])
+        elif status == 'completed':
+            qs = qs.filter(record_type='Project', status='completed')
+        elif status == 'issued':
+            qs = qs.filter(record_type='Permit').exclude(is_illegal_construction=True, illegal_compliance_status='resolved').filter(status__in=['active', 'completed'])
+        elif status == 'pending':
+            qs = qs.filter(status='pending')
+        elif status == 'regularized':
+            qs = qs.filter(is_illegal_construction=True, illegal_compliance_status='resolved')
+        elif status == 'active':
+            qs = qs.filter(
+                Q(record_type='Permit', status__in=['active', 'completed']) |
+                Q(record_type='Project', status__in=['active', 'in_progress'])
+            )
         else:
             qs = qs.filter(status=status)
     if year:

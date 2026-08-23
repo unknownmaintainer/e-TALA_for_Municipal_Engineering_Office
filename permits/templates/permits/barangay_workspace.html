@@ -112,8 +112,66 @@
         background-color: #334155 !important;
         color: #ffffff !important;
     }
-    .dark-mode .dropdown-divider {
-        border-top-color: #334155 !important;
+    /* Modern Header Stat Pills */
+    .brgy-stat-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        padding: 3.5px 10px;
+        border-radius: 8px;
+        line-height: 1.25;
+        transition: transform 0.18s ease;
+        text-decoration: none;
+    }
+    .brgy-stat-pill:hover {
+        transform: translateY(-1px);
+    }
+    .brgy-stat-pill-project {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+    .brgy-stat-pill-permit {
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+    .brgy-stat-pill-violation {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+    }
+    .brgy-stat-pill-doc {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+    }
+
+    .dark-mode .brgy-stat-pill-project,
+    [data-bs-theme="dark"] .brgy-stat-pill-project {
+        background: rgba(2, 132, 199, 0.18) !important;
+        color: #38bdf8 !important;
+        border-color: rgba(56, 189, 248, 0.35) !important;
+    }
+    .dark-mode .brgy-stat-pill-permit,
+    [data-bs-theme="dark"] .brgy-stat-pill-permit {
+        background: rgba(16, 185, 129, 0.18) !important;
+        color: #4ade80 !important;
+        border-color: rgba(34, 197, 94, 0.35) !important;
+    }
+    .dark-mode .brgy-stat-pill-violation,
+    [data-bs-theme="dark"] .brgy-stat-pill-violation {
+        background: rgba(239, 68, 68, 0.18) !important;
+        color: #f87171 !important;
+        border-color: rgba(248, 113, 113, 0.35) !important;
+    }
+    .dark-mode .brgy-stat-pill-doc,
+    [data-bs-theme="dark"] .brgy-stat-pill-doc {
+        background: rgba(148, 163, 184, 0.15) !important;
+        color: #cbd5e1 !important;
+        border-color: rgba(148, 163, 184, 0.25) !important;
     }
 </style>
 {% endblock %}
@@ -130,13 +188,25 @@
         <h1 class="etala-page-title" style="word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
             Brgy. {{ barangay.barangay_name }}
         </h1>
-        <p class="etala-page-subtitle">
-            Total Records: <strong style="color: var(--gray-900);">{{ total_records }}</strong> ({{ total_projects }} projects, {{ total_permits }} permits, {{ total_documents }} documents)
-        </p>
+        <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+            <span class="brgy-stat-pill brgy-stat-pill-project" title="{{ total_projects }} Municipal Projects">
+                <i class="fa-solid fa-folder-tree" style="font-size: 11px;"></i>
+                <span>{{ total_projects }} Project{{ total_projects|pluralize }}</span>
+            </span>
+            <span class="brgy-stat-pill brgy-stat-pill-permit" title="{{ total_permits }} Building Permits">
+                <i class="fa-solid fa-file-contract" style="font-size: 11px;"></i>
+                <span>{{ total_permits }} Permit{{ total_permits|pluralize }}</span>
+            </span>
+            {% if total_violations %}
+            <span class="brgy-stat-pill brgy-stat-pill-violation" title="{{ total_violations }} Active Violations">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
+                <span>{{ total_violations }} Violation{{ total_violations|pluralize }}</span>
+            </span>
+            {% endif %}
+        </div>
     </div>
     <div class="etala-header-actions">
         <a href="{% url 'download_barangay_zip' barangay.barangay_id %}"
-            download
             class="premium-btn btn-export"
             title="Download all documents for this barangay in a structured ZIP archive">
             <span class="btn-icon"><i class="fa-solid fa-file-zipper"></i></span>
@@ -160,7 +230,7 @@
 <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
     style="border-bottom: 1px solid var(--border-default, rgba(255,255,255,0.08)); max-width: 100%; box-sizing: border-box;">
     
-    <!-- Category Tabs -->
+    <!-- Category Tabs (Clean Text Only — No Icons) -->
     <div class="filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
         style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 0 1 auto; min-width: 0; overflow-x: auto;">
         <a href="?tab=all{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'all' or not current_tab %}active{% endif %}"
@@ -174,6 +244,10 @@
         <a href="?tab=permits{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'permits' %}active{% endif %}"
             style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
             Permits
+        </a>
+        <a href="?tab=violations{% if q %}&q={{ q }}{% endif %}" class="filter-tab {% if current_tab == 'violations' %}active{% endif %}"
+            style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
+            Violations
         </a>
     </div>
 
@@ -237,25 +311,27 @@
                                                 {{ r.title }}
                                             {% endif %}
                                         </span>
-                                        {% if r.is_illegal_construction %}
-                                            {% if r.illegal_compliance_status == 'resolved' %}
-                                            <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Regularized Enforcement Case"><i class="fa-solid fa-shield-halved me-1"></i>Regularized</span>
-                                            {% else %}
-                                            <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Active Violation Incident"><i class="fa-solid fa-triangle-exclamation me-1"></i>Violation</span>
-                                            {% endif %}
-                                        {% endif %}
                                     </div>
                                     <div class="cell-subtitle">
-                                        {% if r.record_type == 'Permit' %}
+                                        {% if r.is_illegal_construction and r.illegal_compliance_status == 'resolved' %}
                                             {% if r.permit_detail and r.permit_detail.permit_number %}
                                             <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
                                             {% else %}
-                                            <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1" style="font-size: 11px;"></i>Pending Permit Issuance</div>
+                                            <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Regularized Record</div>
+                                            {% endif %}
+                                        {% elif r.is_illegal_construction %}
+                                            {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                            <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Property Owner: <strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                            {% else %}
+                                            <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
+                                            {% endif %}
+                                        {% elif r.record_type == 'Permit' %}
+                                            {% if r.permit_detail and r.permit_detail.permit_number %}
+                                            <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
                                             {% endif %}
                                         {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
                                             <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>
                                         {% endif %}
-                                        <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ r.created_by.full_name|default:r.created_by.username }}</div>
                                     </div>
                                 </td>
                                 <td>
@@ -275,15 +351,15 @@
                                     {% with stats=r.completion_stats %}
                                     {% if stats.total > 0 %}
                                         {% if stats.is_complete %}
-                                        <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="All {{ stats.total }} documents uploaded">
-                                            ✓ {{ stats.fulfilled }}/{{ stats.total }}
+                                        <span class="doc-badge doc-badge-complete" title="All {{ stats.total }} documents uploaded">
+                                            {{ stats.fulfilled }}/{{ stats.total }}
                                         </span>
                                         {% elif stats.fulfilled > 0 %}
-                                        <span class="badge" style="background: #fef3c7; color: #b45309; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded. Missing: {{ stats.missing|join:', ' }}">
+                                        <span class="doc-badge doc-badge-partial" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded. Missing: {{ stats.missing|join:', ' }}">
                                             {{ stats.fulfilled }}/{{ stats.total }}
                                         </span>
                                         {% else %}
-                                        <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; font-weight: 600;" title="No documents uploaded">
+                                        <span class="doc-badge doc-badge-empty" title="No documents uploaded (0/{{ stats.total }})">
                                             0/{{ stats.total }}
                                         </span>
                                         {% endif %}
@@ -312,18 +388,18 @@
                                             <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                                     href="{% url 'record_detail' r.record_id %}"><i class="fa-solid fa-eye text-primary" style="font-size: 13px; flex-shrink: 0;"></i> <span>View Details</span></a></li>
                                             {% if r.status != 'archived' %}
-                                            {% if request.user.role == 'admin' or r.created_by == request.user %}
+                                            {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                             <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                                     href="{% url 'edit_record' r.record_id %}"><i class="fa-solid fa-pen-to-square text-info" style="font-size: 13px; flex-shrink: 0;"></i> <span>Edit Record</span></a></li>
                                             <li>
                                                 <hr class="dropdown-divider my-1">
                                             </li>
-                                            <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-amber text-nowrap action-dropdown-warning"
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap action-dropdown-danger"
                                                     href="javascript:void(0)"
                                                     data-url="{% url 'archive_record' r.record_id %}"
                                                     data-title="{{ r.title|escapejs }}"
                                                     onclick="confirmArchiveRecord(this.dataset.url, this.dataset.title)"><i
-                                                        class="fa-solid fa-box-archive text-warning" style="font-size: 13px; flex-shrink: 0;"></i> <span>Move to Trash</span></a></li>
+                                                        class="fa-solid fa-trash-can text-danger" style="font-size: 13px; flex-shrink: 0;"></i> <span>Move to Trash</span></a></li>
                                             {% endif %}
                                             {% endif %}
                                         </ul>

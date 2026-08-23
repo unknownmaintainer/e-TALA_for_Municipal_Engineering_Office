@@ -240,25 +240,27 @@
                                     {{ record.title }}
                                 {% endif %}
                             </span>
-                            {% if record.is_illegal_construction %}
-                                {% if record.illegal_compliance_status == 'resolved' %}
-                                <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Regularized Enforcement Case"><i class="fa-solid fa-shield-halved me-1"></i>Regularized</span>
-                                {% else %}
-                                <span class="badge" style="background: #fee2e2; color: #b91c1c; font-size: 0.65rem; font-weight: 600; padding: 2px 6px; border-radius: 4px;" title="Active Violation Incident"><i class="fa-solid fa-triangle-exclamation me-1"></i>Violation</span>
-                                {% endif %}
-                            {% endif %}
                         </div>
                         <div class="cell-subtitle">
-                            {% if record.record_type == 'Permit' %}
+                            {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
                                 {% if record.permit_detail and record.permit_detail.permit_number %}
                                 <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ record.permit_detail.permit_number }}</strong></div>
                                 {% else %}
-                                <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1" style="font-size: 11px;"></i>Pending Permit Issuance</div>
+                                <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Regularized Record</div>
+                                {% endif %}
+                            {% elif record.is_illegal_construction %}
+                                {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                <div class="subtitle-row"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i>Property Owner: <strong>{{ record.permit_detail.applicant_name }}</strong></div>
+                                {% else %}
+                                <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
+                                {% endif %}
+                            {% elif record.record_type == 'Permit' %}
+                                {% if record.permit_detail and record.permit_detail.permit_number %}
+                                <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ record.permit_detail.permit_number }}</strong></div>
                                 {% endif %}
                             {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
                                 <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
                             {% endif %}
-                            <div class="subtitle-row text-muted"><i class="fa-solid fa-user-pen me-1" style="font-size: 11px;"></i>Encoded by {{ record.created_by.full_name|default:record.created_by.username }}</div>
                         </div>
                     </td>
 
@@ -298,16 +300,18 @@
                                         <i class="fa-solid fa-eye" style="font-size: 13px;"></i> Inspect
                                     </a>
                                 </li>
-                                {% if request.user.role == 'admin' or record.created_by == request.user %}
+                                {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'edit_record' record.record_id %}">
                                         <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i> Edit
                                     </a>
                                 </li>
+                                {% endif %}
+                                {% if request.user.role == 'admin' or record.created_by == request.user %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-amber" href="javascript:void(0)" data-url="{% url 'archive_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmArchiveFromSearch(this.dataset.url, this.dataset.title)">
-                                        <i class="fa-solid fa-box-archive text-warning" style="font-size: 13px;"></i> Move to Trash
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger action-dropdown-danger" href="javascript:void(0)" data-url="{% url 'archive_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmArchiveFromSearch(this.dataset.url, this.dataset.title)">
+                                        <i class="fa-solid fa-trash-can text-danger" style="font-size: 13px;"></i> <span>Move to Trash</span>
                                     </a>
                                 </li>
                                 {% endif %}
