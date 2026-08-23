@@ -38,6 +38,115 @@ def parse_decimal_safely(raw_val, max_digits=14, decimal_places=2):
         return None
 
 
+# ─── UNIFIED EMAIL DISPATCH SERVICE (BREVO HTTP API + RESEND + SMTP FALLBACK) ───
+
+def send_etala_email(subject, message, recipient_list, html_message=None, from_email=None, fail_silently=False):
+    """
+    Unified eTala email dispatcher:
+    1. Brevo HTTP REST API v3 (Port 443 HTTPS — 100% bypasses cloud SMTP port blocks on Render/AWS/Heroku)
+    2. Resend HTTP REST API (Port 443 HTTPS)
+    3. Standard Django SMTP backend fallback
+    """
+    if not recipient_list:
+        return False
+
+    clean_recipients = [r.strip() for r in recipient_list if r and '@' in r]
+    if not clean_recipients:
+        return False
+
+    raw_from = (from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'Municipal Engineering Office - Carigara <noreply@etala.gov.ph>')).strip()
+    from email.utils import parseaddr, formataddr
+    p_name, p_email = parseaddr(raw_from)
+    sender_name = p_name or "Municipal Engineering Office - Carigara"
+    sender_email = p_email or raw_from
+    clean_from = formataddr((p_name, p_email)) if (p_name and p_email) else (p_email or raw_from)
+
+    # Method 1: Brevo HTTP REST API v3
+    brevo_key = os.getenv('BREVO_API_KEY', '').strip() or os.getenv('SENDINBLUE_API_KEY', '').strip()
+    if not brevo_key:
+        email_pass_raw = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
+        if email_pass_raw.startswith('xkeysib-'):
+            brevo_key = email_pass_raw
+
+    if brevo_key:
+        try:
+            import requests
+            to_payload = [{"email": r} for r in clean_recipients]
+            resp = requests.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={
+                    "accept": "application/json",
+                    "api-key": brevo_key,
+                    "content-type": "application/json",
+                },
+                json={
+                    "sender": {
+                        "name": sender_name,
+                        "email": sender_email,
+                    },
+                    "to": to_payload,
+                    "subject": subject,
+                    "htmlContent": html_message or message,
+                    "textContent": message,
+                },
+                timeout=10,
+            )
+            if resp.status_code in (200, 201, 202):
+                logger.info(f"Email '{subject}' delivered via Brevo HTTP API to {clean_recipients}")
+                return True
+            else:
+                logger.warning(f"Brevo HTTP API returned status {resp.status_code}: {resp.text}")
+        except Exception as b_err:
+            logger.warning(f"Brevo HTTP API dispatch error: {b_err}")
+
+    # Method 2: Resend HTTP REST API
+    resend_key = os.getenv('RESEND_API_KEY', '').strip()
+    if resend_key:
+        try:
+            import requests
+            resp = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": clean_from,
+                    "to": clean_recipients,
+                    "subject": subject,
+                    "html": html_message or message,
+                    "text": message,
+                },
+                timeout=10,
+            )
+            if resp.status_code in (200, 201, 202):
+                logger.info(f"Email '{subject}' delivered via Resend HTTP API to {clean_recipients}")
+                return True
+            else:
+                logger.warning(f"Resend HTTP API returned status {resp.status_code}: {resp.text}")
+        except Exception as r_err:
+            logger.warning(f"Resend HTTP API dispatch error: {r_err}")
+
+    # Method 3: Standard Django SMTP Backend Fallback
+    try:
+        from django.core.mail import send_mail
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=clean_from,
+            recipient_list=clean_recipients,
+            html_message=html_message,
+            fail_silently=fail_silently,
+        )
+        logger.info(f"Email '{subject}' delivered via standard SMTP backend to {clean_recipients}")
+        return True
+    except Exception as smtp_err:
+        logger.error(f"Standard SMTP delivery failed for {clean_recipients}: {smtp_err}")
+        if not fail_silently:
+            raise smtp_err
+        return False
+
+
 # ─── OFFICE SETTINGS PERSISTENCE SERVICE ───────────────────────────────────────
 
 def get_office_settings():
@@ -888,7 +997,7 @@ def send_document_expiry_alerts():
     """
 
     try:
-        send_mail(
+        success = send_etala_email(
             subject='eTala Alert: Document Expiry Summary Notice',
             message=f'eTala Document Expiry Alert Summary: {expired_docs.count()} expired, {expiring_docs.count()} expiring soon.',
             from_email=settings.DEFAULT_FROM_EMAIL,
@@ -896,7 +1005,10 @@ def send_document_expiry_alerts():
             html_message=html_message,
             fail_silently=False,
         )
-        return True, f"Sent email notifications to {len(recipients)} staff/admin user(s) ({expired_docs.count()} expired, {expiring_docs.count()} expiring soon)."
+        if success:
+            return True, f"Sent email notifications to {len(recipients)} staff/admin user(s) ({expired_docs.count()} expired, {expiring_docs.count()} expiring soon)."
+        else:
+            return False, "Failed to deliver email notifications."
     except Exception as e:
         err_str = str(e)
         logger.error(f"Failed to send expiry alerts email: {err_str}")
@@ -1169,7 +1281,7 @@ def dispatch_device_approval_request(user, device, request):
 
     def _send_admin_email():
         try:
-            send_mail(
+            send_etala_email(
                 subject=subject,
                 message=plain_content,
                 from_email=settings.DEFAULT_FROM_EMAIL,
@@ -1215,7 +1327,7 @@ def dispatch_new_device_login_alert(user, device, request):
 
     def _send_user_alert():
         try:
-            send_mail(
+            send_etala_email(
                 subject=subject,
                 message=plain_content,
                 from_email=settings.DEFAULT_FROM_EMAIL,

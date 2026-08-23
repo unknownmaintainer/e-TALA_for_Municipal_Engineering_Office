@@ -308,6 +308,8 @@ WHITENOISE_MANIFEST_STRICT = False
 email_host = os.getenv('EMAIL_HOST', '').strip()
 email_user = os.getenv('EMAIL_HOST_USER', '').strip()
 email_pass = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
+brevo_api_key = os.getenv('BREVO_API_KEY', '').strip()
+BREVO_API_KEY = brevo_api_key
 resend_key = os.getenv('RESEND_API_KEY', '').strip()
 
 EMAIL_TIMEOUT = 10  # 10s timeout to prevent long SMTP hangs

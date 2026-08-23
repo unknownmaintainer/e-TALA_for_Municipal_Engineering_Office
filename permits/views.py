@@ -655,74 +655,18 @@ def forgot_password_view(request):
             plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 24 hours.'
 
             def _async_send():
-                # Method 1: Instant Brevo HTTP REST API (Sub-second delivery, 100% bypasses cloud SMTP port blocks)
-                brevo_key = os.getenv('BREVO_API_KEY', '').strip() or os.getenv('SENDINBLUE_API_KEY', '').strip()
-                if not brevo_key:
-                    email_pass_raw = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
-                    if email_pass_raw.startswith('xkeysib-'):
-                        brevo_key = email_pass_raw
-
-                if brevo_key:
-                    try:
-                        import requests
-                        from email.utils import parseaddr
-                        raw_sender = os.getenv('DEFAULT_FROM_EMAIL', os.getenv('EMAIL_HOST_USER', 'noreply@etala.gov.ph')).strip()
-                        parsed_name, parsed_email = parseaddr(raw_sender)
-                        sender_name = parsed_name or "eTala Carigara MEO"
-                        sender_email = parsed_email or raw_sender
-
-                        resp = requests.post(
-                            "https://api.brevo.com/v3/smtp/email",
-                            headers={
-                                "accept": "application/json",
-                                "api-key": brevo_key,
-                                "content-type": "application/json",
-                            },
-                            json={
-                                "sender": {
-                                    "name": sender_name,
-                                    "email": sender_email,
-                                },
-                                "to": [
-                                    {
-                                        "email": user.email,
-                                        "name": user_display_name,
-                                    }
-                                ],
-                                "subject": subject,
-                                "htmlContent": html_message,
-                                "textContent": plain_message,
-                            },
-                            timeout=8,
-                        )
-                        if resp.status_code in (200, 201, 202):
-                            logger.info(f"Password reset sent via Brevo HTTP API to {user.email}")
-                            return
-                        else:
-                            logger.warning(f"Brevo HTTP API responded with {resp.status_code}: {resp.text}")
-                    except Exception as brevo_err:
-                        logger.warning(f"Brevo HTTP API failed, falling back to SMTP: {brevo_err}")
-
-                # Method 2: Standard Django SMTP Delivery (Brevo SMTP Relay / Custom SMTP)
                 try:
-                    from email.utils import parseaddr, formataddr
-                    raw_from = str(settings.DEFAULT_FROM_EMAIL).strip()
-                    p_name, p_email = parseaddr(raw_from)
-                    clean_from = formataddr((p_name, p_email)) if (p_name and p_email) else (p_email or raw_from)
-
-                    logger.info(f"Dispatching reset email to {user.email} from {clean_from} via {getattr(settings, 'EMAIL_HOST', 'default')}:{getattr(settings, 'EMAIL_PORT', 587)}...")
-
-                    send_mail(
+                    from .services import send_etala_email
+                    send_etala_email(
                         subject=subject,
                         message=plain_message,
-                        from_email=clean_from,
                         recipient_list=[user.email],
                         html_message=html_message,
                         fail_silently=False,
                     )
                     logger.info(f"✅ Password reset email successfully delivered to {user.email}")
                 except Exception as mail_exc:
-                    logger.error(f"❌ SMTP delivery failed for {user.email}: {type(mail_exc).__name__}: {mail_exc}", exc_info=True)
+                    logger.error(f"❌ Email delivery failed for {user.email}: {type(mail_exc).__name__}: {mail_exc}", exc_info=True)
                     # Log generated reset link to terminal for local admin/development testing
                     print("\n" + "=" * 72)
                     print(f"🔑 [eTala Password Reset Link for {user.email}]:")
