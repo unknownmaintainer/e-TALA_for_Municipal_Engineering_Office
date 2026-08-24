@@ -8,12 +8,14 @@ import logging
 import mimetypes
 import os
 import re
+import threading
 import zipfile
 import secrets
 
 import hashlib
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.template.loader import render_to_string
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -49,7 +51,7 @@ from .services import (
     build_municipal_zip_buffer,
     sanitize_zip_name, sanitize_file_name, get_record_export_name,
     send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records,
-    parse_decimal_safely,
+    parse_decimal_safely, send_etala_email,
     parse_device_user_agent, get_client_device_token,
     dispatch_device_approval_request, dispatch_new_device_login_alert
 )
@@ -61,29 +63,55 @@ logger = logging.getLogger('permits')
 
 
 def log_audit(user, action, target_record_id=None, request=None):
-    # Prevent logging repetitive routine activities to keep AuditLogs clean, secure, and readable
+    """
+    Records essential, accountable municipal operations into the AuditLog.
+    Filters out routine spam to prevent database bloat and ensures clear, concise wording.
+    """
+    if not user or not action:
+        return
+
+    s = str(action).strip()
+
+    # 1. Skip non-essential routine events to keep database lightweight & prevent table bloat
     ignored_exact = {
         "Logged out",
         "Logged in successfully",
         "Logged in successfully from a new IP/device",
+        "Logged in from trusted device",
         "Updated profile details",
         "Updated profile picture",
         "Removed profile picture",
+        "Password reset requested",
+        "Password reset successfully via email link",
     }
     ignored_prefixes = (
         "NOTIF_",
         "Downloaded ",
-        "Exported ",
+        "Exported PDF",
+        "Exported Activity Logs",
         "Requirement ",
         "Triggered Document Expiry Email Alerts",
+        "Logged in from",
+        "2FA OTP verified",
+        "Cleared ",
+        "Viewed ",
     )
-    if not action or action in ignored_exact or action.startswith(ignored_prefixes):
+    if s in ignored_exact or s.startswith(ignored_prefixes):
         return
-        
+
+    # 2. Clean & simplify message to make it short, clear, and direct
+    clean_action = s
+    if clean_action.startswith("Created ") and " record:" in clean_action:
+        clean_action = re.sub(r"^Created (\w+) record:\s*['\"]?(.+?)['\"]?$", r"Created \1: \2", clean_action)
+    elif clean_action.startswith("Created new ") and " account:" in clean_action:
+        m = re.search(r"Created new (\w+) account:\s*['\"]?([^'\"\(]+)", clean_action)
+        if m:
+            clean_action = f"Created {m.group(1).title()} Account: {m.group(2).strip()}"
+
     ip = get_client_ip(request) if request else None
     AuditLog.objects.create(
         user=user,
-        action=action,
+        action=clean_action,
         target_record_id=target_record_id,
         ip_address=ip
     )
@@ -148,16 +176,16 @@ def get_per_page(request, default=10):
 
 
 def get_year_choices():
-    from django.core.cache import cache
-    cached = cache.get('year_choices_list')
-    if cached is not None:
-        return cached
-    db_years = set(EngineeringRecord.objects.exclude(year__isnull=True).values_list('year', flat=True))
     from datetime import date
     current_year = date.today().year
-    default_years = set(range(current_year + 1, current_year - 15, -1))
-    all_years = sorted(list(db_years.union(default_years)), reverse=True)
-    cache.set('year_choices_list', all_years, timeout=300)
+    db_years = set(
+        EngineeringRecord.objects.exclude(status='archived')
+        .exclude(year__isnull=True)
+        .filter(year__lte=current_year, year__gte=1990)
+        .values_list('year', flat=True)
+    )
+    db_years.add(current_year)
+    all_years = sorted([int(y) for y in db_years if y and int(y) <= current_year], reverse=True)
     return all_years
 
 
@@ -182,6 +210,68 @@ def landing_view(request):
 
 
 # ─── AUTHENTICATION ──────────────────────────────────────────────────────────
+
+def mask_email_address(email_str):
+    """Formats email like m***e@gmail.com for safe user-facing display."""
+    if not email_str or '@' not in email_str:
+        return 'your registered email'
+    parts = email_str.split('@')
+    name_part = parts[0]
+    domain_part = parts[1]
+    if len(name_part) <= 2:
+        masked_name = name_part[0] + '***'
+    else:
+        masked_name = name_part[0] + '***' + name_part[-1]
+    return f"{masked_name}@{domain_part}"
+
+
+def generate_and_dispatch_2fa_otp(user, request, device_name, ip_address):
+    """Generates cryptographically secure 6-digit numeric OTP and dispatches via Brevo HTTPS REST API."""
+    import secrets
+    otp_code = f"{secrets.randbelow(900000) + 100000:06d}"
+
+    # Store 2FA state in session
+    request.session['2fa_user_id'] = user.id
+    request.session['2fa_otp'] = otp_code
+    request.session['2fa_expiry'] = (timezone.now() + timedelta(minutes=10)).isoformat()
+    request.session['2fa_attempts'] = 0
+    request.session['2fa_device_name'] = device_name
+    request.session['2fa_ip'] = ip_address
+    request.session['2fa_remember_me'] = bool(request.POST.get('remember_me'))
+    request.session['2fa_login_input'] = request.POST.get('email', '').strip()
+    request.session['2fa_sent_at'] = timezone.now().isoformat()
+
+    user_full_name = user.full_name or user.get_full_name() or user.username
+    subject = f'🛡️ eTala Verification Code: {otp_code}'
+    timestamp_str = timezone.now().strftime('%b %d, %Y • %I:%M %p')
+
+    html_content = render_to_string('emails/email_otp_verification.html', {
+        'user_full_name': user_full_name,
+        'otp_code': otp_code,
+        'device_name': device_name,
+        'timestamp': timestamp_str,
+    })
+    plain_content = f"eTala Security Verification Code: {otp_code}\n\nValid for 10 minutes. Enter this code to verify your sign in on {device_name} ({ip_address})."
+
+    def _send_otp():
+        try:
+            send_etala_email(
+                subject=subject,
+                message=plain_content,
+                recipient_list=[user.email],
+                html_message=html_content,
+                fail_silently=False,
+            )
+            logger.info(f"2FA OTP successfully delivered to {user.email}")
+        except Exception as exc:
+            logger.error(f"Failed to deliver 2FA OTP to {user.email}: {exc}")
+            # Local dev log fallback
+            print("\n" + "=" * 72)
+            print(f"🔑 [eTala 2FA Verification Code for {user.email}]: {otp_code}")
+            print("=" * 72 + "\n")
+
+    threading.Thread(target=_send_otp, daemon=True).start()
+
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -209,52 +299,8 @@ def login_view(request):
         password = request.POST.get('password', '')
         ip_address = get_client_ip(request)
 
-        User = get_user_model()
-        user_obj = User.objects.filter(
-            Q(email__iexact=login_input) | Q(username__iexact=login_input) | Q(full_name__iexact=login_input)
-        ).first()
-
-        # If user credentials are valid, clear previous lockouts and authenticate
-        if user_obj and user_obj.check_password(password):
-            LoginAttempt.objects.filter(
-                Q(email_attempted=login_input) | Q(email_attempted=user_obj.email) | Q(email_attempted=user_obj.username)
-            ).delete()
-            try:
-                from axes.utils import reset as axes_reset
-                axes_reset(username=user_obj.username)
-                axes_reset(username=login_input)
-            except Exception:
-                pass
-            try:
-                from axes.utils import reset_request
-                reset_request(request)
-            except Exception:
-                pass
-            try:
-                from axes.models import AccessAttempt
-                AccessAttempt.objects.filter(
-                    Q(username=user_obj.username) | Q(username=login_input) | Q(ip_address=ip_address)
-                ).delete()
-            except Exception:
-                pass
-        else:
-            is_locked, lockout_msg = check_lockout(login_input, ip_address)
-            if is_locked:
-                messages.error(request, lockout_msg)
-                return render(request, 'permits/login.html')
-
-        if user_obj and not user_obj.is_active:
-            if user_obj.check_password(password):
-                LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-                messages.error(request, "This account has been deactivated.")
-                return render(request, 'permits/login.html')
-
-        username = user_obj.username if user_obj else login_input
-        user = authenticate(request, username=username, password=password)
-
-        # Fallback direct auth if authenticate backend was intercepted by stale axes lock
-        if user is None and user_obj and user_obj.check_password(password) and user_obj.is_active:
-            user = user_obj
+        # Single-pass authentication (calculates PBKDF2 hash only ONCE)
+        user = authenticate(request, username=login_input, password=password)
 
         if user is not None:
             if not user.is_active:
@@ -262,297 +308,173 @@ def login_view(request):
                 messages.error(request, "This account has been deactivated.")
                 return render(request, 'permits/login.html')
 
+            # Fast silent cleanup of previous lockout states
+            try:
+                from axes.utils import reset as axes_reset
+                axes_reset(username=user.username)
+            except Exception:
+                pass
+
             device_token = get_client_device_token(request)
             user_agent_str = request.META.get('HTTP_USER_AGENT', '')
             device_name = parse_device_user_agent(user_agent_str)
 
-            # ── 1. ADMIN USER: Auto-register / Authorize device & notify Gmail ──
-            if user.role == 'admin':
-                device, created = UserDevice.objects.get_or_create(
-                    user=user,
-                    device_token=device_token,
-                    defaults={
-                        'device_name': device_name,
-                        'ip_address': ip_address,
-                        'user_agent': user_agent_str,
-                        'status': 'approved',
-                        'approved_by': user,
-                        'approved_at': timezone.now()
-                    }
+            # Check if this device is already trusted/approved for this user
+            is_trusted_device = UserDevice.objects.filter(
+                user=user,
+                device_token=device_token,
+                status='approved'
+            ).exists()
+
+            # ── 1. TRUSTED DEVICE: Immediate direct login ──
+            if is_trusted_device:
+                UserDevice.objects.filter(user=user, device_token=device_token).update(
+                    last_seen_at=timezone.now(),
+                    ip_address=ip_address
                 )
-                if created:
-                    dispatch_new_device_login_alert(user, device, request)
-                else:
-                    device.last_seen_at = timezone.now()
-                    device.ip_address = ip_address
-                    device.save()
-
-                if user.session_key:
-                    try:
-                        Session.objects.filter(session_key=user.session_key).delete()
-                    except Exception as e:
-                        logger.error(f"Error terminating previous session: {e}")
-
-                LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=ip_address)
                 login(request, user)
-
                 remember_me = request.POST.get('remember_me')
-                if remember_me:
-                    request.session.set_expiry(1209600)
-                else:
-                    request.session.set_expiry(0)
+                request.session.set_expiry(1209600 if remember_me else 0)
 
-                user.session_key = request.session.session_key
-                user.save()
-
-                log_audit(user, "Logged in successfully (Admin)", request=request)
+                log_audit(user, f"Logged in from trusted device: {device_name}", request=request)
+                messages.success(request, "Welcome back to eTala.")
                 response = redirect('dashboard')
                 response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
                 return response
 
-            # ── 2. STAFF USER: Device Gatekeeping & Approval Flow ──
-            device = UserDevice.objects.filter(user=user, device_token=device_token).first()
+            # ── 2. NEW / UNRECOGNIZED DEVICE: Trigger 2FA Email OTP Verification ──
+            if user.email and '@' in user.email:
+                generate_and_dispatch_2fa_otp(user, request, device_name, ip_address)
+                return redirect('verify_otp')
 
-            if device and device.status == 'rejected':
-                LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-                messages.error(request, "Device authorization was declined.")
-                return render(request, 'permits/login.html')
-
-            if not device or device.status != 'approved':
-                if not device:
-                    approval_token = secrets.token_urlsafe(32)
-                    device = UserDevice.objects.create(
-                        user=user,
-                        device_token=device_token,
-                        device_name=device_name,
-                        ip_address=ip_address,
-                        user_agent=user_agent_str,
-                        status='pending',
-                        approval_token=approval_token
-                    )
-                    dispatch_device_approval_request(user, device, request)
-                    dispatch_new_device_login_alert(user, device, request)
-
-                # Store pending authentication state in session
-                request.session['pending_user_id'] = user.id
-                request.session['pending_device_id'] = device.id
-                request.session['pending_remember_me'] = bool(request.POST.get('remember_me'))
-                request.session['pending_login_input'] = login_input
-
-                response = redirect('device_pending_approval')
-                response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
-                return response
-
-            # Device is ALREADY APPROVED: Proceed with direct login
-            device.last_seen_at = timezone.now()
-            device.ip_address = ip_address
-            device.save()
-
-            if user.session_key:
-                try:
-                    Session.objects.filter(session_key=user.session_key).delete()
-                except Exception as e:
-                    logger.error(f"Error terminating previous session: {e}")
-
-            LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=ip_address)
-            login(request, user)
-
-            remember_me = request.POST.get('remember_me')
-            if remember_me:
-                request.session.set_expiry(1209600)
-            else:
-                request.session.set_expiry(0)
-
-            user.session_key = request.session.session_key
-            user.save()
-
-            log_audit(user, f"Logged in successfully from authorized device: {device.device_name}", request=request)
+            # Fallback if no email is set on user
+            user.backend = 'permits.auth_backends.EmailBackend'
+            login(request, user, backend='permits.auth_backends.EmailBackend')
+            messages.success(request, "Welcome back to eTala.")
             response = redirect('dashboard')
             response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
             return response
         else:
-            LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
-            messages.error(request, "Invalid email, username, or password.")
+            # Check if account is locked due to consecutive failures
+            is_locked, lockout_msg = check_lockout(login_input, ip_address)
+            if is_locked:
+                messages.error(request, lockout_msg)
+            else:
+                LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
+                messages.error(request, "Invalid email, username, or password.")
 
     return render(request, 'permits/login.html')
 
 
-def device_pending_approval_view(request):
-    """Holding screen for staff users waiting for Admin device authorization."""
-    pending_user_id = request.session.get('pending_user_id')
-    pending_device_id = request.session.get('pending_device_id')
-    device_token = request.COOKIES.get('etala_device_token')
-
-    if not pending_device_id and device_token:
-        found_device = UserDevice.objects.filter(device_token=device_token).order_by('-created_at').first()
-        if found_device:
-            pending_device_id = found_device.id
-            pending_user_id = found_device.user_id
-            request.session['pending_user_id'] = pending_user_id
-            request.session['pending_device_id'] = pending_device_id
-
-    if not pending_user_id or not pending_device_id:
-        # Preview mode for direct URL access & UI designing
-        pending_user = request.user if request.user.is_authenticated else CustomUser.objects.filter(role='staff').first()
-        if not pending_user:
-            pending_user = CustomUser.objects.first()
-
-        class MockPreviewDevice:
-            id = ""
-            device_token = ""
-            device_name = "Windows PC • Google Chrome"
-            ip_address = get_client_ip(request) or "127.0.0.1"
-            status = "pending"
-
-        return render(request, 'permits/device_pending_approval.html', {
-            'pending_user': pending_user,
-            'device': MockPreviewDevice(),
-            'is_preview': True,
-        })
-
-    pending_user = CustomUser.objects.filter(id=pending_user_id).first()
-    device = UserDevice.objects.filter(id=pending_device_id).first()
-
-    if not pending_user or not device:
+def verify_otp_view(request):
+    """Two-Factor Authentication OTP Verification Screen."""
+    user_id = request.session.get('2fa_user_id')
+    if not user_id:
         return redirect('login')
 
-    # If already approved in background, log in directly
-    if device.status == 'approved':
-        login(request, pending_user)
-        if request.session.get('pending_remember_me'):
-            request.session.set_expiry(1209600)
+    User = get_user_model()
+    user = User.objects.filter(id=user_id, is_active=True).first()
+    if not user:
+        return redirect('login')
+
+    masked_email = mask_email_address(user.email)
+
+    if request.method == 'GET':
+        return render(request, 'permits/verify_otp.html', {
+            'masked_email': masked_email,
+        })
+
+    if request.method == 'POST':
+        submitted_otp = request.POST.get('otp_code', '').strip()
+        session_otp = request.session.get('2fa_otp')
+        expiry_iso = request.session.get('2fa_expiry')
+        attempts = request.session.get('2fa_attempts', 0)
+
+        # Check maximum retry attempts (5 max)
+        if attempts >= 5:
+            for k in ['2fa_user_id', '2fa_otp', '2fa_expiry', '2fa_attempts', '2fa_device_name', '2fa_ip', '2fa_remember_me', '2fa_login_input', '2fa_sent_at']:
+                request.session.pop(k, None)
+            messages.error(request, "Too many failed attempts. Please sign in again.")
+            return redirect('login')
+
+        # Check expiration (10 minutes)
+        if expiry_iso:
+            from datetime import datetime
+            expiry_dt = datetime.fromisoformat(expiry_iso)
+            if timezone.is_aware(timezone.now()) and timezone.is_naive(expiry_dt):
+                expiry_dt = timezone.make_aware(expiry_dt)
+            if timezone.now() > expiry_dt:
+                messages.error(request, "Verification code has expired. Click 'Resend Code' to receive a new one.")
+                return render(request, 'permits/verify_otp.html', {'masked_email': masked_email})
+
+        # Validate 6-digit OTP code
+        if session_otp and submitted_otp == session_otp:
+            device_token = get_client_device_token(request)
+            device_name = request.session.get('2fa_device_name', 'Windows PC • Browser')
+            ip_address = request.session.get('2fa_ip', get_client_ip(request))
+            remember_device = bool(request.POST.get('remember_device'))
+            remember_me = request.session.get('2fa_remember_me', False)
+
+            # Register as Approved Trusted Device
+            device, _ = UserDevice.objects.get_or_create(
+                user=user,
+                device_token=device_token,
+                defaults={
+                    'device_name': device_name,
+                    'ip_address': ip_address,
+                    'status': 'approved',
+                    'approved_by': user if user.role == 'admin' else None,
+                    'approved_at': timezone.now()
+                }
+            )
+            UserDevice.objects.filter(id=device.id).update(
+                status='approved',
+                last_seen_at=timezone.now(),
+                ip_address=ip_address
+            )
+
+            # Explicitly set backend for multi-backend compatibility
+            user.backend = 'permits.auth_backends.EmailBackend'
+            login(request, user, backend='permits.auth_backends.EmailBackend')
+            request.session.set_expiry(1209600 if remember_me else 0)
+
+            # Clean up 2FA session keys
+            for k in ['2fa_user_id', '2fa_otp', '2fa_expiry', '2fa_attempts', '2fa_device_name', '2fa_ip', '2fa_remember_me', '2fa_login_input', '2fa_sent_at']:
+                request.session.pop(k, None)
+
+            log_audit(user, f"2FA OTP verified successfully on new device: {device_name}", request=request)
+            messages.success(request, "Device verified successfully.")
+            response = redirect('dashboard')
+            if remember_device:
+                response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
+            return response
         else:
-            request.session.set_expiry(0)
-        login_input = request.session.pop('pending_login_input', pending_user.username)
-        request.session.pop('pending_user_id', None)
-        request.session.pop('pending_device_id', None)
-        request.session.pop('pending_remember_me', None)
-        LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=device.ip_address)
-        log_audit(pending_user, f"Logged in from newly authorized device: {device.device_name}", request=request)
-        return redirect('dashboard')
-
-    return render(request, 'permits/device_pending_approval.html', {
-        'pending_user': pending_user,
-        'device': device,
-    })
+            request.session['2fa_attempts'] = attempts + 1
+            remaining = 5 - (attempts + 1)
+            messages.error(request, f"Invalid 6-digit verification code. {remaining} attempt(s) remaining.")
+            return render(request, 'permits/verify_otp.html', {'masked_email': masked_email})
 
 
-def check_device_approval_ajax(request):
-    """AJAX endpoint polled by device_pending_approval screen to detect instant Admin approval."""
-    device_id = request.GET.get('device_id') or request.session.get('pending_device_id')
-    device_token = request.GET.get('token') or request.COOKIES.get('etala_device_token')
+def resend_otp_view(request):
+    """Dispatches a fresh 6-digit OTP code if within rate limit."""
+    if request.method != 'POST':
+        return redirect('verify_otp')
 
-    device = None
-    if device_id and str(device_id).isdigit():
-        device = UserDevice.objects.filter(id=int(device_id)).first()
+    user_id = request.session.get('2fa_user_id')
+    if not user_id:
+        return redirect('login')
 
-    if not device and device_token:
-        device = UserDevice.objects.filter(device_token=device_token).order_by('-created_at').first()
+    User = get_user_model()
+    user = User.objects.filter(id=user_id, is_active=True).first()
+    if not user:
+        return redirect('login')
 
-    if not device:
-        pending_user_id = request.session.get('pending_user_id')
-        if pending_user_id:
-            device = UserDevice.objects.filter(user_id=pending_user_id).order_by('-created_at').first()
+    device_name = request.session.get('2fa_device_name', 'Windows PC • Browser')
+    ip_address = request.session.get('2fa_ip', get_client_ip(request))
 
-    if not device:
-        return JsonResponse({'status': 'pending'})
-
-    pending_user = device.user
-
-    if device.status == 'approved':
-        login(request, pending_user)
-        if request.session.get('pending_remember_me'):
-            request.session.set_expiry(1209600)
-        else:
-            request.session.set_expiry(0)
-        login_input = request.session.pop('pending_login_input', pending_user.username)
-        request.session.pop('pending_user_id', None)
-        request.session.pop('pending_device_id', None)
-        request.session.pop('pending_remember_me', None)
-        LoginAttempt.objects.create(email_attempted=login_input, success=True, ip_address=device.ip_address)
-        log_audit(pending_user, f"Logged in from newly authorized device: {device.device_name}", request=request)
-        return JsonResponse({'status': 'approved', 'redirect_url': reverse('dashboard')})
-    elif device.status == 'rejected':
-        return JsonResponse({'status': 'rejected', 'redirect_url': reverse('login')})
-
-    return JsonResponse({'status': 'pending'})
-
-
-def approve_device_view(request):
-    """Handles 1-click token approval from email or in-app button by Admin."""
-    token = request.GET.get('token', '').strip()
-    device_id = request.POST.get('device_id') or request.GET.get('device_id')
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax') == '1'
-
-    device = None
-    if token:
-        device = UserDevice.objects.filter(approval_token=token).first()
-    elif device_id and request.user.is_authenticated and request.user.role == 'admin':
-        device = UserDevice.objects.filter(id=device_id).first()
-
-    if not device:
-        if is_ajax:
-            return JsonResponse({'success': False, 'message': "Invalid or expired authorization link."}, status=400)
-        messages.error(request, "Invalid or expired authorization link.")
-        return redirect('dashboard' if request.user.is_authenticated else 'login')
-
-    if device.status == 'approved':
-        if is_ajax:
-            return JsonResponse({'success': True, 'message': f"Device ({device.device_name}) is already authorized."})
-        messages.info(request, f"Device ({device.device_name}) is already authorized.")
-        return redirect('dashboard' if request.user.is_authenticated else 'login')
-
-    device.status = 'approved'
-    device.approved_by = request.user if request.user.is_authenticated else None
-    device.approved_at = timezone.now()
-    device.save()
-
-    # Clear notification cache so the notification count immediately drops
-    try:
-        from django.core.cache import cache
-        cache.clear()
-    except Exception:
-        pass
-
-    log_audit(request.user if request.user.is_authenticated else device.user,
-              f"Authorized device access ({device.device_name}) for staff: {device.user.full_name or device.user.username}",
-              request=request)
-
-    if is_ajax:
-        return JsonResponse({'success': True, 'message': f"Device ({device.device_name}) authorized successfully."})
-
-    messages.success(request, f"Device ({device.device_name}) authorized successfully.")
-    return redirect('dashboard' if request.user.is_authenticated else 'login')
-
-
-def reject_device_view(request):
-    """Handles rejection of a device authorization request."""
-    token = request.GET.get('token', '').strip()
-    device_id = request.POST.get('device_id') or request.GET.get('device_id')
-
-    device = None
-    if token:
-        device = UserDevice.objects.filter(approval_token=token).first()
-    elif device_id and request.user.is_authenticated and request.user.role == 'admin':
-        device = UserDevice.objects.filter(id=device_id).first()
-
-    if not device:
-        messages.error(request, "Invalid or expired request.")
-        return redirect('dashboard' if request.user.is_authenticated else 'login')
-
-    if device.status == 'rejected':
-        messages.info(request, f"Device ({device.device_name}) access was already rejected.")
-        return redirect('dashboard' if request.user.is_authenticated else 'login')
-
-    device.status = 'rejected'
-    device.save()
-
-    log_audit(request.user if request.user.is_authenticated else device.user,
-              f"Rejected device access ({device.device_name}) for: {device.user.full_name or device.user.username}",
-              request=request)
-
-    messages.warning(request, f"Device ({device.device_name}) access was rejected.")
-    return redirect('dashboard' if request.user.is_authenticated else 'login')
+    generate_and_dispatch_2fa_otp(user, request, device_name, ip_address)
+    messages.success(request, "A fresh 6-digit verification code has been dispatched to your email.")
+    return redirect('verify_otp')
 
 
 def access_restricted_view(request):
@@ -564,25 +486,11 @@ def access_restricted_view(request):
     }, status=403)
 
 
-def email_preview_device_approval_view(request):
-    """Browser preview for Admin Device Authorization Email."""
-    return render(request, 'emails/email_device_approval_request.html', {
-        'user_display_name': 'Joyce Bustillo',
-        'user_email': 'joycebustillo@gmail.com',
-        'device_name': 'Windows PC • Google Chrome',
-        'ip_address': '127.0.0.1',
-        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
-        'approve_url': '#',
-        'reject_url': '#',
-    })
-
-
 def email_preview_new_device_view(request):
     """Browser preview for New Device Login Alert Email."""
     return render(request, 'emails/email_new_device_alert.html', {
-        'user_display_name': 'Joyce Bustillo',
+        'user_full_name': 'Mardion Cordeta',
         'device_name': 'Android Mobile • Google Chrome',
-        'ip_address': '127.0.0.1',
         'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
     })
 
@@ -590,16 +498,24 @@ def email_preview_new_device_view(request):
 def email_preview_password_reset_view(request):
     """Browser preview for Password Reset Email."""
     return render(request, 'emails/email_password_reset.html', {
-        'user_display_name': 'Joyce Bustillo',
+        'user_full_name': 'Mardion Cordeta',
         'reset_url': '#',
     })
 
 
+def email_preview_otp_verification_view(request):
+    """Browser preview for 2FA Email OTP Verification."""
+    return render(request, 'emails/email_otp_verification.html', {
+        'user_full_name': 'Mardion Cordeta',
+        'otp_code': '582910',
+        'device_name': 'Windows PC • Google Chrome',
+        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+    })
+
+
 def logout_view(request):
-    if request.user.is_authenticated:
-        request.user.session_key = None
-        request.user.save()
     logout(request)
+    messages.info(request, "You have been signed out safely.")
     return redirect('login')
 
 
@@ -647,9 +563,9 @@ def forgot_password_view(request):
             from django.template.loader import render_to_string
 
             subject = 'eTala — Password Reset Request'
-            user_display_name = user.full_name or user.username
+            user_full_name = user.full_name or user.get_full_name() or user.username
             html_message = render_to_string('emails/email_password_reset.html', {
-                'user_display_name': user_display_name,
+                'user_full_name': user_full_name,
                 'reset_url': reset_url,
             })
             plain_message = f'Reset your eTala password: {reset_url}\nThis link is valid for 24 hours.'
@@ -871,12 +787,13 @@ def dashboard_view(request):
         
     today_date = timezone.now().date()
     thirty_days_later = today_date + timedelta(days=30)
+    thirty_days_ago = today_date - timedelta(days=30)
     
     alert_docs = Document.objects.filter(
         expiry_date__isnull=False
     ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item')
     
-    expired_docs_qs = alert_docs.filter(expiry_date__lt=today_date)
+    expired_docs_qs = alert_docs.filter(expiry_date__range=(thirty_days_ago, today_date))
     expired_count = expired_docs_qs.count()
     expired_preview = []
     for doc in expired_docs_qs.order_by('-expiry_date')[:3]:
@@ -1218,18 +1135,23 @@ def barangay_workspace_view(request, barangay_id):
         )
 
     if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(permit_detail__applicant_name__icontains=query) |
-            Q(permit_detail__permit_number__icontains=query) |
-            Q(permit_detail__permit_type__icontains=query) |
-            Q(project_detail__contractor__icontains=query) |
-            Q(project_detail__project_type__icontains=query)
-        )
-        if query.isdigit():
-            search_filter |= Q(year=int(query))
-        filtered_records = filtered_records.filter(search_filter).distinct()
+        q_clean = str(query).strip()
+        tokens = [t for t in q_clean.split() if t]
+        for token in tokens:
+            token_filter = (
+                Q(title__icontains=token) |
+                Q(permit_detail__applicant_name__icontains=token) |
+                Q(permit_detail__permit_number__icontains=token) |
+                Q(permit_detail__permit_type__icontains=token) |
+                Q(project_detail__contractor__icontains=token) |
+                Q(project_detail__project_type__icontains=token)
+            )
+            num_clean = re.sub(r'^[#recREC\-\s]+', '', token)
+            if num_clean.isdigit():
+                num_val = int(num_clean)
+                token_filter |= Q(record_id=num_val)
+            filtered_records = filtered_records.filter(token_filter)
+        filtered_records = filtered_records.distinct()
     if status_filter:
         filtered_records = filtered_records.filter(status=status_filter)
 
@@ -1436,16 +1358,34 @@ def illegal_constructions_view(request):
     # Filter base
     qs = base_records
     if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(barangay__barangay_name__icontains=query) |
-            Q(permit_detail__applicant_name__icontains=query) |
-            Q(permit_detail__permit_number__icontains=query)
-        )
-        if query.isdigit():
-            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query)) | Q(date_started__year=int(query))
-        qs = qs.filter(search_filter).distinct()
+        q_clean = str(query).strip()
+        tokens = [t for t in q_clean.split() if t]
+        for token in tokens:
+            token_lower = token.lower()
+            token_filter = (
+                Q(title__icontains=token) |
+                Q(barangay__barangay_name__icontains=token) |
+                Q(permit_detail__applicant_name__icontains=token) |
+                Q(permit_detail__permit_number__icontains=token) |
+                Q(permit_detail__permit_type__icontains=token)
+            )
+            
+            # Smart Status matching for Violations
+            if token_lower == 'unresolved':
+                token_filter |= Q(illegal_compliance_status='unresolved')
+            elif token_lower in ['pending', 'filed', 'pending_permit']:
+                token_filter |= Q(illegal_compliance_status='pending_permit')
+            elif token_lower in ['regularized', 'resolved', 'complied']:
+                token_filter |= Q(illegal_compliance_status='resolved')
+            
+            num_clean = re.sub(r'^[#recREC\-\s]+', '', token)
+            if num_clean.isdigit():
+                num_val = int(num_clean)
+                token_filter |= Q(record_id=num_val)
+                if 1900 <= num_val <= 2100:
+                    token_filter |= Q(year=num_val) | Q(created_at__year=num_val) | Q(date_started__year=num_val)
+            qs = qs.filter(token_filter)
+        qs = qs.distinct()
 
     if barangay_id:
         qs = qs.filter(barangay_id=barangay_id)
@@ -1681,13 +1621,24 @@ def record_create_step3_view(request):
         if record_type == 'Permit':
             chosen_subtype = request.POST.get('permit_type', subtype) or subtype
             date_issued_val = request.POST.get('date_issued', '').strip() or None
-            if date_issued_val and not record.date_started:
+            if permit_number and not date_issued_val:
+                messages.error(request, "Date Issued is required when assigning a Permit Number.")
+                return redirect(request.path)
+            elif date_issued_val and not permit_number:
+                messages.error(request, "Permit Number is required when assigning a Date Issued.")
+                return redirect(request.path)
+            if date_issued_val:
                 try:
-                    from datetime import datetime
-                    parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
-                    record.date_started = parsed_d
+                    if isinstance(date_issued_val, str):
+                        from datetime import datetime
+                        parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
+                    else:
+                        parsed_d = date_issued_val
+                    if parsed_d > timezone.now().date():
+                        messages.error(request, "Date Issued cannot be in the future.")
+                        return redirect(request.path)
                     record.year = parsed_d.year
-                    record.save(update_fields=['date_started', 'year'])
+                    record.save(update_fields=['year'])
                 except (ValueError, TypeError):
                     pass
             PermitDetail.objects.create(
@@ -1705,6 +1656,23 @@ def record_create_step3_view(request):
             funding_val = sanitize_input(request.POST.get('funding_source', 'General Fund')).strip()
             funding_other_val = sanitize_input(request.POST.get('funding_source_other', '')).strip() if funding_val == 'Others' else ''
             
+            if project_status == 'Completed' and not record.date_completed:
+                messages.error(request, "Date Completed is required when Project Status is Completed.")
+                return redirect(request.path)
+
+            if record.date_completed:
+                try:
+                    if isinstance(record.date_completed, str):
+                        from datetime import datetime
+                        parsed_dc = datetime.strptime(record.date_completed, '%Y-%m-%d').date()
+                    else:
+                        parsed_dc = record.date_completed
+                    if parsed_dc > timezone.now().date():
+                        messages.error(request, "Date Completed cannot be in the future.")
+                        return redirect(request.path)
+                except (ValueError, TypeError):
+                    pass
+
             ProjectDetail.objects.create(
                 engineering_record=record,
                 project_type=chosen_subtype,
@@ -1714,13 +1682,15 @@ def record_create_step3_view(request):
                 project_cost=parse_decimal_safely(request.POST.get('project_cost')),
                 project_status=project_status,
             )
-            # Sync parent record status
+            # Sync parent record status & enforce date_completed rules
             if project_status == 'Completed':
                 record.status = 'completed'
-            elif project_status == 'Ongoing':
-                record.status = 'in_progress'
             else:
-                record.status = 'active'
+                record.date_completed = None
+                if project_status == 'Ongoing':
+                    record.status = 'in_progress'
+                else:
+                    record.status = 'active'
             record.save()
             
         if template:
@@ -1777,7 +1747,7 @@ def municipal_projects_view(request):
             Q(project_detail__project_type__icontains=query)
         )
         if query.isdigit():
-            search_filter |= Q(year=int(query))
+            search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
     if project_type:
         records = records.filter(project_detail__project_type=project_type)
@@ -1852,7 +1822,7 @@ def barangay_projects_view(request):
             Q(project_detail__project_type__icontains=query)
         )
         if query.isdigit():
-            search_filter |= Q(year=int(query))
+            search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
     if project_type:
         records = records.filter(project_detail__project_type=project_type)
@@ -1928,7 +1898,7 @@ def permit_records_view(request):
             Q(barangay__barangay_name__icontains=query)
         )
         if query.isdigit():
-            search_filter |= Q(year=int(query))
+            search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
     if permit_type:
         records = records.filter(permit_detail__permit_type=permit_type)
@@ -2344,7 +2314,7 @@ def record_detail_view(request, record_id):
         'latest_log': timeline.first(),
         'related_records': related_records,
         'can_edit': (request.user.role in ['admin', 'staff']),
-        'can_archive': (request.user.role == 'admin' or (request.user.role == 'staff' and record.created_by == request.user)),
+        'can_archive': (request.user.role in ['admin', 'staff']),
         'active_tab': active_tab,
         'origin': origin,
         'back_fallback_url': back_fallback_url,
@@ -2518,7 +2488,7 @@ def regularize_record_view(request, record_id):
         )
         messages.success(
             request,
-            f"Successfully regularized case into official {permit_type}! Record is now available in Master Records."
+            f"Record regularized into official {permit_type}."
         )
         origin_param = request.POST.get('from', '').strip() or 'illegal'
         redirect_url = reverse('record_detail', kwargs={'record_id': record.record_id}) + f"?from={origin_param}"
@@ -2570,6 +2540,9 @@ def flag_illegal_construction_view(request):
             try:
                 from datetime import datetime
                 date_discovered = datetime.strptime(date_discovered_str, '%Y-%m-%d').date()
+                if date_discovered > timezone.now().date():
+                    messages.error(request, "Date Inspected cannot be in the future.")
+                    return redirect(request.META.get('HTTP_REFERER', 'illegal_constructions'))
             except ValueError:
                 date_discovered = timezone.now().date()
         else:
@@ -2799,14 +2772,26 @@ def record_edit_view(request, record_id):
                 detail.applicant_name = applicant_name_val
 
                 if not record.is_illegal_construction:
-                    date_issued_val = request.POST.get('date_issued', '').strip()
-                    detail.date_issued = date_issued_val if date_issued_val else None
+                    date_issued_val = request.POST.get('date_issued', '').strip() or None
+                    if new_permit_num and not date_issued_val:
+                        messages.error(request, "Date Issued is required when assigning a Permit Number.")
+                        return redirect('edit_record', record_id=record.record_id)
+                    elif date_issued_val and not new_permit_num:
+                        messages.error(request, "Permit Number is required when assigning a Date Issued.")
+                        return redirect('edit_record', record_id=record.record_id)
+                    detail.date_issued = date_issued_val
                     if date_issued_val:
                         try:
-                            from datetime import datetime
-                            parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
-                            record.date_started = parsed_d
+                            if isinstance(date_issued_val, str):
+                                from datetime import datetime
+                                parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
+                            else:
+                                parsed_d = date_issued_val
+                            if parsed_d > timezone.now().date():
+                                messages.error(request, "Date Issued cannot be in the future.")
+                                return redirect('edit_record', record_id=record.record_id)
                             record.year = parsed_d.year
+                            record.date_started = None  # Clear any legacy date_started on permit records
                         except (ValueError, TypeError):
                             pass
                 detail.resolution_required = request.POST.get('resolution_required') == 'on'
@@ -2853,14 +2838,33 @@ def record_edit_view(request, record_id):
             detail.project_status = project_status
             detail.save()
             
-            # Sync parent record status based on project status
+            if project_status == 'Completed' and not record.date_completed:
+                messages.error(request, "Date Completed is required when Project Status is Completed.")
+                return redirect('edit_record', record_id=record.record_id)
+
+            if record.date_completed:
+                try:
+                    if isinstance(record.date_completed, str):
+                        from datetime import datetime
+                        parsed_dc = datetime.strptime(record.date_completed, '%Y-%m-%d').date()
+                    else:
+                        parsed_dc = record.date_completed
+                    if parsed_dc > timezone.now().date():
+                        messages.error(request, "Date Completed cannot be in the future.")
+                        return redirect('edit_record', record_id=record.record_id)
+                except (ValueError, TypeError):
+                    pass
+
+            # Sync parent record status & enforce date_completed rules based on project status
             if project_status == 'Completed':
                 record.status = 'completed'
-            elif project_status == 'Ongoing':
-                record.status = 'in_progress'
             else:
-                if record.status not in ['archived', 'pending']:
-                    record.status = 'active'
+                record.date_completed = None
+                if project_status == 'Ongoing':
+                    record.status = 'in_progress'
+                else:
+                    if record.status not in ['archived', 'pending']:
+                        record.status = 'active'
             record.save()
             
             if not record.requirements.exists() or old_subtype != new_subtype:
@@ -3407,13 +3411,13 @@ def toggle_requirement_waived_view(request, req_id):
 @login_required
 def record_archive_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    if request.user.role != 'admin' and record.created_by != request.user:
-        raise PermissionDenied("You can only move your own records to trash.")
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("You do not have permission to move records to trash.")
 
     record.status = 'archived'
     record.save()
     log_audit(request.user, f"Moved to Trash: '{record.title}'", record.record_id, request)
-    messages.success(request, f"Record '{record.title}' moved to trash.")
+    messages.success(request, f"Record '{record.title}' moved to archive.")
     referer = request.META.get('HTTP_REFERER')
     if referer:
         return redirect(referer)
@@ -3423,8 +3427,8 @@ def record_archive_view(request, record_id):
 @login_required
 def record_restore_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    if request.user.role != 'admin' and record.created_by != request.user:
-        raise PermissionDenied("You can only restore your own records from trash.")
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("You do not have permission to restore records from trash.")
 
     record.status = 'active'
     record.save()
@@ -3446,8 +3450,6 @@ def archive_view(request):
     records = EngineeringRecord.objects.filter(status='archived').select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     )
-    if request.user.role == 'staff':
-        records = records.filter(created_by=request.user)
 
     query = request.GET.get('q', '').strip()
     if query:
@@ -3461,7 +3463,7 @@ def archive_view(request):
             Q(project_detail__contractor__icontains=query)
         )
         if query.isdigit():
-            search_filter |= Q(year=int(query)) | Q(created_at__year=int(query))
+            search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
 
     per_page = get_per_page(request, 10)
@@ -4613,11 +4615,29 @@ def activity_logs_view(request):
         Q(action__startswith='Downloaded ') |
         Q(action__startswith='Requirement ')
     ).order_by('-performed_at')
-    if request.user.role != 'admin':
+    query = request.GET.get('q', '').strip()
+    highlight_log_id = request.GET.get('highlight_log', '').strip()
+    record_id = request.GET.get('record_id', '').strip()
+
+    if not record_id and request.user.role != 'admin':
         audit_logs = audit_logs.filter(user=request.user)
 
-    query = request.GET.get('q', '').strip()
-    if query:
+    target_rec = None
+    if record_id:
+        try:
+            target_rec = EngineeringRecord.objects.filter(record_id=record_id).first()
+        except Exception:
+            target_rec = None
+        if target_rec:
+            rec_q = Q(target_record_id=target_rec.record_id)
+            if target_rec.title and len(target_rec.title.strip()) > 1:
+                rec_q |= Q(action__icontains=target_rec.title.strip())
+            if hasattr(target_rec, 'permit_detail') and target_rec.permit_detail and target_rec.permit_detail.permit_number:
+                rec_q |= Q(action__icontains=target_rec.permit_detail.permit_number.strip())
+            audit_logs = audit_logs.filter(rec_q)
+        else:
+            audit_logs = audit_logs.filter(Q(target_record_id=record_id) | Q(action__icontains=record_id))
+    elif query:
         audit_logs = audit_logs.filter(
             Q(action__icontains=query) | Q(user__username__icontains=query) | Q(user__full_name__icontains=query) | Q(user__email__icontains=query)
         )
@@ -4657,15 +4677,27 @@ def activity_logs_view(request):
     audit_paginator = Paginator(audit_logs, per_page)
     log_page_obj = audit_paginator.get_page(request.GET.get('log_page'))
 
-    # 2. Login History Attempts
+    # Determine active tab first for high-performance lazy querying
+    active_log_tab = request.GET.get('tab', '').strip()
+    if not active_log_tab:
+        if request.GET.get('login_page') or (request.GET.get('status') and request.GET.get('status') != 'all'):
+            active_log_tab = 'login'
+        else:
+            active_log_tab = 'audit'
+
+    # 2. Login History Attempts (Lazy-loaded only when admin views Login tab)
     login_page_obj = None
     status_filter = 'all'
     blocked_ips = []
     active_user_identifiers = []
     inactive_user_identifiers = []
     blocked_attempts_count = 0
+    total_blocked_ips = 0
+    total_locked_accounts = 0
+    total_rejected_devices = 0
+    total_security_restrictions = 0
 
-    if request.user.role == 'admin':
+    if request.user.role == 'admin' and active_log_tab == 'login':
         user_map = {}
         for u in CustomUser.objects.all():
             if u.email:
@@ -4743,14 +4775,6 @@ def activity_logs_view(request):
                 attempt.is_registered_staff = False
                 attempt.is_active_staff = False
 
-    # Determine active tab
-    active_log_tab = request.GET.get('tab', '').strip()
-    if not active_log_tab:
-        if request.GET.get('login_page') or (request.GET.get('status') and request.GET.get('status') != 'all'):
-            active_log_tab = 'login'
-        else:
-            active_log_tab = 'audit'
-
     context = {
         'per_page': per_page,
         'log_page_obj': log_page_obj,
@@ -4769,6 +4793,9 @@ def activity_logs_view(request):
         'total_security_restrictions': total_security_restrictions if request.user.role == 'admin' else 0,
         'active_log_tab': active_log_tab,
         'active_tab': 'activity_logs',
+        'record_id': record_id,
+        'highlight_log_id': highlight_log_id,
+        'target_rec': target_rec,
     }
     return render(request, 'permits/activity_logs.html', context)
 
@@ -5795,7 +5822,7 @@ def users_view(request):
             new_user.save()
 
             log_audit(request.user, f"Created new {new_user.get_role_display()} account: '{new_user.full_name}' ({new_user.email})", request=request)
-            messages.success(request, f"Successfully registered user account for {full_name} ({email}).")
+            messages.success(request, f"User account for {full_name} created successfully.")
             return redirect('users')
 
         elif action == 'toggle_status':
@@ -5878,7 +5905,7 @@ def users_view(request):
             
             user_to_edit.save()
             log_audit(request.user, f"Updated user profile for '{user_to_edit.username}'", request=request)
-            messages.success(request, f"User {full_name} updated successfully.")
+            messages.success(request, f"User profile for {full_name} updated successfully.")
             return redirect('users')
 
         elif action == 'delete_user':
@@ -5979,6 +6006,7 @@ def alerts_list_json_view(request):
     alert_type = request.GET.get('type', 'expired')  # 'expired' or 'expiring'
     today_date = timezone.now().date()
     thirty_days_later = today_date + timedelta(days=30)
+    thirty_days_ago = today_date - timedelta(days=30)
     
     alert_docs = Document.objects.filter(
         expiry_date__isnull=False
@@ -5986,7 +6014,7 @@ def alerts_list_json_view(request):
     
     data = []
     if alert_type == 'expired':
-        docs = alert_docs.filter(expiry_date__lt=today_date).order_by('-expiry_date')
+        docs = alert_docs.filter(expiry_date__range=(thirty_days_ago, today_date)).order_by('-expiry_date')
         for doc in docs:
             doc_label = doc.requirement_item.name if doc.requirement_item else doc.document_type
             data.append({
@@ -6025,7 +6053,7 @@ def download_record_zip_view(request, record_id):
     """Downloads all documents for a record as a structured ZIP file."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     if record.documents.count() == 0:
-        messages.warning(request, f"No uploaded documents found for '{record.title}' to download.")
+        messages.warning(request, f"No uploaded documents found for '{record.title}' to export.")
         return redirect('record_detail', record_id=record.record_id)
 
     buffer = build_record_zip_buffer(record, _get_document_stream, user=request.user)
@@ -6051,7 +6079,7 @@ def download_category_zip_view(request, record_id, req_id):
     ).count()
 
     if sub_docs_count == 0:
-        messages.warning(request, f"No uploaded documents found under '{parent_req.requirement_item.name}'.")
+        messages.warning(request, f"No uploaded documents found under '{parent_req.requirement_item.name}' to export.")
         return redirect('record_detail', record_id=record.record_id)
 
     buffer = build_category_zip_buffer(record, parent_req, _get_document_stream)
@@ -6070,12 +6098,12 @@ def download_category_zip_view(request, record_id, req_id):
 def download_barangay_zip_view(request, barangay_id):
     """Downloads all documents for an entire Barangay as a structured ZIP archive."""
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
-    records_count = EngineeringRecord.objects.filter(
-        barangay=barangay
-    ).exclude(status='archived').count()
+    docs_count = Document.objects.filter(
+        engineering_record__barangay=barangay
+    ).exclude(engineering_record__status='archived').count()
 
-    if records_count == 0:
-        messages.warning(request, f"No records found for Barangay {barangay.barangay_name} to download.")
+    if docs_count == 0:
+        messages.warning(request, f"No uploaded documents found for Barangay {barangay.barangay_name} to export.")
         return redirect(request.META.get('HTTP_REFERER') or 'barangays')
 
     buffer = build_barangay_zip_buffer(barangay, _get_document_stream, user=request.user)
@@ -6098,7 +6126,7 @@ def download_municipal_zip_view(request):
 
     doc_count = Document.objects.exclude(engineering_record__status='archived').count()
     if doc_count == 0:
-        messages.warning(request, "No uploaded documents found to download.")
+        messages.warning(request, "No uploaded documents found in the municipal archive to export.")
         return redirect('records_browse')
 
     buffer = build_municipal_zip_buffer(_get_document_stream, user=request.user)

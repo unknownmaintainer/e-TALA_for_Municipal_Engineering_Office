@@ -223,7 +223,7 @@ class EngineeringRecord(models.Model):
             if self.is_illegal_construction and self.illegal_compliance_status == 'resolved':
                 return "Regularized"
             if hasattr(self, 'permit_detail') and self.permit_detail:
-                if not self.permit_detail.permit_number and not self.permit_detail.date_issued:
+                if not self.permit_detail.date_issued:
                     return "Pending Issuance"
             return "Issued"
 
@@ -236,7 +236,7 @@ class EngineeringRecord(models.Model):
         if st == 'unresolved':
             return {
                 'status': 'unresolved',
-                'label': 'Illegal Construction — Unresolved',
+                'label': 'Unresolved',
                 'short_label': 'Unresolved',
                 'badge_class': 'bg-danger text-white',
                 'bg_style': 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;',
@@ -245,7 +245,7 @@ class EngineeringRecord(models.Model):
         elif st == 'pending_permit':
             return {
                 'status': 'pending_permit',
-                'label': 'Illegal Construction — Permit Filed',
+                'label': 'Permit Filed',
                 'short_label': 'Permit Filed',
                 'badge_class': 'bg-warning text-dark',
                 'bg_style': 'background:#fef3c7; color:#b45309; border:1px solid #fcd34d;',
@@ -262,7 +262,7 @@ class EngineeringRecord(models.Model):
             }
         return {
             'status': st,
-            'label': 'Illegal Construction',
+            'label': 'Unresolved',
             'short_label': 'Unresolved',
             'badge_class': 'bg-secondary text-white',
             'bg_style': 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;',

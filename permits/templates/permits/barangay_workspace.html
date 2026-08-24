@@ -206,13 +206,25 @@
         </div>
     </div>
     <div class="etala-header-actions">
+        {% if total_documents > 0 %}
         <a href="{% url 'download_barangay_zip' barangay.barangay_id %}"
             class="premium-btn btn-export"
+            download
             title="Download all documents for this barangay in a structured ZIP archive">
             <span class="btn-icon"><i class="fa-solid fa-file-zipper"></i></span>
             <span class="btn-divider"></span>
             <span>Export ZIP</span>
         </a>
+        {% else %}
+        <button type="button"
+            class="premium-btn btn-export"
+            onclick="showToast('warning', 'No Documents to Export', 'This barangay currently has no uploaded documents to export.');"
+            title="No documents uploaded yet">
+            <span class="btn-icon"><i class="fa-solid fa-file-zipper"></i></span>
+            <span class="btn-divider"></span>
+            <span>Export ZIP</span>
+        </button>
+        {% endif %}
         {% if request.user.role == 'staff' or request.user.role == 'admin' %}
         <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}"
             class="premium-btn btn-add"
@@ -326,8 +338,10 @@
                                             <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
                                             {% endif %}
                                         {% elif r.record_type == 'Permit' %}
-                                            {% if r.permit_detail and r.permit_detail.permit_number %}
+                                            {% if r.permit_detail and r.permit_detail.permit_number and r.permit_detail.date_issued %}
                                             <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
+                                            {% else %}
+                                            <div class="subtitle-row text-muted" style="font-size: 0.74rem;"><i class="fa-regular fa-clock me-1 text-muted" style="font-size: 11px;"></i>Pending Issuance</div>
                                             {% endif %}
                                         {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
                                             <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ r.project_detail.contractor }}</strong></div>

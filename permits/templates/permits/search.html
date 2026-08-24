@@ -255,8 +255,10 @@
                                 <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
                                 {% endif %}
                             {% elif record.record_type == 'Permit' %}
-                                {% if record.permit_detail and record.permit_detail.permit_number %}
+                                {% if record.permit_detail and record.permit_detail.permit_number and record.permit_detail.date_issued %}
                                 <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ record.permit_detail.permit_number }}</strong></div>
+                                {% else %}
+                                <div class="subtitle-row text-muted" style="font-size: 0.74rem;"><i class="fa-regular fa-clock me-1 text-muted" style="font-size: 11px;"></i>Pending Issuance</div>
                                 {% endif %}
                             {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
                                 <div class="subtitle-row"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i>Contractor: <strong>{{ record.project_detail.contractor }}</strong></div>
@@ -307,7 +309,7 @@
                                     </a>
                                 </li>
                                 {% endif %}
-                                {% if request.user.role == 'admin' or record.created_by == request.user %}
+                                {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                                 <li><hr class="dropdown-divider my-1"></li>
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger action-dropdown-danger" href="javascript:void(0)" data-url="{% url 'archive_record' record.record_id %}" data-title="{{ record.title|escapejs }}" onclick="confirmArchiveFromSearch(this.dataset.url, this.dataset.title)">

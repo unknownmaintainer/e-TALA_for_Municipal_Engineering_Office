@@ -42,7 +42,7 @@
         <p class="etala-page-subtitle">Fill in the required technical details, location, and owner/contractor information.</p>
     </div>
 
-    <form method="POST" class="needs-validation" novalidate>
+    <form method="POST" id="step3CreateForm" class="needs-validation" novalidate>
         {% csrf_token %}
 
         <!-- RECORD INFORMATION CARD -->
@@ -111,22 +111,31 @@
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-muted fw-normal">(Optional)</span></label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                Permit Number <span id="permitNumReqHint" class="{% if form_data.date_issued %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if form_data.date_issued %}*{% else %}(Optional){% endif %}</span>
+                            </label>
                         </div>
-                        <input type="text" name="permit_number" class="form-control rounded-3"
+                        <input type="text" name="permit_number" id="permitNumInput" class="form-control rounded-3"
                                placeholder="e.g. {% if subtype == 'Building' %}BP-2026-001{% elif subtype == 'Electrical' %}EP-2026-001{% else %}BP-2026-001{% endif %}" autocomplete="off"
                                value="{{ form_data.permit_number|default:'' }}"
+                               oninput="handlePermitIssuanceSync()"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                        <div class="invalid-feedback">Permit Number is required when a date issued is specified.</div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-muted fw-normal">(Optional)</span></label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                Date Issued <span id="dateIssuedReqHint" class="{% if form_data.permit_number %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if form_data.permit_number %}*{% else %}(Optional){% endif %}</span>
+                            </label>
                         </div>
-                        <input type="date" name="date_issued" class="form-control rounded-3"
+                        <input type="date" name="date_issued" id="dateIssuedInput" class="form-control rounded-3"
                                placeholder="Select date issued..."
+                               max="today"
                                value="{{ form_data.date_issued|default:'' }}"
+                               onchange="handlePermitIssuanceSync()"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                        <div class="invalid-feedback">Date Issued is required and cannot be in the future.</div>
                     </div>
 
                     <input type="hidden" name="status" value="active">
@@ -231,11 +240,11 @@
                         <div class="d-flex align-items-center justify-content-between form-label-row">
                             <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Status <span class="text-danger">*</span></label>
                         </div>
-                        <select name="project_status" class="form-select rounded-3" required
+                        <select name="project_status" id="projectStatusSelect" class="form-select rounded-3" required onchange="handleProjectStatusChange(this.value)"
                                 style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             <option value="" disabled {% if not form_data.project_status %}selected{% endif %}>— Select Status —</option>
                             {% for val, label in project_statuses %}
-                            <option value="{{ val }}" {% if form_data.project_status == val %}selected{% endif %}>{{ label }}</option>
+                            <option value="{{ val }}" {% if form_data.project_status == val or not form_data and val == 'Ongoing' %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
                         <div class="invalid-feedback">Please select the project status.</div>
@@ -243,12 +252,17 @@
 
                     <div class="col-md-6">
                         <div class="d-flex align-items-center justify-content-between form-label-row">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Completed <span class="text-muted fw-normal">(Optional)</span></label>
+                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                Date Completed <span id="dateCompletedLabelHint" class="{% if form_data.project_status == 'Completed' %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if form_data.project_status == 'Completed' %}*{% else %}(Disabled){% endif %}</span>
+                            </label>
                         </div>
-                        <input type="date" name="date_completed" class="form-control rounded-3"
+                        <input type="date" name="date_completed" id="dateCompletedInput" class="form-control rounded-3"
                                placeholder="Select date completed..."
+                               max="today"
+                               {% if form_data.project_status == 'Completed' %}required{% endif %}
                                value="{{ form_data.date_completed|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                        <div class="invalid-feedback">Date Completed is required when project status is Completed.</div>
                     </div>
 
                     <!-- Row 5: Specify Other Funding Source (Conditional) -->
@@ -325,6 +339,108 @@ function setByAdmin() {
         input.classList.remove('is-invalid');
     }
 }
+function handleProjectStatusChange(val) {
+    const dateInput = document.getElementById('dateCompletedInput');
+    const labelHint = document.getElementById('dateCompletedLabelHint');
+    if (!dateInput) return;
+    
+    const isCompleted = (val === 'Completed');
+    const fp = dateInput._flatpickr;
+    
+    if (isCompleted) {
+        dateInput.disabled = false;
+        dateInput.required = true;
+        dateInput.removeAttribute('disabled');
+        if (fp) {
+            fp.set('clickOpens', true);
+            if (fp.altInput) {
+                fp.altInput.disabled = false;
+                fp.altInput.required = true;
+                fp.altInput.removeAttribute('disabled');
+                fp.altInput.style.pointerEvents = 'auto';
+                fp.altInput.style.cursor = 'pointer';
+                fp.altInput.style.backgroundColor = '';
+                fp.altInput.classList.remove('bg-light');
+            }
+        } else {
+            dateInput.style.pointerEvents = 'auto';
+            dateInput.style.cursor = 'pointer';
+            dateInput.style.backgroundColor = '';
+        }
+        if (labelHint) {
+            labelHint.textContent = '*';
+            labelHint.className = 'text-danger fw-bold';
+        }
+    } else {
+        dateInput.required = false;
+        if (fp) {
+            fp.clear();
+            fp.set('clickOpens', false);
+            if (fp.altInput) {
+                fp.altInput.disabled = true;
+                fp.altInput.required = false;
+                fp.altInput.setAttribute('disabled', 'disabled');
+                fp.altInput.style.pointerEvents = 'none';
+                fp.altInput.style.cursor = 'not-allowed';
+                fp.altInput.style.backgroundColor = '#f1f5f9';
+                fp.altInput.classList.add('bg-light');
+                fp.altInput.classList.remove('is-invalid');
+            }
+        } else {
+            dateInput.value = '';
+            dateInput.disabled = true;
+            dateInput.setAttribute('disabled', 'disabled');
+            dateInput.style.pointerEvents = 'none';
+            dateInput.style.cursor = 'not-allowed';
+            dateInput.style.backgroundColor = '#f1f5f9';
+            dateInput.classList.remove('is-invalid');
+        }
+        if (labelHint) {
+            labelHint.textContent = '(Disabled)';
+            labelHint.className = 'text-muted fw-normal';
+        }
+    }
+}
+function handlePermitIssuanceSync() {
+    const permitInput = document.getElementById('permitNumInput');
+    const dateInput = document.getElementById('dateIssuedInput');
+    const permitReqHint = document.getElementById('permitNumReqHint');
+    const dateReqHint = document.getElementById('dateIssuedReqHint');
+    if (!permitInput || !dateInput) return;
+
+    const hasPermitNum = permitInput.value.trim().length > 0;
+    const hasDateIssued = (dateInput.value && dateInput.value.trim().length > 0);
+    const fp = dateInput._flatpickr;
+
+    if (hasPermitNum || hasDateIssued) {
+        // Both are now co-dependent / paired!
+        permitInput.required = true;
+        dateInput.required = true;
+        if (permitReqHint) {
+            permitReqHint.textContent = '*';
+            permitReqHint.className = 'text-danger fw-bold';
+        }
+        if (dateReqHint) {
+            dateReqHint.textContent = '*';
+            dateReqHint.className = 'text-danger fw-bold';
+        }
+    } else {
+        // Neither has a value -> Pure application / draft stage
+        permitInput.required = false;
+        dateInput.required = false;
+        permitInput.classList.remove('is-invalid');
+        dateInput.classList.remove('is-invalid');
+        if (permitReqHint) {
+            permitReqHint.textContent = '(Optional)';
+            permitReqHint.className = 'text-muted fw-normal';
+        }
+        if (dateReqHint) {
+            dateReqHint.textContent = '(Optional)';
+            dateReqHint.className = 'text-muted fw-normal';
+        }
+    }
+}
+
 // Auto-populate hidden title field from applicant name for permit records
 const applicantInput = document.querySelector('input[name="applicant_name"]');
 const titleInput = document.getElementById('permitTitle');
@@ -339,8 +455,22 @@ if (applicantInput && titleInput) {
     if (permitNumInput) permitNumInput.addEventListener('input', updateTitle);
 }
 
-// Client-side Instant Validation without page loss
+// Initialize status and validation on load
 document.addEventListener('DOMContentLoaded', function() {
+    const statusSelect = document.getElementById('projectStatusSelect');
+    if (statusSelect) {
+        handleProjectStatusChange(statusSelect.value);
+        setTimeout(() => handleProjectStatusChange(statusSelect.value), 60);
+    }
+    const permitInput = document.getElementById('permitNumInput');
+    const dateIssuedInput = document.getElementById('dateIssuedInput');
+    if (permitInput || dateIssuedInput) {
+        handlePermitIssuanceSync();
+        setTimeout(() => handlePermitIssuanceSync(), 80);
+        if (dateIssuedInput && dateIssuedInput._flatpickr) {
+            dateIssuedInput._flatpickr.config.onChange.push(() => handlePermitIssuanceSync());
+        }
+    }
     const form = document.getElementById('step3CreateForm');
     if (form) {
         form.addEventListener('submit', function(event) {
@@ -349,15 +479,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 event.stopPropagation();
                 form.classList.add('was-validated');
 
+                // Sync Flatpickr custom inputs with validation state
+                form.querySelectorAll('input[type="date"]').forEach(function(dInp) {
+                    if (dInp._flatpickr && dInp._flatpickr.altInput) {
+                        if (!dInp.checkValidity()) {
+                            dInp._flatpickr.altInput.classList.add('is-invalid');
+                        } else {
+                            dInp._flatpickr.altInput.classList.remove('is-invalid');
+                        }
+                    }
+                });
+
                 // Find the first invalid element, scroll smoothly and focus
                 const firstInvalid = form.querySelector(':invalid');
                 if (firstInvalid) {
-                    firstInvalid.focus();
-                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (firstInvalid._flatpickr && firstInvalid._flatpickr.altInput) {
+                        firstInvalid._flatpickr.altInput.focus();
+                        firstInvalid._flatpickr.altInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        firstInvalid.focus();
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                     
-                    // Show a helpful non-intrusive warning notification if available
-                    if (typeof showToastNotification === 'function') {
-                        showToastNotification('Please fill in all required fields marked with *', 'warning');
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const hasFutureDate = Array.from(form.querySelectorAll('input[type="date"]')).some(inp => {
+                        const maxA = inp.getAttribute('max');
+                        return (maxA === 'today' || maxA === todayStr) && inp.value && inp.value > todayStr;
+                    });
+
+                    if (window.showToast) {
+                        if (hasFutureDate) {
+                            window.showToast('warning', 'Invalid Date', 'Date cannot be in the future.');
+                        } else {
+                            window.showToast('warning', 'Incomplete Form', 'Please fill in all required fields marked in red.');
+                        }
                     }
                 }
             }
@@ -376,10 +531,12 @@ document.addEventListener('DOMContentLoaded', function() {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
+    white-space: nowrap !important;
 }
 .form-label-row label {
     line-height: 1.2 !important;
     margin: 0 !important;
+    white-space: nowrap !important;
 }
 .form-label-row .btn-link {
     line-height: 1 !important;
@@ -389,6 +546,80 @@ document.addEventListener('DOMContentLoaded', function() {
     align-items: center !important;
     vertical-align: middle !important;
 }
+
+/* ══ REMOVE ALL GREEN CHECKMARKS / GREEN BORDERS FOR VALID FIELDS ══ */
+.was-validated .form-control:valid,
+.was-validated .form-select:valid,
+.was-validated .flatpickr-custom-input:valid {
+    border-color: #cbd5e1 !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+.was-validated .form-control:valid:focus,
+.was-validated .form-select:valid:focus,
+.was-validated .flatpickr-custom-input:valid:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark-mode .was-validated .form-control:valid,
+.dark-mode .was-validated .form-select:valid,
+.dark-mode .was-validated .flatpickr-custom-input:valid {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+/* ══ HIGH-VISIBILITY RED VALIDATION BORDERS (ONLY FOR INVALID / MISSING) ══ */
+.was-validated .form-control:invalid,
+.form-control.is-invalid,
+.was-validated .form-select:invalid,
+.form-select.is-invalid,
+.was-validated .flatpickr-custom-input:invalid,
+.flatpickr-custom-input.is-invalid {
+    border-color: #ef4444 !important;
+    border-width: 1.5px !important;
+    box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.15) !important;
+    background-image: none !important;
+}
+
+.was-validated .form-control:invalid:focus,
+.form-control.is-invalid:focus,
+.was-validated .form-select:invalid:focus,
+.form-select.is-invalid:focus,
+.flatpickr-custom-input.is-invalid:focus {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.28) !important;
+}
+
+.dark-mode .was-validated .form-control:invalid,
+.dark-mode .form-control.is-invalid,
+.dark-mode .was-validated .form-select:invalid,
+.dark-mode .form-select.is-invalid,
+.dark-mode .flatpickr-custom-input.is-invalid {
+    border-color: #f87171 !important;
+    box-shadow: 0 0 0 3.5px rgba(248, 113, 113, 0.25) !important;
+    background-color: rgba(239, 68, 68, 0.06) !important;
+}
+
+.invalid-feedback {
+    display: none;
+    font-size: 0.76rem !important;
+    color: #dc2626 !important;
+    margin-top: 4px !important;
+    font-weight: 600 !important;
+}
+
+.was-validated :invalid ~ .invalid-feedback,
+.is-invalid ~ .invalid-feedback {
+    display: block !important;
+}
+
+.dark-mode .invalid-feedback {
+    color: #fca5a5 !important;
+}
+
 .dark-mode .checklist-step-callout {
     background: rgba(59, 130, 246, 0.08) !important;
     border-color: rgba(59, 130, 246, 0.2) !important;

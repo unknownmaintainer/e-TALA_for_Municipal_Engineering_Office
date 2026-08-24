@@ -26,6 +26,28 @@
         })();
     </script>
     <style>
+        /* ══ NATIVE CROSS-DOCUMENT VIEW TRANSITIONS (ZERO-BLINK SIDEBAR) ══════ */
+        @view-transition {
+            navigation: auto;
+        }
+
+        .etala-sidebar,
+        #sidebar {
+            view-transition-name: etala-sidebar-persistent;
+        }
+
+        .etala-header {
+            view-transition-name: etala-header-persistent;
+        }
+
+        ::view-transition-old(etala-sidebar-persistent),
+        ::view-transition-new(etala-sidebar-persistent),
+        ::view-transition-old(etala-header-persistent),
+        ::view-transition-new(etala-header-persistent) {
+            animation: none !important;
+            mix-blend-mode: normal !important;
+        }
+
         /* ══ STABLE SCROLLBAR & INSTANT CANVAS (Prevents page jumping and theme flicker) ══ */
         html {
             scrollbar-gutter: stable;
@@ -83,6 +105,35 @@
             --border-default: #334155 !important;
         }
 
+        /* Critical Instant Sidebar Styling (Eliminates White Blink / Flash on Page Transitions) */
+        #sidebar,
+        .etala-sidebar,
+        aside.etala-sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            width: 260px;
+            height: 100vh !important;
+            background-color: #0f172a !important;
+            background: #0f172a !important;
+            color: #ffffff !important;
+            z-index: 1030 !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.10) !important;
+            box-sizing: border-box !important;
+        }
+
+        .sidebar-header {
+            background-color: #0f172a !important;
+            background: #0f172a !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+        }
+
+        .etala-main {
+            margin-left: 260px;
+            min-height: 100vh;
+        }
+
         /* Critical Sidebar Instant Dimensions */
         html.sidebar-is-collapsed #sidebar,
         html.sidebar-is-collapsed .etala-sidebar {
@@ -90,6 +141,17 @@
         }
         html.sidebar-is-collapsed .etala-main {
             margin-left: 72px !important;
+        }
+
+        @media (max-width: 767.98px) {
+            #sidebar,
+            .etala-sidebar {
+                width: 260px !important;
+                transform: translateX(-100%);
+            }
+            .etala-main {
+                margin-left: 0 !important;
+            }
         }
 
         /* ══ SCOPED SYNCHRONIZED THEME CROSSFADE (Active only during theme switch) ══ */
@@ -2740,7 +2802,7 @@
             /* STANDARD EXECUTIVE SIDEBAR & SMOOTH TRANSITION ENGINE               */
             /* ═════════════════════════════════════════════════════════════════════ */
             .etala-sidebar {
-                transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.28s ease !important;
+                transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
                 will-change: width;
             }
 
@@ -2790,7 +2852,7 @@
             /* ══ BUTTER-SMOOTH SIDEBAR TRANSITION ENGINE ═══════════════════ */
             .etala-sidebar,
             #sidebar {
-                transition: width 0.28s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.25s ease !important;
+                transition: width 0.28s cubic-bezier(0.25, 1, 0.5, 1) !important;
                 will-change: width;
             }
 
@@ -5016,28 +5078,44 @@
 
         /* 4. Filter Collapse Toggle Button Smooth Micro-interaction */
         .etala-search-pill-filter-btn {
-            transition: color 0.2s ease, opacity 0.2s ease !important;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
             background: transparent !important;
             border: none !important;
+            border-radius: 7px !important;
+            color: #0284c7 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
 
         .etala-search-pill-filter-btn:hover {
-            color: var(--navy, #002855) !important;
-            opacity: 0.85 !important;
+            color: #0369a1 !important;
+            background: rgba(2, 132, 199, 0.08) !important;
+            opacity: 1 !important;
+        }
+
+        .etala-search-pill-filter-btn[aria-expanded="true"] {
+            background: rgba(2, 132, 199, 0.12) !important;
+            color: #0284c7 !important;
+            transform: none !important;
+        }
+
+        .dark-mode .etala-search-pill-filter-btn,
+        [data-bs-theme="dark"] .etala-search-pill-filter-btn {
+            color: #38bdf8 !important;
         }
 
         .dark-mode .etala-search-pill-filter-btn:hover,
         [data-bs-theme="dark"] .etala-search-pill-filter-btn:hover {
-            color: #38bdf8 !important;
-        }
-
-        .etala-search-pill-filter-btn[aria-expanded="true"] {
-            color: var(--navy, #002855) !important;
+            color: #7dd3fc !important;
+            background: rgba(56, 189, 248, 0.15) !important;
         }
 
         .dark-mode .etala-search-pill-filter-btn[aria-expanded="true"],
         [data-bs-theme="dark"] .etala-search-pill-filter-btn[aria-expanded="true"] {
+            background: rgba(56, 189, 248, 0.20) !important;
             color: #38bdf8 !important;
+            transform: none !important;
         }
 
         /* 5. Smooth Filter Collapse Panel Expansion */
@@ -5555,21 +5633,25 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px 12px;
             width: 100%;
         }
 
         .checklist-header-info {
             display: flex;
             align-items: center;
-            gap: 8px;
-            white-space: nowrap;
+            gap: 8px 10px;
+            flex-wrap: wrap;
+            min-width: 0;
         }
 
         .checklist-header-actions {
             display: flex;
             align-items: center;
             gap: 8px;
-            white-space: nowrap;
+            flex-wrap: wrap;
+            margin-left: auto;
         }
 
         @media (max-width: 768px) {
@@ -6047,52 +6129,30 @@
             transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.25, 1) !important;
         }
 
-        /* ══ MAIN CONTENT BLUR & DOT SPINNER (SIDEBAR EXCLUDED & ALWAYS CRISP) ══════ */
-        .etala-page-transition-overlay {
+        /* ══ ULTRA-FAST TOP LOADING PROGRESS BAR (MODERN PREMIUM STANDARD) ══════ */
+        .etala-top-progress-bar {
             position: fixed;
             top: 0;
-            right: 0;
-            bottom: 0;
-            left: 260px;
-            width: calc(100vw - 260px);
-            height: 100vh;
-            z-index: 1045;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(248, 250, 252, 0.65);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            opacity: 0;
-            visibility: hidden;
+            left: 0;
+            height: 3px;
+            width: 0%;
+            background: linear-gradient(90deg, #2563eb 0%, #38bdf8 50%, #c5a059 100%);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.8), 0 0 4px rgba(37, 99, 235, 0.6);
+            z-index: 999999;
             pointer-events: none;
-            transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.16s, left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            transition: width 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
         }
 
-        .dark-mode .etala-page-transition-overlay,
-        [data-bs-theme="dark"] .etala-page-transition-overlay {
-            background: rgba(11, 19, 41, 0.72);
-        }
-
-        /* When sidebar is collapsed on desktop */
-        html.sidebar-is-collapsed .etala-page-transition-overlay,
-        .etala-sidebar.collapsed ~ .etala-main .etala-page-transition-overlay {
-            left: 72px !important;
-            width: calc(100vw - 72px) !important;
-        }
-
-        /* On mobile / unauthenticated screens */
-        @media (max-width: 767.98px) {
-            .etala-page-transition-overlay {
-                left: 0 !important;
-                width: 100vw !important;
-            }
-        }
-
-        .etala-page-transition-overlay.is-active {
+        .etala-top-progress-bar.is-loading {
             opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
+            width: 78%;
+        }
+
+        .etala-top-progress-bar.is-finished {
+            width: 100%;
+            opacity: 0;
+            transition: width 0.08s ease, opacity 0.2s ease 0.08s;
         }
 
         /* ─── MASTER UNIFIED FORM CONTROLS & SELECT DROPDOWNS ────────────────── */
@@ -6155,6 +6215,54 @@
             border-color: #38bdf8 !important;
             box-shadow: 0 0 0 3.5px rgba(56, 189, 248, 0.28) !important;
             background-color: #0f172a !important;
+        }
+
+        /* ══ GLOBAL FORM VALIDATION HIGHLIGHTS (RED BORDER & HALO, NO GREEN CHECKMARKS) ══ */
+        .was-validated .form-control:invalid,
+        .was-validated .form-select:invalid,
+        .was-validated textarea.form-control:invalid,
+        .was-validated .flatpickr-custom-input.is-invalid,
+        .form-control.is-invalid,
+        .form-select.is-invalid,
+        .flatpickr-custom-input.is-invalid {
+            border-color: #ef4444 !important;
+            border-width: 1.5px !important;
+            box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.15) !important;
+        }
+
+        .dark-mode .was-validated .form-control:invalid,
+        .dark-mode .was-validated .form-select:invalid,
+        .dark-mode .was-validated textarea.form-control:invalid,
+        .dark-mode .was-validated .flatpickr-custom-input.is-invalid,
+        .dark-mode .form-control.is-invalid,
+        .dark-mode .form-select.is-invalid,
+        .dark-mode .flatpickr-custom-input.is-invalid {
+            border-color: #ef4444 !important;
+            border-width: 1.5px !important;
+            box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.25) !important;
+        }
+
+        .was-validated .form-control:valid,
+        .was-validated .form-select:valid,
+        .was-validated textarea.form-control:valid,
+        .was-validated .flatpickr-custom-input:valid,
+        .form-control.is-valid,
+        .form-select.is-valid {
+            border-color: #cbd5e1 !important;
+            background-image: none !important;
+            background-repeat: no-repeat !important;
+            box-shadow: none !important;
+        }
+        .dark-mode .was-validated .form-control:valid,
+        .dark-mode .was-validated .form-select:valid,
+        .dark-mode .was-validated textarea.form-control:valid,
+        .dark-mode .was-validated .flatpickr-custom-input:valid,
+        .dark-mode .form-control.is-valid,
+        .dark-mode .form-select.is-valid {
+            border-color: rgba(255, 255, 255, 0.15) !important;
+            background-image: none !important;
+            background-repeat: no-repeat !important;
+            box-shadow: none !important;
         }
 
         .etala-transition-spinner-box {
@@ -6322,8 +6430,6 @@
 </head>
 
 <body>
-    <!-- ══ CINEMATIC THEME FADE-OUT / FADE-IN DISSOLVE OVERLAY ═════════════════ -->
-    <div id="themeFadeOverlay" class="theme-fade-overlay" aria-hidden="true"></div>
     {% if request.user.is_authenticated %}
     <div class="etala-layout">
         <!-- ═══════════════════════════════════════════
@@ -6499,25 +6605,8 @@
              MAIN CONTENT AREA
              ═══════════════════════════════════════════ -->
         <div class="etala-main">
-            <!-- ══ MAIN CONTENT BLUR & DOT SPINNER (SIDEBAR EXCLUDED & UNTOUCHED) ══ -->
-            <div id="etalaPageTransitionOverlay" class="etala-page-transition-overlay" aria-hidden="true">
-                <div class="etala-transition-spinner-box">
-                    <svg class="etala-dot-spinner" viewBox="0 0 64 64" width="48" height="48">
-                        <circle cx="32" cy="10" r="4.2" opacity="1.0" fill="currentColor"/>
-                        <circle cx="43" cy="13" r="4.2" opacity="0.92" fill="currentColor"/>
-                        <circle cx="51" cy="21" r="4.2" opacity="0.83" fill="currentColor"/>
-                        <circle cx="54" cy="32" r="4.2" opacity="0.75" fill="currentColor"/>
-                        <circle cx="51" cy="43" r="4.2" opacity="0.66" fill="currentColor"/>
-                        <circle cx="43" cy="51" r="4.2" opacity="0.58" fill="currentColor"/>
-                        <circle cx="32" cy="54" r="4.2" opacity="0.50" fill="currentColor"/>
-                        <circle cx="21" cy="51" r="4.2" opacity="0.42" fill="currentColor"/>
-                        <circle cx="13" cy="43" r="4.2" opacity="0.33" fill="currentColor"/>
-                        <circle cx="10" cy="32" r="4.2" opacity="0.25" fill="currentColor"/>
-                        <circle cx="13" cy="21" r="4.2" opacity="0.18" fill="currentColor"/>
-                        <circle cx="21" cy="13" r="4.2" opacity="0.12" fill="currentColor"/>
-                    </svg>
-                </div>
-            </div>
+            <!-- ══ ULTRA-FAST TOP LOADING PROGRESS BAR (NON-BLOCKING) ══ -->
+            <div id="etalaTopProgressBar" class="etala-top-progress-bar" aria-hidden="true"></div>
 
             <!-- Top Header Bar -->
             <header class="etala-header">
@@ -7172,12 +7261,25 @@
         });
     </script>
 
-    <!-- Global Toast Notifications Container (Top-Right) -->
-    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3"
-        style="z-index: 10000; pointer-events: none;"></div>
+    <!-- Global Toast Notifications Container (Top-Right Rigid Anchor) -->
+    <div id="toastContainer" class="position-fixed"
+        style="top: 20px; right: 20px; z-index: 10050; pointer-events: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"></div>
 
     <style>
         /* ══ STANDARD COMPACT TOAST SYSTEM (Sleek & Non-Bulky) ════════════ */
+        #toastContainer {
+            position: fixed !important;
+            top: 20px !important;
+            right: 20px !important;
+            z-index: 10050 !important;
+            pointer-events: none !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-end !important;
+            gap: 8px !important;
+            max-width: calc(100vw - 40px) !important;
+        }
+
         .custom-app-toast {
             border-radius: 10px !important;
             min-width: 270px;
@@ -7187,14 +7289,30 @@
             overflow: hidden;
             background: #ffffff !important;
             box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.05) !important;
-            animation: etalaToastBounceIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: etalaToastBounceIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             transition: transform 0.2s ease, opacity 0.2s ease;
+            margin: 0 !important;
+        }
+
+        @media (max-width: 480px) {
+            #toastContainer {
+                top: 12px !important;
+                right: 12px !important;
+                left: 12px !important;
+                align-items: stretch !important;
+                max-width: calc(100vw - 24px) !important;
+            }
+            .custom-app-toast {
+                min-width: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
         }
 
         @keyframes etalaToastBounceIn {
             0% {
                 opacity: 0;
-                transform: translateY(-16px) scale(0.96);
+                transform: translateY(-12px) scale(0.97);
             }
             100% {
                 opacity: 1;
@@ -7204,7 +7322,8 @@
 
         .custom-app-toast.toast-hiding {
             opacity: 0 !important;
-            transform: translateY(-8px) scale(0.96) !important;
+            transform: translateY(-6px) scale(0.97) !important;
+            pointer-events: none !important;
         }
 
         /* Light Mode Clean Variants */
@@ -7373,13 +7492,13 @@
     </style>
 
     <script>
-        function showToast(type, title, message, duration = 3000) {
+        function showToast(type, title, message, duration = 3200) {
             const container = document.getElementById('toastContainer');
             if (!container) return;
 
-            // Auto-dismiss any currently active toasts to prevent stacking
+            // Immediately purge any active or fading toasts to guarantee zero vertical drop / ghost stacking
             container.querySelectorAll('.custom-app-toast').forEach(t => {
-                dismissToast(t.id);
+                t.remove();
             });
 
             const tagLower = (type || '').toLowerCase();
@@ -7401,16 +7520,14 @@
                 
                 if (msgLower.includes('regulariz')) {
                     defaultTitle = 'Regularized Successfully';
-                } else if (msgLower.includes('trash')) {
-                    defaultTitle = 'Moved to Trash';
-                } else if (msgLower.includes('archiv')) {
-                    defaultTitle = 'Archived Successfully';
+                } else if (msgLower.includes('trash') || msgLower.includes('archiv')) {
+                    defaultTitle = 'Record Archived';
                 } else if (msgLower.includes('restor')) {
-                    defaultTitle = 'Restored Successfully';
+                    defaultTitle = 'Record Restored';
                 } else if (msgLower.includes('deactivat')) {
-                    defaultTitle = 'Deactivated Successfully';
+                    defaultTitle = 'Account Deactivated';
                 } else if (msgLower.includes('activat')) {
-                    defaultTitle = 'Activated Successfully';
+                    defaultTitle = 'Account Activated';
                 } else if (msgLower.includes('upload')) {
                     defaultTitle = 'Uploaded Successfully';
                 } else if (msgLower.includes('creat') || msgLower.includes('added')) {
@@ -7420,7 +7537,9 @@
                 } else if (msgLower.includes('updat') || msgLower.includes('sav') || msgLower.includes('edit')) {
                     defaultTitle = 'Saved Successfully';
                 } else if (msgLower.includes('reset') || msgLower.includes('password')) {
-                    defaultTitle = 'Password Reset';
+                    defaultTitle = 'Password Updated';
+                } else if (msgLower.includes('login') || msgLower.includes('welcome')) {
+                    defaultTitle = 'Login Successful';
                 } else {
                     defaultTitle = 'Success';
                 }
@@ -7435,8 +7554,8 @@
                     defaultTitle = 'Deletion Blocked';
                 } else if (msgLower.includes('upload')) {
                     defaultTitle = 'Upload Failed';
-                } else if (msgLower.includes('password')) {
-                    defaultTitle = 'Password Error';
+                } else if (msgLower.includes('password') || msgLower.includes('credential')) {
+                    defaultTitle = 'Authentication Error';
                 } else if (msgLower.includes('permission') || msgLower.includes('denied') || msgLower.includes('unauthoriz')) {
                     defaultTitle = 'Access Denied';
                 } else {
@@ -7449,6 +7568,10 @@
                 
                 if (msgLower.includes('prevent') || msgLower.includes('cannot') || msgLower.includes('restricted')) {
                     defaultTitle = 'Action Prevented';
+                } else if (msgLower.includes('fill') || msgLower.includes('required')) {
+                    defaultTitle = 'Incomplete Form';
+                } else if (msgLower.includes('flag')) {
+                    defaultTitle = 'Flagged Successfully';
                 } else {
                     defaultTitle = 'Warning';
                 }
@@ -7459,7 +7582,7 @@
             const toastId = 'toast-' + Date.now() + Math.random().toString(36).substr(2, 4);
 
             const toastHtml = `
-            <div id="${toastId}" class="custom-app-toast ${variantClass} mb-2.5" role="alert" aria-live="assertive" aria-atomic="true">
+            <div id="${toastId}" class="custom-app-toast ${variantClass}" role="alert" aria-live="assertive" aria-atomic="true">
                 <div class="d-flex align-items-center" style="padding: 12px 14px; gap: 12px;">
                     <div class="toast-icon-badge" style="background: ${iconBg};">
                         ${iconHtml}
@@ -7520,7 +7643,7 @@
             });
 
             // Start countdown animation
-            setTimeout(startTimer, 40);
+            setTimeout(startTimer, 30);
 
             return toastId;
         }
@@ -7533,7 +7656,7 @@
                 if (toastEl && toastEl.parentElement) {
                     toastEl.remove();
                 }
-            }, 230);
+            }, 180);
         }
 
         window.showToastNotification = showToast;
@@ -7542,7 +7665,7 @@
         window.downloadFileWithToast = function(url, suggestedFilename, options = {}) {
             const title = options.title || 'Exporting File';
             const startMsg = options.startMsg || 'Preparing your document, please wait...';
-            const successTitle = options.successTitle || '✅ Download Started!';
+            const successTitle = options.successTitle || 'Download Started';
             const successMsg = options.successMsg || 'File sent to your browser downloads.';
             const btn = options.buttonElement;
 
@@ -8815,14 +8938,14 @@
                     iconWrapper.style.color = '#16a34a';
                     iconWrapper.innerHTML = '<i class="fa-solid fa-circle-check" style="font-size: 16px;"></i>';
                 }
-                if (titleEl) titleEl.innerText = completedTitle || '✅ Download Started!';
+                if (titleEl) titleEl.innerText = completedTitle || 'Download Started';
                 if (msgEl) msgEl.innerText = completedMsg || 'File sent to your browser downloads.';
 
                 setTimeout(function() {
                     if (toastEl) {
                         dismissToast(toastId);
                     }
-                }, 3500);
+                }, 3200);
             }, 1800);
         }
         window.showZipDownloadToast = showZipDownloadToast;
@@ -8836,7 +8959,7 @@
                         window.showZipDownloadToast(
                             'Preparing ZIP Archive',
                             'Compressing documents into a structured ZIP file...',
-                            '✅ ZIP Archive Ready!',
+                            'ZIP Archive Ready',
                             'ZIP archive sent to your browser downloads.'
                         );
                     }
@@ -8962,9 +9085,51 @@
         window.initPremiumDatePickers = function(root = document) {
             if (typeof flatpickr === 'undefined') return;
             const dateInputs = root.querySelectorAll('input[type="date"], input.date-picker');
+
+            function checkDateBounds(instance) {
+                if (!instance || !instance.input) return;
+                const input = instance.input;
+                const altInput = instance.altInput;
+                const maxAttr = input.getAttribute('max') || input.getAttribute('data-max-date');
+                if (!input.value) {
+                    input.setCustomValidity('');
+                    if (altInput) altInput.classList.remove('is-invalid');
+                    return;
+                }
+                const todayStr = new Date().toISOString().split('T')[0];
+                if ((maxAttr === 'today' || maxAttr === todayStr) && input.value > todayStr) {
+                    input.setCustomValidity('Date cannot be in the future.');
+                    if (altInput) altInput.classList.add('is-invalid');
+                    if (window.showToast && !input._toastSuppressed) {
+                        window.showToast('warning', 'Invalid Date', 'Date cannot be in the future.');
+                        input._toastSuppressed = true;
+                        setTimeout(() => { input._toastSuppressed = false; }, 2500);
+                    }
+                } else {
+                    input.setCustomValidity('');
+                    if (altInput) altInput.classList.remove('is-invalid');
+                }
+            }
+
             dateInputs.forEach(el => {
                 if (!el._flatpickr) {
                     const customPlaceholder = el.getAttribute('placeholder') || 'Select date (e.g. Oct 24, 2026)';
+                    const maxAttr = el.getAttribute('max') || el.getAttribute('data-max-date');
+                    let maxDateVal = null;
+                    if (maxAttr === 'today' || maxAttr === 'now') {
+                        maxDateVal = new Date();
+                    } else if (maxAttr) {
+                        maxDateVal = maxAttr;
+                    }
+
+                    const minAttr = el.getAttribute('min') || el.getAttribute('data-min-date');
+                    let minDateVal = null;
+                    if (minAttr === 'today' || minAttr === 'now') {
+                        minDateVal = new Date();
+                    } else if (minAttr) {
+                        minDateVal = minAttr;
+                    }
+
                     flatpickr(el, {
                         dateFormat: 'Y-m-d',
                         altInput: true,
@@ -8972,9 +9137,14 @@
                         altInputClass: (el.className || 'form-control') + ' flatpickr-custom-input',
                         allowInput: true,
                         position: 'auto',
+                        maxDate: maxDateVal,
+                        minDate: minDateVal,
                         monthSelectorType: 'dropdown',
                         prevArrow: '<i class="fa-solid fa-chevron-left" style="font-size: 11px;"></i>',
                         nextArrow: '<i class="fa-solid fa-chevron-right" style="font-size: 11px;"></i>',
+                        onChange: function(selectedDates, dateStr, instance) {
+                            checkDateBounds(instance);
+                        },
                         onOpen: function(selectedDates, dateStr, instance) {
                             requestAnimationFrame(() => {
                                 const cal = instance.calendarContainer;
@@ -9003,22 +9173,33 @@
                             if (instance.altInput && (!instance.altInput.getAttribute('placeholder') || instance.altInput.getAttribute('placeholder') === '')) {
                                 instance.altInput.setAttribute('placeholder', customPlaceholder);
                             }
+                            if (instance.altInput) {
+                                instance.altInput.addEventListener('input', function() {
+                                    setTimeout(() => checkDateBounds(instance), 30);
+                                });
+                            }
                             if (!instance.calendarContainer.querySelector('.flatpickr-footer-actions')) {
                                 const footer = document.createElement('div');
                                 footer.className = 'flatpickr-footer-actions d-flex align-items-center justify-content-between';
                                 footer.innerHTML = `
-                                    <button type="button" class="flatpickr-footer-btn btn-clear">Clear</button>
-                                    <button type="button" class="flatpickr-footer-btn btn-today">Today</button>
+                                    <button type="button" class="flatpickr-footer-btn btn-clear">
+                                        <i class="fa-solid fa-xmark me-1" style="font-size: 10px;"></i> Clear
+                                    </button>
+                                    <button type="button" class="flatpickr-footer-btn btn-today ms-auto">
+                                        <i class="fa-solid fa-calendar-day me-1" style="font-size: 10px;"></i> Today
+                                    </button>
                                 `;
                                 footer.querySelector('.btn-clear').addEventListener('click', function(ev) {
                                     ev.preventDefault();
                                     instance.clear();
                                     instance.close();
+                                    checkDateBounds(instance);
                                 });
                                 footer.querySelector('.btn-today').addEventListener('click', function(ev) {
                                     ev.preventDefault();
                                     instance.setDate(new Date(), true);
                                     instance.close();
+                                    checkDateBounds(instance);
                                 });
                                 instance.calendarContainer.appendChild(footer);
                             }
@@ -9035,29 +9216,108 @@
             }
         });
 
-        // ⚡ GLOBAL SMOOTH PAGE TRANSITION BLUR & DOT SPINNER
+        // ⚡ INSTANT PERSISTENT SPA PAGE TRANSITION ENGINE (ZERO WHITE FLASH, PERMANENT SIDEBAR)
         (function() {
-            let transitionSafetyTimer = null;
+            const bar = document.getElementById('etalaTopProgressBar');
+            let isNavigating = false;
 
-            window.showPageTransition = function(timeoutMs) {
-                const overlay = document.getElementById('etalaPageTransitionOverlay');
-                if (overlay) {
-                    overlay.classList.add('is-active');
-                    clearTimeout(transitionSafetyTimer);
-                    transitionSafetyTimer = setTimeout(window.hidePageTransition, timeoutMs || 2500);
+            function showBar() {
+                if (bar) {
+                    bar.classList.remove('is-finished');
+                    bar.style.width = '0%';
+                    bar.classList.add('is-loading');
                 }
-            };
+            }
 
-            window.hidePageTransition = function() {
-                const overlay = document.getElementById('etalaPageTransitionOverlay');
-                if (overlay) overlay.classList.remove('is-active');
-                if (transitionSafetyTimer) clearTimeout(transitionSafetyTimer);
-            };
+            function hideBar() {
+                if (bar) {
+                    bar.classList.add('is-finished');
+                    setTimeout(() => {
+                        bar.classList.remove('is-loading', 'is-finished');
+                        bar.style.width = '0%';
+                    }, 350);
+                }
+            }
 
-            window.addEventListener('DOMContentLoaded', window.hidePageTransition);
-            window.addEventListener('pageshow', window.hidePageTransition);
-            window.addEventListener('popstate', window.hidePageTransition);
-            window.addEventListener('focus', window.hidePageTransition);
+            async function navigateTo(url, pushState = true) {
+                if (isNavigating) return;
+                isNavigating = true;
+                showBar();
+
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    if (!response.ok || (response.redirected && response.url.includes('/login'))) {
+                        window.location.href = response.url || url;
+                        return;
+                    }
+
+                    const htmlText = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+
+                    const newContent = doc.querySelector('main.etala-content');
+                    const currentContent = document.querySelector('main.etala-content');
+                    const newHeader = doc.querySelector('header.etala-header');
+                    const currentHeader = document.querySelector('header.etala-header');
+                    const newSidebar = doc.querySelector('.sidebar-nav');
+                    const currentSidebar = document.querySelector('.sidebar-nav');
+
+                    if (!newContent || !currentContent) {
+                        window.location.href = url;
+                        return;
+                    }
+
+                    // Update page title
+                    document.title = doc.title || document.title;
+
+                    // Update active sidebar links
+                    if (newSidebar && currentSidebar) {
+                        currentSidebar.innerHTML = newSidebar.innerHTML;
+                    }
+
+                    // Update header
+                    if (newHeader && currentHeader) {
+                        currentHeader.innerHTML = newHeader.innerHTML;
+                    }
+
+                    // Smooth DOM swap of main content
+                    currentContent.innerHTML = newContent.innerHTML;
+
+                    // Execute any dynamic script blocks inside newContent
+                    const scripts = currentContent.querySelectorAll('script');
+                    scripts.forEach(oldScript => {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+
+                    // Re-init global date pickers & lucide icons
+                    if (window.initPremiumDatePickers) window.initPremiumDatePickers(currentContent);
+                    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+
+                    if (pushState) {
+                        window.history.pushState({ path: url }, '', url);
+                    }
+
+                    window.scrollTo({ top: 0, behavior: 'instant' });
+                    hideBar();
+                } catch (err) {
+                    console.warn('Fast transition fallback:', err);
+                    window.location.href = url;
+                } finally {
+                    isNavigating = false;
+                }
+            }
+
+            window.addEventListener('popstate', function() {
+                navigateTo(window.location.href, false);
+            });
 
             document.addEventListener('click', function(e) {
                 const link = e.target.closest('a');
@@ -9071,7 +9331,15 @@
                     return;
                 }
 
-                if (link.hasAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle') || link.classList.contains('zip-download-btn') || link.closest('.dropdown-menu') || link.hasAttribute('data-no-transition') || link.classList.contains('no-transition')) {
+                // Check same-origin
+                try {
+                    const urlObj = new URL(href, window.location.origin);
+                    if (urlObj.origin !== window.location.origin) return;
+                } catch(err) {
+                    return;
+                }
+
+                if (link.hasAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle') || link.classList.contains('zip-download-btn') || link.closest('.dropdown-menu') || link.hasAttribute('data-no-transition') || link.classList.contains('no-transition') || href.includes('/logout/')) {
                     return;
                 }
 
@@ -9079,7 +9347,8 @@
                     return;
                 }
 
-                window.showPageTransition();
+                e.preventDefault();
+                navigateTo(href, true);
             });
         })();
 
@@ -9110,6 +9379,86 @@
             if (!navigator.onLine) {
                 updateNetworkStatus();
             }
+        })();
+
+        // ══ UNIVERSAL GLOBAL FORM VALIDATION & RED-BORDER AUTO-SCROLL ENGINE ══
+        (function() {
+            function suppressBrowserBubbles(root) {
+                const target = root || document;
+                target.querySelectorAll('form').forEach(f => {
+                    if (!f.method || f.method.toLowerCase() === 'post') {
+                        f.setAttribute('novalidate', 'true');
+                        f.classList.add('needs-validation');
+                    }
+                });
+            }
+
+            suppressBrowserBubbles();
+            document.addEventListener('DOMContentLoaded', () => suppressBrowserBubbles());
+            document.addEventListener('shown.bs.modal', (e) => suppressBrowserBubbles(e.target));
+
+            // Prevent native browser popup bubble fallback
+            document.addEventListener('invalid', function(event) {
+                event.preventDefault();
+                const form = event.target.closest('form');
+                if (form) {
+                    form.classList.add('was-validated');
+                }
+            }, true);
+
+            document.addEventListener('submit', function(event) {
+                const form = event.target;
+                if (!form || form.nodeName !== 'FORM') return;
+                
+                // Skip forms explicitly opting out or GET search/filter queries
+                if (form.getAttribute('data-skip-validation') === 'true' || form.getAttribute('data-ajax-filter') === 'true' || (form.method && form.method.toLowerCase() === 'get')) {
+                    return;
+                }
+
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    form.classList.add('was-validated');
+
+                    // Synchronize all Flatpickr custom inputs with validation state
+                    form.querySelectorAll('input[type="date"], input.date-picker').forEach(function(dInp) {
+                        if (dInp._flatpickr && dInp._flatpickr.altInput) {
+                            if (!dInp.checkValidity()) {
+                                dInp._flatpickr.altInput.classList.add('is-invalid');
+                            } else {
+                                dInp._flatpickr.altInput.classList.remove('is-invalid');
+                            }
+                        }
+                    });
+
+                    // Auto-scroll and smoothly focus the first invalid field
+                    const firstInvalid = form.querySelector(':invalid');
+                    if (firstInvalid) {
+                        if (firstInvalid._flatpickr && firstInvalid._flatpickr.altInput) {
+                            firstInvalid._flatpickr.altInput.focus();
+                            firstInvalid._flatpickr.altInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else {
+                            firstInvalid.focus();
+                            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+
+                        // Smart Toast notification based on validation error type
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const hasFutureDate = Array.from(form.querySelectorAll('input[type="date"]')).some(inp => {
+                            const maxA = inp.getAttribute('max');
+                            return (maxA === 'today' || maxA === todayStr) && inp.value && inp.value > todayStr;
+                        });
+
+                        if (window.showToast) {
+                            if (hasFutureDate) {
+                                window.showToast('warning', 'Invalid Date', 'Date cannot be in the future.');
+                            } else {
+                                window.showToast('warning', 'Incomplete Form', 'Please fill in all required fields marked in red.');
+                            }
+                        }
+                    }
+                }
+            }, false);
         })();
     </script>
 

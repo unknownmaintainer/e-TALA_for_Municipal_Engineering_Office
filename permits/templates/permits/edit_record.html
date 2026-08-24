@@ -23,7 +23,7 @@
 <!-- ══ PAGE HEADER ═════════════════════════════════════════════════════════ -->
 
 <!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
-<form method="POST" action="{% url 'edit_record' record.record_id %}">
+<form method="POST" id="editRecordForm" class="needs-validation" action="{% url 'edit_record' record.record_id %}" novalidate>
     {% csrf_token %}
     <input type="hidden" name="is_illegal_construction" value="{% if record.is_illegal_construction %}true{% else %}false{% endif %}">
     <div class="etala-page-header">
@@ -121,17 +121,7 @@
                                 </select>
                             </div>
 
-                            <!-- Row 3: Issued Permit Number & Permit Type (When Regularized) -->
-                            <div class="col-md-6" id="violationPermitNumWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-danger fw-bold">*</span></label>
-                                </div>
-                                <input type="text" name="permit_number" id="violationPermitNumInput" class="form-control rounded-3"
-                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
-                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
-                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            </div>
-
+                            <!-- Row 3: Permit Type & Building Type -->
                             <div class="col-md-6" id="violationPermitTypeWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type <span class="text-danger fw-bold">*</span></label>
@@ -144,28 +134,6 @@
                                     <option value="{{ val }}" {% if permit_detail and permit_detail.permit_type == val or not permit_detail.permit_type and val == 'Building Permit' %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
-                            </div>
-
-                            <!-- Row 4: Date Inspected & Date Issued -->
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Inspected <span class="text-danger fw-bold">*</span></label>
-                                </div>
-                                <input type="date" name="date_started" class="form-control rounded-3" required
-                                    placeholder="Select date inspected..."
-                                    value="{{ record.date_started|date:'Y-m-d'|default:'' }}"
-                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            </div>
-
-                            <div class="col-md-6" id="violationDateIssuedWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-danger fw-bold">*</span></label>
-                                </div>
-                                <input type="date" name="date_issued" id="violationDateIssuedInput" class="form-control rounded-3"
-                                    placeholder="Select date issued..."
-                                    value="{{ permit_detail.date_issued|date:'Y-m-d'|default:'' }}"
-                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
-                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6" id="violationBuildingTypeWrapper">
@@ -182,6 +150,54 @@
                                     <option value="{{ val }}" {% if permit_detail and permit_detail.building_type == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
+                            </div>
+
+                            <!-- Row 4: Permit Number & Date Issued (When Regularized) -->
+                            <div class="col-md-6" id="violationPermitNumWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-danger fw-bold">*</span></label>
+                                </div>
+                                <input type="text" name="permit_number" id="violationPermitNumInput" class="form-control rounded-3"
+                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
+                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                            </div>
+
+                            <div class="col-md-6" id="violationDateIssuedWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-danger fw-bold">*</span></label>
+                                </div>
+                                <input type="date" name="date_issued" id="violationDateIssuedInput" class="form-control rounded-3"
+                                    placeholder="Select date issued..."
+                                    max="today"
+                                    value="{{ permit_detail.date_issued|date:'Y-m-d'|default:'' }}"
+                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <div class="invalid-feedback">Date Issued cannot be in the future.</div>
+                            </div>
+
+                            <!-- Row 5: Date Inspected & Remarks / Notes -->
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Inspected <span class="text-danger fw-bold">*</span></label>
+                                </div>
+                                <input type="date" name="date_started" class="form-control rounded-3" required
+                                    placeholder="Select date inspected..."
+                                    max="today"
+                                    value="{{ record.date_started|date:'Y-m-d'|default:'' }}"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <div class="invalid-feedback">Date Inspected cannot be in the future.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Remarks / Notes <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <span class="text-muted small char-counter-lbl" style="font-size: 0.72rem;">0 / 250</span>
+                                </div>
+                                <input type="text" name="description" class="form-control rounded-3 char-counted" maxlength="250"
+                                    placeholder="Enter violation notes or observations..."
+                                    value="{{ record.description|default:'' }}"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <!-- ── 2. PERMIT APPLICATION FIELDS ────────────────────── -->
@@ -239,21 +255,31 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                        Permit Number <span id="editPermitNumReqHint" class="{% if permit_detail and permit_detail.date_issued %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if permit_detail and permit_detail.date_issued %}*{% else %}(Optional){% endif %}</span>
+                                    </label>
                                 </div>
-                                <input type="text" name="permit_number" class="form-control rounded-3"
+                                <input type="text" name="permit_number" id="editPermitNumInput" class="form-control rounded-3"
                                     value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
+                                    oninput="handleEditPermitIssuanceSync()"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <div class="invalid-feedback">Permit Number is required when a date issued is specified.</div>
                             </div>
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                        Date Issued <span id="editDateIssuedReqHint" class="{% if permit_detail and permit_detail.permit_number %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if permit_detail and permit_detail.permit_number %}*{% else %}(Optional){% endif %}</span>
+                                    </label>
                                 </div>
-                                <input type="date" name="date_issued" class="form-control rounded-3"
+                                <input type="date" name="date_issued" id="editDateIssuedInput" class="form-control rounded-3"
                                     placeholder="Select date issued..."
-                                    value="{% if permit_detail and permit_detail.date_issued %}{{ permit_detail.date_issued|date:'Y-m-d' }}{% elif record.date_started %}{{ record.date_started|date:'Y-m-d' }}{% endif %}"
+                                    max="today"
+                                    value="{{ permit_detail.date_issued|date:'Y-m-d'|default:'' }}"
+                                    onchange="handleEditPermitIssuanceSync()"
+                                    {% if permit_detail and permit_detail.permit_number %}required{% endif %}
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <div class="invalid-feedback">Date Issued is required and cannot be in the future.</div>
                             </div>
 
                             <input type="hidden" name="status" value="{{ record.status|default:'active' }}">
@@ -338,7 +364,8 @@
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Status <span class="text-danger fw-bold">*</span></label>
                                 </div>
-                                <select name="project_status" class="form-select rounded-3" required
+                                <select name="project_status" id="editProjectStatusSelect" class="form-select rounded-3" required
+                                    onchange="handleEditProjectStatusChange(this.value)"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled {% if not project_detail or not project_detail.project_status %}selected{% endif %}>— Select Status —</option>
                                     {% for val, label in project_statuses %}
@@ -349,12 +376,17 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Completed <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                        Date Completed <span id="editDateCompletedLabelHint" class="{% if project_detail and project_detail.project_status == 'Completed' %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if project_detail and project_detail.project_status == 'Completed' %}*{% else %}(Disabled){% endif %}</span>
+                                    </label>
                                 </div>
-                                <input type="date" name="date_completed" class="form-control rounded-3"
+                                <input type="date" name="date_completed" id="editDateCompletedInput" class="form-control rounded-3"
                                     placeholder="Select date completed..."
+                                    max="today"
+                                    {% if project_detail and project_detail.project_status == 'Completed' %}required{% endif %}
                                     value="{{ record.date_completed|date:'Y-m-d'|default:'' }}"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <div class="invalid-feedback">Date Completed is required when project status is Completed.</div>
                             </div>
 
                             <div class="col-12" id="editFundingOtherWrapper"
@@ -373,7 +405,8 @@
                             <input type="hidden" name="latitude" id="id_latitude" value="{{ record.latitude|default:'' }}">
                             <input type="hidden" name="longitude" id="id_longitude" value="{{ record.longitude|default:'' }}">
 
-                            <!-- Description / Remarks -->
+                            <!-- Description / Remarks (For standard Permits and Projects) -->
+                            {% if not record.is_illegal_construction %}
                             <div class="col-12">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Remarks / Notes <span class="text-muted fw-normal">(Optional)</span></label>
@@ -383,6 +416,7 @@
                                     placeholder="Enter additional notes or observations..."
                                     style="font-size: 0.85rem; padding: 7px 12px; min-height: 54px; resize: vertical;">{{ record.description }}</textarea>
                             </div>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -437,9 +471,9 @@
                             {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
                             Regularized &bull; {{ record.specific_type_label }}
                             {% elif record.is_illegal_construction and record.illegal_compliance_status == 'pending_permit' %}
-                            Under Review &bull; {{ record.specific_type_label }}
+                            Permit Filed &bull; {{ record.specific_type_label }}
                             {% elif record.is_illegal_construction %}
-                            Building Violation &bull; {{ record.specific_type_label }}
+                            Unresolved &bull; {{ record.specific_type_label }}
                             {% elif record.record_type == 'Project' %}
                             {{ record.get_project_scope_display }} Project &bull; {{ record.specific_type_label }}
                             {% else %}
@@ -680,15 +714,177 @@
             }
         }
     }
-</script>
 
-<script>
     function setEditByAdmin() {
         const input = document.getElementById('editContractorInput');
         if (input) {
             input.value = 'By Administration (LGU Carigara)';
         }
     }
+
+    function handleEditProjectStatusChange(val) {
+        const dateInput = document.getElementById('editDateCompletedInput');
+        const labelHint = document.getElementById('editDateCompletedLabelHint');
+        if (!dateInput) return;
+        
+        const isCompleted = (val === 'Completed');
+        const fp = dateInput._flatpickr;
+        
+        if (isCompleted) {
+            dateInput.disabled = false;
+            dateInput.required = true;
+            dateInput.removeAttribute('disabled');
+            if (fp) {
+                fp.set('clickOpens', true);
+                if (fp.altInput) {
+                    fp.altInput.disabled = false;
+                    fp.altInput.required = true;
+                    fp.altInput.removeAttribute('disabled');
+                    fp.altInput.style.pointerEvents = 'auto';
+                    fp.altInput.style.cursor = 'pointer';
+                    fp.altInput.style.backgroundColor = '';
+                    fp.altInput.classList.remove('bg-light');
+                }
+            } else {
+                dateInput.style.pointerEvents = 'auto';
+                dateInput.style.cursor = 'pointer';
+                dateInput.style.backgroundColor = '';
+            }
+            if (labelHint) {
+                labelHint.textContent = '*';
+                labelHint.className = 'text-danger fw-bold';
+            }
+        } else {
+            dateInput.required = false;
+            if (fp) {
+                fp.clear();
+                fp.set('clickOpens', false);
+                if (fp.altInput) {
+                    fp.altInput.disabled = true;
+                    fp.altInput.required = false;
+                    fp.altInput.setAttribute('disabled', 'disabled');
+                    fp.altInput.style.pointerEvents = 'none';
+                    fp.altInput.style.cursor = 'not-allowed';
+                    fp.altInput.style.backgroundColor = '#f1f5f9';
+                    fp.altInput.classList.add('bg-light');
+                    fp.altInput.classList.remove('is-invalid');
+                }
+            } else {
+                dateInput.value = '';
+                dateInput.disabled = true;
+                dateInput.setAttribute('disabled', 'disabled');
+                dateInput.style.pointerEvents = 'none';
+                dateInput.style.cursor = 'not-allowed';
+                dateInput.style.backgroundColor = '#f1f5f9';
+                dateInput.classList.remove('is-invalid');
+            }
+            if (labelHint) {
+                labelHint.textContent = '(Disabled)';
+                labelHint.className = 'text-muted fw-normal';
+            }
+        }
+    }
+
+    function handleEditPermitIssuanceSync() {
+        const permitInput = document.getElementById('editPermitNumInput');
+        const dateInput = document.getElementById('editDateIssuedInput');
+        const permitReqHint = document.getElementById('editPermitNumReqHint');
+        const dateReqHint = document.getElementById('editDateIssuedReqHint');
+        if (!permitInput || !dateInput) return;
+
+        const hasPermitNum = permitInput.value.trim().length > 0;
+        const hasDateIssued = (dateInput.value && dateInput.value.trim().length > 0);
+        const fp = dateInput._flatpickr;
+
+        if (hasPermitNum || hasDateIssued) {
+            // Both are now co-dependent / paired!
+            permitInput.required = true;
+            dateInput.required = true;
+            if (permitReqHint) {
+                permitReqHint.textContent = '*';
+                permitReqHint.className = 'text-danger fw-bold';
+            }
+            if (dateReqHint) {
+                dateReqHint.textContent = '*';
+                dateReqHint.className = 'text-danger fw-bold';
+            }
+        } else {
+            // Neither has a value -> Pure application / draft stage
+            permitInput.required = false;
+            dateInput.required = false;
+            permitInput.classList.remove('is-invalid');
+            dateInput.classList.remove('is-invalid');
+            if (permitReqHint) {
+                permitReqHint.textContent = '(Optional)';
+                permitReqHint.className = 'text-muted fw-normal';
+            }
+            if (dateReqHint) {
+                dateReqHint.textContent = '(Optional)';
+                dateReqHint.className = 'text-muted fw-normal';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const statusSelect = document.getElementById('editProjectStatusSelect');
+        if (statusSelect) {
+            handleEditProjectStatusChange(statusSelect.value);
+            setTimeout(() => handleEditProjectStatusChange(statusSelect.value), 60);
+        }
+        const permitInput = document.getElementById('editPermitNumInput');
+        const dateIssuedInput = document.getElementById('editDateIssuedInput');
+        if (permitInput || dateIssuedInput) {
+            handleEditPermitIssuanceSync();
+            setTimeout(() => handleEditPermitIssuanceSync(), 80);
+        }
+        const form = document.getElementById('editRecordForm');
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    form.classList.add('was-validated');
+
+                    // Sync Flatpickr custom inputs with validation state
+                    form.querySelectorAll('input[type="date"]').forEach(function(dInp) {
+                        if (dInp._flatpickr && dInp._flatpickr.altInput) {
+                            if (!dInp.checkValidity()) {
+                                dInp._flatpickr.altInput.classList.add('is-invalid');
+                            } else {
+                                dInp._flatpickr.altInput.classList.remove('is-invalid');
+                            }
+                        }
+                    });
+
+                    // Find the first invalid element, scroll smoothly and focus
+                    const firstInvalid = form.querySelector(':invalid');
+                    if (firstInvalid) {
+                        if (firstInvalid._flatpickr && firstInvalid._flatpickr.altInput) {
+                            firstInvalid._flatpickr.altInput.focus();
+                            firstInvalid._flatpickr.altInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else {
+                            firstInvalid.focus();
+                            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const hasFutureDate = Array.from(form.querySelectorAll('input[type="date"]')).some(inp => {
+                            const maxA = inp.getAttribute('max');
+                            return (maxA === 'today' || maxA === todayStr) && inp.value && inp.value > todayStr;
+                        });
+
+                        if (window.showToast) {
+                            if (hasFutureDate) {
+                                window.showToast('warning', 'Invalid Date', 'Date cannot be in the future.');
+                            } else {
+                                window.showToast('warning', 'Incomplete Form', 'Please fill in all required fields marked in red.');
+                            }
+                        }
+                    }
+                }
+            }, false);
+        }
+    });
 </script>
 
 <style>
@@ -701,10 +897,12 @@
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
+    white-space: nowrap !important;
 }
 .form-label-row label {
     line-height: 1.2 !important;
     margin: 0 !important;
+    white-space: nowrap !important;
 }
 .form-label-row .btn-link {
     line-height: 1 !important;
@@ -713,6 +911,85 @@
     display: inline-flex !important;
     align-items: center !important;
     vertical-align: middle !important;
+}
+
+/* ══ REMOVE ALL GREEN CHECKMARKS / GREEN BORDERS FOR VALID FIELDS ══ */
+.was-validated .form-control:valid,
+.was-validated .form-select:valid,
+.was-validated textarea.form-control:valid,
+.was-validated .flatpickr-custom-input:valid,
+.form-control.is-valid,
+.form-select.is-valid {
+    border-color: #cbd5e1 !important;
+    background-image: none !important;
+    padding-right: 13px !important;
+    box-shadow: none !important;
+}
+
+.was-validated .form-control:valid:focus,
+.was-validated .form-select:valid:focus,
+.was-validated textarea.form-control:valid:focus,
+.was-validated .flatpickr-custom-input:valid:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark-mode .was-validated .form-control:valid,
+.dark-mode .was-validated .form-select:valid,
+.dark-mode .was-validated textarea.form-control:valid,
+.dark-mode .was-validated .flatpickr-custom-input:valid {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+/* ══ HIGH-VISIBILITY RED VALIDATION BORDERS (ONLY FOR INVALID / MISSING) ══ */
+.was-validated .form-control:invalid,
+.form-control.is-invalid,
+.was-validated .form-select:invalid,
+.form-select.is-invalid,
+.was-validated .flatpickr-custom-input:invalid,
+.flatpickr-custom-input.is-invalid {
+    border-color: #ef4444 !important;
+    border-width: 1.5px !important;
+    box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.15) !important;
+    background-image: none !important;
+}
+
+.was-validated .form-control:invalid:focus,
+.form-control.is-invalid:focus,
+.was-validated .form-select:invalid:focus,
+.form-select.is-invalid:focus,
+.flatpickr-custom-input.is-invalid:focus {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.28) !important;
+}
+
+.dark-mode .was-validated .form-control:invalid,
+.dark-mode .form-control.is-invalid,
+.dark-mode .was-validated .form-select:invalid,
+.dark-mode .form-select.is-invalid,
+.dark-mode .flatpickr-custom-input.is-invalid {
+    border-color: #f87171 !important;
+    box-shadow: 0 0 0 3.5px rgba(248, 113, 113, 0.25) !important;
+    background-color: rgba(239, 68, 68, 0.06) !important;
+}
+
+.invalid-feedback {
+    display: none;
+    font-size: 0.76rem !important;
+    color: #dc2626 !important;
+    margin-top: 4px !important;
+    font-weight: 600 !important;
+}
+
+.was-validated :invalid ~ .invalid-feedback,
+.is-invalid ~ .invalid-feedback {
+    display: block !important;
+}
+
+.dark-mode .invalid-feedback {
+    color: #fca5a5 !important;
 }
 </style>
 

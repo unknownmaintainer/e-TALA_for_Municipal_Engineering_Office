@@ -1,1466 +1,266 @@
 {% extends 'permits/base.html' %}
 {% load static humanize %}
 
-{% block title %}Checklists & Settings | eTala{% endblock %}
+{% block title %}System Maintenance | eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item active">Checklists &amp; Settings</span>
+<span class="breadcrumb-item active">System Maintenance</span>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    /* ── Settings Executive Layout & Design ────────────────────────────── */
-    .settings-main-wrapper {
-        max-width: 100%;
-        margin: 0;
+    /* ── Minimalist Executive Settings Layout ───────────────────────────── */
+    .settings-container {
+        max-width: 860px;
+        margin: 0 auto;
         padding-top: 4px;
     }
 
-    .settings-section-card {
-        background: var(--card-bg, #ffffff);
-        border: 1px solid var(--border-default, #e2e8f0);
-        border-radius: 14px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
-        overflow: hidden;
-    }
-
-    .dark-mode .settings-section-card {
-        background: #1e293b;
-        border-color: #334155;
-    }
-
-    .settings-toolbar-header {
-        padding: 16px 20px;
-        background: var(--card-bg, #ffffff);
-        border-bottom: 1px solid var(--border-default, #e2e8f0);
-    }
-
-    .dark-mode .settings-toolbar-header {
-        background: #1e293b;
-        border-bottom-color: #334155;
-    }
-
-    .settings-subtoolbar {
-        padding: 10px 20px;
-        background: var(--gray-50, #f8fafc);
-        border-bottom: 1px solid var(--border-default, #e2e8f0);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: nowrap;
-    }
-
-    #templateFilterPills {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
-    #templateFilterPills::-webkit-scrollbar {
-        display: none;
-    }
-
-    .dark-mode .settings-subtoolbar {
-        background: #0f172a;
-        border-bottom-color: #334155;
-    }
-
-    @media (max-width: 900px) {
-        .settings-subtoolbar {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 10px;
-        }
-        .settings-subtoolbar .etala-search-pill-wrapper {
-            max-width: 100% !important;
-            width: 100% !important;
-        }
-    }
-
-    /* Sub-Category Filter Pills */
-    .settings-filter-pill {
-        border-radius: 20px;
-        font-size: 0.76rem;
-        font-weight: 600;
-        padding: 5px 12px;
-        transition: all 0.15s ease;
-        border: 1px solid #cbd5e1;
-        background: transparent;
-        color: #64748b;
-        cursor: pointer;
-        white-space: nowrap;
-    }
-
-    .settings-filter-pill:hover {
-        background: rgba(2, 132, 199, 0.08);
-        color: #0284c7;
-        border-color: #0284c7;
-    }
-
-    .settings-filter-pill.active {
-        background: #0284c7 !important;
-        color: #ffffff !important;
-        border-color: #0284c7 !important;
-        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
-    }
-
-    .dark-mode .settings-filter-pill {
-        border-color: #475569;
-        color: #94a3b8;
-    }
-
-    .dark-mode .settings-filter-pill.active {
-        background: #0284c7 !important;
-        color: #ffffff !important;
-    }
-
-    /* Standard Table Alignment */
-    #templatesTable {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    #templatesTable thead th {
-        background: var(--gray-50, #f8fafc);
-        color: #64748b;
-        font-size: 0.74rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 12px 18px;
-        border-bottom: 1px solid var(--border-default, #e2e8f0);
-    }
-
-    .dark-mode #templatesTable thead th {
-        background: #0f172a;
-        color: #94a3b8;
-        border-bottom-color: #334155;
-    }
-
-    #templatesTable tbody td {
-        padding: 12px 18px;
-        vertical-align: middle;
-        border-bottom: 1px solid var(--border-default, #e2e8f0);
-        font-size: 0.86rem;
-    }
-
-    .dark-mode #templatesTable tbody td {
-        border-bottom-color: #334155;
-    }
-
-    #templatesTable tbody tr:hover td {
-        background: rgba(2, 132, 199, 0.02);
-    }
-
-    .dark-mode #templatesTable tbody tr:hover td {
-        background: rgba(255, 255, 255, 0.02);
-    }
-
-    /* Operation Cards & Maintenance */
-    .operation-card {
+    .settings-panel {
         background: var(--card-bg, #ffffff);
         border: 1px solid var(--border-default, #e2e8f0);
         border-radius: 16px;
-        padding: 24px;
-        height: 100%;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+        overflow: hidden;
+    }
+
+    .settings-row {
+        padding: 20px 24px;
         display: flex;
-        flex-direction: column;
+        align-items: center;
         justify-content: space-between;
-        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+        gap: 20px;
+        border-bottom: 1px solid var(--border-default, #f1f5f9);
+        transition: background-color 0.15s ease;
     }
 
-    .operation-card:hover {
-        transform: translateY(-2px);
-        border-color: #0284c7;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    .settings-row:last-child {
+        border-bottom: none;
     }
 
-    .dark-mode .operation-card {
-        background: #1e293b;
-        border-color: #334155;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    .settings-row:hover {
+        background-color: rgba(248, 250, 252, 0.6);
     }
 
-    .dark-mode .operation-card:hover {
-        border-color: #38bdf8;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    }
-    .dark-mode .operation-card .text-dark {
-        color: #f8fafc !important;
-    }
-    .dark-mode .operation-card .text-muted {
-        color: #94a3b8 !important;
+    .settings-row-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+        flex: 1 1 auto;
     }
 
-    .operation-icon-badge {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
+    .settings-icon-badge {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 18px;
+        font-size: 17px;
         flex-shrink: 0;
     }
-    .dark-mode .operation-icon-badge[style*="background: #e0f2fe"],
-    .dark-mode .operation-icon-badge[style*="background:#e0f2fe"] {
+
+    .bg-blue-subtle {
+        background: #e0f2fe;
+        color: #0284c7;
+    }
+
+    .bg-amber-subtle {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .settings-row-title {
+        font-size: 0.94rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 2px 0;
+        line-height: 1.3;
+    }
+
+    .settings-row-desc {
+        font-size: 0.80rem;
+        color: #64748b;
+        line-height: 1.4;
+        margin: 0;
+    }
+
+    .btn-settings-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 18px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        text-decoration: none;
+    }
+
+    .btn-pill-blue {
+        background: #ffffff;
+        border: 1.5px solid #0284c7;
+        color: #0284c7;
+    }
+    .btn-pill-blue:hover {
+        background: #0284c7;
+        color: #ffffff !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+    }
+
+    .btn-pill-amber {
+        background: #ffffff;
+        border: 1.5px solid #d97706;
+        color: #d97706;
+    }
+    .btn-pill-amber:hover {
+        background: #d97706;
+        color: #ffffff !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
+    }
+
+    /* ── Dark Mode ──────────────────────────────────────────────────────── */
+    .dark-mode .settings-panel {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode .settings-row {
+        border-bottom-color: #334155 !important;
+    }
+    .dark-mode .settings-row:hover {
+        background-color: rgba(15, 23, 42, 0.4) !important;
+    }
+    .dark-mode .settings-row-title {
+        color: #f8fafc !important;
+    }
+    .dark-mode .settings-row-desc {
+        color: #94a3b8 !important;
+    }
+    .dark-mode .bg-blue-subtle {
         background: rgba(2, 132, 199, 0.2) !important;
         color: #38bdf8 !important;
     }
-    .dark-mode .operation-icon-badge[style*="background: #ffe4e6"],
-    .dark-mode .operation-icon-badge[style*="background:#ffe4e6"] {
-        background: rgba(225, 29, 72, 0.2) !important;
-        color: #fb7185 !important;
-    }
-    .dark-mode .operation-icon-badge[style*="background: #fef3c7"],
-    .dark-mode .operation-icon-badge[style*="background:#fef3c7"] {
+    .dark-mode .bg-amber-subtle {
         background: rgba(245, 158, 11, 0.2) !important;
         color: #fbbf24 !important;
     }
-
-    .operation-info-box {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 10px 14px;
-        font-size: 0.78rem;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+    .dark-mode .btn-pill-blue {
+        background: #1e293b !important;
+        border-color: #38bdf8 !important;
+        color: #38bdf8 !important;
     }
-    .dark-mode .operation-info-box {
-        background: #0f172a;
-        border-color: #334155;
-        color: #cbd5e1;
-    }
-    .dark-mode .operation-info-box strong {
-        color: #f8fafc !important;
-    }
-
-    /* Custom File Dropzone */
-    .custom-file-dropzone {
-        border: 1.5px dashed #cbd5e1;
-        background: #f8fafc;
-        border-radius: 10px;
-        padding: 10px 14px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        user-select: none;
-    }
-    .custom-file-dropzone:hover {
-        border-color: #0284c7;
-        background: #f0f9ff;
-    }
-    .dark-mode .custom-file-dropzone {
-        border-color: #475569;
-        background: #0f172a;
-        color: #cbd5e1;
-    }
-    .dark-mode .custom-file-dropzone:hover {
-        border-color: #38bdf8;
-        background: rgba(56, 189, 248, 0.08);
-    }
-    .custom-file-dropzone .browse-btn-badge {
-        background: #ffffff;
-        color: #0f172a;
-        border: 1px solid #cbd5e1;
-        font-size: 0.72rem;
-        font-weight: 600;
-        padding: 4px 10px;
-        border-radius: 6px;
-        flex-shrink: 0;
-        transition: all 0.15s ease;
-    }
-    .dark-mode .custom-file-dropzone .browse-btn-badge {
-        background: #1e293b;
-        color: #f8fafc;
-        border-color: #475569;
-    }
-
-    /* Solid Premium Action Buttons for Operations */
-    .premium-btn.btn-solid-primary {
+    .dark-mode .btn-pill-blue:hover {
         background: #0284c7 !important;
-        border-color: #0284c7 !important;
         color: #ffffff !important;
     }
-    .premium-btn.btn-solid-primary:hover {
-        background: #0369a1 !important;
-        border-color: #0369a1 !important;
-        color: #ffffff !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(2, 132, 199, 0.35);
-    }
-    .premium-btn.btn-solid-primary .btn-divider {
-        background: rgba(255, 255, 255, 0.3) !important;
-    }
-
-    .premium-btn.btn-solid-danger {
-        background: #e11d48 !important;
-        border-color: #e11d48 !important;
-        color: #ffffff !important;
-    }
-    .premium-btn.btn-solid-danger:hover {
-        background: #be123c !important;
-        border-color: #be123c !important;
-        color: #ffffff !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(225, 29, 72, 0.35);
-    }
-    .premium-btn.btn-solid-danger .btn-divider {
-        background: rgba(255, 255, 255, 0.3) !important;
-    }
-
-    .premium-btn.btn-solid-secondary {
-        background: #f8fafc !important;
-        border-color: #cbd5e1 !important;
-        color: #334155 !important;
-    }
-    .premium-btn.btn-solid-secondary:hover {
-        background: #f1f5f9 !important;
-        border-color: #94a3b8 !important;
-        color: #0f172a !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-    }
-    .dark-mode .premium-btn.btn-solid-secondary {
-        background: #334155 !important;
-        border-color: #475569 !important;
-        color: #f8fafc !important;
-    }
-    .dark-mode .premium-btn.btn-solid-secondary:hover {
-        background: #475569 !important;
-        border-color: #64748b !important;
-        color: #ffffff !important;
-    }
-
-    /* Refined Manage Action Button */
-    .manage-template-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 12px;
-        font-size: 0.78rem;
-        font-weight: 600;
-        border-radius: 7px;
-        background: rgba(2, 132, 199, 0.08);
-        color: #0284c7;
-        border: 1px solid rgba(2, 132, 199, 0.25);
-        transition: all 0.15s ease;
-        cursor: pointer;
-    }
-
-    .manage-template-btn:hover {
-        background: #0284c7;
-        color: #ffffff;
-        border-color: #0284c7;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
-    }
-
-    .dark-mode .manage-template-btn {
-        background: rgba(56, 189, 248, 0.1);
-        color: #38bdf8;
-        border-color: rgba(56, 189, 248, 0.25);
-    }
-
-    .dark-mode .manage-template-btn:hover {
-        background: #0284c7;
-        color: #ffffff;
-        border-color: #0284c7;
-        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
-    }
-
-    /* ── Requirement Items Full-Width Vertical List ───────────────────── */
-    #modalItemsList {
-        display: flex !important;
-        flex-direction: column !important;
-        width: 100% !important;
-        gap: 8px !important;
-    }
-
-    .req-item-card {
-        width: 100% !important;
-        display: block !important;
-        box-sizing: border-box !important;
-        background: var(--card-bg, #ffffff) !important;
-        border: 1px solid var(--border-default, #e2e8f0) !important;
-        border-radius: 10px !important;
-        padding: 12px 14px !important;
-    }
-
-    .dark-mode .req-item-card {
-        background: #0f172a !important;
-        border-color: #334155 !important;
-        color: #f8fafc !important;
-    }
-
-    .req-item-card .req-title {
-        color: #0f172a !important;
-        font-size: 0.88rem !important;
-        font-weight: 600 !important;
-    }
-
-    .dark-mode .req-item-card .req-title {
-        color: #f8fafc !important;
-    }
-
-    .req-item-child {
-        background: var(--gray-50, #f8fafc) !important;
-        border: 1px solid var(--border-default, #e2e8f0) !important;
-        border-radius: 8px !important;
-        padding: 8px 12px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    .dark-mode .req-item-child {
+    .dark-mode .btn-pill-amber {
         background: #1e293b !important;
-        border-color: #334155 !important;
-        color: #f8fafc !important;
+        border-color: #fbbf24 !important;
+        color: #fbbf24 !important;
     }
-
-    .dark-mode .req-item-child .req-title {
-        color: #f8fafc !important;
-    }
-
-    .dark-mode .modal-content {
-        background: #1e293b !important;
-        border: 1px solid #334155 !important;
-        color: #f8fafc !important;
-    }
-
-    .dark-mode .modal-header,
-    .dark-mode .modal-footer {
-        border-color: #334155 !important;
-    }
-
-    .dark-mode .template-config-box {
-        background: #0f172a !important;
-        border-color: #334155 !important;
-    }
-
-    .dark-mode .req-action-btn {
-        background: #1e293b !important;
-        border-color: #334155 !important;
-        color: #cbd5e1 !important;
-    }
-
-    .dark-mode .req-action-btn:hover {
-        background: #334155 !important;
+    .dark-mode .btn-pill-amber:hover {
+        background: #d97706 !important;
         color: #ffffff !important;
+    }
+
+    @media (max-width: 640px) {
+        .settings-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: 16px;
+        }
+        .btn-settings-pill {
+            width: 100%;
+            height: 38px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-2 px-md-3 py-1 settings-main-wrapper">
+<div class="container-fluid px-2 px-md-3 py-1 settings-container">
 
-    <!-- ══ PAGE HEADER & TOP NAVIGATION TABS ═════════════════════════════════ -->
-    <div class="etala-page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+    <!-- ══ PAGE HEADER ════════════════════════════════════════════════════════ -->
+    <div class="etala-page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
         <div>
-            <h1 class="etala-page-title mb-1">Checklists &amp; Settings</h1>
-            <p class="etala-page-subtitle mb-0">Manage required document checklists for Permits and Engineering Projects.</p>
-        </div>
-
-        <!-- Scope Segmented Control (2 Clean Tabs) -->
-        <div class="scope-segmented-control flex-shrink-0" style="height: 38px;">
-            <button class="scope-pill-btn active" id="tabBtnTemplates" onclick="switchSettingsTab('templates')" type="button" title="Document Checklists">
-                <i class="fa-solid fa-list-check"></i>
-                <span>Document Checklists ({{ templates|length }})</span>
-            </button>
-            <button class="scope-pill-btn" id="tabBtnMaintenance" onclick="switchSettingsTab('maintenance')" type="button" title="System Maintenance">
-                <i class="fa-solid fa-server"></i>
-                <span>Data &amp; Maintenance</span>
-            </button>
+            <h1 class="etala-page-title mb-1">System Maintenance</h1>
+            <p class="etala-page-subtitle mb-0">Offline data backup export and automated staff email notifications.</p>
         </div>
     </div>
 
-    <!-- ══ TAB 1: CHECKLIST TEMPLATES (PRIMARY VIEW) ═════════════════════════ -->
-    <div id="tabContentTemplates" class="settings-tab-pane">
-        <div class="settings-section-card mb-4">
-            <!-- Toolbar Header -->
-            <div class="settings-toolbar-header d-flex align-items-center justify-content-between flex-wrap gap-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="operation-icon-badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7;">
-                        <i class="fa-solid fa-list-check"></i>
-                    </div>
-                    <div>
-                        <h2 class="fw-bold text-dark mb-0" style="font-size: 1.05rem;">Document Checklists Registry</h2>
-                        <p class="text-muted small mb-0" style="font-size: 0.78rem;">Standardize the required files and attachments applicants must upload.</p>
-                    </div>
+    <!-- ══ SINGLE UNIFIED SETTINGS PANEL ═════════════════════════════════════ -->
+    <div class="settings-panel">
+        <!-- Row 1: Database Backup -->
+        <div class="settings-row">
+            <div class="settings-row-left">
+                <div class="settings-icon-badge bg-blue-subtle">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
                 </div>
-                <button type="button" class="premium-btn btn-add d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
-                    <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
-                    <span class="btn-divider"></span>
-                    <span>Add New Checklist</span>
-                </button>
-            </div>
-
-            <!-- Subtoolbar (Filter Pills Left & Search Right in 1 Single Row) -->
-            <div class="settings-subtoolbar">
-                <div id="templateFilterPills">
-                    <button type="button" class="settings-filter-pill active" onclick="filterCategory('ALL', this)">
-                        All Checklists <span class="badge bg-primary-subtle text-primary ms-1" style="font-size: 0.70rem;">{{ templates|length }}</span>
-                    </button>
-                    <button type="button" class="settings-filter-pill" onclick="filterCategory('Permit', this)">
-                        Permits <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.70rem;">{{ permit_count }}</span>
-                    </button>
-                    <button type="button" class="settings-filter-pill" onclick="filterCategory('Municipal', this)">
-                        Municipal Projects <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.70rem;">{{ municipal_count }}</span>
-                    </button>
-                    <button type="button" class="settings-filter-pill" onclick="filterCategory('Barangay', this)">
-                        Barangay Projects <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.70rem;">{{ barangay_count }}</span>
-                    </button>
-                </div>
-
-                <div class="etala-search-pill-wrapper flex-shrink-0" style="width: 240px; height: 34px; border-radius: 10px;">
-                    <span class="etala-search-pill-icon">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </span>
-                    <input type="text" id="templateSearchInput" class="etala-search-pill-input search-text-input" placeholder="Search checklists..." onkeyup="filterTemplatesTable()" style="font-size: 0.80rem;">
+                <div>
+                    <h2 class="settings-row-title">Database Backup</h2>
+                    <p class="settings-row-desc">Export an offline JSON snapshot of all municipal permits, projects, and logs.</p>
                 </div>
             </div>
-
-            <!-- Registry Table (Clean, Intuitive & 1-Click Interactive) -->
-            <div class="table-responsive">
-                <table class="data-table m-0" id="templatesTable" style="min-width: 640px;">
-                    <thead>
-                        <tr>
-                            <th style="width: 36%;">Checklist Name &amp; Scope</th>
-                            <th style="width: 22%;">Category</th>
-                            <th style="width: 18%;">Required Files</th>
-                            <th style="width: 12%; text-align: center;">Status</th>
-                            <th style="width: 12%; text-align: center;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if templates %}
-                        {% for t in templates %}
-                        <!-- JSON Data for Dynamic Modal -->
-                        <script type="application/json" id="template-data-{{ t.template_id }}">
-                            {
-                                "id": "{{ t.template_id }}",
-                                "record_type": "{{ t.record_type }}",
-                                "subtype": "{{ t.subtype|escapejs }}",
-                                "scope": "{{ t.scope|escapejs }}",
-                                "is_active": {{ t.is_active|yesno:"true,false" }},
-                                "items": [
-                                    {% for item in t.items.all %}
-                                    {
-                                        "id": "{{ item.item_id }}",
-                                        "parent_id": "{{ item.parent_id|default:'' }}",
-                                        "is_group": {{ item.is_parent_group|yesno:"true,false" }},
-                                        "name": "{{ item.name|escapejs }}",
-                                        "description": "{{ item.description|escapejs }}",
-                                        "is_required": {{ item.is_required|yesno:"true,false" }},
-                                        "is_active": {{ item.is_active|yesno:"true,false" }}
-                                    }{% if not forloop.last %},{% endif %}
-                                    {% endfor %}
-                                ]
-                            }
-                        </script>
-                        <tr data-type="{{ t.record_type }}" data-scope="{{ t.scope|default:'' }}" data-template-id="{{ t.template_id }}" onclick="openManageModal('{{ t.template_id }}')" style="cursor: pointer;" title="Click anywhere to edit checklist requirements">
-                            <td class="search-target">
-                                <div class="d-flex align-items-center gap-2.5">
-                                    {% if t.record_type == 'Permit' %}
-                                    <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px; background: rgba(2, 132, 199, 0.1); color: #0284c7;">
-                                        <i class="fa-solid fa-file-signature" style="font-size: 14px;"></i>
-                                    </div>
-                                    {% else %}
-                                    <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px; background: rgba(13, 148, 136, 0.1); color: #0d9488;">
-                                        <i class="fa-solid fa-building-columns" style="font-size: 14px;"></i>
-                                    </div>
-                                    {% endif %}
-                                    <div>
-                                        <div class="fw-bold title-text-adaptive mb-0 d-flex align-items-center gap-1.5 flex-wrap" style="font-size: 0.88rem;">
-                                            <span>{{ t.subtype }} {% if t.record_type == 'Permit' %}Permit Checklist{% else %}Project Checklist{% endif %}</span>
-                                            {% if t.scope == 'Barangay' %}
-                                             <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-1.5 py-0.5" style="font-size: 0.68rem; font-weight: 600; border-radius: 4px;">Barangay Scope</span>
-                                            {% elif t.scope == 'Municipal' %}
-                                            <span class="badge bg-teal-subtle text-teal border border-teal-subtle px-1.5 py-0.5" style="font-size: 0.68rem; font-weight: 600; border-radius: 4px;">Municipal Scope</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                {% if t.record_type == 'Permit' %}
-                                <span class="text-secondary fw-medium" style="font-size: 0.82rem;">Permit Application</span>
-                                {% elif t.scope == 'Barangay' %}
-                                <span class="text-secondary fw-medium" style="font-size: 0.82rem;">Barangay Project</span>
-                                {% else %}
-                                <span class="text-secondary fw-medium" style="font-size: 0.82rem;">Municipal Project</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill" style="font-weight: 600; font-size: 0.76rem; white-space: nowrap;">
-                                    <i class="fa-solid fa-list-check me-1"></i>{{ t.active_items.count }} required files
-                                </span>
-                            </td>
-                            <td style="text-align: center; white-space: nowrap;" onclick="event.stopPropagation();">
-                                <div class="m-0 d-inline-flex align-items-center template-toggle-wrapper" data-template-id="{{ t.template_id }}">
-                                    <label class="form-check form-switch m-0 d-inline-flex align-items-center cursor-pointer" title="Click to toggle active status">
-                                        <input class="form-check-input mt-0" type="checkbox" role="switch" {% if t.is_active %}checked{% endif %} onchange="toggleTemplateStatusAJAX('{{ t.template_id }}', this, event)" style="cursor: pointer; width: 34px; height: 18px;">
-                                        <span class="ms-1.5 small fw-semibold template-status-text {% if t.is_active %}text-success{% else %}text-muted{% endif %}" style="font-size: 0.74rem;">
-                                            {% if t.is_active %}Active{% else %}Inactive{% endif %}
-                                        </span>
-                                    </label>
-                                </div>
-                            </td>
-                            <td style="text-align: center; white-space: nowrap;" onclick="event.stopPropagation();">
-                                <button type="button" class="manage-template-btn" onclick="openManageModal('{{ t.template_id }}')" title="Edit Checklist">
-                                    <i class="fa-solid fa-pen-to-square" style="font-size: 11px;"></i>
-                                    <span>Manage</span>
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        {% else %}
-                        <tr>
-                            <td colspan="5" class="text-center py-5 text-muted small">No checklists configured yet. Click "Add New Checklist" to create one.</td>
-                        </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══ TAB 2: SYSTEM OPERATIONS & MAINTENANCE ════════════════════════════ -->
-    <div id="tabContentMaintenance" class="settings-tab-pane d-none">
-        <div class="row g-3 mb-3">
-            <!-- 1. Database Backup -->
-            <div class="col-12 col-md-6">
-                <div class="operation-card p-3 p-md-3.5 d-flex flex-column justify-content-between h-100" style="border-radius: 14px;">
-                    <div>
-                        <div class="d-flex align-items-center gap-2.5 mb-2.5">
-                            <div class="operation-icon-badge" style="background: #e0f2fe; color: #0284c7; width: 38px; height: 38px; font-size: 16px; border-radius: 10px;">
-                                <i class="fa-solid fa-cloud-arrow-down"></i>
-                            </div>
-                            <div>
-                                <h3 class="fw-bold text-dark mb-0" style="font-size: 0.95rem;">Database Backup</h3>
-                                <span class="text-muted" style="font-size: 0.74rem;">System JSON snapshot</span>
-                            </div>
-                        </div>
-                        <p class="text-muted mb-2.5" style="font-size: 0.78rem; line-height: 1.45;">
-                            Export all municipal permits, projects, inspections, and logs into a restorable JSON snapshot.
-                        </p>
-                        
-                        <div class="operation-info-box mb-3 py-2 px-2.5">
-                            <i class="fa-solid fa-clock-rotate-left text-primary" style="font-size: 13px; flex-shrink: 0;"></i>
-                            <span class="text-muted" style="font-size: 0.76rem;">Last Export: <strong id="lastBackupBadgeText" class="text-dark">Not exported yet</strong></span>
-                        </div>
-                    </div>
-                    <form method="POST" action="{% url 'settings' %}" onsubmit="handleBackupDownloadSubmit(this)" class="m-0 mt-auto">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="db_backup">
-                        <button type="submit" class="premium-btn btn-solid-primary w-100 d-flex align-items-center justify-content-center" style="height: 38px; border-radius: 10px; font-size: 0.82rem;">
-                            <span class="btn-icon"><i class="fa-solid fa-cloud-arrow-down"></i></span>
-                            <span class="btn-divider"></span>
-                            <span>Download Backup JSON</span>
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- 2. Database Restore -->
-            <div class="col-12 col-md-6">
-                <div class="operation-card p-3 p-md-3.5 d-flex flex-column justify-content-between h-100" style="border-radius: 14px;">
-                    <div>
-                        <div class="d-flex align-items-center gap-2.5 mb-2.5">
-                            <div class="operation-icon-badge" style="background: #ffe4e6; color: #e11d48; width: 38px; height: 38px; font-size: 16px; border-radius: 10px;">
-                                <i class="fa-solid fa-rotate-left"></i>
-                            </div>
-                            <div>
-                                <h3 class="fw-bold text-dark mb-0" style="font-size: 0.95rem;">Database Restore</h3>
-                                <span class="text-muted" style="font-size: 0.74rem;">Synchronize from backup</span>
-                            </div>
-                        </div>
-                        <p class="text-muted mb-2.5" style="font-size: 0.78rem; line-height: 1.45;">
-                            Upload a previously exported eTala JSON backup file to synchronize and restore database tables.
-                        </p>
-
-                        <div class="custom-file-dropzone mb-3 py-1.5 px-2.5" onclick="document.getElementById('dbBackupFileInput').click()" style="min-height: 37px;">
-                            <div class="d-flex align-items-center gap-2 text-truncate me-2 min-w-0">
-                                <i class="fa-solid fa-file-code text-danger" style="font-size: 14px; flex-shrink: 0;"></i>
-                                <span id="backupFileChosenLabel" class="text-truncate text-muted" style="font-size: 0.76rem; font-weight: 500;">Choose .JSON backup file...</span>
-                            </div>
-                            <span class="browse-btn-badge" style="font-size: 0.70rem; padding: 2px 8px;">Browse</span>
-                        </div>
-                    </div>
-                    <form method="POST" action="{% url 'settings' %}" enctype="multipart/form-data" id="dbRestoreForm" class="m-0 mt-auto">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="db_restore">
-                        <input type="file" id="dbBackupFileInput" name="backup_file" class="d-none" required accept=".json" onchange="handleBackupFileSelect(this)">
-                        <button type="button" class="premium-btn btn-solid-danger w-100 d-flex align-items-center justify-content-center" onclick="confirmDbRestore()" style="height: 38px; border-radius: 10px; font-size: 0.82rem;">
-                            <span class="btn-icon"><i class="fa-solid fa-rotate-left"></i></span>
-                            <span class="btn-divider"></span>
-                            <span>Restore Database</span>
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- 3. Document Expiry Alerts Trigger (Full-Width Symmetrical Banner) -->
-            <div class="col-12">
-                <div class="operation-card p-3 px-3.5" style="border-radius: 14px;">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                        <div class="d-flex align-items-center gap-2.5 min-w-0">
-                            <div class="operation-icon-badge" style="background: #fef3c7; color: #d97706; width: 38px; height: 38px; font-size: 16px; border-radius: 10px;">
-                                <i class="fa-solid fa-envelope-circle-check"></i>
-                            </div>
-                            <div>
-                                <h3 class="fw-bold text-dark mb-0" style="font-size: 0.95rem;">Document Expiry Notifications</h3>
-                                <p class="text-muted mb-0" style="font-size: 0.76rem; line-height: 1.4;">
-                                    Scans active permits and projects for expiring attachments and emails a summary to engineering staff.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="ms-auto flex-shrink-0">
-                            <form method="POST" action="{% url 'settings' %}" class="m-0" onsubmit="handleSendAlertsSubmit(this)">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="send_expiry_alerts">
-                                <button type="submit" id="sendAlertsSubmitBtn" class="premium-btn btn-solid-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; border-radius: 10px; font-size: 0.82rem;">
-                                    <span class="btn-icon"><i class="fa-solid fa-paper-plane text-primary"></i></span>
-                                    <span class="btn-divider"></span>
-                                    <span>Send Alerts Now</span>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<!-- ══ CREATE CHECKLIST MODAL ═════════════════════════════════════════════ -->
-<div class="modal fade" id="createTemplateModal" tabindex="-1" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden; background: var(--card-bg, #ffffff);">
-            <div class="modal-header border-0 px-4 pt-4 pb-0 justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="operation-icon-badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; width: 34px; height: 34px;">
-                        <i class="fa-solid fa-plus" style="font-size: 13px;"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" id="createTemplateModalLabel" style="font-size: 1.02rem;">Add New Document Checklist</h5>
-                    </div>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-
-            <form method="POST" action="{% url 'settings' %}">
+            <form method="POST" action="{% url 'settings' %}" onsubmit="handleBackupDownloadSubmit(this)" class="m-0">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="create_template">
-                <div class="modal-body px-4 pt-3 pb-4">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label text-muted small fw-semibold mb-1">Checklist Category <span class="text-danger">*</span></label>
-                            <select name="record_type" id="createRecordType" class="form-select form-select-sm" required style="border-radius: 8px; font-size: 0.82rem;" onchange="handleCreateCategoryChange(this.value)">
-                                <option value="Permit">Permit Application</option>
-                                <option value="Project">Engineering Project</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label text-muted small fw-semibold mb-1">Checklist Name / Subtype <span class="text-danger">*</span></label>
-                            <input type="text" name="subtype" class="form-control form-control-sm" placeholder="E.g. Building, Electrical, Drainage System" required style="border-radius: 8px; font-size: 0.82rem;">
-                        </div>
-                        <div class="col-12 d-none" id="createScopeWrapper">
-                            <label class="form-label text-muted small fw-semibold mb-1">Project Scope</label>
-                            <select name="scope" class="form-select form-select-sm" style="border-radius: 8px; font-size: 0.82rem;">
-                                <option value="Municipal">Municipal Project</option>
-                                <option value="Barangay">Barangay Project</option>
-                            </select>
-                        </div>
-                    </div>
+                <input type="hidden" name="action" value="db_backup">
+                <button type="submit" class="btn-settings-pill btn-pill-blue">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                    <span>Download Backup JSON</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Row 2: Document Expiry Alerts -->
+        <div class="settings-row">
+            <div class="settings-row-left">
+                <div class="settings-icon-badge bg-amber-subtle">
+                    <i class="fa-solid fa-envelope-circle-check"></i>
                 </div>
-                <div class="modal-footer border-top px-4 py-3 justify-content-end gap-2">
-                    <button type="button" class="action-btn action-btn-secondary action-btn-sm px-3" data-bs-dismiss="modal" style="border-radius: 7px; font-size: 0.82rem;">
-                        Cancel
-                    </button>
-                    <button type="submit" class="action-btn action-btn-primary action-btn-sm px-3.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="border-radius: 7px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-plus" style="font-size: 11px;"></i> Create Checklist
-                    </button>
+                <div>
+                    <h2 class="settings-row-title">Document Expiry Alerts</h2>
+                    <p class="settings-row-desc">Scan active records for expiring attachments and email notifications to staff.</p>
                 </div>
+            </div>
+            <form method="POST" action="{% url 'settings' %}" onsubmit="handleSendAlertsSubmit(this)" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="send_expiry_alerts">
+                <button type="submit" id="sendAlertsSubmitBtn" class="btn-settings-pill btn-pill-amber">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Send Alerts Now</span>
+                </button>
             </form>
         </div>
     </div>
+
 </div>
-
-<!-- ══ MANAGE CHECKLIST MODAL (SIMPLE & CLEAR) ════════════════════════════ -->
-<div class="modal fade" id="manageTemplateModal" tabindex="-1" aria-labelledby="manageTemplateModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 680px;">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden; background: var(--card-bg, #ffffff);">
-            
-            <!-- Header -->
-            <div class="modal-header border-0 px-4 pt-4 pb-2 justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="operation-icon-badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; width: 36px; height: 36px;">
-                        <i class="fa-solid fa-list-check" style="font-size: 15px;"></i>
-                    </div>
-                    <div>
-                        <div class="d-flex align-items-center gap-2">
-                            <h5 class="modal-title fw-bold text-dark mb-0" id="modal-title-text" style="font-size: 1.05rem;">Manage Checklist</h5>
-                            <span id="modal-scope-badge"></span>
-                        </div>
-                        <p class="text-muted small mb-0" style="font-size: 0.76rem;">Add or remove the required documents for this checklist.</p>
-                    </div>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-
-            <div class="modal-body px-4 pt-2 pb-3">
-                <!-- 1. Quick Add Requirement Item -->
-                <form method="POST" action="{% url 'settings' %}" id="quickAddItemForm" class="mb-3">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="add_requirement_item">
-                    <input type="hidden" name="template_id" id="quickAddTemplateId" value="">
-                    <input type="hidden" name="is_group" value="false">
-                    
-                    <div class="template-config-box p-2 rounded-3 d-flex align-items-center gap-2 border flex-nowrap" style="background: var(--gray-50, #f8fafc);">
-                        <input type="text" name="name" class="form-control form-control-sm flex-grow-1" placeholder="⚡ Add requirement document (e.g. Barangay Clearance)..." required style="border-radius: 6px; font-size: 0.82rem; min-width: 0; flex: 1 1 auto;">
-                        
-                        <div class="form-check mb-0 ms-1 flex-shrink-0 d-flex align-items-center gap-1.5" style="white-space: nowrap; user-select: none;">
-                            <input class="form-check-input mt-0" type="checkbox" name="is_required" value="true" id="quickIsRequired" checked style="cursor: pointer;">
-                            <label class="form-check-label small text-dark fw-semibold" for="quickIsRequired" style="font-size: 0.76rem; cursor: pointer;">Required</label>
-                        </div>
-                        
-                        <button type="submit" class="action-btn action-btn-primary action-btn-xs px-3 flex-shrink-0 fw-semibold d-inline-flex align-items-center gap-1" style="height: 31px; border-radius: 6px; font-size: 0.78rem; white-space: nowrap;">
-                            <i class="fa-solid fa-plus"></i> Add
-                        </button>
-                    </div>
-                </form>
-
-                <!-- 2. Documents Section Header -->
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="fw-bold text-dark" style="font-size: 0.86rem;">Current Required Documents</span>
-                    <button type="button" class="btn btn-sm btn-link text-primary p-0 text-decoration-none fw-semibold" onclick="toggleAdvancedItemForm()" style="font-size: 0.76rem;">
-                        <i class="fa-solid fa-folder-plus me-1"></i> <span id="advancedBtnText">+ Add Group / Folder</span>
-                    </button>
-                </div>
-
-                <!-- Advanced Add/Edit Item Form (Hidden by default) -->
-                <div id="itemFormContainer" class="template-config-box p-3 rounded-3 mb-3 border" style="background: var(--gray-50, #f8fafc); display: none;">
-                    <h6 class="fw-bold text-primary mb-2.5" id="itemFormTitle" style="font-size: 0.85rem;">Document Details</h6>
-                    <form method="POST" action="{% url 'settings' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" id="itemFormAction" value="add_requirement_item">
-                        <input type="hidden" name="template_id" id="itemFormTemplateId" value="">
-                        <input type="hidden" name="item_id" id="itemFormItemId" value="">
-
-                        <div class="row g-2.5">
-                            <div class="col-md-7">
-                                <label class="form-label text-muted small fw-semibold mb-1">Document Title / Label *</label>
-                                <input type="text" name="name" id="itemFormName" class="form-control form-control-sm" required placeholder="E.g. Certified True Copy of Title" style="border-radius: 6px; font-size: 0.82rem;">
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label text-muted small fw-semibold mb-1">Structure</label>
-                                <select name="is_group" id="itemFormIsGroup" class="form-select form-select-sm" onchange="toggleParentSelect(this.value)" style="border-radius: 6px; font-size: 0.82rem;">
-                                    <option value="false">Regular Document</option>
-                                    <option value="true">Folder / Group Header</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6" id="parentSelectWrapper">
-                                <label class="form-label text-muted small fw-semibold mb-1">Parent Group (Optional)</label>
-                                <select name="parent_id" id="itemFormParentId" class="form-select form-select-sm" style="border-radius: 6px; font-size: 0.82rem;">
-                                    <option value="">None (Top-Level)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label text-muted small fw-semibold mb-1">Requirement Status</label>
-                                <select name="is_required" id="itemFormIsRequired" class="form-select form-select-sm" style="border-radius: 6px; font-size: 0.82rem;">
-                                    <option value="true">Required (*)</option>
-                                    <option value="false">Optional</option>
-                                </select>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small fw-semibold mb-1">Notes / Instructions for Applicant (Optional)</label>
-                                <input type="text" name="description" id="itemFormDescription" class="form-control form-control-sm" placeholder="Optional notes for applicant" style="border-radius: 6px; font-size: 0.82rem;">
-                            </div>
-                            <div class="col-12 text-end gap-2 d-flex justify-content-end">
-                                <button type="button" class="action-btn action-btn-secondary action-btn-xs" onclick="closeItemForm()" style="border-radius: 6px; font-size: 0.78rem;">Cancel</button>
-                                <button type="submit" class="action-btn action-btn-primary action-btn-xs px-3 fw-semibold" style="border-radius: 6px; font-size: 0.78rem;">Save</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Items List Container (Full-Width Clean Vertical Stack) -->
-                <div id="modalItemsList" class="custom-scrollbar" style="max-height: 420px; overflow-y: auto; padding-right: 4px;">
-                    <!-- Populated dynamically via JS -->
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="modal-footer border-top px-4 py-2.5 justify-content-end">
-                <button type="button" class="action-btn action-btn-secondary action-btn-sm px-4" data-bs-dismiss="modal" style="border-radius: 7px; font-size: 0.82rem;">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ══ DELETE ITEM CONFIRMATION FORM (HIDDEN) ════════════════════════ -->
-<form method="POST" action="{% url 'settings' %}" id="deleteItemForm" style="display: none;">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="delete_requirement_item">
-    <input type="hidden" name="template_id" id="deleteItemTemplateId" value="">
-    <input type="hidden" name="item_id" id="deleteItemId" value="">
-</form>
 
 <script>
-    // Tab Switching Functionality (2 Clean Tabs)
-    function switchSettingsTab(tabName) {
-        const tabs = ['templates', 'maintenance'];
-        tabs.forEach(t => {
-            const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
-            const pane = document.getElementById('tabContent' + t.charAt(0).toUpperCase() + t.slice(1));
-            if (btn && pane) {
-                if (t === tabName) {
-                    btn.classList.add('active');
-                    pane.classList.remove('d-none');
-                } else {
-                    btn.classList.remove('active');
-                    pane.classList.add('d-none');
-                }
-            }
-        });
-
-        const url = new URL(window.location);
-        url.searchParams.set('tab', tabName);
-        window.history.replaceState({}, '', url);
-    }
-
-    function handleCreateCategoryChange(category) {
-        const scopeCol = document.getElementById('createScopeWrapper');
-        if (category === 'Project') {
-            scopeCol.classList.remove('d-none');
-        } else {
-            scopeCol.classList.add('d-none');
-        }
-    }
-
-    function switchSettingsTab(tabKey) {
-        const tabBtnTemplates = document.getElementById('tabBtnTemplates');
-        const tabBtnMaintenance = document.getElementById('tabBtnMaintenance');
-        const tabContentTemplates = document.getElementById('tabContentTemplates');
-        const tabContentMaintenance = document.getElementById('tabContentMaintenance');
-
-        if (tabKey === 'maintenance') {
-            if (tabBtnMaintenance) tabBtnMaintenance.classList.add('active');
-            if (tabBtnTemplates) tabBtnTemplates.classList.remove('active');
-            if (tabContentMaintenance) tabContentMaintenance.classList.remove('d-none');
-            if (tabContentTemplates) tabContentTemplates.classList.add('d-none');
-
-            const newUrl = new URL(window.location);
-            newUrl.searchParams.set('tab', 'maintenance');
-            window.history.replaceState({}, '', newUrl);
-        } else {
-            if (tabBtnTemplates) tabBtnTemplates.classList.add('active');
-            if (tabBtnMaintenance) tabBtnMaintenance.classList.remove('active');
-            if (tabContentTemplates) tabContentTemplates.classList.remove('d-none');
-            if (tabContentMaintenance) tabContentMaintenance.classList.add('d-none');
-
-            const newUrl = new URL(window.location);
-            newUrl.searchParams.delete('tab');
-            window.history.replaceState({}, '', newUrl);
+    function handleBackupDownloadSubmit(form) {
+        if (window.showToast) {
+            window.showToast('info', 'Exporting Database', 'Generating backup JSON snapshot...');
         }
     }
 
     function handleSendAlertsSubmit(form) {
         const btn = document.getElementById('sendAlertsSubmitBtn');
         if (btn) {
-            btn.style.pointerEvents = 'none';
-            btn.innerHTML = `
-                <span class="btn-icon"><i class="fa-solid fa-circle-notch fa-spin text-primary"></i></span>
-                <span class="btn-divider"></span>
-                <span>Scanning &amp; Sending...</span>
-            `;
-        }
-        if (window.showZipDownloadToast) {
-            window.showZipDownloadToast(
-                'Checking Documents & Sending Alerts',
-                'Scanning expiring attachments and sending email notifications...',
-                '✅ Alert Dispatch Complete',
-                'Notification summary processed.'
-            );
-        }
-    }
-
-    function handleBackupDownloadSubmit(form) {
-        recordBackupTimestamp();
-        if (window.showZipDownloadToast) {
-            window.showZipDownloadToast(
-                'Generating Database Backup',
-                'Creating a restorable JSON snapshot of permits and projects...',
-                '✅ Database Backup Ready',
-                'JSON file sent to your browser downloads.'
-            );
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        // Relocate modals to body for proper z-index stacking
-        ['createTemplateModal', 'manageTemplateModal'].forEach(function (id) {
-            const el = document.getElementById(id);
-            if (el && el.parentElement !== document.body) {
-                document.body.appendChild(el);
-            }
-        });
-
-        // Load active tab from URL if present
-        const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab');
-        if (tabParam === 'maintenance') {
-            switchSettingsTab('maintenance');
-        } else {
-            switchSettingsTab('templates');
-        }
-
-        // Auto-open manage modal if template_id is specified in URL
-        const tmplIdParam = urlParams.get('template_id');
-        if (tmplIdParam) {
-            openManageModal(tmplIdParam);
-        }
-
-        // Load last backup timestamp from localStorage
-        const savedTime = localStorage.getItem('etala_last_backup_time');
-        if (savedTime) {
-            const badgeEl = document.getElementById('lastBackupBadgeText');
-            if (badgeEl) badgeEl.textContent = savedTime;
-        }
-    });
-
-    function recordBackupTimestamp() {
-        const now = new Date();
-        const formatted = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem('etala_last_backup_time', formatted);
-    }
-
-    let currentCategoryFilter = 'ALL';
-
-    function filterCategory(catKey, btnEl) {
-        currentCategoryFilter = catKey;
-        
-        const pills = document.querySelectorAll('#templateFilterPills button');
-        pills.forEach(btn => {
-            btn.classList.remove('active');
-        });
-        if (btnEl) {
-            btnEl.classList.add('active');
-        }
-
-        filterTemplatesTable();
-    }
-
-    function filterTemplatesTable() {
-        const query = document.getElementById('templateSearchInput').value.toLowerCase();
-        const rows = document.querySelectorAll('#templatesTable tbody tr');
-        
-        rows.forEach(row => {
-            const target = row.querySelector('.search-target');
-            const type = row.getAttribute('data-type');
-            const scope = row.getAttribute('data-scope');
-            
-            let matchesCategory = false;
-            if (currentCategoryFilter === 'ALL') {
-                matchesCategory = true;
-            } else if (currentCategoryFilter === 'Permit') {
-                matchesCategory = (type === 'Permit');
-            } else if (currentCategoryFilter === 'Municipal') {
-                matchesCategory = (type === 'Project' && scope === 'Municipal');
-            } else if (currentCategoryFilter === 'Barangay') {
-                matchesCategory = (type === 'Project' && scope === 'Barangay');
-            }
-
-            let matchesSearch = true;
-            if (target) {
-                const text = target.textContent.toLowerCase();
-                matchesSearch = text.includes(query);
-            }
-
-            row.style.display = (matchesCategory && matchesSearch) ? '' : 'none';
-        });
-    }
-
-    function handleBackupDownloadSubmit(form) {
-        recordBackupTimestamp();
-        const badgeEl = document.getElementById('lastBackupBadgeText');
-        const now = new Date();
-        const formatted = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        if (badgeEl) badgeEl.textContent = formatted;
-        if (window.showToast) {
-            window.showToast('info', 'Database Backup', 'Preparing and downloading eTala JSON snapshot...');
-        }
-    }
-
-    function handleSendAlertsSubmit(form) {
-        const btn = document.getElementById('sendAlertsSubmitBtn');
-        if (btn) {
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true" style="width: 12px; height: 12px;"></span><span>Scanning & Sending...</span>';
-            btn.style.pointerEvents = 'none';
-            btn.style.opacity = '0.75';
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status" aria-hidden="true"></span> Sending...';
         }
         if (window.showToast) {
-            window.showToast('info', 'Expiry Notifications', 'Scanning records and sending alert emails...');
+            window.showToast('info', 'Scanning Documents', 'Triggering email notifications...');
         }
     }
-
-    function handleBackupFileSelect(input) {
-        const label = document.getElementById('backupFileChosenLabel');
-        const dropzone = input.closest('.operation-card')?.querySelector('.custom-file-dropzone') || document.querySelector('.custom-file-dropzone');
-        if (input.files && input.files[0]) {
-            const file = input.files[0];
-            const sizeKb = (file.size / 1024).toFixed(1);
-            label.innerHTML = `<strong>${file.name}</strong> <span class="text-muted">(${sizeKb} KB)</span>`;
-            if (dropzone) {
-                dropzone.style.borderColor = '#16a34a';
-                dropzone.style.background = 'rgba(22, 163, 74, 0.08)';
-            }
-        } else {
-            label.innerText = 'Choose .JSON backup file...';
-            if (dropzone) {
-                dropzone.style.borderColor = '';
-                dropzone.style.background = '';
-            }
-        }
-    }
-
-    function confirmDbRestore() {
-        const form = document.getElementById('dbRestoreForm');
-        const fileInput = document.getElementById('dbBackupFileInput');
-        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-            if (window.showToast) {
-                window.showToast('warning', 'Missing File', 'Please select a valid .JSON backup file to restore.');
-            } else {
-                alert('Please select a valid .JSON backup file first.');
-            }
-            return;
-        }
-
-        const fileName = fileInput.files[0].name;
-        if (window.showConfirmModal) {
-            window.showConfirmModal({
-                title: 'Restore Database?',
-                message: `This will restore database records from backup file "${fileName}".`,
-                confirmText: 'RESTORE',
-                cancelText: 'CANCEL',
-                confirmClass: 'action-btn-danger',
-                onConfirm: function() {
-                    form.submit();
-                }
-            });
-        } else {
-            if (confirm(`Are you sure you want to restore database records from "${fileName}"?`)) {
-                form.submit();
-            }
-        }
-    }
-
-    let currentTemplateData = null;
-
-    function openManageModal(templateId) {
-        const scriptEl = document.getElementById('template-data-' + templateId);
-        if (!scriptEl) return;
-
-        currentTemplateData = JSON.parse(scriptEl.textContent);
-        
-        // Header title and badges
-        const title = currentTemplateData.subtype + ' ' + (currentTemplateData.record_type === 'Permit' ? 'Permit Checklist' : 'Project Checklist');
-        document.getElementById('modal-title-text').textContent = title;
-        
-        const badgeEl = document.getElementById('modal-scope-badge');
-        if (badgeEl) {
-            if (currentTemplateData.record_type === 'Permit') {
-                badgeEl.innerHTML = '<span class="tag tag-permit" style="font-size: 0.70rem; padding: 2px 8px;">Permit Application</span>';
-            } else if (currentTemplateData.scope === 'Barangay') {
-                badgeEl.innerHTML = '<span class="tag" style="background: rgba(147, 51, 234, 0.08); color: #9333ea; border: 1px solid rgba(147, 51, 234, 0.2); font-size: 0.70rem; padding: 2px 8px;">Barangay Project</span>';
-            } else {
-                badgeEl.innerHTML = '<span class="tag tag-municipal" style="font-size: 0.70rem; padding: 2px 8px;">Municipal Project</span>';
-            }
-        }
-
-        document.getElementById('quickAddTemplateId').value = currentTemplateData.id;
-
-        closeItemForm();
-        renderModalItems();
-
-        const modalEl = document.getElementById('manageTemplateModal');
-        if (modalEl && modalEl.parentElement !== document.body) {
-            document.body.appendChild(modalEl);
-        }
-        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        bsModal.show();
-    }
-
-    function renderModalItems() {
-        const container = document.getElementById('modalItemsList');
-        container.innerHTML = '';
-
-        if (!currentTemplateData || !currentTemplateData.items || currentTemplateData.items.length === 0) {
-            container.innerHTML = '<div class="text-center py-4 text-muted small rounded-3 border" style="background: var(--gray-50, #f8fafc);"><i class="fa-solid fa-folder-open d-block mb-1.5 fs-4 opacity-50"></i>No required documents added yet. Type a document name above and click "Add".</div>';
-            return;
-        }
-
-        const items = currentTemplateData.items;
-        const parents = items.filter(i => !i.parent_id);
-
-        parents.forEach(p => {
-            const children = items.filter(c => c.parent_id === p.id);
-            
-            const pBox = document.createElement('div');
-            pBox.className = 'req-item-card mb-2 p-2.5 rounded-3 border';
-            pBox.style.background = 'var(--card-bg, #ffffff)';
-            
-            const reqBadge = p.is_required 
-                ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5" style="font-size: 0.68rem; font-weight: 600; border-radius: 4px; flex-shrink: 0;">Required</span>' 
-                : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-0.5" style="font-size: 0.68rem; font-weight: 500; border-radius: 4px; flex-shrink: 0;">Optional</span>';
-
-            let html = `
-                <div class="d-flex align-items-center justify-content-between gap-2">
-                    <div class="d-flex align-items-center gap-2.5 min-w-0">
-                        <i class="${p.is_group ? 'fa-solid fa-folder text-warning' : 'fa-solid fa-file-lines text-primary'}" style="font-size: 14px; flex-shrink: 0;"></i>
-                        <span class="req-title text-truncate fw-semibold title-text-adaptive" style="font-size: 0.85rem;">${escapeHtml(p.name)}</span>
-                        ${p.is_group ? '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-0.5" style="font-size: 0.68rem; flex-shrink: 0;">Group Folder</span>' : reqBadge}
-                    </div>
-                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                        <button type="button" class="btn btn-sm btn-light border req-action-btn" onclick="editItem('${p.id}')" title="Edit document" style="width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;">
-                            <i class="fa-solid fa-pen-to-square" style="font-size: 11px;"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-light border text-danger req-action-btn" onclick="deleteItem('${p.id}')" title="Delete document" style="width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;">
-                            <i class="fa-solid fa-trash-can" style="font-size: 11px;"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            if (p.description) {
-                html += `<div class="text-muted small mt-1 ms-4" style="font-size: 0.76rem; line-height: 1.35;">${escapeHtml(p.description)}</div>`;
-            }
-
-            if (children.length > 0) {
-                html += `<div class="mt-2 ms-3 d-flex flex-column gap-1.5 pt-2 border-top">`;
-                children.forEach(c => {
-                    const cReqBadge = c.is_required 
-                        ? '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-1.5 py-0.2" style="font-size: 0.64rem; font-weight: 600; border-radius: 3px; flex-shrink: 0;">Required</span>' 
-                        : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-1.5 py-0.2" style="font-size: 0.64rem; font-weight: 500; border-radius: 3px; flex-shrink: 0;">Optional</span>';
-
-                    html += `
-                        <div class="req-item-child d-flex align-items-center justify-content-between gap-2 p-1.5 rounded-2" style="background: var(--gray-50, #f8fafc);">
-                            <div class="d-flex align-items-center gap-2 min-w-0">
-                                <i class="fa-regular fa-file-lines text-muted" style="font-size: 12px; flex-shrink: 0;"></i>
-                                <span class="req-title text-truncate fw-medium title-text-adaptive" style="font-size: 0.80rem;">${escapeHtml(c.name)}</span>
-                                ${cReqBadge}
-                            </div>
-                            <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                                <button type="button" class="btn btn-sm btn-light border req-action-btn" onclick="editItem('${c.id}')" title="Edit" style="width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px;">
-                                    <i class="fa-solid fa-pen-to-square" style="font-size: 10px;"></i>
-                                </button>
-                                <button type="button" class="btn btn-sm btn-light border text-danger req-action-btn" onclick="deleteItem('${c.id}')" title="Delete" style="width: 26px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px;">
-                                    <i class="fa-solid fa-trash-can" style="font-size: 10px;"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += `</div>`;
-            }
-
-            pBox.innerHTML = html;
-            container.appendChild(pBox);
-        });
-    }
-
-    function toggleAdvancedItemForm() {
-        const form = document.getElementById('itemFormContainer');
-        const text = document.getElementById('advancedBtnText');
-        if (form.style.display === 'none' || !form.style.display) {
-            openAddItemForm();
-            text.textContent = 'Hide Group / Folder Options';
-        } else {
-            closeItemForm();
-            text.textContent = '+ Add Group / Folder';
-        }
-    }
-
-    function openAddItemForm() {
-        if (!currentTemplateData) return;
-        document.getElementById('itemFormTitle').textContent = 'Add Group / Folder';
-        document.getElementById('itemFormAction').value = 'add_requirement_item';
-        document.getElementById('itemFormTemplateId').value = currentTemplateData.id;
-        document.getElementById('itemFormItemId').value = '';
-        document.getElementById('itemFormName').value = '';
-        document.getElementById('itemFormDescription').value = '';
-        document.getElementById('itemFormIsRequired').value = 'true';
-        document.getElementById('itemFormIsGroup').value = 'true';
-
-        populateParentSelect('');
-        document.getElementById('itemFormContainer').style.display = 'block';
-    }
-
-    function editItem(itemId) {
-        if (!currentTemplateData) return;
-        const item = currentTemplateData.items.find(i => i.id === itemId);
-        if (!item) return;
-
-        document.getElementById('itemFormTitle').textContent = 'Edit Document Requirement';
-        document.getElementById('itemFormAction').value = 'edit_requirement_item';
-        document.getElementById('itemFormTemplateId').value = currentTemplateData.id;
-        document.getElementById('itemFormItemId').value = item.id;
-        document.getElementById('itemFormName').value = item.name;
-        document.getElementById('itemFormDescription').value = item.description || '';
-        document.getElementById('itemFormIsRequired').value = item.is_required ? 'true' : 'false';
-        document.getElementById('itemFormIsGroup').value = item.is_group ? 'true' : 'false';
-
-        populateParentSelect(item.parent_id || '', item.id);
-        document.getElementById('itemFormContainer').style.display = 'block';
-        document.getElementById('advancedBtnText').textContent = 'Hide Group Options';
-    }
-
-    function populateParentSelect(selectedParentId, currentItemId = '') {
-        const parentSelect = document.getElementById('itemFormParentId');
-        parentSelect.innerHTML = '<option value="">None (Top-Level)</option>';
-        if (!currentTemplateData) return;
-
-        const groups = currentTemplateData.items.filter(i => i.is_group && i.id !== currentItemId);
-        groups.forEach(g => {
-            const opt = document.createElement('option');
-            opt.value = g.id;
-            opt.textContent = g.name;
-            if (g.id === selectedParentId) opt.selected = true;
-            parentSelect.appendChild(opt);
-        });
-
-        toggleParentSelect(document.getElementById('itemFormIsGroup').value);
-    }
-
-    function toggleParentSelect(isGroupVal) {
-        const wrapper = document.getElementById('parentSelectWrapper');
-        if (isGroupVal === 'true') {
-            wrapper.style.display = 'none';
-        } else {
-            wrapper.style.display = 'block';
-        }
-    }
-
-    function closeItemForm() {
-        document.getElementById('itemFormContainer').style.display = 'none';
-        const text = document.getElementById('advancedBtnText');
-        if (text) text.textContent = '+ Add Group / Folder';
-    }
-
-    function deleteItem(itemId) {
-        if (!currentTemplateData) return;
-        const item = currentTemplateData.items.find(i => i.id === itemId);
-        if (!item) return;
-
-        if (confirm(`Are you sure you want to delete '${item.name}'?`)) {
-            document.getElementById('deleteItemTemplateId').value = currentTemplateData.id;
-            document.getElementById('deleteItemId').value = item.id;
-            document.getElementById('deleteItemForm').submit();
-        }
-    }
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-    function handleBackupFileSelect(input) {
-        if (input.files && input.files[0]) {
-            const file = input.files[0];
-            const label = document.getElementById('backupFileChosenLabel');
-            if (label) {
-                label.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-                label.classList.remove('text-muted');
-                label.classList.add('text-dark', 'fw-semibold');
-            }
-        }
-    }
-
-    function confirmDbRestore() {
-        const input = document.getElementById('dbBackupFileInput');
-        if (!input || !input.files || input.files.length === 0) {
-            if (window.showToast) {
-                showToast('warning', 'No File Selected', 'Please select a .JSON database backup file first.');
-            } else {
-                alert('Please select a .JSON database backup file first.');
-            }
-            return;
-        }
-        if (confirm('WARNING: Restoring will merge and update database records from this backup file. Are you sure you want to proceed?')) {
-            document.getElementById('dbRestoreForm').submit();
-        }
-    }
-
-    async function toggleTemplateStatusAJAX(templateId, checkbox, event) {
-        if (event) event.stopPropagation();
-        const wrapper = checkbox.closest('.template-toggle-wrapper');
-        const textSpan = wrapper ? wrapper.querySelector('.template-status-text') : null;
-        const previousChecked = !checkbox.checked;
-        const willBeActive = checkbox.checked;
-
-        if (textSpan) {
-            textSpan.className = `ms-1.5 small fw-semibold template-status-text ${willBeActive ? 'text-success' : 'text-muted'}`;
-            textSpan.textContent = willBeActive ? 'Active' : 'Inactive';
-        }
-
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                          document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
-
-        const formData = new FormData();
-        formData.append('action', 'toggle_template_status');
-        formData.append('template_id', templateId);
-        if (csrfToken) formData.append('csrfmiddlewaretoken', csrfToken);
-
-        try {
-            const response = await fetch("{% url 'settings' %}", {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) throw new Error('Failed to toggle checklist status.');
-            const data = await response.json();
-            if (data && data.success) {
-                if (window.showToast) {
-                    window.showToast('success', 'Checklist Updated', data.message || 'Status changed successfully.');
-                }
-            } else {
-                throw new Error(data.message || 'Failed to update checklist status.');
-            }
-        } catch (err) {
-            console.error("Template toggle error:", err);
-            checkbox.checked = previousChecked;
-            if (textSpan) {
-                textSpan.className = `ms-1.5 small fw-semibold template-status-text ${previousChecked ? 'text-success' : 'text-muted'}`;
-                textSpan.textContent = previousChecked ? 'Active' : 'Inactive';
-            }
-            if (window.showToast) {
-                window.showToast('error', 'Status Update Failed', err.message || 'Unable to update status.');
-            }
-        }
-    }
-    window.toggleTemplateStatusAJAX = toggleTemplateStatusAJAX;
 </script>
 {% endblock %}

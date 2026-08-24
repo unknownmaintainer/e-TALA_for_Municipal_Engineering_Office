@@ -44,6 +44,7 @@
         <!-- Toolbar: Sub-Tabs & Filters (Unified 1-Line Compact Design) -->
         <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
             <input type="hidden" name="tab" id="activeLogTabInput" value="{{ active_log_tab|default:'audit' }}">
+            {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3 d-print-none">
                 <!-- Left: Scope Segmented Control (Audit Trail / Login History) -->
                 <div class="scope-segmented-control flex-shrink-0" style="height: 34px;">
@@ -90,8 +91,14 @@
             </div>
 
             <!-- Active Filter Chips (if any filter is selected) -->
-            {% if date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}
+            {% if record_id or date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}
             <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2.5">
+                {% if record_id %}
+                <div class="filter-chip">
+                    <span>Record: <strong>#{{ record_id }}{% if target_rec and target_rec.title %} &bull; {{ target_rec.title|truncatechars:25 }}{% endif %}</strong></span>
+                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}" class="clear-chip-btn" title="View all logs">&times;</a>
+                </div>
+                {% endif %}
                 {% if date_filter and date_filter != 'all' %}
                 <div class="filter-chip">
                     <span>Date: <strong>
@@ -100,7 +107,7 @@
                         {% elif date_filter == '30days' %}Past 30 Days
                         {% else %}{{ date_filter|title }}{% endif %}
                     </strong></span>
-                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}date_range=all" class="clear-chip-btn">&times;</a>
+                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if record_id %}record_id={{ record_id }}&{% endif %}{% if query %}q={{ query }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}date_range=all" class="clear-chip-btn">&times;</a>
                 </div>
                 {% endif %}
                 {% if action_type and action_type != 'all' %}
@@ -112,7 +119,7 @@
                         {% elif action_type == 'delete' %}Record Deleted
                         {% else %}{{ action_type|title }}{% endif %}
                     </strong></span>
-                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}action_type=all" class="clear-chip-btn">&times;</a>
+                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if record_id %}record_id={{ record_id }}&{% endif %}{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}action_type=all" class="clear-chip-btn">&times;</a>
                 </div>
                 {% endif %}
                 {% if status_filter and status_filter != 'all' %}
@@ -122,7 +129,7 @@
                         {% elif status_filter == 'failed' %}Failed Attempts
                         {% else %}{{ status_filter|title }}{% endif %}
                     </strong></span>
-                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}status=all" class="clear-chip-btn">&times;</a>
+                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if record_id %}record_id={{ record_id }}&{% endif %}{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}status=all" class="clear-chip-btn">&times;</a>
                 </div>
                 {% endif %}
                 <a href="?tab={{ active_log_tab|default:'audit' }}" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: 0.72rem; padding: 2px 6px;">
@@ -177,7 +184,7 @@
                     <table class="data-table table-card-responsive mb-0" style="width: 100%;">
                         <thead>
                             <tr>
-                                {% if request.user.role == 'admin' %}
+                                {% if request.user.role == 'admin' or record_id %}
                                 <th style="width: 32%; min-width: 190px;">STAFF MEMBER</th>
                                 <th style="width: 48%;">ACTION &amp; EVENT DETAILS</th>
                                 <th style="width: 20%; min-width: 130px; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
@@ -189,8 +196,8 @@
                         </thead>
                         <tbody>
                             {% for log in log_page_obj %}
-                            <tr>
-                                {% if request.user.role == 'admin' %}
+                            <tr id="log-{{ log.log_id }}" data-log-id="{{ log.log_id }}" style="transition: all 0.4s ease;">
+                                {% if request.user.role == 'admin' or record_id %}
                                 <td data-label="Staff Member" style="vertical-align: middle;">
                                     <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
                                         <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(2, 132, 199, 0.12); color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(2, 132, 199, 0.25); flex-shrink: 0; overflow: hidden;">
@@ -1226,8 +1233,50 @@
             showToast('success', 'Copied to Clipboard', text);
         }
     }
+
+    // ── Deep-Link Log Focus & Pulse Highlight (from Record Detail Last Updated) ──
+    function checkLogDeepLinkHighlight() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let highlightLogId = urlParams.get('highlight_log');
+        if (!highlightLogId && window.location.hash && window.location.hash.startsWith('#log-')) {
+            highlightLogId = window.location.hash.replace('#log-', '');
+        }
+        if (highlightLogId) {
+            const targetRow = document.getElementById('log-' + highlightLogId);
+            if (targetRow) {
+                setTimeout(() => {
+                    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    targetRow.classList.remove('log-highlight-focused');
+                    void targetRow.offsetWidth; // trigger reflow
+                    targetRow.classList.add('log-highlight-focused');
+                }, 250);
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', checkLogDeepLinkHighlight);
+    window.addEventListener('load', checkLogDeepLinkHighlight);
 </script>
 
-</div>
+<style>
+.log-highlight-focused {
+    animation: logPulseHighlight 2.8s ease-out forwards;
+}
+@keyframes logPulseHighlight {
+    0% { background-color: rgba(2, 132, 199, 0.28) !important; outline: 2px solid #0284c7; box-shadow: 0 0 16px rgba(2, 132, 199, 0.35); }
+    30% { background-color: rgba(2, 132, 199, 0.22) !important; outline: 2px solid #0284c7; }
+    70% { background-color: rgba(2, 132, 199, 0.10) !important; outline: 1px solid rgba(2, 132, 199, 0.3); }
+    100% { background-color: transparent !important; outline: none; box-shadow: none; }
+}
+.dark-mode .log-highlight-focused,
+[data-bs-theme="dark"] .log-highlight-focused {
+    animation: logPulseHighlightDark 2.8s ease-out forwards;
+}
+@keyframes logPulseHighlightDark {
+    0% { background-color: rgba(56, 189, 248, 0.28) !important; outline: 2px solid #38bdf8; box-shadow: 0 0 16px rgba(56, 189, 248, 0.35); }
+    30% { background-color: rgba(56, 189, 248, 0.22) !important; outline: 2px solid #38bdf8; }
+    70% { background-color: rgba(56, 189, 248, 0.10) !important; outline: 1px solid rgba(56, 189, 248, 0.3); }
+    100% { background-color: transparent !important; outline: none; box-shadow: none; }
+}
+</style>
 {% endblock %}
 

@@ -19,25 +19,6 @@ def recent_notifications(request):
         return cached_payload
 
     alerts = []
-
-    # 0. Pending Device Authorization Requests for Admins (Top Priority)
-    if request.user.role == 'admin':
-        pending_devices = UserDevice.objects.filter(status='pending').select_related('user').order_by('-created_at')[:5]
-        for dev in pending_devices:
-            user_name = dev.user.full_name or dev.user.username
-            local_created = timezone.localtime(dev.created_at)
-            time_str = local_created.strftime('%b %d, %Y • %I:%M %p')
-            alerts.append({
-                'id': f"dev_auth_{dev.id}",
-                'type': 'security',
-                'action': f"New Device Auth: {user_name} ({dev.device_name})",
-                'url': f"{reverse('approve_device')}?token={dev.approval_token}" if dev.approval_token else reverse('activity_logs'),
-                'badge': 'Device Auth',
-                'time': time_str,
-                'user': None,
-                'username': user_name,
-                'performed_at': dev.created_at,
-            })
     
     # 1. Security failed login alert for admins (past 24 hours, localized Philippine time)
     if request.user.role == 'admin':
@@ -62,12 +43,14 @@ def recent_notifications(request):
                 'performed_at': latest_failed.timestamp,
             })
 
-    # 2. Expiry tracking for documents (newest uploaded alerts appear at the top)
+    # 2. Expiry tracking for documents (active window: 30 days before expiry and up to 30 days after expiry)
     today_date = timezone.now().date()
     thirty_days_later = today_date + datetime.timedelta(days=30)
+    thirty_days_ago = today_date - datetime.timedelta(days=30)
     
     alert_docs = Document.objects.filter(
         expiry_date__isnull=False,
+        expiry_date__gte=thirty_days_ago,
         expiry_date__lte=thirty_days_later
     ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item').order_by('-uploaded_at', '-document_id')[:12]
     

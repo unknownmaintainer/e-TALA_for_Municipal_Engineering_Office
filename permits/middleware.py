@@ -52,15 +52,13 @@ class IPBlockMiddleware:
 
 
 class NoCacheForAuthenticatedMiddleware:
-    """Ensures dynamic authenticated management pages are never served from stale browser bfcache."""
+    """Ensures dynamic authenticated pages remain private while allowing browser Paint Holding (zero white flash)."""
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         response = self.get_response(request)
         if request.user.is_authenticated and not request.path.startswith('/static/') and not request.path.startswith('/media/'):
-            response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response['Pragma'] = 'no-cache'
-            response['Expires'] = '0'
+            response['Cache-Control'] = 'private, no-cache'
         return response
 

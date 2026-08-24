@@ -953,13 +953,14 @@ def send_document_expiry_alerts():
     
     today_date = timezone.now().date()
     thirty_days_later = today_date + timedelta(days=30)
+    thirty_days_ago = today_date - timedelta(days=30)
     
     from .models import Document
     alert_docs = Document.objects.filter(
         expiry_date__isnull=False
     ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item')
     
-    expired_docs = alert_docs.filter(expiry_date__lt=today_date).order_by('-expiry_date')
+    expired_docs = alert_docs.filter(expiry_date__range=(thirty_days_ago, today_date)).order_by('-expiry_date')
     expiring_docs = alert_docs.filter(expiry_date__range=(today_date, thirty_days_later)).order_by('expiry_date')
     
     if not expired_docs.exists() and not expiring_docs.exists():
@@ -1116,28 +1117,36 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
         
         # Build composite multi-term AND query for maximum search accuracy
         for token in tokens:
+            token_lower = token.lower()
             token_filter = (
                 Q(title__icontains=token) |
-                Q(description__icontains=token) |
                 Q(barangay__barangay_name__icontains=token) |
                 Q(permit_detail__permit_number__icontains=token) |
                 Q(permit_detail__applicant_name__icontains=token) |
-                Q(permit_detail__permit_type__icontains=token) |
-                Q(permit_detail__building_type__icontains=token) |
-                Q(project_detail__project_type__icontains=token) |
                 Q(project_detail__contractor__icontains=token) |
-                Q(project_detail__funding_source__icontains=token) |
-                Q(created_by__full_name__icontains=token) |
-                Q(created_by__username__icontains=token)
+                Q(permit_detail__permit_type__icontains=token) |
+                Q(project_detail__project_type__icontains=token)
             )
             
-            # Numeric token matching for Record IDs and Years
+            # High-Accuracy Status Keyword Matching (Matches true database status)
+            if token_lower == 'issued':
+                token_filter |= Q(record_type='Permit', status__in=['active', 'completed']).exclude(is_illegal_construction=True, illegal_compliance_status='resolved')
+            elif token_lower in ['pending', 'unissued']:
+                token_filter |= Q(status='pending')
+            elif token_lower in ['ongoing', 'progress']:
+                token_filter |= Q(record_type='Project', status__in=['active', 'in_progress'])
+            elif token_lower == 'completed':
+                token_filter |= Q(record_type='Project', status='completed')
+            elif token_lower == 'regularized':
+                token_filter |= Q(is_illegal_construction=True, illegal_compliance_status='resolved')
+            elif token_lower == 'unresolved':
+                token_filter |= Q(is_illegal_construction=True, illegal_compliance_status='unresolved')
+            
+            # Numeric token matching for Record IDs
             num_clean = re.sub(r'^[#recREC\-\s]+', '', token)
             if num_clean.isdigit():
                 num_val = int(num_clean)
                 token_filter |= Q(record_id=num_val)
-                if 1900 <= num_val <= 2100:
-                    token_filter |= Q(year=num_val) | Q(created_at__year=num_val) | Q(date_started__year=num_val)
             
             qs = qs.filter(token_filter)
 
@@ -1245,61 +1254,8 @@ def get_client_device_token(request):
 
 
 def dispatch_device_approval_request(user, device, request):
-    """Sends background Brevo email alert to all active Administrators to approve new staff device."""
-    from .models import CustomUser
-
-    admin_emails = list(CustomUser.objects.filter(role='admin', is_active=True).values_list('email', flat=True))
-    if not admin_emails:
-        return
-
-    approve_url = request.build_absolute_uri(
-        reverse('approve_device') + f"?token={device.approval_token}"
-    )
-    reject_url = request.build_absolute_uri(
-        reverse('reject_device') + f"?token={device.approval_token}"
-    )
-
-    user_display = user.full_name or user.username
-    subject = f'🛡️ eTala — Device Authorization Required for {user_display}'
-
-    html_content = render_to_string('emails/email_device_approval_request.html', {
-        'user_display_name': user_display,
-        'user_email': user.email or user.username,
-        'device_name': device.device_name,
-        'ip_address': device.ip_address or 'Unknown IP',
-        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
-        'approve_url': approve_url,
-        'reject_url': reject_url,
-    })
-
-    plain_content = (
-        f"Device Authorization Request\n\n"
-        f"Staff {user_display} ({user.email}) is requesting access from a new device: {device.device_name} (IP: {device.ip_address}).\n\n"
-        f"Approve: {approve_url}\n"
-        f"Reject: {reject_url}\n"
-    )
-
-    def _send_admin_email():
-        try:
-            send_etala_email(
-                subject=subject,
-                message=plain_content,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=admin_emails,
-                html_message=html_content,
-                fail_silently=False,
-            )
-            logger.info(f"Device approval email dispatched to admins for staff {user.username}")
-        except Exception as exc:
-            logger.warning(f"Failed sending device approval email: {exc}")
-            # Local dev log
-            print("\n" + "=" * 72)
-            print(f"🛡️ [eTala Device Approval Link for {user.username}]:")
-            print(f"👉 Approve: {approve_url}")
-            print(f"👉 Reject:  {reject_url}")
-            print("=" * 72 + "\n")
-
-    threading.Thread(target=_send_admin_email, daemon=True).start()
+    """Legacy stub - device approval is now handled via self-service 2FA Email OTP."""
+    pass
 
 
 def dispatch_new_device_login_alert(user, device, request):
@@ -1307,14 +1263,13 @@ def dispatch_new_device_login_alert(user, device, request):
     if not user.email or '@' not in user.email:
         return
 
-    user_display = user.full_name or user.username
+    user_full_name = user.full_name or user.get_full_name() or user.username
     subject = f'🛡️ eTala Security Notice — New Device Login Detected'
     timestamp_str = timezone.now().strftime('%b %d, %Y • %I:%M %p')
 
     html_content = render_to_string('emails/email_new_device_alert.html', {
-        'user_display_name': user_display,
+        'user_full_name': user_full_name,
         'device_name': device.device_name,
-        'ip_address': device.ip_address or 'Unknown IP',
         'timestamp': timestamp_str,
     })
 

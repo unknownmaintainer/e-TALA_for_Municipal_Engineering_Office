@@ -33,48 +33,91 @@ def clean_req_name(value):
 
 @register.filter(name='clean_audit_action')
 def clean_audit_action(action):
-    """Formats audit log text into concise, professional, and unambiguous municipal actions."""
+    """Formats audit log text into concise, professional, and easily understandable municipal actions."""
     if not action:
         return ''
     s = str(action).strip()
     
-    # Clean email expiry disclaimers to simple notification action
-    if 'Triggered Document Expiry Email Alerts' in s:
-        return 'Dispatched document expiry email notifications'
+    # 1. Clean email notifications
+    if 'Triggered Document Expiry Email Alerts' in s or 'Dispatched document expiry' in s:
+        return 'Dispatched Document Expiry Email Alerts'
         
-    # Clean user permanent deletion wording
+    # 2. Clean user deletion & toggle wording
     if 'Permanently deleted unused user account' in s:
         m = re.search(r"'([^']+)'", s)
-        user_str = f" {m.group(1)}" if m else ""
-        return f"Deleted user account{user_str}"
-        
-    # Clean user status toggle wording
+        user_str = f": {m.group(1)}" if m else ""
+        return f"Deleted User Account{user_str}"
     if 'Toggled user' in s:
         m = re.search(r"'([^']+)'", s)
-        user_str = f" {m.group(1)}" if m else ""
-        if 'deactivated' in s:
-            return f"Deactivated user account{user_str}"
-        elif 'activated' in s:
-            return f"Activated user account{user_str}"
+        user_str = f": {m.group(1)}" if m else ""
+        if 'deactivated' in s.lower() or 'inactive' in s.lower():
+            return f"Deactivated Account{user_str}"
+        elif 'activated' in s.lower() or 'active' in s.lower():
+            return f"Activated Account{user_str}"
             
-    # Clean user creation wording
+    # 3. Clean user creation wording
+    if 'Created new' in s and 'account:' in s:
+        m = re.search(r"Created new (\w+) account: ['\"]?([^'\"\(]+)", s)
+        if m:
+            role = m.group(1).title()
+            name = m.group(2).strip()
+            return f"Created {role} Account: {name}"
     if s.startswith('Created user ') and ' with role ' in s:
         m = re.search(r"Created user '([^']+)'", s)
         role_m = re.search(r"with role '([^']+)'", s)
         user_str = m.group(1) if m else ''
         role_str = role_m.group(1).title() if role_m else 'Staff'
-        return f"Created {role_str} account for {user_str}"
+        return f"Created {role_str} Account: {user_str}"
         
-    # Clean user profile update wording
-    if s.startswith('Updated user profile for '):
+    # 4. Clean password actions
+    if 'Reset password for user' in s:
         m = re.search(r"'([^']+)'", s)
-        user_str = f" {m.group(1)}" if m else ""
-        return f"Updated user profile for {user_str}".strip()
+        user_str = f": {m.group(1)}" if m else ""
+        return f"Reset Password for User{user_str}"
+    if s in ['Changed password', 'Changed account password']:
+        return 'Changed Account Password'
 
-    # Clean 'Moved to Trash: ...'
+    # 5. Clean Record Creations
+    if s.startswith('Created ') and ' record:' in s:
+        s = re.sub(r"^Created (\w+) record:\s*['\"]?(.+?)['\"]?$", r"Created \1: \2", s)
+
+    # 6. Clean Trash & Restores
     if s.startswith("Moved to Trash:"):
         inner = s.replace("Moved to Trash:", "").strip().strip("'\"")
         return f"Moved to Trash: {inner}"
+    if s.startswith("Restored:"):
+        inner = s.replace("Restored:", "").strip().strip("'\"")
+        return f"Restored from Trash: {inner}"
+
+    # 7. Clean Violations & Illegal Constructions
+    if 'Flagged as Illegal Construction' in s:
+        return 'Flagged as Illegal Construction'
+    if 'Unflagged Illegal Construction' in s or 'Removed Illegal Construction flag' in s:
+        return 'Removed Illegal Construction Flag'
+    if 'Updated Illegal Construction Compliance to' in s:
+        status_part = s.split('to')[-1].strip()
+        return f"Illegal Construction Status: {status_part}"
+    if 'Regularized incident case into' in s:
+        m = re.search(r"into (.+)", s)
+        return f"Regularized Case: {m.group(1)}" if m else "Regularized Illegal Construction"
+    if 'Reported violation at' in s:
+        m = re.search(r"Reported violation at Brgy\.\s*([^:]+):\s*'([^']+)'\s*—\s*(.+)", s)
+        if m:
+            return f"Reported Violation: {m.group(3)} (Brgy. {m.group(1)})"
+
+    # 8. Clean Database Backup & Restore
+    if 'Exported full database backup' in s:
+        return 'Exported Database Backup (JSON)'
+    if 'Restored' in s and 'from backup file' in s:
+        m = re.search(r"backup file '([^']+)'", s)
+        fname = f" ({m.group(1)})" if m else ""
+        return f"Restored Database from Backup{fname}"
+
+    # 9. Clean Document uploads/deletions
+    if s.startswith("Deleted:") and " from " in s:
+        m = re.search(r"Deleted:\s*(.+?)\s*from\s*['\"]?(.+?)['\"]?$", s)
+        if m:
+            return f"Deleted Document: {m.group(1)}"
 
     # General cleanup of surrounding quotes for cleaner human reading
     s = re.sub(r"'([^']+)'", r"\1", s)
