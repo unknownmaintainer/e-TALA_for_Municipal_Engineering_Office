@@ -6,13 +6,15 @@ import json
 import logging
 import os
 import re
+import threading
 import zipfile
 
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from django.db.models import Q
+from django.template.loader import render_to_string
 from django.utils import timezone
-from .models import EngineeringRecord, RecordRequirement, AuditLog, LoginAttempt, Document
+from .models import EngineeringRecord, RecordRequirement, AuditLog, LoginAttempt, Document, Barangay
 
 logger = logging.getLogger('permits')
 
@@ -40,12 +42,13 @@ def parse_decimal_safely(raw_val, max_digits=14, decimal_places=2):
 
 # ─── UNIFIED EMAIL DISPATCH SERVICE (BREVO HTTP API + RESEND + SMTP FALLBACK) ───
 
-def send_etala_email(subject, message, recipient_list, html_message=None, from_email=None, fail_silently=False):
+def send_etala_email(subject, message, recipient_list, html_message=None, from_email=None, fail_silently=False, attachments=None):
     """
     Unified eTala email dispatcher:
     1. Brevo HTTP REST API v3 (Port 443 HTTPS — 100% bypasses cloud SMTP port blocks on Render/AWS/Heroku)
     2. Resend HTTP REST API (Port 443 HTTPS)
     3. Standard Django SMTP backend fallback
+    Supports optional attachments list of tuples: [(filename, content_bytes, mimetype), ...] or file paths.
     """
     if not recipient_list:
         return False
@@ -56,10 +59,26 @@ def send_etala_email(subject, message, recipient_list, html_message=None, from_e
 
     raw_from = (from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'Municipal Engineering Office - Carigara <noreply@etala.gov.ph>')).strip()
     from email.utils import parseaddr, formataddr
+    import base64
     p_name, p_email = parseaddr(raw_from)
     sender_name = p_name or "Municipal Engineering Office - Carigara"
     sender_email = p_email or raw_from
     clean_from = formataddr((p_name, p_email)) if (p_name and p_email) else (p_email or raw_from)
+
+    # Prepare base64 attachments for HTTP APIs if any
+    api_attachments = []
+    if attachments:
+        for att in attachments:
+            if isinstance(att, tuple) and len(att) >= 2:
+                fname, fcontent = att[0], att[1]
+                if isinstance(fcontent, str):
+                    fcontent = fcontent.encode('utf-8')
+                b64_content = base64.b64encode(fcontent).decode('utf-8')
+                api_attachments.append({"name": fname, "content": b64_content})
+            elif isinstance(att, str) and os.path.exists(att):
+                with open(att, 'rb') as f:
+                    b64_content = base64.b64encode(f.read()).decode('utf-8')
+                api_attachments.append({"name": os.path.basename(att), "content": b64_content})
 
     # Method 1: Brevo HTTP REST API v3
     brevo_key = os.getenv('BREVO_API_KEY', '').strip() or os.getenv('SENDINBLUE_API_KEY', '').strip()
@@ -72,6 +91,19 @@ def send_etala_email(subject, message, recipient_list, html_message=None, from_e
         try:
             import requests
             to_payload = [{"email": r} for r in clean_recipients]
+            payload = {
+                "sender": {
+                    "name": sender_name,
+                    "email": sender_email,
+                },
+                "to": to_payload,
+                "subject": subject,
+                "htmlContent": html_message or message,
+                "textContent": message,
+            }
+            if api_attachments:
+                payload["attachment"] = api_attachments
+
             resp = requests.post(
                 "https://api.brevo.com/v3/smtp/email",
                 headers={
@@ -79,16 +111,7 @@ def send_etala_email(subject, message, recipient_list, html_message=None, from_e
                     "api-key": brevo_key,
                     "content-type": "application/json",
                 },
-                json={
-                    "sender": {
-                        "name": sender_name,
-                        "email": sender_email,
-                    },
-                    "to": to_payload,
-                    "subject": subject,
-                    "htmlContent": html_message or message,
-                    "textContent": message,
-                },
+                json=payload,
                 timeout=10,
             )
             if resp.status_code in (200, 201, 202):
@@ -104,19 +127,23 @@ def send_etala_email(subject, message, recipient_list, html_message=None, from_e
     if resend_key:
         try:
             import requests
+            r_payload = {
+                "from": clean_from,
+                "to": clean_recipients,
+                "subject": subject,
+                "html": html_message or message,
+                "text": message,
+            }
+            if api_attachments:
+                r_payload["attachments"] = [{"filename": a["name"], "content": a["content"]} for a in api_attachments]
+
             resp = requests.post(
                 "https://api.resend.com/emails",
                 headers={
                     "Authorization": f"Bearer {resend_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "from": clean_from,
-                    "to": clean_recipients,
-                    "subject": subject,
-                    "html": html_message or message,
-                    "text": message,
-                },
+                json=r_payload,
                 timeout=10,
             )
             if resp.status_code in (200, 201, 202):
@@ -129,15 +156,23 @@ def send_etala_email(subject, message, recipient_list, html_message=None, from_e
 
     # Method 3: Standard Django SMTP Backend Fallback
     try:
-        from django.core.mail import send_mail
-        send_mail(
+        from django.core.mail import EmailMultiAlternatives
+        mail = EmailMultiAlternatives(
             subject=subject,
-            message=message,
+            body=message,
             from_email=clean_from,
-            recipient_list=clean_recipients,
-            html_message=html_message,
-            fail_silently=fail_silently,
+            to=clean_recipients,
         )
+        if html_message:
+            mail.attach_alternative(html_message, "text/html")
+        if attachments:
+            for att in attachments:
+                if isinstance(att, tuple) and len(att) >= 2:
+                    mail.attach(*att)
+                elif isinstance(att, str) and os.path.exists(att):
+                    mail.attach_file(att)
+
+        mail.send(fail_silently=fail_silently)
         logger.info(f"Email '{subject}' delivered via standard SMTP backend to {clean_recipients}")
         return True
     except Exception as smtp_err:
@@ -230,6 +265,28 @@ def get_record_export_name(record, include_location=False):
     """
     # 1. ILLEGAL CONSTRUCTIONS & VIOLATIONS
     if record.is_illegal_construction:
+        # If regularized / converted, format exactly like a normal permit (clean naming, no status suffix)
+        if record.illegal_compliance_status == 'resolved':
+            app = ""
+            if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
+                app = record.permit_detail.applicant_name.strip()
+            if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null']:
+                base_slug = sanitize_zip_name(app, max_len=50).replace(" ", "_")
+            else:
+                base_slug = sanitize_zip_name(record.title or "Permit", max_len=60).replace(" ", "_")
+            
+            permit_type = record.specific_type_label or "Building_Permit"
+            clean_type = sanitize_zip_name(permit_type, max_len=40).replace(" ", "_")
+            if clean_type.lower() not in base_slug.lower():
+                base_slug = f"{base_slug}_{clean_type}"
+            if record.year and str(record.year) not in base_slug:
+                base_slug = f"{base_slug}_{record.year}"
+            if include_location and record.barangay:
+                b_name = sanitize_zip_name(record.barangay.barangay_name, max_len=35).replace(" ", "_")
+                base_slug = f"{base_slug}_Brgy_{b_name}"
+            return base_slug
+
+        # Active Stop Order / Violation
         violator = ""
         if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
             app = record.permit_detail.applicant_name.strip()
@@ -244,14 +301,12 @@ def get_record_export_name(record, include_location=False):
         elif clean_title:
             base_slug = clean_title
         else:
-            base_slug = "Violation_Case"
+            base_slug = "Unpermitted_Structure"
 
         if include_location:
             status_suffix = "Stop_Order"
-            if record.illegal_compliance_status == 'resolved':
-                status_suffix = "Regularized"
-            elif record.illegal_compliance_status == 'pending_permit':
-                status_suffix = "Permit_Filed"
+            if record.illegal_compliance_status == 'pending_permit':
+                status_suffix = "Permit_Pending"
             base_slug = f"{base_slug}_{status_suffix}"
             if record.barangay:
                 b_name = sanitize_zip_name(record.barangay.barangay_name, max_len=35).replace(" ", "_")
@@ -656,12 +711,12 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
                         clean_extra = sanitize_file_name(raw_fname, max_name_len=80).replace(" ", "_")
                         file_path = f"Additional_Attachments/{clean_extra}"
 
-                    # Prevent duplicate zip path collisions & handle versioning
+                    # Prevent duplicate zip path collisions & handle multi-file numbering cleanly
                     orig_path = file_path
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
+                        file_path = f"{base_p}_Part_{counter}{ext_p}"
                         counter += 1
                     used_paths.add(file_path)
 
@@ -717,7 +772,7 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                         counter = 2
                         while file_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            file_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
+                            file_path = f"{base_p}_Part_{counter}{ext_p}"
                             counter += 1
                         used_paths.add(file_path)
                         processed_doc_ids.add(req.document.document_id)
@@ -747,7 +802,7 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
+                        file_path = f"{base_p}_Part_{counter}{ext_p}"
                         counter += 1
                     used_paths.add(file_path)
                     processed_doc_ids.add(doc.document_id)
@@ -1120,12 +1175,17 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
             token_lower = token.lower()
             token_filter = (
                 Q(title__icontains=token) |
+                Q(description__icontains=token) |
                 Q(barangay__barangay_name__icontains=token) |
                 Q(permit_detail__permit_number__icontains=token) |
                 Q(permit_detail__applicant_name__icontains=token) |
+                Q(permit_detail__building_type__icontains=token) |
+                Q(permit_detail__remarks__icontains=token) |
                 Q(project_detail__contractor__icontains=token) |
                 Q(permit_detail__permit_type__icontains=token) |
-                Q(project_detail__project_type__icontains=token)
+                Q(project_detail__project_type__icontains=token) |
+                Q(project_detail__funding_source__icontains=token) |
+                Q(project_detail__funding_source_other__icontains=token)
             )
             
             # High-Accuracy Status Keyword Matching (Matches true database status)
@@ -1167,7 +1227,7 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
             qs = qs.filter(record_type='Permit').exclude(is_illegal_construction=True, illegal_compliance_status='resolved').filter(status__in=['active', 'completed'])
         elif status == 'pending':
             qs = qs.filter(status='pending')
-        elif status == 'regularized':
+        elif status in ['regularized', 'complied', 'resolved']:
             qs = qs.filter(is_illegal_construction=True, illegal_compliance_status='resolved')
         elif status == 'active':
             qs = qs.filter(
@@ -1265,16 +1325,34 @@ def dispatch_new_device_login_alert(user, device, request):
 
     user_full_name = user.full_name or user.get_full_name() or user.username
     subject = f'🛡️ eTala Security Notice — New Device Login Detected'
-    timestamp_str = timezone.now().strftime('%b %d, %Y • %I:%M %p')
+    confirm_url = request.build_absolute_uri(reverse('profile')) if request else '#'
+    
+    # Generate direct 1-click password reset token link for instant lockdown
+    try:
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.contrib.auth.tokens import default_token_generator
+        from django.core import signing
+        
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        sig = signing.dumps({'user_id': user.pk, 'email': user.email}, salt='password-reset')
+        secure_url = request.build_absolute_uri(
+            reverse('reset_password') + f'?uid={uidb64}&token={token}&sig={sig}'
+        ) if request else '#'
+    except Exception:
+        secure_url = request.build_absolute_uri(reverse('forgot_password')) if request else '#'
 
     html_content = render_to_string('emails/email_new_device_alert.html', {
         'user_full_name': user_full_name,
         'device_name': device.device_name,
         'timestamp': timestamp_str,
+        'confirm_url': confirm_url,
+        'secure_url': secure_url,
     })
 
     plain_content = (
-        f"Hello {user_display},\n\n"
+        f"Hello {user_full_name},\n\n"
         f"Your eTala account was recently logged into from a new device: {device.device_name} (IP: {device.ip_address}) on {timestamp_str}.\n"
         f"If this was you, no action is needed.\n"
         f"If you did not log in, please contact the Municipal Engineering Office Administrator immediately.\n"
@@ -1295,4 +1373,71 @@ def dispatch_new_device_login_alert(user, device, request):
             logger.warning(f"Failed sending new device alert to {user.email}: {exc}")
 
     threading.Thread(target=_send_user_alert, daemon=True).start()
+
+
+def purge_expired_trash_records(retention_days=30, dry_run=False):
+    """
+    Purges records from Trash that have exceeded the retention threshold (default 30 days).
+    Cleans up attached media files, records an AuditLog entry, and deletes database records.
+    Returns a dict with count of purged records and purged document files.
+    """
+    import logging
+    from datetime import timedelta
+    from django.utils import timezone
+    from django.db.models import Q
+    from .models import EngineeringRecord, AuditLog
+
+    svc_logger = logging.getLogger(__name__)
+    threshold_dt = timezone.now() - timedelta(days=retention_days)
+    
+    # Query records archived at or before the threshold
+    # Fallback to updated_at for legacy records without deleted_at
+    expired_records = EngineeringRecord.objects.filter(
+        status='archived'
+    ).filter(
+        Q(deleted_at__lte=threshold_dt) | (Q(deleted_at__isnull=True) & Q(updated_at__lte=threshold_dt))
+    ).prefetch_related('documents')
+
+    purged_records_count = 0
+    purged_docs_count = 0
+
+    for rec in expired_records:
+        rec_title = rec.title
+        rec_id = rec.record_id
+        doc_count = rec.documents.count()
+
+        if dry_run:
+            purged_records_count += 1
+            purged_docs_count += doc_count
+            continue
+
+        # 1. Clean up physical media files
+        for doc in rec.documents.all():
+            if doc.file:
+                try:
+                    doc.file.delete(save=False)
+                    purged_docs_count += 1
+                except Exception as e:
+                    svc_logger.warning(f"Error deleting file for doc #{doc.document_id}: {e}")
+
+        # 2. Record immutable system audit log
+        try:
+            AuditLog.objects.create(
+                user=None,  # System
+                action=f"System Auto-Purge: Permanently deleted expired trash record '{rec_title}' (ID #{rec_id}) after {retention_days}-day retention period.",
+                target_record_id=rec_id
+            )
+        except Exception as e:
+            svc_logger.error(f"Audit log error during auto-purge: {e}")
+
+        # 3. Delete database record (cascades permit/project details & requirements)
+        rec.delete()
+        purged_records_count += 1
+
+    return {
+        'purged_records': purged_records_count,
+        'purged_documents': purged_docs_count,
+        'retention_days': retention_days,
+        'dry_run': dry_run,
+    }
 

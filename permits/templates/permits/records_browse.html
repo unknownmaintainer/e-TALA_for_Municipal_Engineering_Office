@@ -360,37 +360,33 @@
         </div>
 
         <!-- Right: Compact Search Pill (Contained, no overflow) -->
-        <div class="d-flex align-items-center ms-auto" style="flex: 0 0 240px; width: 240px; max-width: 240px;">
-            <div class="etala-search-pill-wrapper w-100" style="height: 34px; padding: 0 10px; gap: 6px;">
+        <div class="d-flex align-items-center ms-auto" style="flex: 0 0 250px; width: 250px; max-width: 250px;">
+            <div class="etala-search-pill-wrapper">
                 <button type="submit"
                     class="etala-search-pill-icon search-btn-icon"
-                    style="cursor: pointer;" title="Search records">
-                    <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
+                    title="Search records">
+                    <i class="fa-solid fa-magnifying-glass"></i>
                 </button>
                 <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                    placeholder="Search title, owner, permit no., contractor..." value="{{ q|default:'' }}" autocomplete="off"
-                    style="font-size: 0.78rem;">
+                    placeholder="Search title, owner, permit no., contractor..." value="{{ q|default:'' }}" autocomplete="off">
 
                 <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                    style="width: 12px; height: 12px;">
+                    style="width: 12px; height: 12px; border-width: 2px;">
                     <span class="visually-hidden">Searching...</span>
                 </div>
 
-                {% if q %}
-                <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&status={{ selected_status }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if selected_illegal %}&illegal={{ selected_illegal }}{% endif %}"
-                    class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon"
-                    style="background: transparent;" title="Clear search">
-                    <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
+                <a href="?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}&barangay={{ selected_barangay }}&year={{ selected_year }}&project_type={{ selected_project_type }}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if selected_illegal %}&illegal={{ selected_illegal }}{% endif %}"
+                    class="clear-search-icon d-flex align-items-center justify-content-center {% if not q %}d-none{% endif %}"
+                    title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                 </a>
-                {% endif %}
 
-                <span class="etala-search-pill-divider" style="height: 14px;"></span>
+                <span class="etala-search-pill-divider"></span>
 
                 <!-- Integrated Filter Icon Button -->
                 <button class="etala-search-pill-filter-btn"
-                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters"
-                    style="padding: 2px;">
-                    <i class="fa-solid fa-sliders" style="font-size: 12px;"></i>
+                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
+                    <i class="fa-solid fa-sliders"></i>
                 </button>
             </div>
         </div>
@@ -410,21 +406,6 @@
         <div class="filter-chip">
             <span>Project Type: <strong>{{ selected_project_type }}</strong></span>
             <button type="button" class="clear-chip-btn" data-filter-name="project_type">&times;</button>
-        </div>
-        {% endif %}
-        {% if selected_status %}
-        <div class="filter-chip">
-            <span>Status: <strong>
-                {% if selected_status == 'ongoing' or selected_status == 'in_progress' %}Ongoing
-                {% elif selected_status == 'completed' %}Completed
-                {% elif selected_status == 'issued' %}Issued
-                {% elif selected_status == 'pending' %}Pending Issuance
-                {% elif selected_status == 'regularized' %}Regularized
-                {% elif selected_status == 'active' %}Active / Issued
-                {% else %}{{ selected_status|title }}
-                {% endif %}
-            </strong></span>
-            <button type="button" class="clear-chip-btn" data-filter-name="status">&times;</button>
         </div>
         {% endif %}
         {% if selected_barangay %}
@@ -453,11 +434,11 @@
     {% endif %}
 
     <!-- Collapsible filters panel (Inline compact single-row design) -->
-    <div class="collapse {% if selected_status or selected_barangay or selected_year or selected_project_type or selected_permit_type %}show{% endif %}"
+    <div class="collapse {% if selected_barangay or selected_year or selected_project_type or selected_permit_type %}show{% endif %}"
         id="advancedFiltersCollapse">
         <div class="filter-panel-unified py-2.5 px-3 rounded-3 border mb-2">
             {% if selected_record_type == 'Permit' %}
-            <div class="row row-cols-md-4 row-cols-sm-2 row-cols-1 g-2 align-items-end">
+            <div class="row row-cols-md-3 row-cols-sm-2 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Type</label>
@@ -482,17 +463,6 @@
 
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
-                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Permit Status</label>
-                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax">
-                        <option value="">All Statuses</option>
-                        <option value="issued" {% if selected_status == 'issued' or selected_status == 'active' %}selected{% endif %}>Issued</option>
-                        <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending Issuance</option>
-                        <option value="regularized" {% if selected_status == 'regularized' %}selected{% endif %}>Regularized</option>
-                    </select>
-                </div>
-
-                <div class="col">
-                    <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
                     <select name="year" class="form-select form-select-sm filter-dropdown-ajax">
                         <option value="">All Years</option>
@@ -503,7 +473,7 @@
                 </div>
             </div>
             {% elif selected_record_type == 'Project' %}
-            <div class="row row-cols-md-4 row-cols-sm-2 row-cols-1 g-2 align-items-end">
+            <div class="row row-cols-md-3 row-cols-sm-2 row-cols-1 g-2 align-items-end">
                 <div class="col">
                     <label class="form-label text-muted fw-bold mb-1"
                         style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Type</label>
@@ -523,16 +493,6 @@
                         {% for b in barangays %}
                         <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
                         {% endfor %}
-                    </select>
-                </div>
-
-                <div class="col">
-                    <label class="form-label text-muted fw-bold mb-1"
-                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Status</label>
-                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax">
-                        <option value="">All Statuses</option>
-                        <option value="ongoing" {% if selected_status == 'ongoing' or selected_status == 'in_progress' or selected_status == 'active' %}selected{% endif %}>Ongoing</option>
-                        <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
                     </select>
                 </div>
 
@@ -587,18 +547,21 @@
             <table class="data-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th style="width: 26%; min-width: 170px;">Title</th>
-                        <th style="width: 23%; min-width: 160px;">Type</th>
-                        <th style="width: 16%; min-width: 120px;">Barangay</th>
-                        <th style="width: 7%; min-width: 55px;">Year</th>
-                        <th style="width: 13%; min-width: 90px;">Status</th>
-                        <th style="width: 10%; min-width: 75px;">Uploads</th>
-                        <th class="text-end" style="width: 5%; min-width: 40px; padding-right: 14px;"></th>
+                        <th class="text-center cell-row-num" style="width: 48px; min-width: 48px;">#</th>
+                        <th style="width: 32%; min-width: 180px;">Title</th>
+                        <th style="width: 24%; min-width: 150px;">Type</th>
+                        <th style="width: 17%; min-width: 120px;">Barangay</th>
+                        <th style="width: 9%; min-width: 60px;">Year</th>
+                        <th style="width: 10%; min-width: 80px;">Uploads</th>
+                        <th class="text-end" style="width: 4%; min-width: 40px; padding-right: 14px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in page_obj %}
                     <tr data-href="{% url 'record_detail' r.record_id %}?from=records" style="cursor: pointer;">
+                        <td class="text-center cell-muted cell-row-num" style="font-weight: 600; font-size: 0.82rem;">
+                            {% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}
+                        </td>
                         <td>
                             <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
                                 <span title="{% if r.record_type == 'Permit' %}{% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}{{ r.permit_detail.applicant_name }}{% elif r.title and r.title != 'Permit' %}{{ r.title }}{% else %}{{ r.specific_type_label }}{% endif %}{% else %}{{ r.title }}{% endif %}">
@@ -620,7 +583,7 @@
                                     {% if r.permit_detail and r.permit_detail.permit_number %}
                                     <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
                                     {% else %}
-                                    <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Regularized Record</div>
+                                    <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Resolved &amp; Issued</div>
                                     {% endif %}
                                 {% elif r.is_illegal_construction %}
                                     {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
@@ -662,9 +625,6 @@
                             {% endif %}
                         </td>
                         <td class="cell-muted cell-year">{{ r.year|default:"—" }}</td>
-                        <td class="cell-status">
-                            <span class="status-text-standard">{{ r.status_label }}</span>
-                        </td>
                         <td>
                             {% with stats=r.completion_stats %}
                             {% if stats.total > 0 %}
@@ -792,7 +752,7 @@
                 <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                     <span>Page:</span>
                     <input type="number" class="form-control form-control-sm text-center px-1 py-0.5"
-                        style="width: 54px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1"
+                        style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1"
                         max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}"
                         onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
                     <span>/ {{ page_obj.paginator.num_pages|intcomma }}</span>
@@ -803,37 +763,37 @@
                 <nav aria-label="Scalable Pagination Navigation">
                     <ul class="pagination pagination-sm mb-0 gap-1">
                         {% if page_obj.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">‹ Prev</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">‹ Prev</a></li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                         {% endif %}
 
+                        {% if page_obj.number > 2 %}
+                        <li class="page-item"><a class="page-link" href="?page=1{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">1</a></li>
                         {% if page_obj.number > 3 %}
-                        <li class="page-item"><a class="page-link" href="?page=1{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">1</a></li>
-                        {% if page_obj.number > 4 %}
                         <li class="page-item disabled"><span class="page-link">…</span></li>
                         {% endif %}
                         {% endif %}
 
                         {% for p in page_obj.paginator.page_range %}
-                        {% if p >= page_obj.number|add:-2 and p <= page_obj.number|add:2 %}
+                        {% if p >= page_obj.number|add:-1 and p <= page_obj.number|add:1 %}
                             {% if page_obj.number == p %}
                             <li class="page-item active"><span class="page-link">{{ p }}</span></li>
                             {% else %}
-                            <li class="page-item"><a class="page-link" href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">{{ p }}</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ p }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">{{ p }}</a></li>
                             {% endif %}
                         {% endif %}
                         {% endfor %}
 
-                        {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
-                            {% if page_obj.number < page_obj.paginator.num_pages|add:-3 %}
+                        {% if page_obj.number < page_obj.paginator.num_pages|add:-1 %}
+                            {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
                             <li class="page-item disabled"><span class="page-link">…</span></li>
                             {% endif %}
-                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">{{ page_obj.paginator.num_pages }}</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">{{ page_obj.paginator.num_pages }}</a></li>
                         {% endif %}
 
                         {% if page_obj.has_next %}
-                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">Next ›</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if selected_record_type %}&record_type={{ selected_record_type }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if selected_project_type %}&project_type={{ selected_project_type }}{% endif %}{% if selected_permit_type %}&permit_type={{ selected_permit_type }}{% endif %}&per_page={{ per_page }}">Next ›</a></li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">Next ›</span></li>
                         {% endif %}
@@ -848,27 +808,27 @@
         <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 380px;">
             <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle"
                 style="width: 64px; height: 64px; background: rgba(2, 132, 199, 0.12); color: #0284c7;">
-                {% if q or active_filters_count > 0 or selected_status or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
+                {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
                 <i class="fa-solid fa-magnifying-glass" style="font-size: 26px;"></i>
                 {% else %}
                 <i class="fa-solid fa-folder-open" style="font-size: 26px;"></i>
                 {% endif %}
             </div>
             <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size: 1.05rem;">
-                {% if q or active_filters_count > 0 or selected_status or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
+                {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
                 No matching records found
                 {% else %}
                 No records encoded yet
                 {% endif %}
             </h5>
             <p class="text-muted small mb-4" style="font-size: 0.84rem; max-width: 440px; line-height: 1.55;">
-                {% if q or active_filters_count > 0 or selected_status or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
+                {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
                 We couldn't find any engineering records matching your search or filters. Try adjusting your query or resetting filters.
                 {% else %}
                 There are currently no engineering records in this archive. Start by encoding the first record.
                 {% endif %}
             </p>
-            {% if q or active_filters_count > 0 or selected_status or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
+            {% if q or active_filters_count > 0 or selected_barangay or selected_year or selected_scope == 'my' or selected_project_type or selected_permit_type or selected_illegal %}
             <a href="{% url 'records_browse' %}?record_type={{ selected_record_type }}&project_scope={{ selected_project_scope }}"
                 class="premium-btn btn-view text-decoration-none" style="border-radius: 8px;">
                 <span class="btn-icon"><i class="fa-solid fa-rotate-left"></i></span>
@@ -1067,14 +1027,21 @@
                 }
 
                 // 6. Clear Search button in search box
-                const clearSearchLink = e.target.closest('.filter-search-group a[title="Clear search"]');
+                const clearSearchLink = e.target.closest('.clear-search-icon, a[title="Clear search"]');
                 if (clearSearchLink) {
                     e.preventDefault();
-                    const url = clearSearchLink.getAttribute('href');
                     if (searchInput) searchInput.value = '';
-                    if (url && url !== '#') {
+                    clearSearchLink.classList.add('d-none');
+                    if (form) {
+                        const formData = new FormData(form);
+                        const params = new URLSearchParams(formData);
+                        const url = window.location.pathname + '?' + params.toString();
                         updateRecordsTableAJAX(url);
+                    } else {
+                        const url = clearSearchLink.getAttribute('href');
+                        if (url && url !== '#') updateRecordsTableAJAX(url);
                     }
+                    if (searchInput) searchInput.focus();
                     return;
                 }
             });
@@ -1108,20 +1075,23 @@
                 searchInput.setSelectionRange(val.length, val.length);
             }
 
-            // Live auto-search input via AJAX (450ms debounce)
+            // Live auto-search input via AJAX (350ms debounce)
             let searchTimer;
             if (searchInput) {
                 searchInput.addEventListener('input', () => {
                     clearTimeout(searchTimer);
                     if (searchSpinner) searchSpinner.classList.remove('d-none');
                     const clearBtn = document.querySelector('.clear-search-icon');
-                    if (clearBtn) clearBtn.classList.add('d-none');
+                    if (clearBtn) {
+                        if (searchInput.value.trim().length > 0) clearBtn.classList.remove('d-none');
+                        else clearBtn.classList.add('d-none');
+                    }
                     searchTimer = setTimeout(() => {
                         const formData = new FormData(form);
                         const params = new URLSearchParams(formData);
                         const url = window.location.pathname + '?' + params.toString();
                         updateRecordsTableAJAX(url);
-                    }, 450);
+                    }, 350);
                 });
             }
 

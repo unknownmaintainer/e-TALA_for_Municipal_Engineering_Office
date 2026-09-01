@@ -13,23 +13,52 @@ def virus_scan_file(file):
         raise ValidationError("Security Violation: Potential malware detected during automated virus scan.")
     return True
 
+MINIMUM_BACKLOG_YEAR = 1995
+
+def validate_backlog_year(year_or_date):
+    """
+    Validates that an engineering record or permit year/date is not prior to 1995.
+    eTala archival policy specifies that 1995 is the minimum acceptable backlog year.
+    """
+    if not year_or_date:
+        return True
+    import datetime
+    if isinstance(year_or_date, (datetime.date, datetime.datetime)):
+        yr = year_or_date.year
+    else:
+        try:
+            yr = int(str(year_or_date).strip()[:4])
+        except (ValueError, TypeError):
+            return True
+    if yr < MINIMUM_BACKLOG_YEAR:
+        raise ValidationError(
+            f"Invalid Year ({yr}): Records prior to {MINIMUM_BACKLOG_YEAR} cannot be accepted. "
+            f"The minimum archival backlog year for the Municipal Engineering Office is {MINIMUM_BACKLOG_YEAR}."
+        )
+    return True
+
 def validate_document_file(file):
-    """Validate that file is PDF or scanned image (JPG, PNG, WEBP), does not exceed 10MB, and is free of malware."""
-    # Extension validation
+    """
+    Validate that the uploaded attachment is strictly a PDF document (.pdf),
+    does not exceed 50MB, and is free of malware.
+    Only verified, non-editable PDF files are accepted for archival storage.
+    """
+    # Extension validation - strictly PDF only
     ext = os.path.splitext(file.name)[1].lower()
-    allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.webp']
-    if ext not in allowed_extensions:
-        raise ValidationError("Only PDF document files and scanned image files (JPG, PNG, WEBP) are accepted.")
+    if ext != '.pdf':
+        raise ValidationError("Only verified PDF documents (.pdf) are accepted for archival in eTala.")
 
     # MIME type validation
     allowed_mime_types = [
-        'application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp',
-        'image/pjpeg', 'image/x-png'
+        'application/pdf', 'application/x-pdf', 'application/acrobat', 
+        'applications/vnd.pdf', 'text/pdf', 'text/x-pdf'
     ]
-    if hasattr(file, 'content_type') and file.content_type and file.content_type.lower() not in allowed_mime_types:
-        raise ValidationError("Invalid file content type. Only PDF document files and scanned images are allowed.")
+    if hasattr(file, 'content_type') and file.content_type:
+        ct = file.content_type.lower()
+        if ct not in allowed_mime_types:
+            raise ValidationError("Invalid file content type. Only PDF documents (.pdf) are accepted.")
 
-    # Size validation (Supports up to 50MB for heavy multi-sheet blueprints, geotechnical reports, and structural calculations)
+    # Size validation (50MB limit)
     max_size = 50 * 1024 * 1024  # 50MB in bytes
     if file.size > max_size:
         raise ValidationError("File exceeds 50MB limit. Please compress and re-upload.")
@@ -46,8 +75,8 @@ def sanitize_input(value):
     return escape(stripped)
 
 
-def validate_password_strength(password, min_length=6, require_complexity=False):
-    """Validate password requirements (default: minimum 6 characters for flexible temporary passwords)."""
+def validate_password_strength(password, min_length=8, require_complexity=False):
+    """Validate password requirements (standard: minimum 8 characters)."""
     if not password or len(password) < min_length:
         return False, f"Password must be at least {min_length} characters long."
     if require_complexity:

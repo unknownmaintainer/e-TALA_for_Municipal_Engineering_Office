@@ -38,4 +38,12 @@ class Command(BaseCommand):
                     pass
         self.stdout.write(self.style.SUCCESS(f"[OK] Cleaned {cleaned_files} temporary export cache files."))
 
+        # 3. 30-Day Trash Retention Cleanup
+        try:
+            from permits.services import purge_expired_trash_records
+            res = purge_expired_trash_records(retention_days=30)
+            self.stdout.write(self.style.SUCCESS(f"[OK] Purged {res['purged_records']} expired trash records and {res['purged_documents']} attached files (30-day retention)."))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"[WARN] Error during trash auto-purge: {e}"))
+
         self.stdout.write(self.style.SUCCESS("[OK] Maintenance cleanup completed successfully."))

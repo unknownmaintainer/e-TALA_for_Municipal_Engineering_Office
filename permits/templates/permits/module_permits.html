@@ -122,9 +122,9 @@
         <!-- Left: Integrated Search & Filter Pill -->
         <div class="d-flex align-items-center flex-grow-1" style="max-width: 440px; min-width: 270px;">
             <div class="etala-search-pill-wrapper">
-                <span class="etala-search-pill-icon">
+                <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search permits">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                </span>
+                </button>
                 <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Search permits by name, number, barangay..." value="{{ q|default:'' }}">
 
                 <div id="modulePermitSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
@@ -155,6 +155,7 @@
 
         <!-- Role-Based Scope Toggle ("My Permits" vs "All Permits") -->
         <div class="scope-segmented-control flex-shrink-0 ms-auto">
+            <span class="scope-glider" aria-hidden="true"></span>
             <a href="?{% param_replace scope='my' page=1 %}" class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}" title="Show permits created by you">
                 <i class="fa-solid fa-user" style="font-size: 13px;"></i>
                 <span>My Permits</span>
@@ -264,10 +265,10 @@
 
                     <hr class="my-2" style="border-color: var(--border-default);">
 
-                    <!-- Status Badge & Progress -->
+                    <!-- Document Fulfillment Progress -->
                     <div class="mb-3 mt-2">
                         <div class="d-flex justify-content-between align-items-center mb-1.5" style="font-size: var(--text-xs);">
-                            <span class="text-muted">Status:</span>
+                            <span class="text-muted">Documents:</span>
                             {% if stats.is_complete %}
                             <span class="tag tag-barangay">✓ COMPLETE</span>
                             {% else %}
@@ -342,7 +343,7 @@
             {% endif %}
 
             {% if page_obj.has_other_pages %}
-            <nav>
+            <nav aria-label="Permits Pagination">
                 <ul class="pagination pagination-sm mb-0 gap-1">
                     {% if page_obj.has_previous %}
                     <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
@@ -350,13 +351,29 @@
                     <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                     {% endif %}
 
+                    {% if page_obj.number > 2 %}
+                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page=1&per_page={{ per_page }}">1</a></li>
+                    {% if page_obj.number > 3 %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                    {% endif %}
+
                     {% for p in page_obj.paginator.page_range %}
-                    {% if page_obj.number == p %}
-                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                    {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                    <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                    {% if p >= page_obj.number|add:-1 and p <= page_obj.number|add:1 %}
+                        {% if page_obj.number == p %}
+                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                        {% else %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                        {% endif %}
                     {% endif %}
                     {% endfor %}
+
+                    {% if page_obj.number < page_obj.paginator.num_pages|add:-1 %}
+                        {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.paginator.num_pages }}&per_page={{ per_page }}">{{ page_obj.paginator.num_pages }}</a></li>
+                    {% endif %}
 
                     {% if page_obj.has_next %}
                     <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_permit_type %}permit_type={{ selected_permit_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>

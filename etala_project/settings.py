@@ -344,6 +344,16 @@ else:
     EMAIL_BACKEND       = 'django.core.mail.backends.console.EmailBackend'
     DEFAULT_FROM_EMAIL  = 'noreply@etala.local'
 
+# ── Developer Feedback Recipients (Confidential / Backend-Only) ───────────────
+dev_feedback_env = os.getenv('DEVELOPER_FEEDBACK_EMAILS', '').strip()
+if dev_feedback_env:
+    DEVELOPER_FEEDBACK_EMAILS = [e.strip() for e in dev_feedback_env.split(',') if e.strip()]
+else:
+    DEVELOPER_FEEDBACK_EMAILS = [
+        'mardionjrcordetafuerte@gmail.com',
+        'mardionjrcordetafuerte2@gmail.com',
+    ]
+
 
 
 # Configure file-based loggers

@@ -22,8 +22,12 @@ urlpatterns = [
     path('auth/email-preview/new-device-alert/', views.email_preview_new_device_view, name='preview_email_new_device_alert'),
     path('auth/email-preview/password-reset/', views.email_preview_password_reset_view, name='preview_email_password_reset'),
     path('auth/email-preview/otp-verification/', views.email_preview_otp_verification_view, name='preview_email_otp_verification'),
+    path('auth/email-preview/device-approval/', views.email_preview_device_approval_view, name='preview_email_device_approval'),
+    path('auth/email-preview/developer-feedback/', views.email_preview_feedback_view, name='preview_email_developer_feedback'),
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
+    path('password-reset/', views.forgot_password_view, name='password_reset_alias'),
     path('reset-password/', views.reset_password_view, name='reset_password'),
+    path('preview-toasts/', views.toast_preview_view, name='preview_toasts'),
 
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),
@@ -57,6 +61,7 @@ urlpatterns = [
     path('records/<int:record_id>/restore/', views.record_restore_view, name='restore_record'),
     path('records/<int:record_id>/download-zip/', views.download_record_zip_view, name='download_record_zip'),
     path('records/<int:record_id>/download-category/<int:req_id>/', views.download_category_zip_view, name='download_category_zip'),
+    path('records/<int:record_id>/download-slot/<int:item_id>/', views.download_slot_zip_view, name='download_slot_zip'),
     path('records/export/municipal-zip/', views.download_municipal_zip_view, name='download_municipal_zip'),
     path('records/<int:record_id>/requirement/<int:req_id>/', views.record_requirement_detail_view, name='record_requirement_detail'),
     path('records/<int:record_id>/batch-upload/', views.batch_upload_documents_view, name='batch_upload_documents'),
@@ -67,12 +72,15 @@ urlpatterns = [
     path('documents/serve/<str:token>/', views.serve_document_view, name='serve_document'),
     path('documents/serve/<str:token>/<str:filename>', views.serve_document_view, name='serve_document_named'),
     path('records/<int:record_id>/document/upload/', views.document_upload_view, name='upload_document'),
+    path('records/<int:record_id>/document/<int:document_id>/replace/', views.document_replace_view, name='replace_document'),
     path('records/<int:record_id>/document/<int:document_id>/delete/', views.document_delete_view, name='delete_document'),
+    path('records/<int:record_id>/requirement/<int:item_id>/delete-all/', views.delete_requirement_documents_view, name='delete_requirement_documents'),
     path('requirements/<int:req_id>/toggle-waive/', views.toggle_requirement_waived_view, name='toggle_requirement_waived'),
     path('alerts/list/', views.alerts_list_json_view, name='alerts_list_json'),
     path('notifications/action/', views.notification_sync_action_view, name='notification_sync_action'),
 
     # Search, Archive, Reports
+    path('api/quick-search/', views.quick_search_api_view, name='api_quick_search'),
     path('search/', views.search_view, name='search'),
     path('archive/', views.archive_view, name='archive'),
     path('reports/', views.reports_view, name='reports'),
@@ -84,6 +92,7 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile'),
     path('users/<int:user_id>/avatar/', views.serve_user_avatar_view, name='serve_user_avatar'),
     path('about/', views.about_system_view, name='about_system'),
+    path('about/feedback/', views.submit_system_feedback, name='submit_system_feedback'),
     path('users/', views.users_view, name='users'),
     path('settings/', views.settings_view, name='settings'),
     path('settings/user/<int:user_id>/toggle-active/', views.toggle_user_active_view, name='toggle_user_active'),
@@ -96,6 +105,10 @@ urlpatterns = [
     path('errors/500/', views.server_error, name='preview_500'),
     path('errors/403/', views.forbidden, name='preview_403'),
     path('errors/400/', views.bad_request, name='preview_400'),
+
+    # Live Email Templates Preview & Redesign Viewer
+    path('preview-email/', views.email_template_preview_view, name='preview_email_default'),
+    path('preview-email/<str:template_name>/', views.email_template_preview_view, name='preview_email_template'),
 
     # REST API & JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

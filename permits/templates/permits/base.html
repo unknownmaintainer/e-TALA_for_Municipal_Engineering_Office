@@ -24,6 +24,93 @@
                 document.documentElement.classList.add('sidebar-is-collapsed');
             }
         })();
+
+        // ⚡ PERFECTLY SYNCHRONIZED THEME SWITCH (View Transitions API)
+        // Uses the browser's View Transitions API to capture a pixel-perfect
+        // screenshot, apply all DOM changes, then crossfade the entire page
+        // as a single unit. No individual element can be out of sync.
+        window.applyTheme = function(theme) {
+            const isDark = theme === 'dark';
+            const root = document.documentElement;
+            const body = document.body;
+
+            function doThemeSwitch() {
+                if (isDark) {
+                    root.classList.add('dark-mode');
+                    root.setAttribute('data-bs-theme', 'dark');
+                    root.style.colorScheme = 'dark';
+                    root.style.backgroundColor = '#0b1329';
+                    if (body) {
+                        body.classList.add('dark-mode');
+                        body.setAttribute('data-bs-theme', 'dark');
+                        body.style.colorScheme = 'dark';
+                        body.style.backgroundColor = '#0b1329';
+                    }
+                } else {
+                    root.classList.remove('dark-mode');
+                    root.setAttribute('data-bs-theme', 'light');
+                    root.style.colorScheme = 'light';
+                    root.style.backgroundColor = '#f8fafc';
+                    if (body) {
+                        body.classList.remove('dark-mode');
+                        body.setAttribute('data-bs-theme', 'light');
+                        body.style.colorScheme = 'light';
+                        body.style.backgroundColor = '#f8fafc';
+                    }
+                }
+                try { localStorage.setItem('theme', theme); } catch(e) {}
+                if (window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('etala-theme-changed', { detail: { theme: theme } }));
+                }
+            }
+
+            // Primary: View Transitions API — single atomic crossfade for the entire page
+            if (document.startViewTransition) {
+                // Temporarily remove view-transition-names on sidebar/header so they
+                // don't get independent transition groups with animation:none.
+                // This makes them part of the root crossfade instead.
+                var sidebar = document.querySelector('.etala-sidebar, #sidebar');
+                var header = document.querySelector('.etala-header');
+                var sidebarVTN = '';
+                var headerVTN = '';
+                if (sidebar) {
+                    sidebarVTN = sidebar.style.viewTransitionName || '';
+                    sidebar.style.viewTransitionName = 'none';
+                }
+                if (header) {
+                    headerVTN = header.style.viewTransitionName || '';
+                    header.style.viewTransitionName = 'none';
+                }
+
+                // Mark root so CSS can target the theme-switch transition specifically
+                root.classList.add('theme-vt-active');
+
+                var vt = document.startViewTransition(doThemeSwitch);
+                vt.finished.then(function() {
+                    // Restore view-transition-names for cross-document navigation
+                    if (sidebar) sidebar.style.viewTransitionName = sidebarVTN;
+                    if (header) header.style.viewTransitionName = headerVTN;
+                    root.classList.remove('theme-vt-active');
+                }).catch(function() {
+                    if (sidebar) sidebar.style.viewTransitionName = sidebarVTN;
+                    if (header) header.style.viewTransitionName = headerVTN;
+                    root.classList.remove('theme-vt-active');
+                });
+            } else {
+                // Fallback for browsers without View Transitions API (Firefox/older Safari)
+                root.classList.add('theme-transitioning');
+                void root.offsetHeight;
+                doThemeSwitch();
+                setTimeout(function() {
+                    root.classList.remove('theme-transitioning');
+                }, 450);
+            }
+        };
+
+        window.toggleTheme = function() {
+            var isDark = document.documentElement.classList.contains('dark-mode') || document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            window.applyTheme(isDark ? 'light' : 'dark');
+        };
     </script>
     <style>
         /* ══ NATIVE CROSS-DOCUMENT VIEW TRANSITIONS (ZERO-BLINK SIDEBAR) ══════ */
@@ -83,6 +170,28 @@
             color: #0f172a !important;
         }
 
+        /* Light Mode Theme Tokens */
+        html:not(.dark-mode):not([data-bs-theme="dark"]) {
+            --gray-25: #fcfdfe !important;
+            --gray-50: #f8fafc !important;
+            --gray-100: #f1f5f9 !important;
+            --gray-200: #e2e8f0 !important;
+            --gray-300: #cbd5e1 !important;
+            --gray-400: #94a3b8 !important;
+            --gray-500: #64748b !important;
+            --gray-600: #475569 !important;
+            --gray-700: #334155 !important;
+            --gray-800: #0f172a !important;
+            --gray-900: #090d16 !important;
+            --white: #ffffff !important;
+            --card-bg: #ffffff !important;
+            --bg-primary: #f8fafc !important;
+            --bg-surface: #ffffff !important;
+            --border-default: #e2e8f0 !important;
+            --text-main: #0f172a !important;
+            --text-muted: #64748b !important;
+        }
+
         /* Dark Mode Theme Tokens */
         html.dark-mode,
         html[data-bs-theme="dark"],
@@ -103,6 +212,8 @@
             --bg-primary: #0b1329 !important;
             --bg-surface: #1e293b !important;
             --border-default: #334155 !important;
+            --text-main: #f8fafc !important;
+            --text-muted: #94a3b8 !important;
         }
 
         /* Critical Instant Sidebar Styling (Eliminates White Blink / Flash on Page Transitions) */
@@ -146,29 +257,210 @@
         @media (max-width: 767.98px) {
             #sidebar,
             .etala-sidebar {
-                width: 260px !important;
-                transform: translateX(-100%);
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                width: 280px !important;
+                max-width: 85vw !important;
+                height: 100vh !important;
+                transform: translateX(-100%) !important;
+                transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                z-index: 1060 !important;
+                box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25) !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
             }
+
+            #sidebar.mobile-open,
+            .etala-sidebar.mobile-open {
+                transform: translateX(0) !important;
+                visibility: visible !important;
+                pointer-events: auto !important;
+                z-index: 1060 !important;
+            }
+
             .etala-main {
                 margin-left: 0 !important;
             }
+
+            .sidebar-overlay {
+                display: none !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: rgba(15, 23, 42, 0.5) !important;
+                z-index: 1040 !important;
+                touch-action: none;
+            }
+
+            .sidebar-overlay.active {
+                display: block !important;
+                pointer-events: auto !important;
+            }
+
+            .mobile-bottom-nav {
+                z-index: 1050 !important;
+            }
         }
 
-        /* ══ SCOPED SYNCHRONIZED THEME CROSSFADE (Active only during theme switch) ══ */
-        html.theme-transitioning,
-        html.theme-transitioning *:not(.theme-switch-thumb):not(.thumb-icon-sun):not(.thumb-icon-moon),
-        html.theme-transitioning *::before,
-        html.theme-transitioning *::after {
-            transition: background-color 0.15s ease,
-                        border-color 0.15s ease !important;
+        /* ══ VIEW TRANSITIONS: THEME SWITCH CROSSFADE ══════════════════════════════
+         * The View Transitions API captures a screenshot of the old state,
+         * applies DOM changes, then cross-fades old → new as a single unit.
+         * Every pixel transitions at the exact same rate.
+         *
+         * We keep the OLD snapshot fully opaque and fade it out on top of the
+         * already-visible NEW state. This produces a clean dissolve instead of
+         * the default "both at 50% opacity" washed-out mid-point.
+         * ═════════════════════════════════════════════════════════════════════ */
+        ::view-transition-old(root) {
+            animation: etala-theme-fade-out 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            mix-blend-mode: normal;
+            z-index: 1;
+        }
+        ::view-transition-new(root) {
+            animation: etala-theme-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            mix-blend-mode: normal;
         }
 
-        html.theme-transitioning .theme-switch-thumb {
-            transition: transform 0.25s cubic-bezier(0.34, 1.3, 0.64, 1), background-color 0.15s ease, box-shadow 0.15s ease !important;
+        @keyframes etala-theme-fade-out {
+            from { opacity: 1; }
+            to   { opacity: 0; }
         }
-        html.theme-transitioning .thumb-icon-sun,
-        html.theme-transitioning .thumb-icon-moon {
-            transition: opacity 0.18s ease, transform 0.22s ease !important;
+        @keyframes etala-theme-fade-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        /* ══ THEME SWITCH TOGGLE INDEPENDENT PHYSICAL SLIDE ══════════════════ */
+        .theme-switch-thumb {
+            view-transition-name: theme-toggle-thumb;
+        }
+
+        .theme-switch-track {
+            view-transition-name: theme-toggle-track;
+        }
+
+        ::view-transition-group(theme-toggle-thumb) {
+            animation-duration: 0.36s;
+            animation-timing-function: cubic-bezier(0.34, 1.45, 0.64, 1);
+            z-index: 1000;
+        }
+
+        ::view-transition-old(theme-toggle-thumb) {
+            animation: etala-thumb-old 0.36s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+            mix-blend-mode: normal;
+        }
+
+        ::view-transition-new(theme-toggle-thumb) {
+            animation: etala-thumb-new 0.36s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+            mix-blend-mode: normal;
+        }
+
+        @keyframes etala-thumb-old {
+            from { opacity: 1; transform: rotate(0deg) scale(1); }
+            to   { opacity: 0; transform: rotate(90deg) scale(0.6); }
+        }
+
+        @keyframes etala-thumb-new {
+            from { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+            to   { opacity: 1; transform: rotate(0deg) scale(1); }
+        }
+
+        ::view-transition-group(theme-toggle-track) {
+            animation-duration: 0.35s;
+            animation-timing-function: ease;
+            z-index: 999;
+        }
+
+        /* ══ KILL ELEMENT-LEVEL CSS TRANSITIONS DURING VIEW TRANSITION ═════════
+         * When theme-vt-active is on <html>, the View Transitions API is about
+         * to capture the "new state" screenshot. Elements like .etala-header have
+         * their own CSS transitions (e.g. background-color 0.15s) — if those are
+         * still animating when the screenshot is captured, the old colors leak
+         * into the new-state image, causing visible staggering.
+         *
+         * This rule forces every element to SNAP instantly to its new theme
+         * colors so the captured screenshot is pixel-perfect.
+         * ═════════════════════════════════════════════════════════════════════ */
+        html.theme-vt-active *:not(.theme-switch-btn):not(.theme-switch-track):not(.theme-switch-thumb):not(.thumb-icon-sun):not(.thumb-icon-moon):not(.track-icon-sun):not(.track-icon-moon),
+        html.theme-vt-active *::before,
+        html.theme-vt-active *::after {
+            transition: none !important;
+        }
+
+        /* ══ FALLBACK: PER-ELEMENT THEME CROSSFADE (Firefox / older Safari) ════ */
+        html[class*="theme-transitioning"],
+        html[class*="theme-transitioning"] *,
+        html[class*="theme-transitioning"] *::before,
+        html[class*="theme-transitioning"] *::after {
+            transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        background 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        fill 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        stroke 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        outline-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* Theme toggle thumb keeps its own bounce animation in fallback mode */
+        html[class*="theme-transitioning"] .theme-switch-thumb {
+            transition: transform 0.32s cubic-bezier(0.34, 1.3, 0.64, 1),
+                        background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        html[class*="theme-transitioning"] .thumb-icon-sun,
+        html[class*="theme-transitioning"] .thumb-icon-moon {
+            transition: opacity 0.25s ease-out, transform 0.28s ease-out !important;
+        }
+
+        /* ══ GLOBAL HELP MODAL DARK MODE THEME SUPPORT ══ */
+        html.dark-mode #globalHelpModal .modal-content,
+        [data-bs-theme="dark"] #globalHelpModal .modal-content,
+        .dark-mode #globalHelpModal .modal-content {
+            background-color: #1e293b !important;
+            background: #1e293b !important;
+            color: #f8fafc !important;
+        }
+        html.dark-mode #globalHelpModal .modal-body,
+        [data-bs-theme="dark"] #globalHelpModal .modal-body,
+        .dark-mode #globalHelpModal .modal-body {
+            background-color: #1e293b !important;
+            background: #1e293b !important;
+            color: #f8fafc !important;
+        }
+        html.dark-mode #globalHelpModal .faq-outer-container,
+        [data-bs-theme="dark"] #globalHelpModal .faq-outer-container,
+        .dark-mode #globalHelpModal .faq-outer-container {
+            background-color: #0b1329 !important;
+            background: #0b1329 !important;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+        }
+        html.dark-mode #globalHelpModal .faq-accordion-item,
+        [data-bs-theme="dark"] #globalHelpModal .faq-accordion-item,
+        .dark-mode #globalHelpModal .faq-accordion-item {
+            background-color: #1e293b !important;
+            background: #1e293b !important;
+            border: 1px solid #334155 !important;
+        }
+        html.dark-mode #globalHelpModal .faq-question-text,
+        [data-bs-theme="dark"] #globalHelpModal .faq-question-text,
+        .dark-mode #globalHelpModal .faq-question-text,
+        html.dark-mode #globalHelpModal h2.text-dark,
+        [data-bs-theme="dark"] #globalHelpModal h2.text-dark,
+        .dark-mode #globalHelpModal h2.text-dark {
+            color: #f8fafc !important;
+        }
+        html.dark-mode #globalHelpModal .faq-accordion-body,
+        [data-bs-theme="dark"] #globalHelpModal .faq-accordion-body,
+        .dark-mode #globalHelpModal .faq-accordion-body {
+            color: #cbd5e1 !important;
         }
 
         /* ══ ULTRA-SMOOTH MODAL OPEN & CLOSE ANIMATIONS ═════════════════════════ */
@@ -263,7 +555,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=115">
-    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=116">
+    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=117">
     <style>
         .notification-icon-wrapper {
             width: 36px;
@@ -553,6 +845,64 @@
             background-color: #f8fafc !important;
         }
 
+        /* ── User Profile Dropdown Card Compact Refinements ── */
+        .user-profile-dropdown-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+        }
+        .user-profile-dropdown-card .dropdown-item {
+            color: #1e293b;
+            transition: background 0.12s ease, color 0.12s ease;
+        }
+        .user-profile-dropdown-card .dropdown-item:hover,
+        .user-profile-dropdown-card .dropdown-item:focus {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        .user-profile-dropdown-card .dropdown-logout-item:hover,
+        .user-profile-dropdown-card .dropdown-logout-item:focus {
+            background: #fef2f2 !important;
+            color: #dc2626 !important;
+        }
+        .dark-mode .user-profile-dropdown-card,
+        [data-bs-theme="dark"] .user-profile-dropdown-card {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
+        }
+        .dark-mode .user-profile-dropdown-card .user-profile-header-card,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .user-profile-header-card {
+            background: rgba(15, 23, 42, 0.7) !important;
+            border-color: #334155 !important;
+        }
+        .dark-mode .user-profile-dropdown-card .user-profile-name,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .user-profile-name {
+            color: #f8fafc !important;
+        }
+        .dark-mode .user-profile-dropdown-card .dropdown-item,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-item {
+            color: #cbd5e1 !important;
+        }
+        .dark-mode .user-profile-dropdown-card .dropdown-item:hover,
+        .dark-mode .user-profile-dropdown-card .dropdown-item:focus,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-item:hover,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-item:focus {
+            background: rgba(255, 255, 255, 0.07) !important;
+            color: #ffffff !important;
+        }
+        .dark-mode .user-profile-dropdown-card .dropdown-divider,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-divider {
+            border-color: #334155 !important;
+        }
+        .dark-mode .user-profile-dropdown-card .dropdown-logout-item:hover,
+        .dark-mode .user-profile-dropdown-card .dropdown-logout-item:focus,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-logout-item:hover,
+        [data-bs-theme="dark"] .user-profile-dropdown-card .dropdown-logout-item:focus {
+            background: rgba(239, 68, 68, 0.15) !important;
+            color: #f87171 !important;
+        }
+
         .data-table tbody td {
             padding: 11px 14px !important;
             vertical-align: middle !important;
@@ -650,9 +1000,11 @@
         .g-2\.5 { --bs-gutter-x: 0.625rem; --bs-gutter-y: 0.625rem; }
         .g-3\.5 { --bs-gutter-x: 0.875rem; --bs-gutter-y: 0.875rem; }
 
-        /* ══ SCOPE SEGMENTED CONTROL ("My Records" vs "All Records") ═══════════ */
+        /* ══ SCOPE SEGMENTED CONTROL ("My Records" vs "All Records", "A-Z" vs "Most Records") ══ */
         .scope-segmented-control {
-            display: inline-flex !important;
+            position: relative !important;
+            display: inline-grid !important;
+            grid-template-columns: 1fr 1fr !important;
             align-items: center !important;
             background: #f1f5f9 !important;
             padding: 3px !important;
@@ -661,35 +1013,83 @@
             gap: 3px !important;
             box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
             box-sizing: border-box !important;
+            isolation: isolate !important;
+            user-select: none !important;
+            height: 34px !important;
+        }
+
+        /* Silky-smooth sliding physical glider indicator */
+        .scope-glider {
+            position: absolute !important;
+            top: 3px !important;
+            bottom: 3px !important;
+            left: 3px !important;
+            width: calc(50% - 4.5px) !important;
+            height: calc(100% - 6px) !important;
+            border-radius: 9px !important;
+            background: #ffffff !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.05) !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+            transition: transform 0.26s cubic-bezier(0.34, 1.35, 0.64, 1), width 0.26s cubic-bezier(0.34, 1.35, 0.64, 1) !important;
+            will-change: transform, width;
+            transform: translateX(0);
+        }
+
+        .dark-mode .scope-glider,
+        [data-bs-theme="dark"] .scope-glider {
+            background: #1e293b !important;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* Transform positions according to active scope / sort / tab */
+        .scope-segmented-control[data-scope="all"] .scope-glider,
+        .scope-segmented-control[data-sort="most_records"] .scope-glider,
+        .scope-segmented-control[data-tab="login"] .scope-glider {
+            transform: translateX(calc(100% + 3px)) !important;
+        }
+
+        .scope-segmented-control[data-scope="my"] .scope-glider,
+        .scope-segmented-control[data-sort="a-z"] .scope-glider,
+        .scope-segmented-control[data-tab="audit"] .scope-glider {
+            transform: translateX(0) !important;
         }
 
         a.scope-pill-btn,
         .scope-pill-btn {
+            position: relative !important;
+            z-index: 2 !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
             gap: 6px !important;
-            padding: 4px 12px !important;
-            height: calc(100% - 0px) !important;
-            min-height: 26px !important;
+            padding: 2px 10px !important;
+            height: 100% !important;
             font-size: 0.78rem !important;
             font-weight: 600 !important;
             color: #64748b !important;
             border-radius: 9px !important;
             border: none !important;
             text-decoration: none !important;
-            transition: all 0.15s ease !important;
+            transition: color 0.22s ease, transform 0.15s ease !important;
             line-height: 1 !important;
             white-space: nowrap !important;
             background: transparent !important;
+            box-shadow: none !important;
             box-sizing: border-box !important;
+            cursor: pointer !important;
         }
 
         a.scope-pill-btn i,
         .scope-pill-btn i {
             color: #64748b !important;
             font-size: 12px !important;
-            transition: color 0.15s ease !important;
+            transition: color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.35, 0.64, 1) !important;
+        }
+
+        a.scope-pill-btn:active,
+        .scope-pill-btn:active {
+            transform: scale(0.95) !important;
         }
 
         a.scope-pill-btn:hover,
@@ -703,20 +1103,58 @@
             color: #0f172a !important;
         }
 
-        /* Active State: Pure White Card Pill + Crisp Teal Text & Icon */
+        /* Active State */
         a.scope-pill-btn.active,
         .scope-pill-btn.active {
-            background: #ffffff !important;
             color: #0f766e !important;
-            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08) !important;
             font-weight: 700 !important;
             text-decoration: none !important;
-            border-radius: 9px !important;
+            background: transparent !important;
+            box-shadow: none !important;
         }
 
         a.scope-pill-btn.active i,
         .scope-pill-btn.active i {
             color: #0f766e !important;
+            transform: scale(1.08) !important;
+        }
+
+        /* Dark Mode Overrides */
+        .dark-mode .scope-segmented-control,
+        [data-bs-theme="dark"] .scope-segmented-control {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+        }
+
+        .dark-mode a.scope-pill-btn,
+        .dark-mode .scope-pill-btn,
+        [data-bs-theme="dark"] a.scope-pill-btn,
+        [data-bs-theme="dark"] .scope-pill-btn {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode a.scope-pill-btn i,
+        .dark-mode .scope-pill-btn i,
+        [data-bs-theme="dark"] a.scope-pill-btn i,
+        [data-bs-theme="dark"] .scope-pill-btn i {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode a.scope-pill-btn.active,
+        .dark-mode .scope-pill-btn.active,
+        [data-bs-theme="dark"] a.scope-pill-btn.active,
+        [data-bs-theme="dark"] .scope-pill-btn.active {
+            color: #2dd4bf !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        .dark-mode a.scope-pill-btn.active i,
+        .dark-mode .scope-pill-btn.active i,
+        [data-bs-theme="dark"] a.scope-pill-btn.active i,
+        [data-bs-theme="dark"] .scope-pill-btn.active i {
+            color: #2dd4bf !important;
+            transform: scale(1.08) !important;
         }
 
         .scope-pill-btn .scope-count-badge {
@@ -727,6 +1165,7 @@
             color: #475569 !important;
             font-weight: 700 !important;
             line-height: 1 !important;
+            transition: background-color 0.22s ease, color 0.22s ease !important;
         }
 
         a.scope-pill-btn.active .scope-count-badge,
@@ -760,10 +1199,7 @@
         .dark-mode .scope-pill-btn.active,
         [data-bs-theme="dark"] a.scope-pill-btn.active,
         [data-bs-theme="dark"] .scope-pill-btn.active {
-            background: #1e293b !important;
             color: #2dd4bf !important;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
-            border-radius: 9px !important;
         }
 
         .dark-mode a.scope-pill-btn.active i,
@@ -820,6 +1256,62 @@
 
         .pagination-bar {
             margin-top: auto !important;
+            padding: 10px 14px !important;
+            border-top: 1px solid var(--border-default, #e2e8f0) !important;
+            background: #ffffff !important;
+        }
+
+        @media (min-width: 768px) {
+            .pagination-bar {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 16px !important;
+                width: 100% !important;
+            }
+
+            .pagination-bar > div:first-child {
+                flex: 0 1 auto !important;
+                white-space: nowrap !important;
+                min-width: 0 !important;
+            }
+
+            .pagination-bar .pagination-controls {
+                flex: 0 0 auto !important;
+                white-space: nowrap !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                margin-left: auto !important;
+            }
+
+            .pagination-bar .pagination {
+                margin-bottom: 0 !important;
+                flex-wrap: nowrap !important;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .pagination-bar {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 10px !important;
+                text-align: center !important;
+            }
+
+            .pagination-bar .pagination-controls {
+                justify-content: center !important;
+                flex-wrap: wrap !important;
+            }
+        }
+
+        .dark-mode .pagination-bar,
+        [data-bs-theme="dark"] .pagination-bar {
+            background: #1e293b !important;
+            border-top-color: #334155 !important;
         }
 
         /* ── Standardized Full-Card Unified Empty State ── */
@@ -886,6 +1378,10 @@
             }
         }
 
+        .data-table td.cell-row-num,
+        .data-table td.cell-index,
+        .data-table th.cell-row-num,
+        .data-table th.cell-index,
         .data-table td.cell-year,
         .data-table td.cell-date,
         .data-table td.cell-uploads,
@@ -896,6 +1392,10 @@
         .data-table td.action-menu-cell,
         .data-table td.action-column,
         .data-table td.cell-action,
+        .table-card-responsive td.cell-row-num,
+        .table-card-responsive td.cell-index,
+        .table-card-responsive th.cell-row-num,
+        .table-card-responsive th.cell-index,
         .table-card-responsive td.cell-year,
         .table-card-responsive td.cell-date,
         .table-card-responsive td.cell-uploads,
@@ -908,6 +1408,18 @@
             text-overflow: clip !important;
             max-width: none !important;
             white-space: nowrap !important;
+        }
+
+        .data-table th.cell-row-num,
+        .data-table td.cell-row-num,
+        .table-card-responsive th.cell-row-num,
+        .table-card-responsive td.cell-row-num {
+            width: 48px !important;
+            min-width: 48px !important;
+            max-width: 56px !important;
+            text-align: center !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
         }
 
         .cell-title,
@@ -1235,12 +1747,16 @@
         }
 
         html.sidebar-is-collapsed #sidebar,
-        html.sidebar-is-collapsed .etala-sidebar {
+        html.sidebar-is-collapsed .etala-sidebar,
+        .etala-sidebar.collapsed,
+        #sidebar.collapsed {
             width: 72px !important;
             overflow: hidden !important;
         }
 
-        html.sidebar-is-collapsed .etala-main {
+        html.sidebar-is-collapsed .etala-main,
+        .etala-sidebar.collapsed ~ .etala-main,
+        #sidebar.collapsed ~ .etala-main {
             margin-left: 72px !important;
         }
 
@@ -1907,12 +2423,40 @@
             border-left: none !important;
         }
 
-        .dark-mode .notification-item-title {
+        .dark-mode .notification-action-title,
+        [data-bs-theme="dark"] .notification-action-title,
+        .dark-mode .notification-item-title,
+        [data-bs-theme="dark"] .notification-item-title {
             color: #f8fafc !important;
         }
 
-        .dark-mode .notification-subtext {
+        .dark-mode .notification-desc,
+        [data-bs-theme="dark"] .notification-desc,
+        .dark-mode .notification-subtext,
+        [data-bs-theme="dark"] .notification-subtext {
             color: #94a3b8 !important;
+        }
+
+        .dark-mode .notification-time,
+        [data-bs-theme="dark"] .notification-time {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .notification-mark-read-link,
+        [data-bs-theme="dark"] .notification-mark-read-link {
+            color: #38bdf8 !important;
+        }
+
+        .dark-mode .notification-card-footer,
+        [data-bs-theme="dark"] .notification-card-footer {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: #38bdf8 !important;
+        }
+
+        .dark-mode .notification-card-footer a,
+        [data-bs-theme="dark"] .notification-card-footer a {
+            color: #38bdf8 !important;
         }
 
         /* ── Notification Item Action Menu (Three-dots & Custom Popover) ── */
@@ -1955,12 +2499,22 @@
             color: #0f172a !important;
         }
 
-        .dark-mode .notif-item-action-btn {
+        .dark-mode .notif-item-action-btn,
+        [data-bs-theme="dark"] .notif-item-action-btn {
             color: #94a3b8 !important;
         }
 
+        .dark-mode .notif-item-action-btn:hover,
+        .dark-mode .notif-item-action-btn.active,
+        [data-bs-theme="dark"] .notif-item-action-btn:hover,
+        [data-bs-theme="dark"] .notif-item-action-btn.active {
+            background-color: rgba(255, 255, 255, 0.12) !important;
+            color: #f8fafc !important;
+        }
+
         .dark-mode .notification-item:hover .notif-item-action-btn {
-            color: #e2e8f0 !important;
+            opacity: 1;
+            color: #f8fafc !important;
         }
 
         .dark-mode .notif-item-action-btn:hover,
@@ -1979,42 +2533,43 @@
 
         .notif-custom-popover-menu {
             position: absolute !important;
-            top: 30px !important;
-            right: 0 !important;
+            top: 50% !important;
+            right: calc(100% + 6px) !important;
+            transform: translateY(-50%) !important;
             z-index: 999999 !important;
-            min-width: 185px !important;
+            min-width: 175px !important;
             width: max-content !important;
             background: #ffffff !important;
             border: 1px solid #cbd5e1 !important;
             border-radius: 10px !important;
             padding: 6px !important;
             display: none;
-            box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.25), 0 4px 12px -2px rgba(15, 23, 42, 0.15) !important;
+            box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.25), 0 4px 10px -2px rgba(15, 23, 42, 0.15) !important;
         }
 
-        .notif-custom-popover-menu.popover-open-up {
+        /* First Item / Top Alignment: Never overlaps the header */
+        .notif-custom-popover-menu.popover-align-top {
+            top: 0px !important;
+            bottom: auto !important;
+            transform: none !important;
+        }
+
+        /* Last Item / Bottom Alignment: Never overlaps the footer */
+        .notif-custom-popover-menu.popover-align-bottom {
             top: auto !important;
-            bottom: 28px !important;
+            bottom: 0px !important;
+            transform: none !important;
         }
 
         .notif-custom-popover-menu.show-popover {
             display: flex !important;
             flex-direction: column !important;
-            animation: notifPopoverFade 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            animation: notifPopoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
-        .notif-custom-popover-menu.show-popover.popover-open-up {
-            animation: notifPopoverFadeUp 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        }
-
-        @keyframes notifPopoverFade {
-            0% { opacity: 0; transform: translateY(-4px) scale(0.96); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        @keyframes notifPopoverFadeUp {
-            0% { opacity: 0; transform: translateY(4px) scale(0.96); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
+        @keyframes notifPopoverFadeIn {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         .notif-popover-item {
@@ -2848,24 +3403,70 @@
                 filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4)) !important;
             }
 
-            /* Smooth Collapsed Sidebar Styles */
-            /* ══ BUTTER-SMOOTH SIDEBAR TRANSITION ENGINE ═══════════════════ */
+            /* ══ BUTTER-SMOOTH SIDEBAR TRANSITION ENGINE (60FPS NATIVE CSS) ══ */
             .etala-sidebar,
             #sidebar {
-                transition: width 0.28s cubic-bezier(0.25, 1, 0.5, 1) !important;
+                transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
                 will-change: width;
+                overflow: hidden !important;
             }
 
             .etala-main,
             #sidebar~.etala-main,
             .etala-sidebar~.etala-main {
-                transition: margin-left 0.28s cubic-bezier(0.25, 1, 0.5, 1) !important;
+                transition: margin-left 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
                 will-change: margin-left;
+            }
+
+            /* Header Transition & Proportional Sizing */
+            .sidebar-header {
+                height: 64px !important;
+                min-height: 64px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                padding: 0 16px !important;
+                gap: 10px !important;
+                transition: height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            padding 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            gap 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                overflow: hidden !important;
+            }
+
+            .sidebar-brand {
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                min-width: 0 !important;
+                flex: 1 1 auto !important;
+                overflow: hidden !important;
+                transition: gap 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            }
+
+            .brand-logo-circle {
+                width: 38px !important;
+                height: 38px !important;
+                border-radius: 50% !important;
+                flex-shrink: 0 !important;
+                transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            margin 0.32s ease !important;
+            }
+
+            .sidebar-collapse-btn {
+                width: 28px !important;
+                height: 28px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                flex-shrink: 0 !important;
             }
 
             .sidebar-collapse-btn i,
             #collapseIcon {
-                transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1) !important;
+                transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
                 display: inline-block;
             }
 
@@ -2875,20 +3476,21 @@
                 transform: rotate(180deg) !important;
             }
 
-            /* Smoothly Fade & Morph Text Labels without snapping */
+            /* Smooth Fade-First Exit & Delayed Fade-In for Labels */
             .brand-text,
             .nav-label,
             .new-record-label,
             .sidebar-footer-info {
-                display: inline-block;
-                max-width: 180px;
-                white-space: nowrap;
-                overflow: hidden;
+                display: inline-block !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: clip !important;
                 opacity: 1;
+                max-width: 180px;
                 transform: translateX(0);
-                transition: opacity 0.2s cubic-bezier(0.25, 1, 0.5, 1), 
-                            max-width 0.28s cubic-bezier(0.25, 1, 0.5, 1), 
-                            transform 0.24s cubic-bezier(0.25, 1, 0.5, 1) !important;
+                transition: opacity 0.22s ease 0.08s,
+                            max-width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
             }
 
             .etala-sidebar.collapsed .brand-text,
@@ -2913,102 +3515,150 @@
                 opacity: 0 !important;
                 max-width: 0 !important;
                 max-height: 0 !important;
-                transform: translateX(-6px) scale(0.95) !important;
+                margin-left: 0 !important;
+                transform: translateX(-10px) !important;
                 pointer-events: none !important;
-                overflow: hidden !important;
                 visibility: hidden !important;
+                transition: opacity 0.12s ease,
+                            max-width 0.30s cubic-bezier(0.16, 1, 0.3, 1),
+                            transform 0.18s ease !important;
             }
 
+            /* Collapsed Header: Balanced Vertical Stack with Proportionate Breathing Room */
             .etala-sidebar.collapsed .sidebar-header,
             #sidebar.collapsed .sidebar-header {
+                height: 82px !important;
+                min-height: 82px !important;
+                padding: 10px 0 6px 0 !important;
                 display: flex !important;
                 flex-direction: column !important;
                 align-items: center !important;
                 justify-content: center !important;
-                padding: 14px 6px 8px !important;
-                gap: 8px !important;
-                transition: padding 0.28s cubic-bezier(0.25, 1, 0.5, 1) !important;
+                gap: 6px !important;
             }
 
             .etala-sidebar.collapsed .sidebar-brand,
             #sidebar.collapsed .sidebar-brand {
+                display: flex !important;
+                align-items: center !important;
                 justify-content: center !important;
-                gap: 0 !important;
+                width: 100% !important;
                 margin: 0 auto !important;
+                gap: 0 !important;
             }
 
             .etala-sidebar.collapsed .brand-logo-circle,
             #sidebar.collapsed .brand-logo-circle {
+                width: 34px !important;
+                height: 34px !important;
                 margin: 0 auto !important;
-                width: 36px !important;
-                height: 36px !important;
-                transition: all 0.28s cubic-bezier(0.25, 1, 0.5, 1) !important;
             }
 
             .etala-sidebar.collapsed .sidebar-collapse-btn,
             #sidebar.collapsed .sidebar-collapse-btn {
+                width: 28px !important;
+                height: 22px !important;
+                border-radius: 6px !important;
+                margin: 0 auto !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                width: 32px !important;
-                height: 28px !important;
-                border-radius: 8px !important;
-                background: rgba(255, 255, 255, 0.08) !important;
-                color: #94a3b8 !important;
-                margin: 0 auto !important;
-                transition: all 0.2s ease !important;
             }
-            .etala-sidebar.collapsed .sidebar-collapse-btn:hover,
-            #sidebar.collapsed .sidebar-collapse-btn:hover {
-                background: rgba(255, 255, 255, 0.18) !important;
-                color: #ffffff !important;
+
+            /* CTA Button ("+ New Record") Smooth Morph & Balanced Spacing */
+            .sidebar-new-record-wrap {
+                padding: 10px 12px 6px !important;
+                transition: padding 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            }
+
+            .sidebar-new-record-btn {
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                border-radius: 9px !important;
+                transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            border-radius 0.32s ease,
+                            padding 0.32s ease,
+                            margin 0.32s ease,
+                            box-shadow 0.2s ease !important;
             }
 
             .etala-sidebar.collapsed .sidebar-new-record-wrap,
             #sidebar.collapsed .sidebar-new-record-wrap {
-                padding: 4px 8px !important;
+                padding: 8px 0 8px 0 !important;
                 display: flex !important;
                 justify-content: center !important;
+                width: 100% !important;
             }
 
             .etala-sidebar.collapsed .sidebar-new-record-btn,
             #sidebar.collapsed .sidebar-new-record-btn {
-                width: 44px !important;
-                height: 44px !important;
+                width: 42px !important;
+                height: 42px !important;
+                min-width: 42px !important;
+                min-height: 42px !important;
                 padding: 0 !important;
-                margin: 4px auto 10px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                border-radius: 12px !important;
-                box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
-                transition: all 0.28s cubic-bezier(0.25, 1, 0.5, 1) !important;
+                margin: 0 auto !important;
+                border-radius: 11px !important;
+                gap: 0 !important;
             }
 
+            /* Nav Item Morph & Centered 42px Touch Target Alignment */
             .etala-sidebar .nav-item,
             #sidebar .nav-item {
-                transition: all 0.24s cubic-bezier(0.25, 1, 0.5, 1) !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 11px !important;
+                padding: 8.5px 12px !important;
+                margin: 2.5px 8px !important;
+                border-radius: 9px !important;
+                transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            padding 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            margin 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                            background 0.2s ease,
+                            color 0.2s ease,
+                            transform 0.15s ease !important;
+                overflow: hidden !important;
+            }
+
+            .etala-sidebar .nav-item i,
+            #sidebar .nav-item i {
+                font-size: 14.5px !important;
+                width: 20px !important;
+                min-width: 20px !important;
+                height: 20px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex-shrink: 0 !important;
+                transition: transform 0.2s ease, color 0.2s ease !important;
             }
 
             .etala-sidebar.collapsed .nav-item,
             #sidebar.collapsed .nav-item {
+                width: 42px !important;
+                height: 42px !important;
+                min-width: 42px !important;
+                min-height: 42px !important;
+                padding: 0 !important;
+                margin: 4px auto !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                width: 48px !important;
-                height: 44px !important;
-                padding: 0 !important;
-                margin: 4px auto !important;
-                border-radius: 10px !important;
-                transform: none !important;
+                gap: 0 !important;
+                border-radius: 9px !important;
+                box-sizing: border-box !important;
             }
 
             .etala-sidebar.collapsed .nav-item.active,
             #sidebar.collapsed .nav-item.active {
                 background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.15) 100%) !important;
-                border-left: none !important;
-                box-shadow: 0 0 12px rgba(56, 189, 248, 0.35) !important;
-                border: 1px solid rgba(56, 189, 248, 0.4) !important;
+                border: 1.5px solid rgba(56, 189, 248, 0.45) !important;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
             }
 
             .etala-sidebar.collapsed .nav-item-content,
@@ -3017,39 +3667,49 @@
                 align-items: center !important;
                 justify-content: center !important;
                 width: 100% !important;
-                margin: 0 !important;
+                height: 100% !important;
+                margin: 0 auto !important;
                 padding: 0 !important;
+                gap: 0 !important;
             }
 
-            /* Collapsed Divider: Elegant subtle 32px horizontal line */
+            .etala-sidebar.collapsed .nav-item i,
+            #sidebar.collapsed .nav-item i {
+                margin: 0 auto !important;
+                text-align: center !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            /* Divider Transition & Alignment */
+            .sidebar-divider-label {
+                padding: 12px 14px 4px !important;
+                transition: padding 0.32s ease, height 0.32s ease !important;
+            }
+
             .etala-sidebar.collapsed .sidebar-divider-label,
             #sidebar.collapsed .sidebar-divider-label,
             html.sidebar-is-collapsed .sidebar-divider-label {
                 display: block !important;
-                width: 32px !important;
+                width: 22px !important;
                 height: 1px !important;
                 background: rgba(255, 255, 255, 0.14) !important;
                 padding: 0 !important;
-                margin: 10px auto 8px !important;
+                margin: 10px auto 6px auto !important;
                 font-size: 0 !important;
                 line-height: 0 !important;
-                overflow: hidden !important;
                 border: none !important;
             }
 
             /* CTA Button Shimmer & Polish */
             #sidebar .sidebar-new-record-btn {
-                margin: 10px 12px 16px;
-                padding: 11px 18px;
                 border-radius: 12px;
                 background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
                 box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
-                transition: all 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+                transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
                 color: #ffffff;
                 text-decoration: none;
-                display: flex;
-                align-items: center;
-                gap: 10px;
                 font-weight: 700;
                 font-size: 0.88rem;
             }
@@ -3295,11 +3955,13 @@
             }
 
             /* Destructive / Danger Dropdown Action (Move to Trash / Delete) */
-            .text-danger,
             .action-dropdown-danger,
             .dropdown-item.text-danger,
             .dropdown-item-danger {
                 color: #dc2626 !important;
+                background-color: transparent !important;
+                border-radius: 6px !important;
+                transition: background-color 0.15s ease, color 0.15s ease !important;
             }
 
             .action-dropdown-danger i,
@@ -3311,7 +3973,7 @@
             .action-dropdown-danger:hover,
             .dropdown-item.text-danger:hover,
             .dropdown-item-danger:hover {
-                background-color: rgba(239, 68, 68, 0.09) !important;
+                background-color: rgba(239, 68, 68, 0.08) !important;
                 color: #b91c1c !important;
             }
 
@@ -3321,15 +3983,14 @@
                 color: #b91c1c !important;
             }
 
-            .dark-mode .text-danger,
             .dark-mode .action-dropdown-danger,
             .dark-mode .dropdown-item.text-danger,
             .dark-mode .dropdown-item-danger,
-            [data-bs-theme="dark"] .text-danger,
             [data-bs-theme="dark"] .action-dropdown-danger,
             [data-bs-theme="dark"] .dropdown-item.text-danger,
             [data-bs-theme="dark"] .dropdown-item-danger {
                 color: #f87171 !important;
+                background-color: transparent !important;
             }
 
             .dark-mode .action-dropdown-danger i,
@@ -3347,7 +4008,7 @@
             [data-bs-theme="dark"] .action-dropdown-danger:hover,
             [data-bs-theme="dark"] .dropdown-item.text-danger:hover,
             [data-bs-theme="dark"] .dropdown-item-danger:hover {
-                background-color: rgba(239, 68, 68, 0.18) !important;
+                background-color: rgba(239, 68, 68, 0.12) !important;
                 color: #fca5a5 !important;
             }
 
@@ -4047,6 +4708,186 @@
             opacity: 0.85 !important;
         }
 
+        /* ── Global User Avatar Constraints ── */
+        .user-avatar-img,
+        img.user-avatar-img {
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
+            max-width: 40px !important;
+            min-height: 40px !important;
+            max-height: 40px !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
+            flex-shrink: 0 !important;
+            display: inline-block !important;
+            border: 1.5px solid #e2e8f0;
+        }
+
+        .dark-mode .user-avatar-img,
+        [data-bs-theme="dark"] .user-avatar-img {
+            border-color: #334155 !important;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════════
+           eTala Unified Search Bar Component (Standard Across All Modules)
+           ══════════════════════════════════════════════════════════════════════ */
+        .etala-search-pill-wrapper {
+            display: inline-flex;
+            align-items: center;
+            height: 36px;
+            padding: 0 12px;
+            gap: 8px;
+            background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .etala-search-pill-wrapper:hover {
+            border-color: #94a3b8;
+            background: #ffffff;
+        }
+
+        .etala-search-pill-wrapper:focus-within {
+            border-color: #0284c7;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+
+        .etala-search-pill-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            flex-shrink: 0;
+            font-size: 13px;
+            transition: color 0.15s ease;
+        }
+
+        .etala-search-pill-icon:hover {
+            color: #0284c7;
+        }
+
+        .etala-search-pill-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            font-size: 0.8125rem !important;
+            font-weight: 500 !important;
+            color: #0f172a !important;
+            padding: 0 !important;
+            line-height: 1.4 !important;
+        }
+
+        .etala-search-pill-input::placeholder {
+            color: #94a3b8 !important;
+            font-weight: 400 !important;
+            font-size: 0.80rem !important;
+        }
+
+        .etala-search-pill-divider {
+            width: 1px;
+            height: 16px;
+            background: #e2e8f0;
+            flex-shrink: 0;
+        }
+
+        .etala-search-pill-filter-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            padding: 3px 6px;
+            border-radius: 6px;
+            font-size: 12.5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .etala-search-pill-filter-btn:hover,
+        .etala-search-pill-filter-btn:focus {
+            color: #0284c7;
+            background: rgba(2, 132, 199, 0.08);
+        }
+
+        .clear-search-icon {
+            color: #94a3b8;
+            transition: color 0.15s ease;
+            cursor: pointer;
+            flex-shrink: 0;
+            text-decoration: none;
+        }
+
+        .clear-search-icon:hover {
+            color: #ef4444;
+        }
+
+        /* Dark Mode Search Bar */
+        .dark-mode .etala-search-pill-wrapper,
+        [data-bs-theme="dark"] .etala-search-pill-wrapper {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        .dark-mode .etala-search-pill-wrapper:hover,
+        [data-bs-theme="dark"] .etala-search-pill-wrapper:hover {
+            border-color: #475569 !important;
+        }
+
+        .dark-mode .etala-search-pill-wrapper:focus-within,
+        [data-bs-theme="dark"] .etala-search-pill-wrapper:focus-within {
+            border-color: #38bdf8 !important;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18) !important;
+            background: #0f172a !important;
+        }
+
+        .dark-mode .etala-search-pill-input,
+        [data-bs-theme="dark"] .etala-search-pill-input {
+            color: #f8fafc !important;
+        }
+
+        .dark-mode .etala-search-pill-input::placeholder,
+        [data-bs-theme="dark"] .etala-search-pill-input::placeholder {
+            color: #64748b !important;
+        }
+
+        .dark-mode .etala-search-pill-icon,
+        [data-bs-theme="dark"] .etala-search-pill-icon {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .etala-search-pill-divider,
+        [data-bs-theme="dark"] .etala-search-pill-divider {
+            background: #334155 !important;
+        }
+
+        .dark-mode .etala-search-pill-filter-btn,
+        [data-bs-theme="dark"] .etala-search-pill-filter-btn {
+            color: #94a3b8 !important;
+        }
+
+        .dark-mode .etala-search-pill-filter-btn:hover,
+        [data-bs-theme="dark"] .etala-search-pill-filter-btn:hover {
+            color: #38bdf8 !important;
+            background: rgba(56, 189, 248, 0.12) !important;
+        }
+
         .dark-mode input.form-control::placeholder {
             color: #64748b !important;
         }
@@ -4527,6 +5368,40 @@
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
         }
 
+        .validity-preset-card {
+            background: #f8fafc;
+            border-color: #e2e8f0 !important;
+        }
+
+        .dark-mode .validity-preset-card,
+        [data-bs-theme="dark"] .validity-preset-card {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+        }
+
+        /* Selected file preview card in modals */
+        .selected-file-preview-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .dark-mode .selected-file-preview-card,
+        [data-bs-theme="dark"] .selected-file-preview-card {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+        }
+
+        .dark-mode .selected-file-preview-card .text-dark,
+        [data-bs-theme="dark"] .selected-file-preview-card .text-dark {
+            color: #f1f5f9 !important;
+        }
+
+        .dark-mode .selected-file-preview-card .text-muted,
+        [data-bs-theme="dark"] .selected-file-preview-card .text-muted {
+            color: #94a3b8 !important;
+        }
+
         /* ═════════════════════════════════════════════════════════════════════
            BULLETPROOF DROPDOWN SYSTEM (STRICT DOWNWARD, UNCLIPPED, HIGH Z-INDEX)
            ═════════════════════════════════════════════════════════════════════ */
@@ -4847,7 +5722,7 @@
         .checklist-sub-item > div:last-child,
         .checklist-standalone-item > div:last-child,
         .checklist-group-header > div:last-child,
-        .content-card .card-header > div:last-child {
+        .content-card .card-header > div:last-child:not(:first-child) {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
@@ -4858,6 +5733,10 @@
             margin-left: auto !important;
             white-space: nowrap !important;
             align-self: center !important;
+        }
+
+        .content-card .card-header > div:first-child {
+            margin-left: 0 !important;
         }
 
         .content-card .card-header {
@@ -4875,15 +5754,70 @@
 
         /* ── SELECTED FILE PREVIEW CARD & READY BADGE (LIGHT & DARK MODE) ── */
         .selected-file-preview-card {
-            background-color: #f8fafc !important;
-            border-color: #e2e8f0 !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            padding: 9px 12px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
             transition: all 0.15s ease !important;
         }
 
-        .selected-file-icon-box {
-            background-color: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+        .selected-file-preview-card .file-info-group {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+            min-width: 0 !important;
+            flex: 1 1 0% !important;
+            overflow: hidden !important;
+        }
+
+        .selected-file-preview-card .file-icon-box {
+            width: 32px !important;
+            height: 32px !important;
+            min-width: 32px !important;
+            border-radius: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+            background: rgba(239, 68, 68, 0.1) !important;
+            color: #ef4444 !important;
+        }
+
+        .selected-file-preview-card .file-text-box {
+            min-width: 0 !important;
+            flex: 1 1 0% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+        }
+
+        .selected-file-preview-card .file-name-text {
+            font-size: 0.82rem !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            line-height: 1.25 !important;
+            margin: 0 !important;
+        }
+
+        .selected-file-preview-card .file-size-text {
+            font-size: 0.70rem !important;
+            color: #64748b !important;
+            line-height: 1.2 !important;
+            margin-top: 1px !important;
         }
 
         .upload-ready-badge {
@@ -4907,6 +5841,16 @@
         [data-bs-theme="dark"] .selected-file-preview-card {
             background-color: #1e293b !important;
             border-color: #334155 !important;
+        }
+
+        .dark-mode .selected-file-preview-card .file-name-text,
+        [data-bs-theme="dark"] .selected-file-preview-card .file-name-text {
+            color: #f8fafc !important;
+        }
+
+        .dark-mode .selected-file-preview-card .file-size-text,
+        [data-bs-theme="dark"] .selected-file-preview-card .file-size-text {
+            color: #94a3b8 !important;
         }
 
         .dark-mode .selected-file-icon-box,
@@ -5723,6 +6667,16 @@
                 padding: 10px 12px !important;
                 gap: 8px !important;
             }
+        /* Suppress browser native duplicate password reveal eye icons (Edge, Chrome, Safari) */
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear,
+        input[type="password"]::-webkit-credentials-auto-fill-button,
+        input[type="password"]::-webkit-contacts-auto-fill-button {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            height: 0 !important;
         }
 
         /* ── 4. FORM INPUTS: PREVENT IOS SAFARI ZOOM & FLUID TOUCH TARGETS ── */
@@ -6450,12 +7404,12 @@
                         </div>
                     </div>
                 </a>
-                <button class="sidebar-collapse-btn d-none d-md-flex" id="sidebarCollapseBtn" title="Collapse sidebar"
+                <button class="sidebar-collapse-btn d-none d-md-flex" id="sidebarCollapseBtn" onclick="toggleSidebar(event)" title="Collapse sidebar"
                     aria-label="Toggle sidebar">
                     <i class="fa-solid fa-angles-left" id="collapseIcon" style="font-size: 14px;"></i>
                 </button>
                 <button type="button" class="mobile-drawer-close-btn d-flex d-md-none" id="mobileDrawerCloseBtn"
-                    title="Close menu" aria-label="Close menu">
+                    onclick="closeMobileSidebar(event)" title="Close menu" aria-label="Close menu">
                     <i class="fa-solid fa-xmark" style="font-size: 16px;"></i>
                 </button>
             </div>
@@ -6488,12 +7442,10 @@
                     <a href="{% url 'records_browse' %}"
                         class="nav-item {% if active_tab == 'records' or active_tab == 'municipal' or active_tab == 'permits' or active_tab == 'search' %}active{% endif %}"
                         title="Records">
-                        <div class="nav-item-content d-flex align-items-center justify-content-between w-100">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="fa-solid fa-folder-open"
-                                    style="font-size: 15px; width: 20px; text-align: center;"></i>
-                                <span class="nav-label">Records</span>
-                            </div>
+                        <div class="nav-item-content">
+                            <i class="fa-solid fa-folder-open"
+                                style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <span class="nav-label">Records</span>
                         </div>
                     </a>
 
@@ -6549,17 +7501,6 @@
                     </a>
                     {% endif %}
 
-                    <!-- Activity Logs -->
-                    <a href="{% url 'activity_logs' %}"
-                        class="nav-item {% if active_tab == 'activity_logs' or '/activity-logs/' in request.path %}active{% endif %}"
-                        title="{% if request.user.role == 'admin' %}Activity Logs{% else %}My Activity Logs{% endif %}">
-                        <div class="nav-item-content">
-                            <i class="fa-solid fa-clock-rotate-left"
-                                style="font-size: 15px; width: 20px; text-align: center;"></i>
-                            <span class="nav-label">{% if request.user.role == 'admin' %}Activity Logs{% else %}My Activity Logs{% endif %}</span>
-                        </div>
-                    </a>
-
                     <!-- Trash -->
                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                     <a href="{% url 'archive' %}"
@@ -6573,14 +7514,14 @@
                     </a>
                     {% endif %}
 
-                    <!-- Settings -->
+                    <!-- Backup -->
                     {% if request.user.role == 'admin' %}
                     <a href="{% url 'settings' %}"
                         class="nav-item {% if active_tab == 'settings' or '/settings/' in request.path %}active{% endif %}"
-                        title="Settings">
+                        title="Backup">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-gear" style="font-size: 15px; width: 20px; text-align: center;"></i>
-                            <span class="nav-label">Settings</span>
+                            <i class="fa-solid fa-cloud-arrow-down" style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <span class="nav-label">Backup</span>
                         </div>
                     </a>
                     {% endif %}
@@ -6634,113 +7575,91 @@
                         </nav>
                     </div>
                     <div class="header-right d-flex align-items-center justify-content-end gap-2 ms-auto">
-                        <!-- Premium Theme Toggle Switch Button -->
-                        <button id="themeToggleBtn" class="theme-switch-btn" type="button"
-                            aria-label="Toggle dark mode" title="Switch to Dark / Light Mode">
-                            <span class="theme-switch-track">
-                                <svg class="track-icon-sun" viewBox="0 0 24 24" width="13" height="13" fill="none"
-                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="4"></circle>
-                                    <path
-                                        d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41">
-                                    </path>
-                                </svg>
-                                <svg class="track-icon-moon" viewBox="0 0 24 24" width="13" height="13" fill="none"
-                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
-                                </svg>
-                                <span class="theme-switch-thumb">
-                                    <svg class="thumb-icon-sun" viewBox="0 0 24 24" width="14" height="14" fill="none"
-                                        stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                        <!-- Quick Utility Actions (Search, Theme, Notifications) -->
+                        <div class="header-action-group d-flex align-items-center gap-2">
+                            <!-- Spotlight Quick Search Icon Trigger (Ctrl+K or /) -->
+                            <button class="header-search-icon-btn" type="button" onclick="openSpotlightSearch()" title="Quick Search (Ctrl+K or /)" aria-label="Quick Search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+
+                            <!-- Premium Theme Toggle Switch Button -->
+                            <button id="themeToggleBtn" class="theme-switch-btn" type="button"
+                                onclick="window.toggleTheme()"
+                                aria-label="Toggle dark mode" title="Switch to Dark / Light Mode">
+                                <span class="theme-switch-track">
+                                    <svg class="track-icon-sun" viewBox="0 0 24 24" width="13" height="13" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                         stroke-linejoin="round">
                                         <circle cx="12" cy="12" r="4"></circle>
                                         <path
                                             d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41">
                                         </path>
                                     </svg>
-                                    <svg class="thumb-icon-moon" viewBox="0 0 24 24" width="14" height="14"
-                                        fill="currentColor" stroke="currentColor" stroke-width="1"
-                                        stroke-linecap="round" stroke-linejoin="round">
+                                    <svg class="track-icon-moon" viewBox="0 0 24 24" width="13" height="13" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
                                         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
                                     </svg>
-                                </span>
-                            </span>
-                        </button>
-                    <!-- Notifications Bell Dropdown -->
-                        <div class="dropdown">
-                            <button class="header-bell-btn position-relative" data-bs-toggle="dropdown" data-bs-display="static"
-                                id="notificationBellBtn" type="button" aria-expanded="false" aria-label="Notifications"
-                                title="Notifications">
-                                <i class="fa-solid fa-bell" style="font-size: 16px;"></i>
-                                <span id="notificationBadge"
-                                    class="position-absolute bg-danger text-white rounded-pill notification-pulse-badge {% if not notifications_count %}d-none{% endif %}"
-                                    style="font-size: 9px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 4px; align-items: center; justify-content: center; top: -1px; right: -2px; border: 2px solid #ffffff; line-height: 1; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">{% if notifications_count > 99 %}99+{% else %}{{ notifications_count }}{% endif %}</span>
-                            </button>
-                            <script>
-                                (function(){
-                                    try {
-                                        var uid = '{{ request.user.id|default:"guest" }}';
-                                        var readVal = localStorage.getItem('etala_read_notifs_' + uid) || localStorage.getItem('etala_read_notifs');
-                                        var deletedVal = localStorage.getItem('etala_deleted_notifs_' + uid) || localStorage.getItem('etala_deleted_notifs');
-                                        var readList = readVal ? JSON.parse(readVal) : [];
-                                        var deletedList = deletedVal ? JSON.parse(deletedVal) : [];
-                                        var serverIds = [{% for n in recent_notifications %}'{{ n.id|default:n.action|slugify }}'{% if not forloop.last %},{% endif %}{% endfor %}];
-                                        var unreadCount = 0;
-                                        for (var i = 0; i < serverIds.length; i++) {
-                                            var sid = serverIds[i];
-                                            if (!deletedList.includes(sid) && !readList.includes(sid)) {
-                                                unreadCount++;
-                                            }
-                                        }
-                                        var badge = document.getElementById('notificationBadge');
-                                        if (badge) {
-                                            if (unreadCount === 0) {
-                                                badge.classList.add('d-none');
-                                                badge.style.display = 'none';
-                                            } else {
-                                                badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-                                                badge.classList.remove('d-none');
-                                                badge.style.display = 'inline-flex';
-                                            }
-                                        }
-                                    } catch(e) {}
-                                })();
-                            </script>
-                            <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card dropdown-card-with-caret shadow-lg"
-                                style="width: 340px; max-width: calc(100vw - 20px); border-radius: 16px; overflow: hidden; z-index: 99999; margin-top: 10px;">
-                                <!-- Header -->
-                                <div class="px-3 py-2.5 border-bottom d-flex justify-content-between align-items-center notification-card-header" style="background: #ffffff;">
-                                    <span class="fw-bold text-dark notification-card-title d-inline-flex align-items-center gap-2"
-                                        style="font-size:0.88rem; letter-spacing: -0.2px;">
-                                        <i class="fa-solid fa-bell text-primary" style="font-size: 13px;"></i>
-                                        <span>Notifications</span>
+                                    <span class="theme-switch-thumb">
+                                        <svg class="thumb-icon-sun" viewBox="0 0 24 24" width="14" height="14" fill="none"
+                                            stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="4"></circle>
+                                            <path
+                                                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41">
+                                            </path>
+                                        </svg>
+                                        <svg class="thumb-icon-moon" viewBox="0 0 24 24" width="14" height="14"
+                                            fill="currentColor" stroke="currentColor" stroke-width="1"
+                                            stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                                        </svg>
                                     </span>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <a href="javascript:void(0)" onclick="clearAllNotifications(this);" id="markAllReadBtn"
-                                            class="text-primary text-decoration-none fw-semibold notification-mark-read-link d-inline-flex align-items-center gap-1.5"
-                                            style="font-size:0.76rem; color: #2563eb !important; {% if not recent_notifications %}display: none !important;{% endif %}">
-                                            <i class="fa-solid fa-check-double" style="font-size: 11px;"></i>
-                                            <span>Mark all as read</span>
-                                        </a>
+                                </span>
+                            </button>
+
+                            <!-- Notifications Bell Dropdown -->
+                            <div class="dropdown">
+                                <button class="header-bell-btn position-relative" data-bs-toggle="dropdown" data-bs-display="static"
+                                    id="notificationBellBtn" type="button" aria-expanded="false" aria-label="Notifications"
+                                    title="Notifications">
+                                    <i class="fa-solid fa-bell" style="font-size: 16px;"></i>
+                                    <span id="notificationBadge"
+                                        class="position-absolute bg-danger text-white rounded-pill notification-pulse-badge {% if not notifications_count %}d-none{% endif %}"
+                                        style="font-size: 9px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 4px; align-items: center; justify-content: center; top: -1px; right: -2px; border: 2px solid #ffffff; line-height: 1; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">{% if notifications_count > 99 %}99+{% else %}{{ notifications_count }}{% endif %}</span>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown-card dropdown-card-with-caret shadow-lg"
+                                    style="width: 360px; max-width: calc(100vw - 20px); border-radius: 16px; overflow: hidden; z-index: 99999; margin-top: 10px;">
+                                    <!-- Header -->
+                                    <div class="px-3 py-2.5 border-bottom d-flex justify-content-between align-items-center notification-card-header" style="background: #ffffff;">
+                                        <span class="fw-bold text-dark notification-card-title d-inline-flex align-items-center gap-2"
+                                            style="font-size:0.88rem; letter-spacing: -0.2px;">
+                                            <i class="fa-solid fa-bell text-primary" style="font-size: 13px;"></i>
+                                            <span>Notifications</span>
+                                        </span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <a href="javascript:void(0)" onclick="clearAllNotifications(this);" id="markAllReadBtn"
+                                                class="text-primary text-decoration-none fw-semibold notification-mark-read-link d-inline-flex align-items-center gap-1.5 {% if not recent_notifications %}d-none{% endif %}"
+                                                style="font-size:0.76rem; color: #2563eb !important;">
+                                                <i class="fa-solid fa-check-double" style="font-size: 11px;"></i>
+                                                <span>Mark all as read</span>
+                                            </a>
+                                        </div>
                                     </div>
-                                </div>
 
                                 <!-- List -->
                                 <div class="d-flex flex-column custom-scrollbar" id="notificationListContainer"
-                                    style="min-height: 140px; max-height: 340px; overflow-y: auto;">
+                                    style="min-height: 220px; max-height: 380px; overflow-y: auto;">
                                     {% for n in recent_notifications %}
                                     <div class="px-3 py-2.5 border-bottom notification-item d-flex align-items-center gap-2.5 position-relative {% if not n.is_read %}is-unread-item{% endif %}"
                                         style="cursor:pointer; transition: all 0.22s ease;"
                                         onclick="markItemAsRead(this, '{{ n.url }}')"
                                         data-notification-id="{{ n.id|default:n.action|slugify }}">
 
-                                        <!-- Left Pastel Icon Circle (Fixed size on left) -->
+                                        <!-- Left Pastel Icon Circle -->
                                         <div class="notification-icon-wrapper flex-shrink-0 align-self-center {% if n.type == 'security' %}notif-security{% elif 'FSIC' in n.action %}notif-fsic{% elif 'Electrical' in n.action %}notif-electrical{% elif 'Other' in n.action or 'Record' in n.action %}notif-record{% else %}notif-default{% endif %}">
                                             {% if n.type == 'security' %}
-                                            <i class="fa-solid fa-exclamation"
-                                                style="font-size: 14px; font-weight: 900;"></i>
+                                            <i class="fa-solid fa-exclamation" style="font-size: 14px; font-weight: 900;"></i>
                                             {% elif 'FSIC' in n.action %}
                                             <i class="fa-solid fa-file-invoice" style="font-size: 14px;"></i>
                                             {% elif 'Electrical' in n.action %}
@@ -6803,8 +7722,12 @@
                                 </a>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- User Profile Header Button & Dropdown Menu -->
+                    <!-- Subtle Vertical Separator Divider -->
+                    <div class="header-v-divider d-none d-sm-block"></div>
+
+                    <!-- User Profile Header Button & Dropdown Menu -->
                         <div class="dropdown">
                             <button class="header-user-profile-btn d-flex align-items-center" data-bs-toggle="dropdown" data-bs-display="static"
                                 type="button" aria-expanded="false"
@@ -6842,12 +7765,12 @@
                             </button>
 
                             <!-- Clean User Profile Dropdown Card -->
-                            <div class="dropdown-menu dropdown-menu-end p-2 user-profile-dropdown-card shadow-lg"
-                                style="width: 250px; border-radius: 14px;">
+                            <div class="dropdown-menu dropdown-menu-end user-profile-dropdown-card shadow-lg"
+                                style="width: 220px; border-radius: 12px; padding: 6px; margin-top: 6px;">
                                 <!-- User Identity Header (Avatar + Name + Email) -->
-                                <div class="px-2 py-2 mb-1.5 border-bottom user-profile-header-card d-flex align-items-center gap-2.5" style="border-color: #f1f5f9;">
+                                <div class="p-2 mb-1 rounded-2 user-profile-header-card d-flex align-items-center gap-2" style="background: rgba(241, 245, 249, 0.75); border: 1px solid rgba(226, 232, 240, 0.8);">
                                     <div class="overflow-hidden rounded-circle flex-shrink-0 user-dropdown-avatar-box"
-                                        style="width: 38px; height: 38px; border: 1.5px solid #cbd5e1; background: #064e3b; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                                        style="width: 32px; height: 32px; border: 1.5px solid #cbd5e1; background: #064e3b; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
                                         {% if request.user.profile_picture_url %}
                                         <img src="{{ request.user.profile_picture_url }}" alt=""
                                             loading="eager" decoding="async"
@@ -6855,7 +7778,7 @@
                                             style="object-fit: cover;"
                                             onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
                                         <div class="dropdown-avatar-initials w-100 h-100 align-items-center justify-content-center fw-bold text-white d-none"
-                                            style="background: #064e3b; font-size: 0.9rem;">
+                                            style="background: #064e3b; font-size: 0.82rem;">
                                             {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                         </div>
                                         {% else %}
@@ -6865,61 +7788,51 @@
                                             style="object-fit: cover;"
                                             onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
                                         <div class="dropdown-avatar-initials w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white"
-                                            style="background: #064e3b; font-size: 0.9rem;">
+                                            style="background: #064e3b; font-size: 0.82rem;">
                                             {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                         </div>
                                         {% endif %}
                                     </div>
                                     <div class="min-w-0 flex-grow-1">
-                                        <div class="fw-bold text-dark text-truncate" style="font-size: 0.86rem; line-height: 1.25;" title="{{ request.user.full_name|default:request.user.username }}">
+                                        <div class="fw-bold text-dark text-truncate user-profile-name" style="font-size: 0.82rem; line-height: 1.2;" title="{{ request.user.full_name|default:request.user.username }}">
                                             {{ request.user.full_name|default:request.user.username }}
                                         </div>
-                                        <div class="text-muted text-truncate mt-0.5" style="font-size: 0.73rem;" title="{{ request.user.email }}">
+                                        <div class="text-muted text-truncate" style="font-size: 0.70rem; line-height: 1.2; margin-top: 1px;" title="{{ request.user.email }}">
                                             {{ request.user.email }}
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Menu Items -->
-                                <div class="d-flex flex-column gap-1">
+                                <div class="d-flex flex-column" style="gap: 2px;">
                                     <a href="{% url 'profile' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none"
-                                        style="font-size: 0.84rem; font-weight: 500;">
-                                        <i class="fa-regular fa-user flex-shrink-0"
-                                            style="width: 16px; font-size: 14px; color: #475569;"></i>
+                                        class="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2 rounded-2 text-decoration-none"
+                                        style="font-size: 0.80rem; font-weight: 500;">
+                                        <div class="d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+                                            style="width: 22px; height: 22px; background: rgba(71, 85, 105, 0.08); color: #475569;">
+                                            <i class="fa-regular fa-user" style="font-size: 11px;"></i>
+                                        </div>
                                         <span>User Profile</span>
                                     </a>
-                                    <a href="{% url 'profile' %}?open=password"
-                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none"
-                                        style="font-size: 0.84rem; font-weight: 500;">
-                                        <i class="fa-solid fa-key flex-shrink-0"
-                                            style="width: 16px; font-size: 13px; color: #d97706;"></i>
-                                        <span>Change Password</span>
-                                    </a>
-                                    {% if request.user.role == 'admin' %}
-                                    <a href="{% url 'settings' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none"
-                                        style="font-size: 0.84rem; font-weight: 500;">
-                                        <i class="fa-solid fa-gear flex-shrink-0"
-                                            style="width: 16px; font-size: 14px; color: #475569;"></i>
-                                        <span>System Settings</span>
-                                    </a>
-                                    {% endif %}
                                     <a href="{% url 'about_system' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none"
-                                        style="font-size: 0.84rem; font-weight: 500;">
-                                        <i class="fa-solid fa-circle-info flex-shrink-0"
-                                            style="width: 16px; font-size: 14px; color: #0284c7;"></i>
+                                        class="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2 rounded-2 text-decoration-none"
+                                        style="font-size: 0.80rem; font-weight: 500;">
+                                        <div class="d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+                                            style="width: 22px; height: 22px; background: rgba(2, 132, 199, 0.1); color: #0284c7;">
+                                            <i class="fa-solid fa-circle-info" style="font-size: 11px;"></i>
+                                        </div>
                                         <span>About eTala</span>
                                     </a>
 
-                                    <hr class="dropdown-divider my-1" style="border-color: #f1f5f9; opacity: 1;">
+                                    <hr class="dropdown-divider my-1" style="border-color: rgba(226, 232, 240, 0.8); opacity: 1;">
 
                                     <a href="{% url 'logout' %}"
-                                        class="dropdown-item d-flex align-items-center gap-2.5 py-2 px-2.5 rounded-2 text-decoration-none text-danger dropdown-logout-item"
-                                        style="font-size: 0.84rem; font-weight: 600;">
-                                        <i class="fa-solid fa-arrow-right-from-bracket flex-shrink-0"
-                                            style="width: 16px; font-size: 14px; color: #ef4444;"></i>
+                                        class="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2 rounded-2 text-decoration-none text-danger dropdown-logout-item"
+                                        style="font-size: 0.80rem; font-weight: 600;">
+                                        <div class="d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+                                            style="width: 22px; height: 22px; background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                                            <i class="fa-solid fa-arrow-right-from-bracket" style="font-size: 10.5px;"></i>
+                                        </div>
                                         <span>Log out</span>
                                     </a>
                                 </div>
@@ -6963,14 +7876,14 @@
         </a>
 
         <button type="button" class="mobile-nav-item border-0 bg-transparent" id="mobileNavMoreBtn"
-            title="Open navigation drawer" style="cursor: pointer;">
+            onclick="toggleMobileSidebar(event)" title="Open navigation drawer" style="cursor: pointer;">
             <i class="fa-solid fa-bars" style="font-size: 16px;"></i>
             <span class="mobile-nav-label">Menu</span>
         </button>
     </nav>
 
     <!-- Mobile overlay -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar(event)"></div>
 
 
 
@@ -6984,7 +7897,10 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        lucide.createIcons();
+        // Safe Lucide Icon initialization
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            try { window.lucide.createIcons(); } catch (e) { console.warn('Lucide init warning:', e); }
+        }
 
         // Auto-fade and manual close toasts smoothly
         document.querySelectorAll('.etala-toast').forEach(toast => {
@@ -7022,74 +7938,79 @@
             }
         });
 
-        // Sidebar collapse/expand with reliable persistence
-        const sidebar = document.getElementById('sidebar');
-        const collapseBtn = document.getElementById('sidebarCollapseBtn');
-        const collapseIcon = document.getElementById('collapseIcon');
+        // ═══════════════════════════════════════════════════════════
+        // SIDEBAR COLLAPSE / EXPAND ENGINE (Robust & Persistent)
+        // ═══════════════════════════════════════════════════════════
+        window.toggleSidebar = function(event) {
+            if (event && event.preventDefault) event.preventDefault();
+            const sidebar = document.getElementById('sidebar');
+            const collapseBtn = document.getElementById('sidebarCollapseBtn');
+            if (!sidebar) return;
 
-        // Initialize sidebar from localStorage (persists across all page refreshes and navigations)
-        const isStoredCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-        const isDesktop = window.innerWidth >= 768;
+            const isCurrentlyCollapsed = sidebar.classList.contains('collapsed') || document.documentElement.classList.contains('sidebar-is-collapsed');
+            const isNowCollapsed = !isCurrentlyCollapsed;
 
-        if (isStoredCollapsed && isDesktop && sidebar) {
-            sidebar.classList.add('collapsed');
-            document.documentElement.classList.add('sidebar-is-collapsed');
-            if (collapseIcon) {
-                collapseIcon.className = 'fa-solid fa-angles-right';
+            if (isNowCollapsed) {
+                sidebar.classList.add('collapsed');
+                document.documentElement.classList.add('sidebar-is-collapsed');
+                try { localStorage.setItem('sidebarCollapsed', 'true'); } catch(e) {}
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Expand sidebar');
+            } else {
+                sidebar.classList.remove('collapsed');
+                document.documentElement.classList.remove('sidebar-is-collapsed');
+                try { localStorage.setItem('sidebarCollapsed', 'false'); } catch(e) {}
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Collapse sidebar');
             }
-            if (collapseBtn) {
-                collapseBtn.setAttribute('title', 'Expand sidebar');
-            }
-        } else if (sidebar && isDesktop) {
-            sidebar.classList.remove('collapsed');
-            document.documentElement.classList.remove('sidebar-is-collapsed');
-            if (collapseIcon) {
-                collapseIcon.className = 'fa-solid fa-angles-left';
-            }
-            if (collapseBtn) {
-                collapseBtn.setAttribute('title', 'Collapse sidebar');
+        };
+
+        function initSidebarState() {
+            const sidebar = document.getElementById('sidebar');
+            const collapseBtn = document.getElementById('sidebarCollapseBtn');
+            let isStoredCollapsed = false;
+            try {
+                isStoredCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            } catch(e) {}
+            const isDesktop = window.innerWidth >= 768;
+
+            if (isStoredCollapsed && isDesktop && sidebar) {
+                sidebar.classList.add('collapsed');
+                document.documentElement.classList.add('sidebar-is-collapsed');
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Expand sidebar');
+            } else if (sidebar && isDesktop) {
+                sidebar.classList.remove('collapsed');
+                document.documentElement.classList.remove('sidebar-is-collapsed');
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Collapse sidebar');
             }
         }
 
-        if (collapseBtn && sidebar) {
-            collapseBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const isNowCollapsed = sidebar.classList.toggle('collapsed');
-                document.documentElement.classList.toggle('sidebar-is-collapsed', isNowCollapsed);
-                localStorage.setItem('sidebarCollapsed', isNowCollapsed ? 'true' : 'false');
-                
-                const currentIcon = document.getElementById('collapseIcon');
-                if (currentIcon) {
-                    currentIcon.className = isNowCollapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
-                }
-                collapseBtn.setAttribute('title', isNowCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
-            });
+        // Initialize immediately and on DOM load
+        initSidebarState();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSidebarState);
         }
 
-        // Mobile menu toggle
-        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-        const mobileNavMoreBtn = document.getElementById('mobileNavMoreBtn');
-        const mobileDrawerCloseBtn = document.getElementById('mobileDrawerCloseBtn');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-        function toggleMobileSidebar() {
+        // Mobile drawer toggles
+        window.toggleMobileSidebar = function(event) {
+            if (event && event.preventDefault) event.preventDefault();
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
             if (sidebar) {
                 const isOpen = sidebar.classList.toggle('mobile-open');
                 if (sidebarOverlay) sidebarOverlay.classList.toggle('active', isOpen);
                 document.body.classList.toggle('sidebar-drawer-open', isOpen);
             }
-        }
+        };
 
-        function closeMobileSidebar() {
+        window.closeMobileSidebar = function(event) {
+            if (event && event.preventDefault) event.preventDefault();
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
             if (sidebar) sidebar.classList.remove('mobile-open');
             if (sidebarOverlay) sidebarOverlay.classList.remove('active');
             document.body.classList.remove('sidebar-drawer-open');
-        }
+        };
 
-        if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', toggleMobileSidebar);
-        if (mobileNavMoreBtn) mobileNavMoreBtn.addEventListener('click', toggleMobileSidebar);
-        if (mobileDrawerCloseBtn) mobileDrawerCloseBtn.addEventListener('click', closeMobileSidebar);
-        if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
 
         // Close other open dropdowns when a new one is shown (clean 1-at-a-time dropdown experience)
         document.addEventListener('show.bs.dropdown', function (e) {
@@ -7157,61 +8078,6 @@
             }
         });
 
-        // ⚡ INSTANT SYNCHRONIZED THEME SWITCH (Zero lag both directions)
-        window.applyTheme = function(theme) {
-            const isDark = theme === 'dark';
-
-            // 1. Enable smooth unified crossfade across all elements simultaneously
-            document.documentElement.classList.add('theme-transitioning');
-
-            // 2. Toggle classes and data-attributes FIRST (CSS handles all colors)
-            if (isDark) {
-                document.documentElement.classList.add('dark-mode');
-                document.documentElement.setAttribute('data-bs-theme', 'dark');
-                document.documentElement.style.backgroundColor = '#0b1329';
-                if (document.body) {
-                    document.body.classList.add('dark-mode');
-                    document.body.setAttribute('data-bs-theme', 'dark');
-                    document.body.style.backgroundColor = '#0b1329';
-                }
-            } else {
-                document.documentElement.classList.remove('dark-mode');
-                document.documentElement.setAttribute('data-bs-theme', 'light');
-                document.documentElement.style.backgroundColor = '#f8fafc';
-                if (document.body) {
-                    document.body.classList.remove('dark-mode');
-                    document.body.setAttribute('data-bs-theme', 'light');
-                    document.body.style.backgroundColor = '#f8fafc';
-                }
-            }
-            localStorage.setItem('theme', theme);
-
-            // 3. DEFER the expensive color-scheme change — this triggers browser-level
-            //    native UI repaint (scrollbars, inputs, selects) which blocks the thread.
-            //    By deferring it, the CSS visual transition paints first, THEN native
-            //    controls update without visible lag.
-            requestAnimationFrame(function() {
-                document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-                if (document.body) {
-                    document.body.style.colorScheme = isDark ? 'dark' : 'light';
-                }
-            });
-
-            // 4. Clean up transition class after crossfade completes smoothly
-            setTimeout(function() {
-                document.documentElement.classList.remove('theme-transitioning');
-            }, 180);
-        };
-
-        document.addEventListener("DOMContentLoaded", function () {
-            const toggleBtn = document.getElementById('themeToggleBtn');
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', function () {
-                    const isDark = document.documentElement.classList.contains('dark-mode');
-                    window.applyTheme(isDark ? 'light' : 'dark');
-                });
-            }
-
             // Mobile Search Toggle & Smooth Expand / Collapse Handler
             const searchForm = document.getElementById('headerSearch');
             const searchInput = document.getElementById('globalSearchInput');
@@ -7258,7 +8124,6 @@
                     if (mobileModal) mobileModal.style.display = 'none';
                 });
             }
-        });
     </script>
 
     <!-- Global Toast Notifications Container (Top-Right Rigid Anchor) -->
@@ -7281,14 +8146,14 @@
         }
 
         .custom-app-toast {
-            border-radius: 10px !important;
-            min-width: 270px;
-            max-width: 380px;
+            border-radius: 12px !important;
+            min-width: 280px;
+            max-width: 390px;
             pointer-events: auto;
             position: relative;
             overflow: hidden;
             background: #ffffff !important;
-            box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.05) !important;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.04) !important;
             animation: etalaToastBounceIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             transition: transform 0.2s ease, opacity 0.2s ease;
             margin: 0 !important;
@@ -7326,54 +8191,42 @@
             pointer-events: none !important;
         }
 
-        /* Light Mode Clean Variants */
+        /* Light Mode Harmonious Variants */
         .custom-app-toast.toast-variant-success {
-            border: 1px solid #dcfce7 !important;
-            border-left: 4px solid #10b981 !important;
+            border: 1px solid #bbf7d0 !important;
         }
         .custom-app-toast.toast-variant-info {
-            border: 1px solid #dbeafe !important;
-            border-left: 4px solid #3b82f6 !important;
+            border: 1px solid #bfdbfe !important;
         }
         .custom-app-toast.toast-variant-warning {
-            border: 1px solid #fef3c7 !important;
-            border-left: 4px solid #f59e0b !important;
+            border: 1px solid #fde68a !important;
         }
         .custom-app-toast.toast-variant-error {
-            border: 1px solid #fee2e2 !important;
-            border-left: 4px solid #ef4444 !important;
+            border: 1px solid #fecaca !important;
         }
 
         .custom-app-toast .toast-icon-badge {
-            width: 30px !important;
-            height: 30px !important;
-            min-width: 30px !important;
+            width: 32px !important;
+            height: 32px !important;
+            min-width: 32px !important;
             border-radius: 50% !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             flex-shrink: 0 !important;
-            margin-right: 12px !important;
             color: #ffffff !important;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+            font-size: 13.5px !important;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08) !important;
         }
 
-        .custom-app-toast .toast-title-text {
-            font-size: 0.86rem !important;
-            font-weight: 700 !important;
+        .custom-app-toast .toast-text-single {
+            font-size: 0.865rem !important;
+            font-weight: 600 !important;
             color: #0f172a !important;
             letter-spacing: -0.01em !important;
-            line-height: 1.25 !important;
-            margin-bottom: 2px !important;
-        }
-
-        .custom-app-toast .toast-body-text {
-            font-size: 0.78rem !important;
-            font-weight: 400 !important;
-            color: #475569 !important;
-            line-height: 1.35 !important;
-            margin-top: 1px !important;
+            line-height: 1.4 !important;
             word-break: break-word !important;
+            overflow-wrap: break-word !important;
         }
 
         .custom-app-toast .toast-close-btn {
@@ -7391,14 +8244,14 @@
         }
         .custom-app-toast .toast-close-btn:hover {
             color: #0f172a;
-            background-color: rgba(0, 0, 0, 0.05);
+            background-color: rgba(0, 0, 0, 0.06);
         }
 
         .custom-app-toast .toast-progress-track {
             position: absolute;
             bottom: 0;
             left: 0;
-            height: 2.5px;
+            height: 3px;
             width: 100%;
             opacity: 0.85;
         }
@@ -7407,36 +8260,29 @@
         .dark-mode .custom-app-toast,
         [data-bs-theme="dark"] .custom-app-toast {
             background: #1e293b !important;
-            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
+            border: 1px solid #334155 !important;
+            box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.5) !important;
         }
         .dark-mode .custom-app-toast.toast-variant-success,
         [data-bs-theme="dark"] .custom-app-toast.toast-variant-success {
-            border: 1px solid #14532d !important;
-            border-left: 4px solid #22c55e !important;
+            border-color: rgba(34, 197, 94, 0.35) !important;
         }
         .dark-mode .custom-app-toast.toast-variant-info,
         [data-bs-theme="dark"] .custom-app-toast.toast-variant-info {
-            border: 1px solid #1e3a8a !important;
-            border-left: 4px solid #3b82f6 !important;
+            border-color: rgba(59, 130, 246, 0.35) !important;
         }
         .dark-mode .custom-app-toast.toast-variant-warning,
         [data-bs-theme="dark"] .custom-app-toast.toast-variant-warning {
-            border: 1px solid #78350f !important;
-            border-left: 4px solid #f59e0b !important;
+            border-color: rgba(245, 158, 11, 0.35) !important;
         }
         .dark-mode .custom-app-toast.toast-variant-error,
         [data-bs-theme="dark"] .custom-app-toast.toast-variant-error {
-            border: 1px solid #7f1d1d !important;
-            border-left: 4px solid #ef4444 !important;
+            border-color: rgba(239, 68, 68, 0.35) !important;
         }
 
-        .dark-mode .custom-app-toast .toast-title-text,
-        [data-bs-theme="dark"] .custom-app-toast .toast-title-text {
+        .dark-mode .custom-app-toast .toast-text-single,
+        [data-bs-theme="dark"] .custom-app-toast .toast-text-single {
             color: #f8fafc !important;
-        }
-        .dark-mode .custom-app-toast .toast-body-text,
-        [data-bs-theme="dark"] .custom-app-toast .toast-body-text {
-            color: #94a3b8 !important;
         }
         .dark-mode .custom-app-toast .toast-close-btn:hover,
         [data-bs-theme="dark"] .custom-app-toast .toast-close-btn:hover {
@@ -7451,11 +8297,8 @@
             border-left: 4px solid #0284c7 !important;
             box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
         }
-        .custom-app-toast.zip-download-toast .toast-title-text {
+        .custom-app-toast.zip-download-toast .toast-text-single {
             color: #0f172a !important;
-        }
-        .custom-app-toast.zip-download-toast .toast-body-text {
-            color: #64748b !important;
         }
         .custom-app-toast.zip-download-toast .toast-status-icon {
             background: #e0f2fe !important;
@@ -7472,13 +8315,9 @@
             border-left: 4px solid #38bdf8 !important;
             box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
         }
-        .dark-mode .custom-app-toast.zip-download-toast .toast-title-text,
-        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-title-text {
+        .dark-mode .custom-app-toast.zip-download-toast .toast-text-single,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-text-single {
             color: #f8fafc !important;
-        }
-        .dark-mode .custom-app-toast.zip-download-toast .toast-body-text,
-        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-body-text {
-            color: #94a3b8 !important;
         }
         .dark-mode .custom-app-toast.zip-download-toast .toast-status-icon,
         [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-status-icon {
@@ -7517,81 +8356,115 @@
                 variantClass = 'toast-variant-success';
                 iconBg = '#10b981';
                 iconHtml = '<i class="fa-solid fa-circle-check" style="font-size: 14px;"></i>';
-                
-                if (msgLower.includes('regulariz')) {
-                    defaultTitle = 'Regularized Successfully';
-                } else if (msgLower.includes('trash') || msgLower.includes('archiv')) {
-                    defaultTitle = 'Record Archived';
-                } else if (msgLower.includes('restor')) {
-                    defaultTitle = 'Record Restored';
-                } else if (msgLower.includes('deactivat')) {
-                    defaultTitle = 'Account Deactivated';
-                } else if (msgLower.includes('activat')) {
-                    defaultTitle = 'Account Activated';
-                } else if (msgLower.includes('upload')) {
-                    defaultTitle = 'Uploaded Successfully';
-                } else if (msgLower.includes('creat') || msgLower.includes('added')) {
-                    defaultTitle = 'Created Successfully';
-                } else if (msgLower.includes('delet') || msgLower.includes('remov') || msgLower.includes('purg')) {
-                    defaultTitle = 'Deleted Successfully';
-                } else if (msgLower.includes('updat') || msgLower.includes('sav') || msgLower.includes('edit')) {
-                    defaultTitle = 'Saved Successfully';
-                } else if (msgLower.includes('reset') || msgLower.includes('password')) {
-                    defaultTitle = 'Password Updated';
-                } else if (msgLower.includes('login') || msgLower.includes('welcome')) {
-                    defaultTitle = 'Login Successful';
-                } else {
-                    defaultTitle = 'Success';
-                }
+                defaultTitle = 'Success';
             } else if (isError) {
                 variantClass = 'toast-variant-error';
                 iconBg = '#ef4444';
                 iconHtml = '<i class="fa-solid fa-circle-xmark" style="font-size: 14px;"></i>';
-                
-                if (msgLower.includes('already exist') || msgLower.includes('duplicate') || msgLower.includes('already used') || msgLower.includes('already registered')) {
-                    defaultTitle = 'Duplicate Entry';
-                } else if (msgLower.includes('delet')) {
-                    defaultTitle = 'Deletion Blocked';
-                } else if (msgLower.includes('upload')) {
-                    defaultTitle = 'Upload Failed';
-                } else if (msgLower.includes('password') || msgLower.includes('credential')) {
-                    defaultTitle = 'Authentication Error';
-                } else if (msgLower.includes('permission') || msgLower.includes('denied') || msgLower.includes('unauthoriz')) {
-                    defaultTitle = 'Access Denied';
-                } else {
-                    defaultTitle = 'Action Failed';
-                }
+                defaultTitle = 'Action failed';
             } else if (isWarning) {
                 variantClass = 'toast-variant-warning';
                 iconBg = '#f59e0b';
                 iconHtml = '<i class="fa-solid fa-triangle-exclamation" style="font-size: 13px;"></i>';
-                
-                if (msgLower.includes('prevent') || msgLower.includes('cannot') || msgLower.includes('restricted')) {
-                    defaultTitle = 'Action Prevented';
-                } else if (msgLower.includes('fill') || msgLower.includes('required')) {
-                    defaultTitle = 'Incomplete Form';
-                } else if (msgLower.includes('flag')) {
-                    defaultTitle = 'Flagged Successfully';
-                } else {
-                    defaultTitle = 'Warning';
-                }
+                defaultTitle = 'Warning';
             }
 
-            const finalTitle = (title && title.trim()) ? title : defaultTitle;
-            const finalMessage = (message && message.trim()) ? message : '';
+            // ── Standardized & Generalized 1-Line Message Engine ───────────────────
+            // Normalizes all actions to clean, uniform, professional 1-line sentences
+            let toastText = '';
+            const t = (title || '').trim();
+            const m = (message || '').trim();
+            const comboLower = (t + ' ' + m).toLowerCase();
+
+            // 1. Network & Connectivity
+            if (comboLower.includes('appear to be offline') || comboLower.includes('internet disconnected') || comboLower.includes('offline') || comboLower.includes('network error')) {
+                toastText = isError ? 'Network error. Please try again' : 'Internet connection lost';
+            } else if (comboLower.includes('back online') || comboLower.includes('connection restored') || comboLower.includes('online')) {
+                toastText = 'Internet connection restored';
+            } 
+            // 2. File Upload & Validation Alerts
+            else if (comboLower.includes('50mb') || comboLower.includes('too large') || comboLower.includes('size limit')) {
+                toastText = 'File exceeds maximum 50MB limit';
+            } else if (comboLower.includes('only pdf') || comboLower.includes('invalid format') || comboLower.includes('rejected')) {
+                toastText = 'Only PDF files are supported';
+            } else if (comboLower.includes('already uploaded')) {
+                toastText = 'File is already uploaded';
+            } else if (comboLower.includes('duplicate file') || (comboLower.includes('duplicate') && comboLower.includes('queue'))) {
+                toastText = 'File is already in upload queue';
+            } else if (comboLower.includes('no file') || comboLower.includes('no document') || comboLower.includes('select at least')) {
+                toastText = 'Please select a file to upload';
+            } else if (comboLower.includes('upload') && comboLower.includes('fail')) {
+                toastText = 'File upload failed. Please try again';
+            } else if (comboLower.includes('upload') && isSuccess) {
+                toastText = 'File uploaded successfully';
+            }
+            // 3. User & Security
+            else if (comboLower.includes('photo') || comboLower.includes('avatar')) {
+                toastText = 'Profile photo updated successfully';
+            } else if (comboLower.includes('password') && isSuccess) {
+                toastText = 'Password updated successfully';
+            } else if (comboLower.includes('deactivat')) {
+                toastText = isSuccess ? 'Account deactivated successfully' : 'Deactivation failed';
+            } else if (comboLower.includes('activat')) {
+                toastText = isSuccess ? 'Account activated successfully' : 'Activation failed';
+            } else if (comboLower.includes('permission') || comboLower.includes('access denied') || comboLower.includes('unauthoriz')) {
+                toastText = 'Access denied';
+            } else if (comboLower.includes('duplicate') || comboLower.includes('already exist')) {
+                toastText = 'Duplicate record already exists';
+            }
+            // 3b. User Account specific operations
+            else if (comboLower.includes('user') || comboLower.includes('account')) {
+                if (comboLower.includes('cannot') || comboLower.includes('blocked') || comboLower.includes('active record') || !isSuccess) {
+                    toastText = (m && m.length <= 60) ? m : 'Cannot delete user with active records';
+                } else if (comboLower.includes('delet') || comboLower.includes('remov')) {
+                    toastText = 'User account deleted successfully';
+                } else if (comboLower.includes('creat') || comboLower.includes('added')) {
+                    toastText = 'User account created successfully';
+                } else {
+                    toastText = (m && m.length <= 60) ? m : (isSuccess ? 'User updated successfully' : 'Action failed');
+                }
+            }
+            // 4. Record & General CRUD Actions
+            else if (comboLower.includes('regulariz') || comboLower.includes('compli')) {
+                toastText = 'Record marked as complied successfully';
+            } else if ((comboLower.includes('trash') || comboLower.includes('archiv')) && isSuccess) {
+                toastText = 'Record archived successfully';
+            } else if (comboLower.includes('restor') && isSuccess) {
+                toastText = 'Record restored successfully';
+            } else if (comboLower.includes('delet') || comboLower.includes('remov')) {
+                toastText = isSuccess ? 'Record deleted successfully' : ((m && m.length <= 60) ? m : 'Deletion blocked');
+            } else if ((comboLower.includes('creat') || comboLower.includes('added')) && isSuccess) {
+                toastText = 'Record created successfully';
+            } else if (comboLower.includes('updat') || comboLower.includes('sav') || comboLower.includes('edit')) {
+                toastText = isSuccess ? 'Changes saved successfully' : 'Update failed';
+            } else if (comboLower.includes('cop')) {
+                toastText = 'Copied to clipboard';
+            } else if (comboLower.includes('export') || comboLower.includes('download')) {
+                toastText = 'File downloaded successfully';
+            }
+            // 5. Clean Fallback: Use exact backend message if available
+            else if (m && m.length <= 65) {
+                toastText = m;
+            } else if (t && t.length <= 45 && !['notice', 'success', 'warning', 'error', 'info', 'danger', 'alert'].includes(t.toLowerCase())) {
+                toastText = t;
+            } else if (m) {
+                toastText = m.split('.')[0];
+            } else {
+                toastText = defaultTitle;
+            }
+
             const toastId = 'toast-' + Date.now() + Math.random().toString(36).substr(2, 4);
 
             const toastHtml = `
             <div id="${toastId}" class="custom-app-toast ${variantClass}" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex align-items-center" style="padding: 12px 14px; gap: 12px;">
+                <div class="d-flex align-items-center" style="padding: 12px 14px; gap: 11px;">
                     <div class="toast-icon-badge" style="background: ${iconBg};">
                         ${iconHtml}
                     </div>
-                    <div class="flex-grow-1" style="min-width: 0;">
-                        <div class="toast-title-text">${finalTitle}</div>
-                        ${finalMessage ? `<div class="toast-body-text">${finalMessage}</div>` : ''}
+                    <div class="toast-text-single flex-grow-1" style="min-width: 0;">
+                        ${toastText}
                     </div>
-                    <button type="button" class="toast-close-btn flex-shrink-0 ms-auto" onclick="dismissToast('${toastId}')" aria-label="Close" style="align-self: flex-start; margin-top: -2px;">
+                    <button type="button" class="toast-close-btn flex-shrink-0 ms-1" onclick="dismissToast('${toastId}')" aria-label="Close">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
@@ -7662,6 +8535,22 @@
         window.showToastNotification = showToast;
         window.dismissToast = dismissToast;
 
+        // Global post-reload toast dispatcher
+        document.addEventListener('DOMContentLoaded', function () {
+            const postToast = sessionStorage.getItem('etala_post_reload_toast');
+            if (postToast) {
+                sessionStorage.removeItem('etala_post_reload_toast');
+                try {
+                    const tData = JSON.parse(postToast);
+                    if (window.showToast) {
+                        setTimeout(() => {
+                            showToast(tData.type || 'success', tData.title || 'Success', tData.message || '', tData.duration || 3500);
+                        }, 220);
+                    }
+                } catch (e) { }
+            }
+        });
+
         window.downloadFileWithToast = function(url, suggestedFilename, options = {}) {
             const title = options.title || 'Exporting File';
             const startMsg = options.startMsg || 'Preparing your document, please wait...';
@@ -7696,56 +8585,92 @@
         };
     </script>
 
-    <!-- Clean Human Standard Confirmation Modal (Clean Minimalist Design) -->
+    <!-- Formal Standard Confirmation Modal (Government & Enterprise Clean Design) -->
     <div class="modal fade" id="customConfirmModal" tabindex="-1" aria-hidden="true" style="z-index: 1065;">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px; margin: 1.5rem auto;">
-            <div class="modal-content border-0 shadow-lg p-4 position-relative custom-confirm-card" style="border-radius: 16px; background: #ffffff; text-align: left;">
-                <!-- Header: Title & Close [X] Icon -->
-                <div class="d-flex align-items-start justify-content-between mb-2">
-                    <h5 class="fw-bold mb-0 modal-confirm-title" id="confirmModalTitle" style="font-size: 1.15rem; color: #1e293b; letter-spacing: -0.01em; line-height: 1.35;">Save changes to your document?</h5>
-                    <button type="button" class="btn-close ms-3" data-bs-dismiss="modal" aria-label="Close" style="font-size: 0.8rem; opacity: 0.6; flex-shrink: 0; margin-top: 2px;"></button>
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 420px; margin: 1.5rem auto;">
+            <div class="modal-content border-0 position-relative custom-confirm-card" style="border-radius: 16px; background: #ffffff; text-align: left; overflow: hidden; padding: 22px 24px; box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.05);">
+                <!-- Fixed Absolute Close Button in Top-Right -->
+                <button type="button" class="btn-close position-absolute" data-bs-dismiss="modal" aria-label="Close" style="top: 18px; right: 18px; font-size: 0.72rem; opacity: 0.5; z-index: 5; cursor: pointer;"></button>
+
+                <!-- Header: Compact Icon Badge & Bold Title -->
+                <div class="d-flex align-items-center gap-2.5 mb-2 pe-3">
+                    <div class="modal-confirm-icon-badge" id="confirmModalIconBadge" style="width: 38px; height: 38px; min-width: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #fee2e2; color: #dc2626; font-size: 15px; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+                        <i class="fa-solid fa-box-archive" id="confirmModalIcon"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold modal-confirm-title mb-0" id="confirmModalTitle" style="font-size: 1.05rem; font-weight: 700; color: #0f172a; letter-spacing: -0.015em; line-height: 1.3;">Confirm Action</h5>
+                    </div>
                 </div>
 
-                <!-- Body: Single Concise Sentence Description -->
-                <div class="modal-confirm-desc-wrapper mb-4">
-                    <p class="mb-0 modal-confirm-desc" id="confirmModalMessage" style="font-size: 0.875rem; color: #475569; line-height: 1.5;">Your changes will be lost if you don't save them.</p>
+                <!-- Body: Clear Readable Description -->
+                <div class="mb-3.5 pt-0.5">
+                    <p class="modal-confirm-desc mb-0" id="confirmModalMessage" style="font-size: 0.86rem; color: #475569; line-height: 1.55;">Are you sure you want to proceed?</p>
                 </div>
 
-                <!-- Footer: Clean Action Buttons -->
-                <div class="d-flex gap-2.5 justify-content-end align-items-center">
-                    <button type="button" class="btn px-3.5 py-2 fw-semibold confirm-cancel-btn"
-                        data-bs-dismiss="modal" id="confirmModalCancelBtn" style="border-radius: 8px; font-size: 0.8125rem; letter-spacing: 0.03em; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; text-transform: uppercase;">CANCEL</button>
-                    <button type="button" class="btn px-4 py-2 fw-semibold confirm-action-btn"
-                        id="confirmModalActionBtn" style="border-radius: 8px; font-size: 0.8125rem; letter-spacing: 0.03em; background: #dc2626; color: #ffffff; border: none; text-transform: uppercase;">CONFIRM</button>
+                <!-- Footer Action Buttons: Right-Aligned Modern Rounded Proportions -->
+                <div class="d-flex justify-content-end align-items-center gap-2 pt-3 border-top" style="border-color: #f1f5f9 !important;">
+                    <button type="button" class="btn confirm-cancel-btn"
+                        data-bs-dismiss="modal" id="confirmModalCancelBtn">Cancel</button>
+                    <button type="button" class="btn confirm-action-btn"
+                        id="confirmModalActionBtn">Confirm</button>
                 </div>
             </div>
         </div>
     </div>
 
     <style>
+        #customConfirmModal.modal {
+            backdrop-filter: blur(3px) !important;
+            -webkit-backdrop-filter: blur(3px) !important;
+            background-color: rgba(15, 23, 42, 0.45) !important;
+        }
         .custom-confirm-card {
-            border: 1px solid #e2e8f0 !important;
-            box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.06) !important;
+            border: 1px solid rgba(226, 232, 240, 0.8) !important;
             word-break: break-word !important;
             overflow-wrap: anywhere !important;
             max-width: 100% !important;
+        }
+        .confirm-cancel-btn {
+            border-radius: 8px !important;
+            font-size: 0.8125rem !important;
+            background: #f1f5f9 !important;
+            color: #475569 !important;
+            border: 1px solid #e2e8f0 !important;
+            padding: 7px 16px !important;
+            font-weight: 600 !important;
+            line-height: 1.4 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.15s ease !important;
         }
         .confirm-cancel-btn:hover {
             background: #e2e8f0 !important;
             color: #0f172a !important;
             border-color: #cbd5e1 !important;
         }
+        .confirm-action-btn {
+            border-radius: 8px !important;
+            font-size: 0.8125rem !important;
+            padding: 7px 18px !important;
+            font-weight: 600 !important;
+            line-height: 1.4 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #dc2626 !important;
+            color: #ffffff !important;
+            border: none !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+            transition: all 0.15s ease !important;
+        }
         .confirm-action-btn:hover {
-            opacity: 0.92;
-            transform: translateY(-1px);
+            opacity: 0.92 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18) !important;
         }
 
         .modal-confirm-title {
-            word-break: break-word !important;
-            overflow-wrap: anywhere !important;
-            max-width: 100% !important;
-        }
-        .modal-confirm-desc-wrapper {
             word-break: break-word !important;
             overflow-wrap: anywhere !important;
             max-width: 100% !important;
@@ -7757,11 +8682,15 @@
         }
 
         /* Dark mode for confirmation modal */
+        .dark-mode #customConfirmModal.modal,
+        [data-bs-theme="dark"] #customConfirmModal.modal {
+            background-color: rgba(0, 0, 0, 0.7) !important;
+        }
         .dark-mode .custom-confirm-card,
         [data-bs-theme="dark"] .custom-confirm-card {
             background: #1e293b !important;
             border: 1px solid #334155 !important;
-            box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.6) !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
         }
         .dark-mode .modal-confirm-title,
         [data-bs-theme="dark"] .modal-confirm-title {
@@ -7781,10 +8710,153 @@
         [data-bs-theme="dark"] .confirm-cancel-btn:hover {
             background: #475569 !important;
             color: #ffffff !important;
+            border-color: #64748b !important;
+        }
+
+        /* Quick Expiry Date Preset Buttons */
+        .expiry-presets-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .expiry-preset-btn {
+            font-size: 0.70rem !important;
+            font-weight: 600 !important;
+            padding: 1.5px 7px !important;
+            line-height: 1.2 !important;
+            border-radius: 5px !important;
+            border: 1px solid #cbd5e1 !important;
+            background: #ffffff !important;
+            color: #475569 !important;
+            transition: all 0.15s ease !important;
+            cursor: pointer !important;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .expiry-preset-btn:hover {
+            background: #0284c7 !important;
+            color: #ffffff !important;
+            border-color: #0284c7 !important;
+            box-shadow: 0 2px 5px rgba(2, 132, 199, 0.25) !important;
+        }
+
+        .expiry-preset-btn.btn-primary-preset {
+            background: rgba(2, 132, 199, 0.08) !important;
+            color: #0284c7 !important;
+            border-color: rgba(2, 132, 199, 0.25) !important;
+        }
+
+        .expiry-preset-btn.btn-primary-preset:hover {
+            background: #0284c7 !important;
+            color: #ffffff !important;
+        }
+
+        .expiry-preset-btn.btn-clear-preset {
+            color: #ef4444 !important;
+            background: rgba(239, 68, 68, 0.06) !important;
+            border-color: rgba(239, 68, 68, 0.2) !important;
+            padding: 1.5px 5.5px !important;
+        }
+
+        .expiry-preset-btn.btn-clear-preset:hover {
+            background: #ef4444 !important;
+            color: #ffffff !important;
+        }
+
+        /* Dark Mode Support for Expiry Presets */
+        .dark-mode .expiry-preset-btn,
+        [data-bs-theme="dark"] .expiry-preset-btn {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            color: #cbd5e1 !important;
+        }
+
+        .dark-mode .expiry-preset-btn:hover,
+        [data-bs-theme="dark"] .expiry-preset-btn:hover {
+            background: #38bdf8 !important;
+            color: #0f172a !important;
+            border-color: #38bdf8 !important;
+        }
+
+        .dark-mode .expiry-preset-btn.btn-primary-preset,
+        [data-bs-theme="dark"] .expiry-preset-btn.btn-primary-preset {
+            background: rgba(56, 189, 248, 0.12) !important;
+            color: #38bdf8 !important;
+            border-color: rgba(56, 189, 248, 0.3) !important;
+        }
+
+        .dark-mode .expiry-preset-btn.btn-primary-preset:hover,
+        [data-bs-theme="dark"] .expiry-preset-btn.btn-primary-preset:hover {
+            background: #38bdf8 !important;
+            color: #0f172a !important;
+        }
+
+        .dark-mode .expiry-preset-btn.btn-clear-preset,
+        [data-bs-theme="dark"] .expiry-preset-btn.btn-clear-preset {
+            background: rgba(239, 68, 68, 0.15) !important;
+            color: #f87171 !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
         }
     </style>
 
     <script>
+        window.setExpiryPreset = function (inputId, amount, unit) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+
+            if (unit === 'clear') {
+                if (input._flatpickr) {
+                    input._flatpickr.clear();
+                } else {
+                    input.value = '';
+                }
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+
+            const now = new Date();
+            if (unit === 'months') {
+                now.setMonth(now.getMonth() + amount);
+            } else if (unit === 'years') {
+                now.setFullYear(now.getFullYear() + amount);
+            } else if (unit === 'days') {
+                now.setDate(now.getDate() + amount);
+            }
+
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}-${mm}-${dd}`;
+
+            if (input._flatpickr) {
+                input._flatpickr.setDate(dateStr, true);
+            } else {
+                input.value = dateStr;
+            }
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+
+        window.suggestPermitNumberForInput = function (inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+            const prefix = `${currentYear}-${currentMonth}-`;
+            input.value = prefix;
+            input.focus();
+            try {
+                input.setSelectionRange(prefix.length, prefix.length);
+            } catch (e) {}
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+
         window.showConfirmModal = function (options) {
             const title = options.title || 'Confirm Action';
             const message = options.message || 'Are you sure you want to proceed?';
@@ -7796,35 +8868,54 @@
             const isRestore = !isTrashOrDelete && (titleLower.includes('restore') || titleLower.includes('recover') || titleLower.includes('reactivat') || classLower.includes('success'));
             const isSecurity = !isTrashOrDelete && !isRestore && (titleLower.includes('deactivat') || titleLower.includes('block') || titleLower.includes('lock') || classLower.includes('warning'));
 
-            let confirmBg = '#dc2626';
-            let defaultConfirmText = 'DELETE';
-            let defaultCancelText = 'CANCEL';
+            let confirmBg = '#002855';
+            let iconClass = 'fa-solid fa-floppy-disk';
+            let badgeBg = '#e0f2fe';
+            let badgeColor = '#0284c7';
+            let defaultConfirmText = 'Save Changes';
+            let defaultCancelText = 'Cancel';
 
             if (isTrashOrDelete) {
                 confirmBg = '#dc2626';
-                defaultConfirmText = titleLower.includes('trash') ? 'MOVE TO TRASH' : 'DELETE';
-                defaultCancelText = 'CANCEL';
+                badgeBg = '#fee2e2';
+                badgeColor = '#dc2626';
+                iconClass = titleLower.includes('trash') || titleLower.includes('archive') ? 'fa-solid fa-box-archive' : 'fa-solid fa-trash-can';
+                defaultConfirmText = titleLower.includes('trash') || titleLower.includes('archive') ? 'Move to Trash' : 'Delete';
             } else if (isRestore) {
                 confirmBg = '#16a34a';
-                defaultConfirmText = 'RESTORE';
-                defaultCancelText = 'CANCEL';
+                badgeBg = '#dcfce7';
+                badgeColor = '#16a34a';
+                iconClass = 'fa-solid fa-rotate-left';
+                defaultConfirmText = 'Restore';
             } else if (isSecurity) {
                 confirmBg = '#d97706';
-                defaultConfirmText = titleLower.includes('deactivat') ? 'DEACTIVATE' : (titleLower.includes('lock') ? 'LOCK' : 'PROCEED');
-                defaultCancelText = 'CANCEL';
+                badgeBg = '#fef3c7';
+                badgeColor = '#d97706';
+                iconClass = 'fa-solid fa-user-lock';
+                defaultConfirmText = titleLower.includes('deactivat') ? 'Deactivate' : 'Proceed';
             } else {
-                confirmBg = '#2563eb';
-                defaultConfirmText = 'SAVE';
-                defaultCancelText = 'CANCEL';
+                confirmBg = '#002855';
+                badgeBg = '#e0f2fe';
+                badgeColor = '#002855';
+                iconClass = 'fa-solid fa-floppy-disk';
+                defaultConfirmText = 'Save Changes';
             }
 
             if (options.confirmBg) confirmBg = options.confirmBg;
-            const confirmText = (options.confirmText || defaultConfirmText).toUpperCase();
-            const cancelText = (options.cancelText || defaultCancelText).toUpperCase();
+            const confirmText = options.confirmText || defaultConfirmText;
+            const cancelText = options.cancelText || defaultCancelText;
             const onConfirm = options.onConfirm;
 
             document.getElementById('confirmModalTitle').innerText = title;
             document.getElementById('confirmModalMessage').innerText = message;
+
+            const iconBadge = document.getElementById('confirmModalIconBadge');
+            const iconEl = document.getElementById('confirmModalIcon');
+            if (iconBadge && iconEl) {
+                iconBadge.style.background = badgeBg;
+                iconBadge.style.color = badgeColor;
+                iconEl.className = iconClass;
+            }
 
             const cancelBtn = document.getElementById('confirmModalCancelBtn');
             if (cancelBtn) cancelBtn.innerText = cancelText;
@@ -7834,7 +8925,7 @@
             actionBtn.style.background = confirmBg;
 
             const modalEl = document.getElementById('customConfirmModal');
-            const bsModal = new bootstrap.Modal(modalEl);
+            const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
 
             actionBtn.onclick = function () {
                 bsModal.hide();
@@ -7871,61 +8962,9 @@
     {% endif %}
     <script src="{% static 'js/premium_components.js' %}"></script>
 
-    <!-- Smooth Page Transitions & Consistent Button Press Feedback -->
+    <!-- Form Submit & Interactive Locking Engine -->
     <script>
         (function () {
-            const TRANSITION_DURATION = 180; // matches CSS .page-exit duration
-
-            // ── Page Exit Transition ──────────────────────────────────────
-            // Intercept internal navigation links and add a fade-out before navigating
-            function shouldTransition(anchor) {
-                // Skip if no href or javascript: void, #, mailto, tel
-                if (!anchor.href) return false;
-                const href = anchor.getAttribute('href');
-                if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return false;
-                // Skip external links
-                if (anchor.hostname && anchor.hostname !== window.location.hostname) return false;
-                // Skip if target is _blank, has download attribute, or is marked with no-transition
-                if (anchor.target === '_blank' || anchor.hasAttribute('download') || anchor.hasAttribute('data-no-transition') || anchor.classList.contains('no-transition') || anchor.classList.contains('btn-export')) return false;
-                // Skip any file export or download endpoints so the page never gets stuck in page-exit
-                if (href.includes('/export') || href.includes('/download') || href.includes('export=') || href.includes('/serve/')) return false;
-                // Skip if it's a dropdown toggle, modal trigger, or has data-bs attributes
-                if (anchor.hasAttribute('data-bs-toggle') || anchor.hasAttribute('data-bs-target')) return false;
-                // Skip if inside a dropdown menu (those are UI actions, not page navigations)
-                if (anchor.closest('.dropdown-menu')) return false;
-                return true;
-            }
-
-            let isTransitioning = false;
-
-            document.addEventListener('click', function (e) {
-                if (isTransitioning) { e.preventDefault(); return; }
-
-                const anchor = e.target.closest('a');
-                if (!anchor || !shouldTransition(anchor)) return;
-
-                // Don't intercept if modifier keys are held (new tab, etc.)
-                if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-
-                e.preventDefault();
-                isTransitioning = true;
-
-                const content = document.querySelector('.etala-content');
-                if (content) {
-                    content.classList.add('page-exit');
-                    // Safety auto-recovery: restore page in case response was a download attachment
-                    setTimeout(function () {
-                        if (content) content.classList.remove('page-exit');
-                        isTransitioning = false;
-                    }, 4000);
-                    setTimeout(function () {
-                        window.location.href = anchor.href;
-                    }, TRANSITION_DURATION);
-                } else {
-                    window.location.href = anchor.href;
-                }
-            });
-
             // ── Form Submit & Interactive Locking Engine ──────────────────
             document.addEventListener('submit', function (e) {
                 const form = e.target;
@@ -8046,11 +9085,111 @@
             });
         })();
 
+        // ── Archival Backlog Cutoff (1995) & Strict PDF Upload Enforcer ────
+        (function () {
+            const MIN_ARCHIVAL_YEAR = 1995;
+
+            // 1. Year and Date validation (< 1995 rejected with Toast)
+            function checkYearValidity(el) {
+                if (!el || !el.value) return true;
+                const val = String(el.value).trim();
+                let yearNum = null;
+
+                if (/^\d{4}$/.test(val)) {
+                    yearNum = parseInt(val, 10);
+                } else if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+                    yearNum = parseInt(val.substring(0, 4), 10);
+                }
+
+                if (yearNum !== null && yearNum < MIN_ARCHIVAL_YEAR) {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('error', '1995 Minimum Backlog Year', 'Invalid Year: Records prior to ' + MIN_ARCHIVAL_YEAR + ' cannot be accepted. The minimum archival backlog year for eTala is ' + MIN_ARCHIVAL_YEAR + '.');
+                    } else {
+                        alert('Invalid Year: Records prior to ' + MIN_ARCHIVAL_YEAR + ' cannot be accepted. The minimum archival backlog year for eTala is ' + MIN_ARCHIVAL_YEAR + '.');
+                    }
+                    el.value = '';
+                    el.focus();
+                    return false;
+                }
+                return true;
+            }
+
+            document.addEventListener('change', function (e) {
+                const target = e.target;
+                if (!target) return;
+
+                // Check Year / Date inputs
+                const isYearOrDate = target.matches('input[name="year"], input[name*="date"], input[type="date"], input[type="number"][name*="year"], [id*="year"], [id*="date"]');
+                if (isYearOrDate) {
+                    checkYearValidity(target);
+                }
+
+                // Check File Uploads (Support PDF documents, images/photos, and docs up to 50MB)
+                const isBackupFileInput = target.matches('input[name="backup_file"], [id*="backupFile"]');
+                if (target.matches('input[type="file"]') && !isBackupFileInput) {
+                    const files = target.files;
+                    if (files && files.length > 0) {
+                        let hasInvalid = false;
+                        const allowedExtRegex = /\.(pdf|jpg|jpeg|png|webp|gif|bmp|doc|docx)$/i;
+                        for (let i = 0; i < files.length; i++) {
+                            const f = files[i];
+                            const nameLower = f.name.toLowerCase();
+                            const isAllowed = allowedExtRegex.test(nameLower) || (f.type && (f.type.startsWith('image/') || f.type === 'application/pdf'));
+                            if (!isAllowed) {
+                                hasInvalid = true;
+                                break;
+                            }
+                        }
+                        if (hasInvalid) {
+                            if (typeof window.showToast === 'function') {
+                                window.showToast('error', 'Unsupported File Format', 'Invalid File: Please upload PDF documents, photos/pictures (JPG, PNG, WEBP), or DOC/DOCX files.');
+                            } else {
+                                alert('Invalid File: Please upload PDF documents, photos/pictures (JPG, PNG, WEBP), or DOC/DOCX files.');
+                            }
+                            target.value = '';
+                        }
+                    }
+                }
+            });
+
+            // Auto-enforce min="1995" on year/date elements and support modern file formats
+            function enforceAttributes() {
+                const todayStr = new Date().toISOString().split('T')[0];
+                document.querySelectorAll('input[name="year"], input[type="number"][name*="year"]').forEach(function (inp) {
+                    inp.setAttribute('min', '1995');
+                });
+                document.querySelectorAll('input[type="date"], input[name*="date"]').forEach(function (inp) {
+                    if (inp.name && (inp.name.includes('expiry') || (inp.id && inp.id.toLowerCase().includes('expiry')))) {
+                        inp.setAttribute('min', todayStr);
+                    } else {
+                        if (!inp.hasAttribute('min')) {
+                            inp.setAttribute('min', '1995-01-01');
+                        }
+                        if (inp.name && (inp.name.includes('issued') || inp.name.includes('completed') || inp.name.includes('inspection') || inp.name.includes('incident') || inp.name.includes('approved') || inp.name.includes('received') || inp.name.includes('birth') || inp.name.includes('filing'))) {
+                            inp.setAttribute('max', todayStr);
+                        }
+                    }
+                });
+                document.querySelectorAll('input[type="file"]:not([name="backup_file"]):not([id*="backupFile"])').forEach(function (inp) {
+                    if (!inp.hasAttribute('accept')) {
+                        inp.setAttribute('accept', '.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp,.doc,.docx');
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', enforceAttributes);
+            } else {
+                enforceAttributes();
+            }
+        })();
+
         // ── Global Smart Back Navigation ──────────────────────────────
         window.handleSmartGlobalBack = function (btn) {
             const fallbackUrl = (btn && btn.dataset && btn.dataset.fallbackUrl) ? btn.dataset.fallbackUrl : "{% url 'dashboard' %}";
             const ref = document.referrer;
             const currentPath = window.location.pathname;
+            const currentFullUrl = window.location.href;
             const currentHost = window.location.host;
 
             // Visual active feedback animation
@@ -8066,29 +9205,28 @@
             }
 
             // 1. Wizard Steps (Step 1, Step 2, Step 3) -> STRICT STEP BACKWARD NAVIGATION
-            if (currentPath.includes('/records/new') || currentPath.includes('/records/create') || currentPath.includes('/step') || currentPath.includes('/form/')) {
-                if (fallbackUrl && fallbackUrl !== currentPath) {
+            if (currentPath.includes('/records/new') || currentPath.includes('/records/create')) {
+                if (fallbackUrl && fallbackUrl !== currentPath && fallbackUrl !== currentFullUrl) {
                     window.location.href = fallbackUrl;
                     return;
                 }
             }
 
             // 2. Edit Page & Requirement Detail -> ALWAYS GO TO RECORD DETAIL
-            if (currentPath.includes('/edit/') || currentPath.includes('/requirements/')) {
+            if (currentPath.includes('/edit/') || currentPath.includes('/requirement/')) {
                 if (fallbackUrl && fallbackUrl !== currentPath) {
                     window.location.href = fallbackUrl;
                     return;
                 }
             }
 
-            // 3. Record Detail Page (/records/<id>/) -> AVOID LOOPING BACK TO EDIT OR WIZARD
+            // 3. Record Detail Page (/records/<id>/)
             const isDetailPage = /^\/records\/\d+\/?$/.test(currentPath);
             if (isDetailPage) {
-                const safeSavedList = sessionStorage.getItem('etala_last_list_url');
-                // If we came from creating a new record or editing an existing one, return to parent list
-                const isFormSubmitOrigin = !ref || ref.includes('/new') || ref.includes('/edit') || ref.includes('/form') || ref.includes('/step') || ref.includes('/create');
-                if (isFormSubmitOrigin) {
-                    window.location.href = safeSavedList || fallbackUrl;
+                // If user came from a form POST/save/delete action, do not re-POST or loop back to form
+                const isFormOrigin = ref && (ref.includes('/new') || ref.includes('/edit') || ref.includes('/form') || ref.includes('/step') || ref.includes('/create') || ref.includes('/delete'));
+                if (isFormOrigin) {
+                    window.location.href = fallbackUrl;
                     return;
                 }
             }
@@ -8096,23 +9234,24 @@
             // 4. If referrer is internal to the application and safe
             if (ref && ref.includes(currentHost)) {
                 try {
-                    const refPath = new URL(ref).pathname;
+                    const refUrlObj = new URL(ref);
+                    const refPath = refUrlObj.pathname;
+                    const refFull = refUrlObj.href;
 
-                    // Avoid self-referencing loop (e.g. page refreshed or form POSTed to self)
-                    if (refPath === currentPath) {
+                    // Avoid staying stuck on exact same URL (e.g. user refreshed the page)
+                    if (refFull === currentFullUrl) {
                         window.location.href = fallbackUrl;
                         return;
                     }
 
-                    // Avoid looping back into auth/action screens
-                    const isTrapOrigin = refPath.includes('/login') || refPath.includes('/register') || refPath.includes('/delete') || refPath.includes('/bulk');
+                    // Avoid looping back into auth/destructive action screens
+                    const isTrapOrigin = refPath.includes('/login') || refPath.includes('/register') || refPath.includes('/delete') || refPath.includes('/verify-otp') || refPath.includes('/reset-password');
                     if (isTrapOrigin) {
-                        const safeSavedList = sessionStorage.getItem('etala_last_list_url');
-                        window.location.href = safeSavedList || fallbackUrl;
+                        window.location.href = fallbackUrl;
                         return;
                     }
 
-                    // Smooth native browser back navigation
+                    // Smooth native browser back navigation preserving state/filters/scroll
                     if (window.history.length > 1) {
                         window.history.back();
                         return;
@@ -8123,10 +9262,8 @@
             }
 
             // 5. Fallback for direct URL, new tabs, or external origins
-            const safeSavedList = sessionStorage.getItem('etala_last_list_url');
-            window.location.href = fallbackUrl || safeSavedList || "{% url 'dashboard' %}";
+            window.location.href = fallbackUrl || "{% url 'dashboard' %}";
         };
-
         // ── State & Scroll Position Memory Retention ──────────────────
         (function () {
             const currentPath = window.location.pathname;
@@ -8156,11 +9293,16 @@
                 // Restore scroll position on back navigation
                 const savedScroll = sessionStorage.getItem('etala_scroll_' + currentPath);
                 if (savedScroll) {
-                    window.addEventListener('DOMContentLoaded', function () {
+                    const restoreScroll = function () {
                         setTimeout(function () {
                             window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'instant' });
                         }, 50);
-                    });
+                    };
+                    if (document.readyState === 'loading') {
+                        window.addEventListener('DOMContentLoaded', restoreScroll);
+                    } else {
+                        restoreScroll();
+                    }
                 }
             }
 
@@ -8193,6 +9335,67 @@
                 }
             });
         })();
+
+        // ── Universal Segmented Control Glider Controller ─────────────
+        window.updateSegmentedGlider = function(controlElem, immediate) {
+            if (!controlElem) return;
+            let glider = controlElem.querySelector('.scope-glider');
+            if (!glider) {
+                glider = document.createElement('span');
+                glider.className = 'scope-glider';
+                glider.setAttribute('aria-hidden', 'true');
+                controlElem.insertBefore(glider, controlElem.firstChild);
+            }
+            const activeBtn = controlElem.querySelector('.scope-pill-btn.active') || controlElem.querySelector('.scope-pill-btn');
+            if (activeBtn) {
+                const offsetLeft = activeBtn.offsetLeft;
+                const width = activeBtn.offsetWidth;
+                
+                if (immediate) {
+                    glider.style.transition = 'none';
+                } else {
+                    glider.style.transition = '';
+                }
+                
+                glider.style.width = width + 'px';
+                glider.style.transform = `translateX(${offsetLeft}px)`;
+                glider.style.opacity = '1';
+
+                if (immediate) {
+                    void glider.offsetHeight;
+                    glider.style.transition = '';
+                }
+            } else {
+                glider.style.opacity = '0';
+            }
+        };
+
+        window.initAllSegmentedGliders = function(immediate) {
+            document.querySelectorAll('.scope-segmented-control').forEach(function(ctrl) {
+                window.updateSegmentedGlider(ctrl, immediate);
+            });
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                window.initAllSegmentedGliders(true);
+            });
+        } else {
+            window.initAllSegmentedGliders(true);
+        }
+
+        window.addEventListener('resize', function() {
+            window.initAllSegmentedGliders(true);
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                window.initAllSegmentedGliders(true);
+            }
+        });
+        window.addEventListener('etala-theme-changed', function() {
+            window.initAllSegmentedGliders(true);
+        });
     </script>
 
     <!-- ══ GLOBAL SYSTEM HELP & FAQS MODAL ═════════════════════════════════════ -->
@@ -8233,9 +9436,9 @@
                                     &amp; Troubleshooting Guides</div>
                             </div>
                             <div class="etala-search-pill-wrapper" style="width: 100%; max-width: 320px;">
-                                <span class="etala-search-pill-icon">
+                                <button type="button" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" onclick="document.getElementById('faqSearchInput').focus(); filterFaqs();" title="Search FAQs">
                                     <i class="fa-solid fa-magnifying-glass"></i>
-                                </span>
+                                </button>
                                 <input type="text" id="faqSearchInput" onkeyup="filterFaqs()"
                                     class="etala-search-pill-input search-text-input" placeholder="Search FAQ topics...">
                             </div>
@@ -8292,7 +9495,7 @@
                                 <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
                                     style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
                                     Open any engineering record, navigate to the 'Document Checklist' tab, and click
-                                    'Upload Document'. You can drag & drop PDF files or scanned blueprints up to 25MB
+                                    'Upload Document'. You can drag & drop PDF files or scanned blueprints up to 50MB
                                     per document. Authorized staff can also waive optional checklist requirements when
                                     allowed.
                                 </div>
@@ -8320,7 +9523,7 @@
                                     style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
                                     A special violation flag raised for structures built or started without securing a
                                     prior Building Permit (P.D. 1096 Sec. 301). To resolve it, click 'Flag Illegal
-                                    Structure', select the compliance status (e.g. Regularized / Permit Issued), and
+                                    Structure', select the compliance status (e.g. Complied / Permit Issued), and
                                     attach legal compliance files.
                                 </div>
                             </div>
@@ -8549,22 +9752,30 @@
             // Close any open popovers
             document.querySelectorAll('.notif-custom-popover-menu.show-popover').forEach(p => {
                 p.classList.remove('show-popover');
-                p.classList.remove('popover-open-up');
+                p.classList.remove('popover-align-top');
+                p.classList.remove('popover-align-bottom');
             });
             document.querySelectorAll('.notif-item-action-btn.active').forEach(b => b.classList.remove('active'));
 
             if (!isOpen) {
+                const item = targetBtn.closest('.notification-item');
                 const container = document.getElementById('notificationListContainer');
-                if (container) {
-                    const btnRect = targetBtn.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-                    // If near bottom of list container and has room above, flip upward
-                    if ((containerRect.bottom - btnRect.bottom < 85) && (btnRect.top - containerRect.top > 75)) {
-                        popover.classList.add('popover-open-up');
-                    } else {
-                        popover.classList.remove('popover-open-up');
+
+                // Intelligent position adaptation
+                if (item && container) {
+                    const allItems = Array.from(container.querySelectorAll('.notification-item:not([style*="display: none"])'));
+                    const itemIndex = allItems.indexOf(item);
+                    const totalItems = allItems.length;
+
+                    if (itemIndex === 0) {
+                        // Unang item (pinakataas): simulan sa itaas ng row pababa
+                        popover.classList.add('popover-align-top');
+                    } else if (itemIndex === totalItems - 1 && totalItems > 1) {
+                        // Huling item (pinakababa): simulan sa ibaba ng row pataas
+                        popover.classList.add('popover-align-bottom');
                     }
                 }
+
                 popover.classList.add('show-popover');
                 targetBtn.classList.add('active');
             }
@@ -9013,12 +10224,12 @@
             // 3. Global Network Connection Status Toasts
             window.addEventListener('offline', function () {
                 if (window.showToast) {
-                    window.showToast('warning', 'Internet Disconnected', 'You appear to be offline. Some features may be unavailable.');
+                    window.showToast('warning', '', 'Internet connection lost');
                 }
             });
             window.addEventListener('online', function () {
                 if (window.showToast) {
-                    window.showToast('success', 'Back Online', 'Internet connection restored.');
+                    window.showToast('success', '', 'Internet connection restored');
                 }
             });
 
@@ -9115,9 +10326,12 @@
                 if (!el._flatpickr) {
                     const customPlaceholder = el.getAttribute('placeholder') || 'Select date (e.g. Oct 24, 2026)';
                     const maxAttr = el.getAttribute('max') || el.getAttribute('data-max-date');
+                    const now = new Date();
+                    const currentTodayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                    
                     let maxDateVal = null;
                     if (maxAttr === 'today' || maxAttr === 'now') {
-                        maxDateVal = new Date();
+                        maxDateVal = currentTodayIso;
                     } else if (maxAttr) {
                         maxDateVal = maxAttr;
                     }
@@ -9125,7 +10339,7 @@
                     const minAttr = el.getAttribute('min') || el.getAttribute('data-min-date');
                     let minDateVal = null;
                     if (minAttr === 'today' || minAttr === 'now') {
-                        minDateVal = new Date();
+                        minDateVal = currentTodayIso;
                     } else if (minAttr) {
                         minDateVal = minAttr;
                     }
@@ -9144,6 +10358,10 @@
                         nextArrow: '<i class="fa-solid fa-chevron-right" style="font-size: 11px;"></i>',
                         onChange: function(selectedDates, dateStr, instance) {
                             checkDateBounds(instance);
+                            if (instance.input) {
+                                instance.input.dispatchEvent(new Event('change', { bubbles: true }));
+                                instance.input.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
                         },
                         onOpen: function(selectedDates, dateStr, instance) {
                             requestAnimationFrame(() => {
@@ -9189,18 +10407,68 @@
                                         <i class="fa-solid fa-calendar-day me-1" style="font-size: 10px;"></i> Today
                                     </button>
                                 `;
-                                footer.querySelector('.btn-clear').addEventListener('click', function(ev) {
-                                    ev.preventDefault();
+
+                                // Stop mousedown propagation so calendar does not dismiss before click event fires
+                                footer.addEventListener('mousedown', function(ev) {
+                                    ev.stopPropagation();
+                                });
+                                footer.addEventListener('pointerdown', function(ev) {
+                                    ev.stopPropagation();
+                                });
+
+                                const clearBtn = footer.querySelector('.btn-clear');
+                                const todayBtn = footer.querySelector('.btn-today');
+
+                                function handleClearAction(ev) {
+                                    if (ev) {
+                                        ev.preventDefault();
+                                        ev.stopPropagation();
+                                    }
                                     instance.clear();
+                                    if (instance.input) {
+                                        instance.input.value = '';
+                                        instance.input.dispatchEvent(new Event('change', { bubbles: true }));
+                                        instance.input.dispatchEvent(new Event('input', { bubbles: true }));
+                                    }
+                                    if (instance.altInput) {
+                                        instance.altInput.value = '';
+                                        instance.altInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                        instance.altInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                    }
                                     instance.close();
                                     checkDateBounds(instance);
-                                });
-                                footer.querySelector('.btn-today').addEventListener('click', function(ev) {
-                                    ev.preventDefault();
-                                    instance.setDate(new Date(), true);
+                                }
+
+                                function handleTodayAction(ev) {
+                                    if (ev) {
+                                        ev.preventDefault();
+                                        ev.stopPropagation();
+                                    }
+                                    const tDate = new Date();
+                                    const todayIso = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}-${String(tDate.getDate()).padStart(2, '0')}`;
+                                    
+                                    instance.setDate(todayIso, true, 'Y-m-d');
+                                    
+                                    if (instance.input) {
+                                        instance.input.value = todayIso;
+                                        instance.input.dispatchEvent(new Event('change', { bubbles: true }));
+                                        instance.input.dispatchEvent(new Event('input', { bubbles: true }));
+                                    }
+                                    if (instance.altInput) {
+                                        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                        instance.altInput.value = `${monthNames[tDate.getMonth()]} ${tDate.getDate()}, ${tDate.getFullYear()}`;
+                                        instance.altInput.classList.remove('is-invalid');
+                                        instance.altInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                        instance.altInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                    }
+                                    
                                     instance.close();
                                     checkDateBounds(instance);
-                                });
+                                }
+
+                                clearBtn.addEventListener('click', handleClearAction);
+                                todayBtn.addEventListener('click', handleTodayAction);
+
                                 instance.calendarContainer.appendChild(footer);
                             }
                         }
@@ -9472,6 +10740,59 @@
         <i class="fa-solid fa-circle-check" style="font-size: 14px;"></i>
         <span>Internet connection restored! You are back online.</span>
     </div>
+
+    <!-- Global Spotlight Quick Search Modal -->
+    {% if request.user.is_authenticated %}
+    {% include 'permits/includes/_spotlight_search_modal.html' %}
+    {% endif %}
+
+    <!-- ══ GLOBAL UNIFIED SEARCHBAR ENHANCEMENTS ══ -->
+    <script>
+        (function() {
+            // Global helper to manage all search pill inputs, clear buttons, and Escape key resets
+            document.addEventListener('input', function(e) {
+                if (e.target.matches('.etala-search-pill-input')) {
+                    const wrapper = e.target.closest('.etala-search-pill-wrapper');
+                    if (wrapper) {
+                        const clearBtn = wrapper.querySelector('.clear-search-icon, .btn-clear, [id*="Clear"]');
+                        if (clearBtn) {
+                            if (e.target.value.trim().length > 0) {
+                                clearBtn.classList.remove('d-none');
+                            } else {
+                                clearBtn.classList.add('d-none');
+                            }
+                        }
+                    }
+                }
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && e.target.matches('.etala-search-pill-input')) {
+                    if (e.target.value.length > 0) {
+                        e.target.value = '';
+                        e.target.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                const clearIcon = e.target.closest('.clear-search-icon');
+                if (clearIcon) {
+                    const wrapper = clearIcon.closest('.etala-search-pill-wrapper');
+                    if (wrapper) {
+                        const input = wrapper.querySelector('.etala-search-pill-input');
+                        if (input && input.value.trim().length > 0) {
+                            e.preventDefault();
+                            input.value = '';
+                            clearIcon.classList.add('d-none');
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            input.focus();
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
 
     {% block extra_js %}{% endblock %}
 </body>

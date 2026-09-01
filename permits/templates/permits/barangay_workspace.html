@@ -183,26 +183,23 @@
     <div>
         <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
             <span class="tag tag-workspace">Barangay Workspace</span>
-            <span class="tag tag-id">ID: #{{ barangay.barangay_id }}</span>
         </div>
         <h1 class="etala-page-title" style="word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
             Brgy. {{ barangay.barangay_name }}
         </h1>
         <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
-            <span class="brgy-stat-pill brgy-stat-pill-project" title="{{ total_projects }} Municipal Projects">
+            <span class="brgy-stat-pill brgy-stat-pill-project" title="{{ total_projects }} Municipal Project{{ total_projects|pluralize }}">
                 <i class="fa-solid fa-folder-tree" style="font-size: 11px;"></i>
                 <span>{{ total_projects }} Project{{ total_projects|pluralize }}</span>
             </span>
-            <span class="brgy-stat-pill brgy-stat-pill-permit" title="{{ total_permits }} Building Permits">
+            <span class="brgy-stat-pill brgy-stat-pill-permit" title="{{ total_permits }} Building Permit{{ total_permits|pluralize }}">
                 <i class="fa-solid fa-file-contract" style="font-size: 11px;"></i>
                 <span>{{ total_permits }} Permit{{ total_permits|pluralize }}</span>
             </span>
-            {% if total_violations %}
-            <span class="brgy-stat-pill brgy-stat-pill-violation" title="{{ total_violations }} Active Violations">
+            <span class="brgy-stat-pill {% if total_violations > 0 %}brgy-stat-pill-violation{% else %}brgy-stat-pill-doc{% endif %}" title="{{ total_violations }} Active Violation{{ total_violations|pluralize }}">
                 <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
                 <span>{{ total_violations }} Violation{{ total_violations|pluralize }}</span>
             </span>
-            {% endif %}
         </div>
     </div>
     <div class="etala-header-actions">
@@ -264,22 +261,22 @@
     </div>
 
     <!-- Clean unified compact search wrapper (Integrated Pill Design) -->
-    <form method="GET" class="d-flex align-items-center mb-0 ms-auto" style="flex: 0 0 240px; width: 240px; max-width: 240px;">
+    <form method="GET" class="d-flex align-items-center mb-0 ms-auto" style="flex: 0 0 250px; width: 250px; max-width: 250px;">
         <input type="hidden" name="tab" value="{{ current_tab|default:'all' }}">
-        <div class="etala-search-pill-wrapper w-100" style="height: 34px; padding: 0 10px; gap: 6px;">
-            <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search">
-                <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
+        <div class="etala-search-pill-wrapper">
+            <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search">
+                <i class="fa-solid fa-magnifying-glass"></i>
             </button>
             <input type="text" name="q" value="{{ q|default:'' }}" class="etala-search-pill-input search-text-input"
-                   placeholder="Search workspace..." style="font-size: 0.78rem;">
+                   placeholder="Search workspace...">
 
             <div id="wsSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                style="width: 12px; height: 12px; margin-right: 4px; flex-shrink: 0;">
+                style="width: 12px; height: 12px; border-width: 2px;">
                 <span class="visually-hidden">Searching...</span>
             </div>
 
-            <a href="?tab={{ current_tab|default:'all' }}" id="wsClearSearchBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background: transparent;" title="Clear search">
-                <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
+            <a href="?tab={{ current_tab|default:'all' }}" id="wsClearSearchBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not q %}d-none{% endif %}" title="Clear search">
+                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
             </a>
         </div>
     </form>
@@ -297,17 +294,20 @@
                     <table class="data-table" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="width: 37%; min-width: 230px;">Title</th>
-                                <th style="width: 22%; min-width: 140px;">Type</th>
-                                <th style="width: 8%; min-width: 72px;">Year</th>
-                                <th style="width: 15%; min-width: 110px;">Status</th>
-                                <th style="width: 12%; min-width: 80px;">Uploads</th>
+                                <th class="text-center cell-row-num" style="width: 48px; min-width: 48px;">#</th>
+                                <th style="width: 44%; min-width: 230px;">Title</th>
+                                <th style="width: 26%; min-width: 140px;">Type</th>
+                                <th style="width: 10%; min-width: 72px;">Year</th>
+                                <th style="width: 10%; min-width: 80px;">Uploads</th>
                                 <th class="text-end" style="width: 6%; min-width: 44px; padding-right: 14px;"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for r in page_obj %}
                             <tr data-href="{% url 'record_detail' r.record_id %}" style="cursor: pointer;">
+                                <td class="text-center cell-muted cell-row-num" style="font-weight: 600; font-size: 0.82rem;">
+                                    {% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}
+                                </td>
                                 <td>
                                     <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
                                         <span>
@@ -329,7 +329,7 @@
                                             {% if r.permit_detail and r.permit_detail.permit_number %}
                                             <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ r.permit_detail.permit_number }}</strong></div>
                                             {% else %}
-                                            <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Regularized Record</div>
+                                            <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Complied Record</div>
                                             {% endif %}
                                         {% elif r.is_illegal_construction %}
                                             {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
@@ -358,9 +358,6 @@
                                     {% endif %}
                                 </td>
                                 <td class="cell-muted cell-year">{{ r.year|default:"—" }}</td>
-                                <td class="cell-status">
-                                    <span class="status-text-standard">{{ r.status_label }}</span>
-                                </td>
                                 <td>
                                     {% with stats=r.completion_stats %}
                                     {% if stats.total > 0 %}
@@ -441,7 +438,7 @@
                                         {{ r.title }}
                                     {% endif %}
                                 </div>
-                                <div class="mobile-record-meta">{{ r.year|default:"—" }} · {{ r.status_label }}</div>
+                                <div class="mobile-record-meta">{{ r.year|default:"—" }} · {{ r.specific_type_label }}</div>
                             </div>
                             <i data-lucide="chevron-right" class="flex-shrink-0" style="width:14px;height:14px;color:var(--gray-300);"></i>
                         </a>
@@ -480,7 +477,7 @@
                         {% endif %}
 
                         {% if page_obj.has_other_pages %}
-                        <nav>
+                        <nav aria-label="Barangay Pagination">
                             <ul class="pagination pagination-sm mb-0 gap-1">
                                 {% if page_obj.has_previous %}
                                 <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">‹ Prev</a></li>
@@ -488,13 +485,29 @@
                                 <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                                 {% endif %}
 
+                                {% if page_obj.number > 2 %}
+                                <li class="page-item"><a class="page-link" href="?page=1&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">1</a></li>
+                                {% if page_obj.number > 3 %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                                {% endif %}
+                                {% endif %}
+
                                 {% for p in page_obj.paginator.page_range %}
-                                {% if page_obj.number == p %}
-                                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                                {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                                <li class="page-item"><a class="page-link" href="?page={{ p }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">{{ p }}</a></li>
+                                {% if p >= page_obj.number|add:-1 and p <= page_obj.number|add:1 %}
+                                    {% if page_obj.number == p %}
+                                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                    {% else %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ p }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">{{ p }}</a></li>
+                                    {% endif %}
                                 {% endif %}
                                 {% endfor %}
+
+                                {% if page_obj.number < page_obj.paginator.num_pages|add:-1 %}
+                                    {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
+                                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                                    {% endif %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">{{ page_obj.paginator.num_pages }}</a></li>
+                                {% endif %}
 
                                 {% if page_obj.has_next %}
                                 <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&tab={{ current_tab|default:'all' }}&q={{ q }}&per_page={{ per_page }}">Next ›</a></li>
@@ -624,12 +637,23 @@ document.addEventListener('DOMContentLoaded', function () {
         wsSearchInput.addEventListener('input', function () {
             clearTimeout(wsSearchTimer);
             if (wsSearchSpinner) wsSearchSpinner.classList.remove('d-none');
-            if (wsClearBtn) wsClearBtn.classList.add('d-none');
+            if (wsClearBtn) {
+                if (wsSearchInput.value.trim().length > 0) wsClearBtn.classList.remove('d-none');
+                else wsClearBtn.classList.add('d-none');
+            }
             wsSearchTimer = setTimeout(() => {
                 const formData = new FormData(wsSearchInput.form);
                 const params = new URLSearchParams(formData);
                 updateWorkspaceTableAJAX(window.location.pathname + '?' + params.toString());
-            }, 450);
+            }, 350);
+        });
+
+        wsSearchInput.form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearTimeout(wsSearchTimer);
+            const formData = new FormData(wsSearchInput.form);
+            const params = new URLSearchParams(formData);
+            updateWorkspaceTableAJAX(window.location.pathname + '?' + params.toString());
         });
     }
 

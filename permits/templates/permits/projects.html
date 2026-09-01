@@ -30,15 +30,18 @@
             <!-- Search bar -->
             <div class="col-12 col-md-5">
                 <label for="searchQuery" class="form-label small fw-semibold text-muted mb-1">Search Keywords</label>
-                <div class="etala-search-pill-wrapper" style="height: 38px;">
-                    <span class="etala-search-pill-icon">
+                <div class="etala-search-pill-wrapper">
+                    <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search projects">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                    </span>
+                    </button>
                     <input type="text" name="q" id="searchQuery" class="etala-search-pill-input search-text-input" placeholder="Search project name or details..." value="{{ q }}">
                     <div id="projectSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                        style="width: 14px; height: 14px; border-width: 2px;">
+                        style="width: 12px; height: 12px; border-width: 2px;">
                         <span class="visually-hidden">Searching...</span>
                     </div>
+                    <a href="{% url 'projects' %}" id="projectClearBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not q %}d-none{% endif %}" title="Clear search">
+                        <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                    </a>
                 </div>
             </div>
 
@@ -212,11 +215,37 @@ document.addEventListener('DOMContentLoaded', function () {
         projectSearchInput.addEventListener('input', function () {
             clearTimeout(projectSearchTimer);
             if (projectSearchSpinner) projectSearchSpinner.classList.remove('d-none');
+            const clearBtn = document.getElementById('projectClearBtn');
+            if (clearBtn) {
+                if (projectSearchInput.value.trim().length > 0) clearBtn.classList.remove('d-none');
+                else clearBtn.classList.add('d-none');
+            }
             projectSearchTimer = setTimeout(() => {
                 const formData = new FormData(projectSearchInput.form);
                 const params = new URLSearchParams(formData);
                 updateProjectsAJAX(window.location.pathname + '?' + params.toString());
-            }, 450);
+            }, 350);
+        });
+
+        projectSearchInput.form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearTimeout(projectSearchTimer);
+            const formData = new FormData(projectSearchInput.form);
+            const params = new URLSearchParams(formData);
+            updateProjectsAJAX(window.location.pathname + '?' + params.toString());
+        });
+    }
+
+    const clearBtn = document.getElementById('projectClearBtn');
+    if (clearBtn && projectSearchInput) {
+        clearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            projectSearchInput.value = '';
+            clearBtn.classList.add('d-none');
+            const formData = new FormData(projectSearchInput.form);
+            const params = new URLSearchParams(formData);
+            updateProjectsAJAX(window.location.pathname + '?' + params.toString());
+            projectSearchInput.focus();
         });
     }
 });

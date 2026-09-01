@@ -2,7 +2,7 @@
 {% load static permit_filters %}
 {% load humanize %}
 
-{% block title %}Edit: {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% else %}{{ record.title }}{% endif %} | eTala{% endblock %}
+{% block title %}Edit Record Information | eTala{% endblock %}
 
 {% block back_fallback_url %}{% url 'record_detail' record.record_id %}{% endblock %}
 
@@ -31,7 +31,7 @@
             <div class="d-flex align-items-center gap-2 mb-1">
                 {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
                 <span class="tag tag-workspace" style="background: #dcfce7; color: #15803d; border-color: #86efac;">
-                    <i class="fa-solid fa-certificate me-1"></i> Regularized Permit Record
+                    <i class="fa-solid fa-certificate me-1"></i> Complied Permit Record
                 </span>
                 {% elif record.is_illegal_construction %}
                 <span class="tag tag-workspace" style="background: #fee2e2; color: #b91c1c; border-color: #fca5a5;">
@@ -60,17 +60,22 @@
     <div class="row g-4 align-items-start min-w-0">
         <!-- LEFT COLUMN: Form Fields -->
         <div class="col-lg-8 d-flex flex-column min-w-0">
-            <div class="content-card flex-grow-1 d-flex flex-column" style="border-radius: 16px;">
-                <div class="content-card-body d-flex flex-column justify-content-between flex-grow-1" style="padding: 24px 28px !important;">
-                    <div>
-                        <div class="mb-4 border-bottom pb-3.5 d-flex align-items-center justify-content-between">
-                            <h6 class="fw-bold mb-0 text-uppercase d-flex align-items-center gap-2"
-                                style="font-size:0.74rem; letter-spacing:1px; color: var(--primary-brand, #002855);">
-                                <i class="fa-solid fa-circle-info" style="font-size: 13px; vertical-align: -1px;"></i>
-                                <span>Record Information</span>
-                            </h6>
+            <div class="content-card flex-grow-1 d-flex flex-column" style="border-radius: 16px; overflow: hidden; padding: 0 !important;">
+                <!-- Standardized Card Header matching Sidebar -->
+                <div class="card-header border-bottom d-flex align-items-center justify-content-start flex-nowrap" style="padding: 14px 22px !important; min-height: 56px !important; justify-content: flex-start !important;">
+                    <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap" style="margin-left: 0 !important;">
+                        <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                            style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(37, 99, 235, 0.12); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2);">
+                            <i class="fa-solid fa-pen-to-square" style="font-size: 15px;"></i>
                         </div>
+                        <div class="min-w-0 flex-grow-1">
+                            <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em;">Record Information</h5>
+                        </div>
+                    </div>
+                </div>
 
+                <div class="content-card-body d-flex flex-column justify-content-between flex-grow-1" style="padding: 24px 24px !important;">
+                    <div>
                         <div class="row g-3.5">
 
                             <!-- ── 1. ILLEGAL CONSTRUCTION FIELDS ───────── -->
@@ -78,7 +83,7 @@
                             <!-- Row 1: Structure Name & Barangay -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Structure Name <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Structure Name</label>
                                 </div>
                                 <input type="text" name="title" class="form-control rounded-3" value="{{ record.title }}" maxlength="80" required
                                     placeholder="e.g. Commercial Building" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -86,7 +91,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay</label>
                                 </div>
                                 <select name="barangay" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -97,49 +102,23 @@
                                 </select>
                             </div>
 
-                            <!-- Row 2: Property Owner & Compliance Status -->
+                            <input type="hidden" name="illegal_compliance_status" id="complianceStatusHidden" value="{{ record.illegal_compliance_status|default:'unresolved' }}">
+
+                            <!-- Row 2: Property Owner & Building Type -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Property Owner <span class="text-muted fw-normal">(Optional)</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Property Owner</label>
                                 </div>
                                 <input type="text" name="applicant_name" class="form-control rounded-3"
                                     value="{% if permit_detail.applicant_name and permit_detail.applicant_name != 'Under Investigation' %}{{ permit_detail.applicant_name }}{% endif %}"
-                                    placeholder="e.g. Juan Dela Cruz" maxlength="60"
+                                    placeholder="e.g. Juan Dela Cruz" maxlength="60" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Compliance Status <span class="text-danger fw-bold">*</span></label>
-                                </div>
-                                <select name="illegal_compliance_status" id="complianceStatusSelect" class="form-select rounded-3" required
-                                    onchange="toggleViolationPermitFields(this.value)"
-                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="unresolved" {% if record.illegal_compliance_status == 'unresolved' %}selected{% endif %}>Unresolved</option>
-                                    <option value="pending_permit" {% if record.illegal_compliance_status == 'pending_permit' %}selected{% endif %}>Permit Filed</option>
-                                    <option value="resolved" {% if record.illegal_compliance_status == 'resolved' %}selected{% endif %}>Regularized</option>
-                                </select>
-                            </div>
-
-                            <!-- Row 3: Permit Type & Building Type -->
-                            <div class="col-md-6" id="violationPermitTypeWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type <span class="text-danger fw-bold">*</span></label>
-                                </div>
-                                <select name="permit_type" id="violationPermitTypeSelect" class="form-select rounded-3"
-                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
-                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="" disabled>— Select Permit Type —</option>
-                                    {% for val, label in permit_types %}
-                                    <option value="{{ val }}" {% if permit_detail and permit_detail.permit_type == val or not permit_detail.permit_type and val == 'Building Permit' %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
                             </div>
 
                             <div class="col-md-6" id="violationBuildingTypeWrapper">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
-                                        Building Type <span id="violationBldgTypeReq" class="{% if record.illegal_compliance_status == 'resolved' %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if record.illegal_compliance_status == 'resolved' %}*{% else %}(Optional){% endif %}</span>
+                                        Building Type
                                     </label>
                                 </div>
                                 <select name="building_type" id="violationBuildingTypeSelect" class="form-select rounded-3"
@@ -152,20 +131,40 @@
                                 </select>
                             </div>
 
-                            <!-- Row 4: Permit Number & Date Issued (When Regularized) -->
+                            <!-- Row 3: Permit Type & Permit Number (When Resolved) -->
+                            <div class="col-md-6" id="violationPermitTypeWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type</label>
+                                </div>
+                                <select name="permit_type" id="violationPermitTypeSelect" class="form-select rounded-3"
+                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    <option value="" disabled>— Select Permit Type —</option>
+                                    {% for val, label in permit_types %}
+                                    <option value="{{ val }}" {% if permit_detail and permit_detail.permit_type == val or not permit_detail.permit_type and val == 'Building Permit' %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Row 4: Permit Number & Date Issued (When Resolved) -->
                             <div class="col-md-6" id="violationPermitNumWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number</label>
+                                    <button type="button" class="btn btn-link p-0 text-decoration-none fw-semibold suggest-no-btn"
+                                        onclick="suggestPermitNumber()"
+                                        style="font-size: 0.72rem; color: #2563eb;">
+                                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Suggest No.
+                                    </button>
                                 </div>
                                 <input type="text" name="permit_number" id="violationPermitNumInput" class="form-control rounded-3"
-                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
+                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. 2026-08-001" maxlength="30"
                                     {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6" id="violationDateIssuedWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued</label>
                                 </div>
                                 <input type="date" name="date_issued" id="violationDateIssuedInput" class="form-control rounded-3"
                                     placeholder="Select date issued..."
@@ -176,10 +175,11 @@
                                 <div class="invalid-feedback">Date Issued cannot be in the future.</div>
                             </div>
 
-                            <!-- Row 5: Date Inspected & Remarks / Notes -->
+                            <!-- Row 5: Date Inspected (Only when Unresolved) & Remarks / Notes -->
+                            {% if record.illegal_compliance_status != 'resolved' %}
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Inspected <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Inspected</label>
                                 </div>
                                 <input type="date" name="date_started" class="form-control rounded-3" required
                                     placeholder="Select date inspected..."
@@ -188,6 +188,9 @@
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                 <div class="invalid-feedback">Date Inspected cannot be in the future.</div>
                             </div>
+                            {% else %}
+                            <input type="hidden" name="date_started" value="{{ record.date_started|date:'Y-m-d'|default:'' }}">
+                            {% endif %}
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
@@ -195,7 +198,7 @@
                                     <span class="text-muted small char-counter-lbl" style="font-size: 0.72rem;">0 / 250</span>
                                 </div>
                                 <input type="text" name="description" class="form-control rounded-3 char-counted" maxlength="250"
-                                    placeholder="Enter violation notes or observations..."
+                                    placeholder="Enter notes or observations..."
                                     value="{{ record.description|default:'' }}"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
@@ -206,7 +209,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Applicant Name <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Applicant Name</label>
                                 </div>
                                 <input type="text" name="applicant_name" class="form-control rounded-3"
                                     value="{{ permit_detail.applicant_name|default:record.title }}"
@@ -216,7 +219,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay</label>
                                 </div>
                                 <select name="barangay" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -229,7 +232,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type</label>
                                 </div>
                                 <select name="permit_type" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -242,7 +245,7 @@
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Building Type <span class="text-danger fw-bold">*</span></label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Building Type</label>
                                 </div>
                                 <select name="building_type" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -256,11 +259,16 @@
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
-                                        Permit Number <span id="editPermitNumReqHint" class="{% if permit_detail and permit_detail.date_issued %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if permit_detail and permit_detail.date_issued %}*{% else %}(Optional){% endif %}</span>
+                                        Permit Number <span id="editPermitNumReqHint" class="{% if permit_detail and permit_detail.date_issued %}d-none{% else %}text-muted fw-normal{% endif %}">{% if permit_detail and permit_detail.date_issued %}{% else %}(Optional){% endif %}</span>
                                     </label>
+                                    <button type="button" id="suggestEditPermitNumBtn" class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1 text-primary fw-semibold text-nowrap ms-2"
+                                        onclick="suggestEditPermitNumber()" style="font-size: 0.74rem;" title="Insert current YYYY-MM- prefix">
+                                        <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 10px;"></i>
+                                        <span>Suggest No.</span>
+                                    </button>
                                 </div>
                                 <input type="text" name="permit_number" id="editPermitNumInput" class="form-control rounded-3"
-                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. BP-2026-001" maxlength="30"
+                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. YYYY-MM-XXXX" maxlength="30"
                                     oninput="handleEditPermitIssuanceSync()"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                 <div class="invalid-feedback">Permit Number is required when a date issued is specified.</div>
@@ -269,7 +277,7 @@
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
-                                        Date Issued <span id="editDateIssuedReqHint" class="{% if permit_detail and permit_detail.permit_number %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if permit_detail and permit_detail.permit_number %}*{% else %}(Optional){% endif %}</span>
+                                        Date Issued <span id="editDateIssuedReqHint" class="{% if permit_detail and permit_detail.permit_number %}d-none{% else %}text-muted fw-normal{% endif %}">{% if permit_detail and permit_detail.permit_number %}{% else %}(Optional){% endif %}</span>
                                     </label>
                                 </div>
                                 <input type="date" name="date_issued" id="editDateIssuedInput" class="form-control rounded-3"
@@ -279,40 +287,32 @@
                                     onchange="handleEditPermitIssuanceSync()"
                                     {% if permit_detail and permit_detail.permit_number %}required{% endif %}
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                <div class="invalid-feedback">Date Issued is required and cannot be in the future.</div>
+                                <div class="invalid-feedback">Date Issued cannot be in the future.</div>
                             </div>
 
                             <input type="hidden" name="status" value="{{ record.status|default:'active' }}">
 
                             <!-- ── 3. PROJECT FIELDS ───────────────────────────────── -->
                             {% elif record.record_type == 'Project' %}
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Name <span class="text-danger fw-bold">*</span></label>
+                            <!-- Row 1: Project Name (Full Width col-12) -->
+                            <div class="col-12">
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Name</label>
                                 </div>
-                                <input type="text" name="title" class="form-control rounded-3" value="{{ record.title }}" maxlength="80" required
+                                <input type="text" name="title" list="projectTitleSuggestions" class="form-control rounded-3" value="{{ record.title }}" maxlength="120" required
                                     placeholder="e.g. Concreting of Barangay Road"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <datalist id="projectTitleSuggestions">
+                                    {% for pt in common_project_titles %}
+                                    <option value="{{ pt }}"></option>
+                                    {% endfor %}
+                                </datalist>
                             </div>
 
+                            <!-- Row 2: Barangay * & Contractor * -->
                             <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0 text-nowrap" style="font-size:0.83rem; color: #334155;">Contractor <span class="text-danger fw-bold">*</span></label>
-                                    <button type="button" class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1 text-primary fw-semibold text-nowrap ms-2"
-                                        onclick="setEditByAdmin()" style="font-size: 0.74rem;" title="Autofill By Administration">
-                                        <i class="fa-solid fa-building-flag" style="font-size: 10px;"></i>
-                                        <span>By Admin</span>
-                                    </button>
-                                </div>
-                                <input type="text" name="contractor" id="editContractorInput" class="form-control rounded-3"
-                                    value="{{ project_detail.contractor|default:'' }}"
-                                    placeholder="e.g. ABC Construction or By Administration" required
-                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay <span class="text-danger fw-bold">*</span></label>
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay</label>
                                 </div>
                                 <select name="barangay" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -324,8 +324,29 @@
                             </div>
 
                             <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Category / Type <span class="text-danger fw-bold">*</span></label>
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px; height: 20px;">
+                                    <label class="form-label fw-semibold m-0 text-nowrap" style="font-size:0.83rem; color: #334155; line-height: 1;">Contractor</label>
+                                    <a href="javascript:void(0)" role="button" class="text-primary text-decoration-none fw-semibold d-inline-flex align-items-center gap-1 text-nowrap ms-2"
+                                        onclick="setEditByAdmin()" style="font-size: 0.74rem; line-height: 1; cursor: pointer;" title="Autofill By Administration">
+                                        <i class="fa-solid fa-building-flag" style="font-size: 10px;"></i>
+                                        <span>By Admin</span>
+                                    </a>
+                                </div>
+                                <input type="text" name="contractor" id="editContractorInput" list="contractorSuggestions" class="form-control rounded-3"
+                                    value="{{ project_detail.contractor|default:'' }}"
+                                    placeholder="e.g. ABC Construction or By Administration" required
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <datalist id="contractorSuggestions">
+                                    {% for c in common_contractors %}
+                                    <option value="{{ c }}"></option>
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+
+                            <!-- Row 3: Project Category / Type * & Funding Source * -->
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Category / Type</label>
                                 </div>
                                 <select name="project_type" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
@@ -337,17 +358,8 @@
                             </div>
 
                             <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Budget / Cost (₱) <span class="text-danger fw-bold">*</span></label>
-                                </div>
-                                <input type="number" name="project_cost" class="form-control rounded-3" required
-                                    value="{{ project_detail.project_cost|default:'' }}" placeholder="₱ 0.00" step="0.01"
-                                    min="0" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Funding Source <span class="text-danger fw-bold">*</span></label>
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Funding Source</label>
                                 </div>
                                 <select name="funding_source" id="editFundingSourceSelect" class="form-select rounded-3" required
                                     onchange="toggleEditFundingOther(this.value)"
@@ -359,39 +371,34 @@
                                 </select>
                             </div>
 
-                            <!-- Row 5: Project Status * | Date Completed (Optional) -->
+                            <!-- Row 4: Project Budget / Cost (₱) * & Date Completed (Optional) -->
                             <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Status <span class="text-danger fw-bold">*</span></label>
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Project Budget / Cost (₱)</label>
                                 </div>
-                                <select name="project_status" id="editProjectStatusSelect" class="form-select rounded-3" required
-                                    onchange="handleEditProjectStatusChange(this.value)"
-                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="" disabled {% if not project_detail or not project_detail.project_status %}selected{% endif %}>— Select Status —</option>
-                                    {% for val, label in project_statuses %}
-                                    <option value="{{ val }}" {% if project_detail and project_detail.project_status == val %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
+                                <input type="number" name="project_cost" class="form-control rounded-3" required
+                                    value="{{ project_detail.project_cost|default:'' }}" placeholder="₱ 0.00" step="0.01"
+                                    min="0" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
                             <div class="col-md-6">
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
-                                        Date Completed <span id="editDateCompletedLabelHint" class="{% if project_detail and project_detail.project_status == 'Completed' %}text-danger fw-bold{% else %}text-muted fw-normal{% endif %}">{% if project_detail and project_detail.project_status == 'Completed' %}*{% else %}(Disabled){% endif %}</span>
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px; height: 20px;">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155; line-height: 1;">
+                                        Date Completed
                                     </label>
                                 </div>
-                                <input type="date" name="date_completed" id="editDateCompletedInput" class="form-control rounded-3"
+                                <input type="date" name="date_completed" id="editDateCompletedInput" class="form-control rounded-3" required
                                     placeholder="Select date completed..."
-                                    max="today"
-                                    {% if project_detail and project_detail.project_status == 'Completed' %}required{% endif %}
+                                    min="1995-01-01" max="today"
                                     value="{{ record.date_completed|date:'Y-m-d'|default:'' }}"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                <div class="invalid-feedback">Date Completed is required when project status is Completed.</div>
+                                <div class="invalid-feedback">Date Completed is required and cannot be before 1995 or in the future.</div>
                             </div>
 
+                            <!-- Conditional Other Funding Source (col-12) -->
                             <div class="col-12" id="editFundingOtherWrapper"
                                 {% if project_detail and project_detail.funding_source == 'Others' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
-                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Specify Other Funding Source</label>
                                 </div>
                                 <input type="text" name="funding_source_other" class="form-control rounded-3"
@@ -437,240 +444,9 @@
             </div>
         </div>
 
-        <!-- RIGHT COLUMN: Record Summary Sidebar -->
+        <!-- RIGHT COLUMN: Standardized Record Summary Sidebar -->
         <div class="col-lg-4 d-flex flex-column min-w-0">
-            <div class="content-card record-summary-card d-flex flex-column overflow-hidden"
-                style="border-radius: 16px; height: auto !important; padding: 22px 24px !important;">
-                <div class="d-flex align-items-center pb-3 mb-3 border-bottom flex-nowrap">
-                    <i class="fa-solid fa-circle-info text-primary flex-shrink-0 me-2" style="font-size: 15px;"></i>
-                    <span class="fw-bold text-uppercase subtitle-text-adaptive"
-                        style="font-size: 0.82rem; letter-spacing: 0.05em; white-space: nowrap;">Record Summary</span>
-                </div>
-
-                <!-- Key-Value Pairs (Consistent: icon + label on 1st line, value below) -->
-                <div class="d-flex flex-column gap-1.5" style="font-size: 0.84rem;">
-                    
-                    <!-- Record ID -->
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-hashtag text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Record ID</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            #{{ record.record_id }}
-                        </div>
-                    </div>
-
-                    <!-- Category & Type -->
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-layer-group text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Category &amp; Type</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
-                            Regularized &bull; {{ record.specific_type_label }}
-                            {% elif record.is_illegal_construction and record.illegal_compliance_status == 'pending_permit' %}
-                            Permit Filed &bull; {{ record.specific_type_label }}
-                            {% elif record.is_illegal_construction %}
-                            Unresolved &bull; {{ record.specific_type_label }}
-                            {% elif record.record_type == 'Project' %}
-                            {{ record.get_project_scope_display }} Project &bull; {{ record.specific_type_label }}
-                            {% else %}
-                            {{ record.specific_type_label }}
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <!-- Applicant / Property Owner -->
-                    {% if permit_detail and permit_detail.applicant_name|is_valid_applicant %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>{% if record.is_illegal_construction %}Property Owner{% else %}Applicant Name{% endif %}</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ permit_detail.applicant_name }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Permit No. -->
-                    {% if permit_detail and permit_detail.permit_number %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-id-card text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Permit No.</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ permit_detail.permit_number }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Building Type -->
-                    {% if permit_detail and permit_detail.building_type %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-building text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Building Type</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ permit_detail.get_building_type_display|default:permit_detail.building_type }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Date Inspected (Violations) -->
-                    {% if record.is_illegal_construction and record.date_started %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-magnifying-glass text-warning opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Date Inspected</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ record.date_started|date:"M d, Y" }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Date Issued (Permits) -->
-                    {% if permit_detail and permit_detail.date_issued %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-calendar-check text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Date Issued</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ permit_detail.date_issued|date:"M d, Y" }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Date Completed (Projects) -->
-                    {% if record.record_type == 'Project' and record.date_completed %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-calendar-check text-success opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Date Completed</span>
-                        </div>
-                        <div class="fw-bold text-success text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ record.date_completed|date:"M d, Y" }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Project Budget -->
-                    {% if project_detail and project_detail.project_cost %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-sack-dollar text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Project Budget</span>
-                        </div>
-                        <div class="fw-bold text-success text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            ₱ {{ project_detail.project_cost|intcomma }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Funding Source -->
-                    {% if project_detail and project_detail.funding_source %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-building-columns text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Funding Source</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ project_detail.funding_source }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Contractor -->
-                    {% if project_detail and project_detail.contractor %}
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-helmet-safety text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Contractor</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ project_detail.contractor }}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Barangay -->
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-location-dot text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Barangay</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ record.barangay.barangay_name|default:"Unassigned" }}
-                        </div>
-                    </div>
-
-                    <!-- Encoded By -->
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-solid fa-user-gear text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Encoded By</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ record.created_by.full_name|default:record.created_by.username }}
-                        </div>
-                    </div>
-
-                    <!-- Date Encoded -->
-                    <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-regular fa-calendar-plus text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Date Encoded</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ record.created_at|date:"M d, Y" }}
-                        </div>
-                    </div>
-
-                    <!-- Last Updated -->
-                    <div class="py-1 d-flex flex-column gap-0.5">
-                        <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            <i class="fa-regular fa-clock text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                            <span>Last Updated</span>
-                        </div>
-                        <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                            {{ record.updated_at|date:"M d, Y" }}
-                        </div>
-                    </div>
-                </div>
-
-                {% if record.description %}
-                {% with notes_list=record.description|parse_notes %}
-                <div class="pt-2 mt-2 border-top d-flex flex-column gap-1">
-                    <div class="d-flex align-items-center gap-2 text-muted mb-1" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                        <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                        <span>{% if record.is_illegal_construction %}Violation &amp; Inspection Notes{% else %}Description{% endif %}</span>
-                    </div>
-                    
-                    {% for item in notes_list %}
-                    {% if item.value %}
-                    <div class="py-1 {% if not forloop.last %}border-bottom{% endif %} d-flex flex-column gap-0.5 ps-4">
-                        {% if item.label %}
-                        <div class="text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                            {{ item.label }}
-                        </div>
-                        {% endif %}
-                        <div class="title-text-adaptive text-break" style="font-size: 0.86rem; line-height: 1.45; font-weight: 500;">
-                            {{ item.value|linebreaksbr }}
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-                {% endwith %}
-                {% endif %}
-
-            </div>
+            {% include 'permits/includes/_record_summary_card.html' %}
         </div>
     </div>
 </form>
@@ -722,69 +498,6 @@
         }
     }
 
-    function handleEditProjectStatusChange(val) {
-        const dateInput = document.getElementById('editDateCompletedInput');
-        const labelHint = document.getElementById('editDateCompletedLabelHint');
-        if (!dateInput) return;
-        
-        const isCompleted = (val === 'Completed');
-        const fp = dateInput._flatpickr;
-        
-        if (isCompleted) {
-            dateInput.disabled = false;
-            dateInput.required = true;
-            dateInput.removeAttribute('disabled');
-            if (fp) {
-                fp.set('clickOpens', true);
-                if (fp.altInput) {
-                    fp.altInput.disabled = false;
-                    fp.altInput.required = true;
-                    fp.altInput.removeAttribute('disabled');
-                    fp.altInput.style.pointerEvents = 'auto';
-                    fp.altInput.style.cursor = 'pointer';
-                    fp.altInput.style.backgroundColor = '';
-                    fp.altInput.classList.remove('bg-light');
-                }
-            } else {
-                dateInput.style.pointerEvents = 'auto';
-                dateInput.style.cursor = 'pointer';
-                dateInput.style.backgroundColor = '';
-            }
-            if (labelHint) {
-                labelHint.textContent = '*';
-                labelHint.className = 'text-danger fw-bold';
-            }
-        } else {
-            dateInput.required = false;
-            if (fp) {
-                fp.clear();
-                fp.set('clickOpens', false);
-                if (fp.altInput) {
-                    fp.altInput.disabled = true;
-                    fp.altInput.required = false;
-                    fp.altInput.setAttribute('disabled', 'disabled');
-                    fp.altInput.style.pointerEvents = 'none';
-                    fp.altInput.style.cursor = 'not-allowed';
-                    fp.altInput.style.backgroundColor = '#f1f5f9';
-                    fp.altInput.classList.add('bg-light');
-                    fp.altInput.classList.remove('is-invalid');
-                }
-            } else {
-                dateInput.value = '';
-                dateInput.disabled = true;
-                dateInput.setAttribute('disabled', 'disabled');
-                dateInput.style.pointerEvents = 'none';
-                dateInput.style.cursor = 'not-allowed';
-                dateInput.style.backgroundColor = '#f1f5f9';
-                dateInput.classList.remove('is-invalid');
-            }
-            if (labelHint) {
-                labelHint.textContent = '(Disabled)';
-                labelHint.className = 'text-muted fw-normal';
-            }
-        }
-    }
-
     function handleEditPermitIssuanceSync() {
         const permitInput = document.getElementById('editPermitNumInput');
         const dateInput = document.getElementById('editDateIssuedInput');
@@ -825,6 +538,39 @@
         }
     }
 
+    window.suggestEditPermitNumber = function() {
+        const pInput = document.getElementById('editPermitNumInput') || document.getElementById('violationPermitNumInput');
+        const dInput = document.getElementById('editDateIssuedInput') || document.getElementById('violationDateIssuedInput');
+        if (!pInput) return;
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+        const todayIso = `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, '0')}`;
+
+        const prefix = `${currentYear}-${currentMonth}-`;
+        pInput.value = prefix;
+
+        if (dInput) {
+            if (dInput._flatpickr) {
+                dInput._flatpickr.setDate(todayIso, true);
+            } else {
+                dInput.value = todayIso;
+            }
+        }
+
+        if (typeof handleEditPermitIssuanceSync === 'function') handleEditPermitIssuanceSync();
+
+        pInput.focus();
+        const len = pInput.value.length;
+        pInput.setSelectionRange(len, len);
+
+        if (window.showToast) {
+            window.showToast('info', 'Permit Prefix Set', `Inserted '${prefix}'. Type the remaining digits.`);
+        }
+    };
+    window.suggestPermitNumber = window.suggestEditPermitNumber;
+
     document.addEventListener('DOMContentLoaded', function() {
         const statusSelect = document.getElementById('editProjectStatusSelect');
         if (statusSelect) {
@@ -836,6 +582,16 @@
         if (permitInput || dateIssuedInput) {
             handleEditPermitIssuanceSync();
             setTimeout(() => handleEditPermitIssuanceSync(), 80);
+        }
+
+        const editSuggestBtn = document.getElementById('suggestEditPermitNumBtn');
+        if (editSuggestBtn) {
+            editSuggestBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (typeof window.suggestEditPermitNumber === 'function') {
+                    window.suggestEditPermitNumber();
+                }
+            });
         }
         const form = document.getElementById('editRecordForm');
         if (form) {

@@ -33,13 +33,13 @@
                     <div class="row g-2.5">
                         <!-- Row 1: Structure Name & Barangay -->
                         <div class="col-md-6">
-                            <label class="cr-label">Structure Name <span class="text-danger fw-bold">*</span></label>
+                            <label class="cr-label">Structure Name</label>
                             <input type="text" name="title" class="form-control cr-field"
                                 placeholder="e.g. Commercial Building" maxlength="80" required>
                             <div class="invalid-feedback">Please enter the structure / incident name.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="cr-label">Barangay <span class="text-danger fw-bold">*</span></label>
+                            <label class="cr-label">Barangay</label>
                             <select name="barangay" id="flagBarangaySelect" class="form-select cr-field" required>
                                 <option value="" disabled selected>— Select Barangay —</option>
                                 {% for b in barangays %}
@@ -71,17 +71,16 @@
 
                             <!-- Mini Map Card Container -->
                             <div class="flag-map-wrapper rounded-3 overflow-hidden border position-relative shadow-2xs"
-                                style="height: 175px; background: #f8fafc; border-color: #cbd5e1 !important;">
-                                <!-- Layer Switcher Pill -->
-                                <div class="position-absolute end-0 top-0 m-2 z-3 d-flex align-items-center bg-white shadow-sm rounded-2 border p-0.5 flag-map-layer-pill"
-                                    style="font-size: 0.68rem; z-index: 1000;">
-                                    <button type="button" class="btn btn-xs px-2.5 py-0.5 rounded-1 fw-semibold flag-layer-btn active"
-                                        id="btnFlagSat" onclick="switchFlagMapLayer('satellite')" style="font-size: 0.68rem; line-height: 1.2;">Satellite</button>
-                                    <button type="button" class="btn btn-xs px-2.5 py-0.5 rounded-1 fw-semibold flag-layer-btn text-muted"
-                                        id="btnFlagStreet" onclick="switchFlagMapLayer('streets')" style="font-size: 0.68rem; line-height: 1.2;">Street</button>
-                                </div>
-
+                                style="height: 180px; background: #f8fafc; border-color: #cbd5e1 !important;">
                                 <div id="flagLocationMap" style="width: 100%; height: 100%;"></div>
+
+                                <!-- HD Map Layer Switcher Pill -->
+                                <div class="position-absolute top-0 end-0 m-1.5" style="z-index: 999;">
+                                    <div class="btn-group btn-group-sm shadow-sm" role="group" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(4px); border-radius: 6px; padding: 2px; border: 1px solid rgba(0,0,0,0.12);">
+                                        <button type="button" class="btn btn-xs fw-semibold flag-layer-pill" id="flagLayerSatBtn" onclick="setFlagMapLayer('satellite')" style="font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; border: none; background: #0284c7; color: #ffffff; transition: all 0.15s ease;">Satellite HD</button>
+                                        <button type="button" class="btn btn-xs fw-semibold flag-layer-pill" id="flagLayerStrBtn" onclick="setFlagMapLayer('streets')" style="font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; border: none; background: transparent; color: #64748b; transition: all 0.15s ease;">Streets HD</button>
+                                    </div>
+                                </div>
 
                                 <!-- Guide Badge Overlay -->
                                 <div id="flagMapGuideOverlay"
@@ -100,7 +99,7 @@
                                 placeholder="e.g. Juan Dela Cruz" maxlength="60">
                         </div>
                         <div class="col-md-6">
-                            <label class="cr-label">Violation Type <span class="text-danger fw-bold">*</span></label>
+                            <label class="cr-label">Violation Type</label>
                             <select name="violation_type" class="form-select cr-field" required>
                                 <option value="" disabled selected>— Select Violation Type —</option>
                                 <option value="No Building Permit">No Building Permit</option>
@@ -117,7 +116,7 @@
 
                         <!-- Row 3: Date Inspected & Building Type -->
                         <div class="col-md-6">
-                            <label class="cr-label">Date Inspected <span class="text-danger fw-bold">*</span></label>
+                            <label class="cr-label">Date Inspected</label>
                             <input type="date" name="date_discovered" class="form-control cr-field"
                                 max="today"
                                 value="{% now 'Y-m-d' %}" required>
@@ -508,25 +507,9 @@
         border-bottom-color: #334155 !important;
     }
 
-    /* Flag Mini Map Styles */
-    .flag-layer-btn {
-        border: none;
-        background: transparent;
-        color: #64748b;
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-    .flag-layer-btn.active {
-        background: #0284c7 !important;
-        color: #ffffff !important;
-    }
     .dark-mode .flag-map-wrapper {
         border-color: #334155 !important;
         background: #0f172a !important;
-    }
-    .dark-mode .flag-layer-btn.active {
-        background: #38bdf8 !important;
-        color: #0f172a !important;
     }
 
     /* High-Contrast Leaflet Zoom Controls (Light & Dark Mode) */
@@ -593,12 +576,6 @@
         background-color: #334155 !important;
         color: #f87171 !important;
     }
-
-    .dark-mode .flag-map-layer-pill,
-    [data-bs-theme="dark"] .flag-map-layer-pill {
-        background: #1e293b !important;
-        border-color: #334155 !important;
-    }
 </style>
 
 <!-- Leaflet Map CSS & JS Fallback -->
@@ -612,36 +589,48 @@
 
     window.flagMap = null;
     window.flagMarker = null;
-    window.flagTileLayers = {};
-    window.flagActiveTileLayer = null;
 
-    window.switchFlagMapLayer = function (layerKey) {
-        if (!window.flagMap || !window.flagTileLayers[layerKey]) return;
-        if (window.flagActiveTileLayer && window.flagMap.hasLayer(window.flagActiveTileLayer)) {
-            window.flagMap.removeLayer(window.flagActiveTileLayer);
+    function ensureLeafletLoaded(callback) {
+        if (typeof L !== 'undefined') {
+            callback();
+            return;
         }
-        window.flagActiveTileLayer = window.flagTileLayers[layerKey];
-        window.flagActiveTileLayer.addTo(window.flagMap);
-
-        const btnSat = document.getElementById('btnFlagSat');
-        const btnStreet = document.getElementById('btnFlagStreet');
-        if (btnSat && btnStreet) {
-            if (layerKey === 'satellite') {
-                btnSat.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn active';
-                btnStreet.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn text-muted';
-            } else {
-                btnSat.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn text-muted';
-                btnStreet.className = 'btn btn-xs px-2 py-0.5 rounded-1 fw-semibold flag-layer-btn active';
+        let script = document.querySelector('script[data-leaflet-loader]');
+        if (!script) {
+            if (!document.querySelector('link[href*="leaflet.css"]')) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                document.head.appendChild(link);
             }
+            script = document.createElement('script');
+            script.setAttribute('data-leaflet-loader', 'true');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.onload = () => callback();
+            script.onerror = () => {
+                const cdnjsScript = document.createElement('script');
+                cdnjsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+                cdnjsScript.onload = () => callback();
+                document.head.appendChild(cdnjsScript);
+            };
+            document.head.appendChild(script);
+        } else {
+            const interval = setInterval(() => {
+                if (typeof L !== 'undefined') {
+                    clearInterval(interval);
+                    callback();
+                }
+            }, 60);
+            setTimeout(() => clearInterval(interval), 6000);
         }
-    };
+    }
 
     window.initFlagLocationMap = function () {
         const mapEl = document.getElementById('flagLocationMap');
         if (!mapEl || typeof L === 'undefined') return;
 
         if (window.flagMap) {
-            setTimeout(() => window.flagMap.invalidateSize(), 150);
+            [50, 150, 300].forEach(d => setTimeout(() => window.flagMap.invalidateSize(), d));
             return;
         }
 
@@ -654,25 +643,67 @@
             preferCanvas: true
         }).setView([defaultLat, defaultLng], 13);
 
-        window.flagTileLayers['satellite'] = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
-            maxZoom: 19,
-            maxNativeZoom: 18,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-        });
+        // High-Definition Tile Layers (Retina 2x Super-Sampled Imagery & Vector Cartography)
+        window.flagTileLayers = {
+            satellite: L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
+                maxZoom: 20,
+                maxNativeZoom: 19,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google Satellite'
+            }),
+            streets: L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2', {
+                maxZoom: 20,
+                maxNativeZoom: 19,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                attribution: '&copy; Google Maps'
+            })
+        };
 
-        window.flagTileLayers['streets'] = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2', {
-            maxZoom: 19,
-            maxNativeZoom: 19,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-        });
+        window.flagActiveLayer = window.flagTileLayers.satellite;
+        window.flagActiveLayer.addTo(window.flagMap);
 
-        window.flagActiveTileLayer = window.flagTileLayers['satellite'];
-        window.flagActiveTileLayer.addTo(window.flagMap);
+        window.setFlagMapLayer = function (layerKey) {
+            if (!window.flagMap || !window.flagTileLayers || !window.flagTileLayers[layerKey]) return;
+            if (window.flagActiveLayer && window.flagMap.hasLayer(window.flagActiveLayer)) {
+                window.flagMap.removeLayer(window.flagActiveLayer);
+            }
+            window.flagActiveLayer = window.flagTileLayers[layerKey];
+            window.flagActiveLayer.addTo(window.flagMap);
+            if (window.flagActiveLayer.bringToBack) {
+                window.flagActiveLayer.bringToBack();
+            }
+            const satBtn = document.getElementById('flagLayerSatBtn');
+            const strBtn = document.getElementById('flagLayerStrBtn');
+            if (satBtn && strBtn) {
+                const isSat = (layerKey === 'satellite');
+                satBtn.style.background = isSat ? '#0284c7' : 'transparent';
+                satBtn.style.color = isSat ? '#ffffff' : '#64748b';
+                strBtn.style.background = !isSat ? '#0284c7' : 'transparent';
+                strBtn.style.color = !isSat ? '#ffffff' : '#64748b';
+            }
+        };
+
+        // Check if barangay was already selected and center on it
+        const brgySelect = document.getElementById('flagBarangaySelect');
+        if (brgySelect && brgySelect.value) {
+            const opt = brgySelect.options[brgySelect.selectedIndex];
+            if (opt) {
+                const lat = parseFloat(opt.getAttribute('data-lat'));
+                const lng = parseFloat(opt.getAttribute('data-lng'));
+                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                    window.flagMap.setView([lat, lng], 15);
+                }
+            }
+        }
 
         // Click anywhere on map to drop / move pin
         window.flagMap.on('click', function (e) {
             window.setFlagLocationPin(e.latlng.lat, e.latlng.lng);
         });
+
+        [50, 150, 300, 500].forEach(d => setTimeout(() => {
+            if (window.flagMap) window.flagMap.invalidateSize();
+        }, d));
     };
 
     window.createFlagPinIcon = function () {
@@ -724,7 +755,7 @@
         const guideText = document.getElementById('flagMapGuideText');
         const guideIcon = document.getElementById('flagMapGuideIcon');
         const resetBtn = document.getElementById('flagResetPinBtn');
-        if (guideText) guideText.textContent = `GPS Pinpoint: ${roundedLat}, ${roundedLng}`;
+        if (guideText) guideText.textContent = `GPS Pin: ${roundedLat}, ${roundedLng}`;
         if (guideIcon) guideIcon.className = 'fa-solid fa-location-dot text-danger';
         if (resetBtn) resetBtn.classList.remove('d-none');
     };
@@ -756,10 +787,12 @@
         // Initialize map when modal is opened
         if (modalEl) {
             modalEl.addEventListener('shown.bs.modal', function () {
-                window.initFlagLocationMap();
-                if (window.flagMap) {
-                    setTimeout(() => window.flagMap.invalidateSize(), 200);
-                }
+                ensureLeafletLoaded(function () {
+                    window.initFlagLocationMap();
+                    [50, 150, 300, 500].forEach(d => setTimeout(() => {
+                        if (window.flagMap) window.flagMap.invalidateSize();
+                    }, d));
+                });
             });
 
             modalEl.addEventListener('hidden.bs.modal', function () {

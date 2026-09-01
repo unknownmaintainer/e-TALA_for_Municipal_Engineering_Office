@@ -138,29 +138,27 @@
 
         <!-- Right: Compact Search Pill (Contained, no overflow) -->
         <div class="d-flex align-items-center ms-auto" style="flex: 0 0 250px; width: 250px; max-width: 250px;">
-            <div class="etala-search-pill-wrapper w-100" style="height: 34px; padding: 0 10px; gap: 6px;">
-                <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer;" title="Search">
-                    <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
+            <div class="etala-search-pill-wrapper">
+                <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
                 </button>
                 <input type="text" name="q" class="etala-search-pill-input search-text-input"
-                    placeholder="Search keywords, year..." value="{{ q }}"
-                    style="font-size: 0.78rem;">
+                    placeholder="Search keywords, year..." value="{{ q }}">
 
                 <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                    style="width: 12px; height: 12px;">
+                    style="width: 12px; height: 12px; border-width: 2px;">
                     <span class="visually-hidden">Searching...</span>
                 </div>
 
-                <a href="{% url 'search' %}" id="searchClearBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background:transparent;" title="Clear search">
-                    <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
+                <a href="{% url 'search' %}" id="searchClearBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not q %}d-none{% endif %}" title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                 </a>
 
-                <span class="etala-search-pill-divider" style="height: 14px;"></span>
+                <span class="etala-search-pill-divider"></span>
 
                 <!-- Integrated Filter Toggle button -->
-                <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#searchFiltersCollapse" aria-expanded="false" title="Toggle Filters"
-                    style="padding: 2px;">
-                    <i class="fa-solid fa-sliders" style="font-size: 12px;"></i>
+                <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#searchFiltersCollapse" aria-expanded="false" title="Toggle Filters">
+                    <i class="fa-solid fa-sliders"></i>
                 </button>
             </div>
         </div>
@@ -182,23 +180,13 @@
                 </div>
 
                 <!-- Year filter -->
-                <div class="col-md-4 col-sm-6">
+                <div class="col-md-6 col-sm-6">
                     <label class="form-label small fw-bold text-muted mb-1">Year</label>
                     <select name="year" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1;">
                         <option value="">All Years</option>
                         {% for y in year_choices %}
                         <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
                         {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Status filter -->
-                <div class="col-md-4 col-sm-6">
-                    <label class="form-label small fw-bold text-muted mb-1">Project Status</label>
-                    <select name="status" class="form-select rounded-3" onchange="this.form.submit()" style="font-size: var(--text-sm); height: 38px; border-color:#cbd5e1;">
-                        <option value="">All Statuses</option>
-                        <option value="in_progress" {% if selected_status == 'in_progress' %}selected{% endif %}>Ongoing</option>
-                        <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
                     </select>
                 </div>
             </div>
@@ -213,17 +201,20 @@
         <table class="data-table table-card-responsive" style="width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="width: 38%; min-width: 220px;">Record Title & Reference</th>
-                    <th style="width: 18%; min-width: 130px;">Category / Type</th>
-                    <th style="width: 16%; min-width: 120px;">Barangay</th>
-                    <th style="width: 8%; min-width: 72px;">Year</th>
-                    <th style="width: 14%; min-width: 90px;">Status</th>
+                    <th class="text-center cell-row-num" style="width: 48px; min-width: 48px;">#</th>
+                    <th style="width: 40%; min-width: 220px;">Record Title & Reference</th>
+                    <th style="width: 22%; min-width: 140px;">Category / Type</th>
+                    <th style="width: 18%; min-width: 120px;">Barangay</th>
+                    <th style="width: 10%; min-width: 72px;">Year</th>
                     <th class="text-end" style="width: 6%; min-width: 50px;">Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for record in page_obj %}
                 <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
+                    <td class="text-center cell-muted cell-row-num" data-label="#" style="font-weight: 600; font-size: 0.82rem;">
+                        {% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}
+                    </td>
                     <!-- Record Title & Details -->
                     <td data-label="Record Title">
                         <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
@@ -246,7 +237,7 @@
                                 {% if record.permit_detail and record.permit_detail.permit_number %}
                                 <div class="subtitle-row"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i>Permit No: <strong>#{{ record.permit_detail.permit_number }}</strong></div>
                                 {% else %}
-                                <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Regularized Record</div>
+                                <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Resolved &amp; Issued</div>
                                 {% endif %}
                             {% elif record.is_illegal_construction %}
                                 {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
@@ -283,11 +274,6 @@
                     <!-- Year -->
                     <td class="cell-muted cell-year" data-label="Year">
                         {{ record.year|default:"—" }}
-                    </td>
-
-                    <!-- Status -->
-                    <td data-label="Status">
-                        <span class="status-text-standard">{{ record.status_label }}</span>
                     </td>
 
                     <!-- Actions -->
@@ -343,13 +329,29 @@
                 <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                 {% endif %}
 
+                {% if page_obj.number > 2 %}
+                <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page=1">1</a></li>
+                {% if page_obj.number > 3 %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endif %}
+
                 {% for pnum in page_obj.paginator.page_range %}
+                {% if pnum >= page_obj.number|add:-1 and pnum <= page_obj.number|add:1 %}
                     {% if pnum == page_obj.number %}
                     <li class="page-item active"><span class="page-link">{{ pnum }}</span></li>
-                    {% elif pnum > page_obj.number|add:"-3" and pnum < page_obj.number|add:"3" %}
+                    {% else %}
                     <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ pnum }}">{{ pnum }}</a></li>
                     {% endif %}
+                {% endif %}
                 {% endfor %}
+
+                {% if page_obj.number < page_obj.paginator.num_pages|add:-1 %}
+                    {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                    <li class="page-item"><a class="page-link" href="?q={{ q }}&record_type={{ selected_record_type }}&barangay={{ selected_barangay }}&year={{ selected_year }}&status={{ selected_status }}&page={{ page_obj.paginator.num_pages }}">{{ page_obj.paginator.num_pages }}</a></li>
+                {% endif %}
 
                 {% if page_obj.has_next %}
                 <li class="page-item">
@@ -452,14 +454,27 @@ document.addEventListener('DOMContentLoaded', function () {
         mainSearchInput.addEventListener('input', function () {
             clearTimeout(mainSearchTimer);
             if (searchSpinner) searchSpinner.classList.remove('d-none');
-            if (searchClearBtn) searchClearBtn.classList.add('d-none');
+            if (searchClearBtn) {
+                if (mainSearchInput.value.trim().length > 0) searchClearBtn.classList.remove('d-none');
+                else searchClearBtn.classList.add('d-none');
+            }
             mainSearchTimer = setTimeout(() => {
                 if (filterForm) {
                     const formData = new FormData(filterForm);
                     const params = new URLSearchParams(formData);
                     updateSearchTableAJAX(window.location.pathname + '?' + params.toString());
                 }
-            }, 450);
+            }, 350);
+        });
+    }
+
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearTimeout(mainSearchTimer);
+            const formData = new FormData(filterForm);
+            const params = new URLSearchParams(formData);
+            updateSearchTableAJAX(window.location.pathname + '?' + params.toString());
         });
     }
 

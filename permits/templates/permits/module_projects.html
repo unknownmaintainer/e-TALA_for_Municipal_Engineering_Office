@@ -131,9 +131,9 @@
         <!-- Left: Integrated Search & Filter Pill -->
         <div class="d-flex align-items-center flex-grow-1" style="max-width: 440px; min-width: 270px;">
             <div class="etala-search-pill-wrapper">
-                <span class="etala-search-pill-icon">
+                <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search projects">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                </span>
+                </button>
                 <input type="text" name="q" class="etala-search-pill-input search-text-input" placeholder="Search projects by title, contractor, barangay..." value="{{ q|default:'' }}">
 
                 <div id="moduleProjSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
@@ -154,7 +154,7 @@
                 </button>
             </div>
 
-            {% if q or selected_barangay or selected_project_type or selected_status or selected_year %}
+            {% if q or selected_barangay or selected_project_type or selected_year %}
             <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}"
                class="action-btn action-btn-ghost action-btn-sm flex-shrink-0" style="height: 38px; font-size: 0.82rem;" title="Reset all filters">
                 Reset
@@ -164,6 +164,7 @@
 
         <!-- Role-Based Scope Toggle ("My Projects" vs "All Projects") -->
         <div class="scope-segmented-control flex-shrink-0 ms-auto">
+            <span class="scope-glider" aria-hidden="true"></span>
             <a href="?{% param_replace scope='my' page=1 %}" class="scope-pill-btn {% if selected_scope == 'my' %}active{% endif %}" title="Show projects created by you">
                 <i class="fa-solid fa-user" style="font-size: 13px;"></i>
                 <span>My Projects</span>
@@ -179,11 +180,11 @@
 
 
     <!-- Collapsible filters panel (Dropdown select options) -->
-    <div class="collapse {% if selected_barangay or selected_project_type or selected_status or selected_year %}show{% endif %}" id="advancedFiltersCollapse">
+    <div class="collapse {% if selected_barangay or selected_project_type or selected_year %}show{% endif %}" id="advancedFiltersCollapse">
         <div class="filter-panel-unified mt-3 py-2.5 px-3 rounded-3 border">
-            <div class="row g-2.5">
+            <div class="row g-2">
                 <!-- Barangay filter -->
-                <div class="col-md-3 col-6">
+                <div class="col-md-4 col-sm-4 col-12">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
                     <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Barangays</option>
@@ -194,7 +195,7 @@
                 </div>
 
                 <!-- Project type filter -->
-                <div class="col-md-3 col-6">
+                <div class="col-md-4 col-sm-4 col-12">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Type</label>
                     <select name="project_type" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Types</option>
@@ -204,17 +205,8 @@
                     </select>
                 </div>
 
-                <!-- Status filter -->
-                <div class="col-md-3 col-6">
-                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Project Status</label>
-                    <select name="status" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
-                        <option value="">All Statuses</option>
-                        <option value="in_progress" {% if selected_status == 'in_progress' %}selected{% endif %}>Ongoing</option>
-                        <option value="completed" {% if selected_status == 'completed' %}selected{% endif %}>Completed</option>
-                    </select>
-                </div>
-
-                <div class="col-md-3 col-6">
+                <!-- Year filter -->
+                <div class="col-md-4 col-sm-4 col-12">
                     <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
                     <select name="year" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;" onchange="this.form.submit()">
                         <option value="">All Years</option>
@@ -236,18 +228,21 @@
             <table class="data-table" style="width: 100%; table-layout: fixed;">
                 <thead>
                     <tr>
-                        <th style="width: 35%; min-width: 200px;">Project Name</th>
-                        <th style="width: 16%; min-width: 120px;">Type</th>
-                        <th style="width: 14%; min-width: 110px;">Barangay</th>
-                        <th style="width: 8%; min-width: 72px;">Year</th>
-                        <th style="width: 13%; min-width: 90px;">Status</th>
-                        <th style="width: 9%; min-width: 80px;">Documents</th>
+                        <th class="text-center cell-row-num" style="width: 48px; min-width: 48px;">#</th>
+                        <th style="width: 40%; min-width: 210px;">Project Name</th>
+                        <th style="width: 20%; min-width: 140px;">Type</th>
+                        <th style="width: 17%; min-width: 120px;">Barangay</th>
+                        <th style="width: 9%; min-width: 72px;">Year</th>
+                        <th style="width: 10%; min-width: 80px;">Documents</th>
                         <th class="text-end" style="width: 5%; min-width: 44px;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for record in page_obj %}
                     <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
+                        <td class="text-center cell-muted cell-row-num" style="font-weight: 600; font-size: 0.82rem;">
+                            {% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}
+                        </td>
                         <td>
                             <div class="cell-title" title="{{ record.title }}">{{ record.title }}</div>
                             <div class="cell-subtitle">
@@ -269,15 +264,6 @@
                             {% endif %}
                         </td>
                         <td class="cell-muted cell-year">{{ record.year|default:"—" }}</td>
-                        <td>
-                            {% if record.status == 'approved' or record.status == 'completed' %}
-                            <span class="status-text-standard">Completed</span>
-                            {% elif record.status == 'in_progress' or record.status == 'ongoing' %}
-                            <span class="status-text-standard">Ongoing</span>
-                            {% else %}
-                            <span class="status-text-standard">{{ record.status|title }}</span>
-                            {% endif %}
-                        </td>
                         <td class="cell-muted">{{ record.documents.count }} files</td>
                         <td class="text-end" onclick="event.stopPropagation();">
                             <div class="d-flex justify-content-end gap-1">
@@ -328,24 +314,40 @@
                 {% endif %}
 
                 {% if page_obj.has_other_pages %}
-                <nav>
+                <nav aria-label="Projects Pagination">
                     <ul class="pagination pagination-sm mb-0 gap-1">
                         {% if page_obj.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                         {% endif %}
 
+                        {% if page_obj.number > 2 %}
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page=1&per_page={{ per_page }}">1</a></li>
+                        {% if page_obj.number > 3 %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                        {% endif %}
+
                         {% for p in page_obj.paginator.page_range %}
-                        {% if page_obj.number == p %}
-                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                        {% elif p > page_obj.number|add:-3 and p < page_obj.number|add:3 %}
-                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                        {% if p >= page_obj.number|add:-1 and p <= page_obj.number|add:1 %}
+                            {% if page_obj.number == p %}
+                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                            {% else %}
+                            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                            {% endif %}
                         {% endif %}
                         {% endfor %}
 
+                        {% if page_obj.number < page_obj.paginator.num_pages|add:-1 %}
+                            {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.paginator.num_pages }}&per_page={{ per_page }}">{{ page_obj.paginator.num_pages }}</a></li>
+                        {% endif %}
+
                         {% if page_obj.has_next %}
-                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_status %}status={{ selected_status }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_project_type %}project_type={{ selected_project_type }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">Next ›</span></li>
                         {% endif %}
@@ -361,7 +363,7 @@
         <div class="empty-state-unified py-5 text-center">
             <i class="fa-solid fa-inbox mb-2" style="font-size: 32px; color: #94a3b8;"></i>
             <h6>No records found</h6>
-            {% if q or selected_barangay or selected_project_type or selected_status %}
+            {% if q or selected_barangay or selected_project_type %}
             <p>No records match your current filters. Try clearing the filters.</p>
             <a href="{% if module_scope == 'Municipal' %}{% url 'municipal_projects' %}{% else %}{% url 'barangay_projects' %}{% endif %}"
                class="action-btn action-btn-secondary action-btn-sm mt-2">Clear Filters</a>

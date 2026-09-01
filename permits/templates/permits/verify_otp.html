@@ -341,14 +341,14 @@
                 {% csrf_token %}
                 <input type="hidden" name="otp_code" id="finalOtpInput" value="">
 
-                <!-- 6 Split Digit Boxes -->
+                <!-- 6 Split Digit Boxes (Strict Numbers Only) -->
                 <div class="otp-digits-container" id="otpBoxGroup">
-                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" autofocus required autocomplete="one-time-code">
-                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required>
-                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required>
-                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required>
-                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required>
-                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required>
+                    <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" autofocus required autocomplete="one-time-code" oninput="this.value=this.value.replace(/\D/g,'')">
+                    <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
+                    <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
+                    <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
+                    <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
+                    <input type="tel" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" required autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'')">
                 </div>
 
                 <!-- Trust this device checkbox -->
@@ -390,7 +390,7 @@
         </div>
     </div>
 
-    <!-- Script for Split 6-Digit Auto-Focus, Paste, & Cooldown -->
+    <!-- Script for Split 6-Digit Auto-Focus, Numeric Filter, Paste, & Cooldown -->
     <script>
         const inputs = document.querySelectorAll('.otp-digit-input');
         const finalInput = document.getElementById('finalOtpInput');
@@ -398,6 +398,8 @@
 
         inputs.forEach((input, index) => {
             input.addEventListener('input', (e) => {
+                // Strip any accidental non-digits immediately
+                e.target.value = e.target.value.replace(/\D/g, '');
                 const val = e.target.value;
                 if (val.length > 0) {
                     if (index < inputs.length - 1) {
@@ -408,22 +410,37 @@
             });
 
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && !e.target.value && index > 0) {
-                    inputs[index - 1].focus();
+                // Allow control & navigation keys
+                if ([
+                    'Backspace', 'Tab', 'ArrowLeft', 'ArrowRight', 'Delete', 'Enter'
+                ].includes(e.key) || e.ctrlKey || e.metaKey) {
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        inputs[index - 1].focus();
+                    }
+                    return;
+                }
+
+                // Strictly block letters, special symbols, and characters that are not 0-9
+                if (!/^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
                 }
             });
 
-            // Handle full 6-digit paste
+            // Handle full 6-digit paste (automatically extracts numbers only)
             input.addEventListener('paste', (e) => {
                 e.preventDefault();
-                const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
-                if (/^\d{6}$/.test(pasteData)) {
-                    pasteData.split('').forEach((char, i) => {
+                const rawText = (e.clipboardData || window.clipboardData).getData('text') || '';
+                const digitsOnly = rawText.replace(/\D/g, '').slice(0, 6);
+                if (digitsOnly.length > 0) {
+                    digitsOnly.split('').forEach((char, i) => {
                         if (inputs[i]) inputs[i].value = char;
                     });
-                    inputs[inputs.length - 1].focus();
+                    const lastFilledIdx = Math.min(digitsOnly.length - 1, inputs.length - 1);
+                    if (inputs[lastFilledIdx]) inputs[lastFilledIdx].focus();
                     updateFinalValue();
-                    form.submit();
+                    if (digitsOnly.length === 6) {
+                        form.submit();
+                    }
                 }
             });
         });

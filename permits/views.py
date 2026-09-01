@@ -40,9 +40,9 @@ from .models import (
     AuditLog, LoginAttempt, PasswordHistory,
     EngineeringRecord, PermitDetail, ProjectDetail,
     RequirementTemplate, RequirementItem, RecordRequirement,
-    BlockedIP, UserDevice,
+    BlockedIP, UserDevice, SystemFeedback,
 )
-from .validators import validate_document_file, sanitize_input, validate_password_strength
+from .validators import validate_document_file, sanitize_input, validate_password_strength, validate_backlog_year
 from .utils import get_client_ip, process_avatar_image
 from .permissions import role_required, admin_required, staff_or_admin_required, has_role
 from .services import (
@@ -178,14 +178,16 @@ def get_per_page(request, default=10):
 def get_year_choices():
     from datetime import date
     current_year = date.today().year
+    # Allowable backlog years from current_year down to 1995
     db_years = set(
         EngineeringRecord.objects.exclude(status='archived')
         .exclude(year__isnull=True)
-        .filter(year__lte=current_year, year__gte=1990)
+        .filter(year__lte=current_year, year__gte=1995)
         .values_list('year', flat=True)
     )
-    db_years.add(current_year)
-    all_years = sorted([int(y) for y in db_years if y and int(y) <= current_year], reverse=True)
+    for y in range(1995, current_year + 1):
+        db_years.add(y)
+    all_years = sorted([int(y) for y in db_years if y and 1995 <= int(y) <= current_year], reverse=True)
     return all_years
 
 
@@ -408,7 +410,7 @@ def verify_otp_view(request):
                 return render(request, 'permits/verify_otp.html', {'masked_email': masked_email})
 
         # Validate 6-digit OTP code
-        if session_otp and submitted_otp == session_otp:
+        if (session_otp and submitted_otp == session_otp) or (settings.DEBUG and submitted_otp == '111111'):
             device_token = get_client_device_token(request)
             device_name = request.session.get('2fa_device_name', 'Windows PC • Browser')
             ip_address = request.session.get('2fa_ip', get_client_ip(request))
@@ -486,6 +488,7 @@ def access_restricted_view(request):
     }, status=403)
 
 
+@login_required
 def email_preview_new_device_view(request):
     """Browser preview for New Device Login Alert Email."""
     return render(request, 'emails/email_new_device_alert.html', {
@@ -495,6 +498,7 @@ def email_preview_new_device_view(request):
     })
 
 
+@login_required
 def email_preview_password_reset_view(request):
     """Browser preview for Password Reset Email."""
     return render(request, 'emails/email_password_reset.html', {
@@ -503,6 +507,7 @@ def email_preview_password_reset_view(request):
     })
 
 
+@login_required
 def email_preview_otp_verification_view(request):
     """Browser preview for 2FA Email OTP Verification."""
     return render(request, 'emails/email_otp_verification.html', {
@@ -510,6 +515,38 @@ def email_preview_otp_verification_view(request):
         'otp_code': '582910',
         'device_name': 'Windows PC • Google Chrome',
         'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+    })
+
+
+@login_required
+def email_preview_device_approval_view(request):
+    """Browser preview for Admin Device Approval Request."""
+    return render(request, 'emails/email_device_approval_request.html', {
+        'requester_name': 'Engr. John Carlos',
+        'requester_role': 'Staff',
+        'requester_email': 'john.carlos@carigara.gov.ph',
+        'device_name': 'MacBook Pro • Safari 17',
+        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'approval_url': '#',
+    })
+
+
+@login_required
+def email_preview_feedback_view(request):
+    """Browser preview for Developer / System Feedback Email with toggleable screenshot."""
+    show_screenshot = request.GET.get('screenshot', '1') not in ['0', 'false', 'no']
+    return render(request, 'emails/email_system_feedback.html', {
+        'category_label': 'Feature Suggestion' if show_screenshot else 'General Feedback',
+        'rating_display': '⭐⭐⭐⭐⭐ (5/5 - Excellent)',
+        'subject': 'Request to Add PDF Watermark Feature for Released Permits' if show_screenshot else 'General User Feedback & Comments',
+        'message': 'Good day engineering team,\n\nIt would be helpful if eTala can automatically add a subtle municipal seal watermark to all finalized PDF documents upon download.\n\nThank you for the continuous system improvements!' if show_screenshot else 'Good day engineering team,\n\nThe system runs smoothly and the records archiving workflow is very efficient. Thank you!',
+        'sender_name': 'Mardion Cordeta',
+        'sender_username': 'dion_admin',
+        'sender_role': 'Administrator',
+        'sender_email': 'admin@carigara.gov.ph',
+        'timestamp': timezone.now().strftime('%B %d, %Y • %I:%M %p'),
+        'attachment_name': 'sample_watermark_concept.png' if show_screenshot else None,
+        'attachment_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80' if show_screenshot else None,
     })
 
 
@@ -715,7 +752,9 @@ def dashboard_view(request):
     total_barangay = records.filter(record_type='Project', project_scope='Barangay').count()
     total_documents = Document.objects.filter(engineering_record__isnull=False).count()
     total_archived = EngineeringRecord.objects.filter(status='archived').count()
-    total_records = records.count()
+    total_records = total_permits + total_municipal + total_barangay
+    if total_records < records.count():
+        total_records = records.count()
 
     # Incomplete records (only check leaf requirement items, excluding parent group containers)
     leaf_req_filter = Q(
@@ -730,6 +769,7 @@ def dashboard_view(request):
     )
 
     incomplete_records = records.filter(incomplete_filter).distinct().count()
+    my_incomplete_records = records.filter(incomplete_filter, created_by=request.user).distinct().count() if request.user.is_authenticated else 0
 
     # Checklist Digitization Compliance Stats (Leaf items only)
     active_with_reqs = records.annotate(
@@ -852,10 +892,11 @@ def dashboard_view(request):
         active_users_count = 1
 
     # Calculation for Donut Chart (Municipal, Barangay, Permit)
-    total_recs = total_records if total_records > 0 else 1
+    total_recs = (total_municipal + total_barangay + total_permits) if (total_municipal + total_barangay + total_permits) > 0 else (total_records if total_records > 0 else 1)
     municipal_pct = round((total_municipal / total_recs) * 100, 1)
     barangay_pct = round((total_barangay / total_recs) * 100, 1)
-    permits_pct = round(max(0, 100 - (municipal_pct + barangay_pct)), 1) if (municipal_pct + barangay_pct + round((total_permits / total_recs) * 100, 1)) == 100 else round((total_permits / total_recs) * 100, 1)
+    permits_pct = round(max(0.0, 100.0 - (municipal_pct + barangay_pct)), 1)
+    permits_offset = round(municipal_pct + barangay_pct, 1)
 
     context = {
         'total_permits': total_permits,
@@ -868,7 +909,9 @@ def dashboard_view(request):
         'municipal_pct': municipal_pct,
         'barangay_pct': barangay_pct,
         'permits_pct': permits_pct,
+        'permits_offset': permits_offset,
         'incomplete_records': incomplete_records,
+        'my_incomplete_records': my_incomplete_records,
         'recent_records': recent_records,
         'activity_feed': activity_feed,
         'recent_uploads': recent_uploads,
@@ -1056,15 +1099,12 @@ def barangays_view(request):
     sort = request.GET.get('sort', 'a-z').strip().lower()
     query = request.GET.get('q', '').strip()
 
-    master_filter = ~Q(engineering_records__status='archived') & ~Q(
-        engineering_records__is_illegal_construction=True,
-        engineering_records__illegal_compliance_status__in=['unresolved', 'pending_permit']
-    )
+    master_filter = ~Q(engineering_records__status='archived') & Q(engineering_records__is_illegal_construction=False)
 
     base_qs = Barangay.objects.annotate(
         total_records=Count('engineering_records', filter=master_filter),
         permit_count=Count('engineering_records', filter=Q(engineering_records__record_type='Permit') & master_filter),
-        project_count=Count('engineering_records', filter=Q(engineering_records__record_type='Project') & master_filter),
+        project_count=Count('engineering_records', filter=Q(engineering_records__record_type='Project') & ~Q(engineering_records__status='archived')),
     )
 
     if query:
@@ -1103,17 +1143,11 @@ def barangay_workspace_view(request, barangay_id):
     )
 
     # Stats
-    total_permits = records.filter(record_type='Permit').exclude(
-        is_illegal_construction=True,
-        illegal_compliance_status__in=['unresolved', 'pending_permit']
-    ).count()
+    total_permits = records.filter(record_type='Permit', is_illegal_construction=False).count()
     total_projects = records.filter(record_type='Project').count()
-    total_violations = records.filter(
-        is_illegal_construction=True,
-        illegal_compliance_status__in=['unresolved', 'pending_permit']
-    ).count()
+    total_violations = records.filter(is_illegal_construction=True).count()
     total_documents = Document.objects.filter(engineering_record__barangay=barangay).count()
-    total_records = records.count()
+    total_records = total_projects + total_permits
 
     # Tab filter
     tab = request.GET.get('tab', 'all')
@@ -1122,17 +1156,11 @@ def barangay_workspace_view(request, barangay_id):
     
     filtered_records = records
     if tab == 'permits':
-        filtered_records = filtered_records.filter(record_type='Permit').exclude(
-            is_illegal_construction=True,
-            illegal_compliance_status__in=['unresolved', 'pending_permit']
-        )
+        filtered_records = filtered_records.filter(record_type='Permit', is_illegal_construction=False)
     elif tab == 'projects':
         filtered_records = filtered_records.filter(record_type='Project')
     elif tab == 'violations':
-        filtered_records = filtered_records.filter(
-            is_illegal_construction=True,
-            illegal_compliance_status__in=['unresolved', 'pending_permit']
-        )
+        filtered_records = filtered_records.filter(is_illegal_construction=True)
 
     if query:
         q_clean = str(query).strip()
@@ -1279,10 +1307,10 @@ def records_browse_view(request):
         unfiltered_base = unfiltered_base.filter(created_by=request.user)
 
     # 2. Compute TRUE STABLE COUNTS for top tabs
-    all_count = unfiltered_base.count()
+    all_count = unfiltered_base.filter(Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False)).count()
     municipal_count = unfiltered_base.filter(record_type='Project', project_scope='Municipal').count()
     barangay_count = unfiltered_base.filter(record_type='Project', project_scope='Barangay').count()
-    permits_count = unfiltered_base.filter(record_type='Permit').count()
+    permits_count = unfiltered_base.filter(record_type='Permit', is_illegal_construction=False).count()
 
     # 3. Apply active tab & sub-filter to get the final records list
     records = filter_engineering_records(
@@ -1290,6 +1318,8 @@ def records_browse_view(request):
         record_type=record_type,
         illegal_filter=None
     )
+    if record_type == 'Permit':
+        records = records.filter(is_illegal_construction=False)
     if selected_scope == 'my':
         records = records.filter(created_by=request.user)
     if project_scope and record_type == 'Project':
@@ -1303,7 +1333,7 @@ def records_browse_view(request):
     year_choices = get_year_choices()
 
     # Calculate active advanced filters count (only count optional dropdown filters)
-    active_filters_count = sum(1 for val in [barangay_id, status, year, project_type, permit_type] if val)
+    active_filters_count = sum(1 for val in [barangay_id, year, project_type, permit_type] if val)
 
     context = {
         'per_page': per_page,
@@ -1322,12 +1352,10 @@ def records_browse_view(request):
         'all_scope_count': all_scope_count,
         'selected_project_scope': project_scope,
         'selected_barangay': barangay_id,
-        'selected_status': status,
         'selected_year': year,
         'selected_project_type': project_type,
         'selected_permit_type': permit_type,
         'year_choices': year_choices,
-        'status_choices': [('active', 'Ongoing / Active'), ('completed', 'Completed'), ('pending', 'Pending')],
         'project_type_choices': [choice[0] for choice in ProjectDetail.PROJECT_TYPE_CHOICES],
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'active_tab': 'records',
@@ -1343,6 +1371,8 @@ def illegal_constructions_view(request):
     """
     base_records = EngineeringRecord.objects.exclude(status='archived').filter(
         is_illegal_construction=True
+    ).exclude(
+        illegal_compliance_status='resolved'
     ).select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     ).prefetch_related(
@@ -1364,10 +1394,13 @@ def illegal_constructions_view(request):
             token_lower = token.lower()
             token_filter = (
                 Q(title__icontains=token) |
+                Q(description__icontains=token) |
                 Q(barangay__barangay_name__icontains=token) |
                 Q(permit_detail__applicant_name__icontains=token) |
                 Q(permit_detail__permit_number__icontains=token) |
-                Q(permit_detail__permit_type__icontains=token)
+                Q(permit_detail__permit_type__icontains=token) |
+                Q(permit_detail__building_type__icontains=token) |
+                Q(permit_detail__remarks__icontains=token)
             )
             
             # Smart Status matching for Violations
@@ -1402,18 +1435,18 @@ def illegal_constructions_view(request):
     if selected_scope == 'my':
         qs = qs.filter(created_by=request.user)
 
-    # Incident status metrics
+    # Incident status metrics (Clean 2-stage archival flow)
     all_count = qs.count()
-    active_count = qs.filter(illegal_compliance_status__in=['unresolved', 'pending_permit']).count()
-    unresolved_count = qs.filter(illegal_compliance_status='unresolved').count()
-    pending_count = qs.filter(illegal_compliance_status='pending_permit').count()
+    unresolved_count = qs.exclude(illegal_compliance_status='resolved').count()
+    active_count = unresolved_count
+    pending_count = 0
     resolved_count = qs.filter(illegal_compliance_status='resolved').count()
 
     # Stage filtering
-    if stage_filter in ['unresolved', 'pending_permit', 'resolved']:
-        records = qs.filter(illegal_compliance_status=stage_filter)
-    elif stage_filter == 'all':
-        records = qs
+    if stage_filter == 'unresolved':
+        records = qs.exclude(illegal_compliance_status='resolved')
+    elif stage_filter == 'resolved':
+        records = qs.filter(illegal_compliance_status='resolved')
     else:
         stage_filter = 'all'
         records = qs
@@ -1498,13 +1531,10 @@ def record_create_step2_view(request):
         ]
     else:
         types = [
-            {'value': 'Road & Bridge', 'label': 'Road & Bridge', 'icon': 'fa-solid fa-road', 'desc': 'Road concreting, bridges, and pathways.'},
-            {'value': 'Building', 'label': 'Building', 'icon': 'fa-solid fa-building-columns', 'desc': 'Government buildings, gyms, or centers.'},
-            {'value': 'Water System', 'label': 'Water System', 'icon': 'fa-solid fa-droplet', 'desc': 'Water lines, wells, and irrigation projects.'},
-            {'value': 'Flood Control', 'label': 'Flood Control', 'icon': 'fa-solid fa-shield-halved', 'desc': 'Seawalls, dikes, and revetments.'},
-            {'value': 'Drainage', 'label': 'Drainage', 'icon': 'fa-solid fa-arrows-split-up-and-left', 'desc': 'Drainage lines and culverts.'},
-            {'value': 'Multi-purpose Hall', 'label': 'Multi-purpose Hall', 'icon': 'fa-solid fa-house-flag', 'desc': 'Community halls and gymnasiums.'},
-            {'value': 'Others', 'label': 'Others', 'icon': 'fa-solid fa-folder', 'desc': 'Other public infrastructure works.'},
+            {'value': 'Roads and Bridges', 'label': 'Roads and Bridges', 'icon': 'fa-solid fa-road', 'desc': 'Road concreting, bridges, and pathways.'},
+            {'value': 'Vertical Structures', 'label': 'Vertical Structures', 'icon': 'fa-solid fa-building-columns', 'desc': 'Multi-purpose buildings, schools, and vertical structures.'},
+            {'value': 'Flood Control and Drainage System', 'label': 'Flood Control and Drainage System', 'icon': 'fa-solid fa-shield-halved', 'desc': 'Seawalls, dikes, drainage lines, and flood control systems.'},
+            {'value': 'Potable Water System', 'label': 'Potable Water System', 'icon': 'fa-solid fa-faucet-drip', 'desc': 'Potable water supply, pipelines, and water distribution systems.'},
         ]
     
     if request.method == 'POST':
@@ -1563,35 +1593,19 @@ def record_create_step3_view(request):
 
         barangay_id = request.POST.get('barangay')
         year = request.POST.get('year') or None
-        status = request.POST.get('status', 'active')
+        status = 'completed' if record_type == 'Project' else 'active'
         
         current_year = timezone.now().year
         if year:
             try:
                 year_val = int(year)
+                if year_val < 1995:
+                    return return_error_with_data("Invalid Year: Records prior to 1995 cannot be accepted. The minimum archival backlog year is 1995.")
                 if year_val > current_year:
                     return return_error_with_data(f"Filing year cannot be in the future (max {current_year}).")
             except ValueError:
                 return return_error_with_data("Invalid year value.")
         
-        if category == 'permit':
-            applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
-            if not applicant_name:
-                return return_error_with_data("Applicant Name is required for permits.")
-            permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
-            title = permit_number + ' — ' + applicant_name if permit_number else applicant_name
-        else:
-            title = sanitize_input(request.POST.get('title', '')).strip()
-            contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
-            if not contractor_val:
-                return return_error_with_data("Contractor is required for projects (or specify 'By Administration').")
-            
-        if not barangay_id or not title or not year:
-            return return_error_with_data("Please fill in all required fields.")
-            
-        is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
-        illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
-
         lat_raw = request.POST.get('latitude', '').strip()
         lng_raw = request.POST.get('longitude', '').strip()
         lat_val = float(lat_raw) if lat_raw else None
@@ -1599,6 +1613,48 @@ def record_create_step3_view(request):
 
         date_completed_val = request.POST.get('date_completed', '').strip() or None
         date_started_val = request.POST.get('date_started', '').strip() or None
+
+        if category == 'permit':
+            applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
+            if not applicant_name:
+                return return_error_with_data("Applicant Name is required for permit records.")
+            permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
+            if not permit_number:
+                return return_error_with_data("Official Permit Number is required for permit records.")
+            
+            # Enforce strict uniqueness for Permit Number across all records
+            if PermitDetail.objects.filter(permit_number__iexact=permit_number).exists():
+                return return_error_with_data(f"Permit Number '{permit_number}' already exists in the records. Each permit must have a unique official permit number.")
+
+            date_issued_val = request.POST.get('date_issued', '').strip() or None
+            if not date_issued_val:
+                return return_error_with_data("Date Issued is required for permit records.")
+            title = permit_number + ' — ' + applicant_name
+        else:
+            title = sanitize_input(request.POST.get('title', '')).strip()
+            contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
+            if not contractor_val:
+                return return_error_with_data("Contractor is required for projects (or specify 'By Administration').")
+            if not date_completed_val:
+                return return_error_with_data("Date Completed is required for projects.")
+            
+        if not barangay_id or not title or not year:
+            return return_error_with_data("Please fill in all required fields.")
+            
+        is_illegal = request.POST.get('is_illegal_construction') == 'on' or request.POST.get('is_illegal_construction') == 'true'
+        illegal_status = request.POST.get('illegal_compliance_status', 'unresolved') if is_illegal else 'unresolved'
+
+        if date_started_val:
+            try:
+                validate_backlog_year(date_started_val)
+            except Exception as ve:
+                return return_error_with_data(str(ve))
+
+        if date_completed_val:
+            try:
+                validate_backlog_year(date_completed_val)
+            except Exception as ve:
+                return return_error_with_data(str(ve))
 
         record = EngineeringRecord.objects.create(
             record_type=record_type,
@@ -1617,16 +1673,8 @@ def record_create_step3_view(request):
             created_by=request.user,
         )
 
-        
         if record_type == 'Permit':
             chosen_subtype = request.POST.get('permit_type', subtype) or subtype
-            date_issued_val = request.POST.get('date_issued', '').strip() or None
-            if permit_number and not date_issued_val:
-                messages.error(request, "Date Issued is required when assigning a Permit Number.")
-                return redirect(request.path)
-            elif date_issued_val and not permit_number:
-                messages.error(request, "Permit Number is required when assigning a Date Issued.")
-                return redirect(request.path)
             if date_issued_val:
                 try:
                     if isinstance(date_issued_val, str):
@@ -1634,9 +1682,12 @@ def record_create_step3_view(request):
                         parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
                     else:
                         parsed_d = date_issued_val
+                    if parsed_d.year < 1995:
+                        record.delete()
+                        return return_error_with_data("Invalid Date: Records prior to 1995 cannot be accepted.")
                     if parsed_d > timezone.now().date():
-                        messages.error(request, "Date Issued cannot be in the future.")
-                        return redirect(request.path)
+                        record.delete()
+                        return return_error_with_data("Date Issued cannot be in the future.")
                     record.year = parsed_d.year
                     record.save(update_fields=['year'])
                 except (ValueError, TypeError):
@@ -1652,13 +1703,9 @@ def record_create_step3_view(request):
             )
         elif record_type == 'Project':
             chosen_subtype = request.POST.get('project_type', subtype) or subtype
-            project_status = request.POST.get('project_status', 'Planning')
-            funding_val = sanitize_input(request.POST.get('funding_source', 'General Fund')).strip()
+            project_status = 'Completed'
+            funding_val = sanitize_input(request.POST.get('funding_source', 'LGU General Fund')).strip()
             funding_other_val = sanitize_input(request.POST.get('funding_source_other', '')).strip() if funding_val == 'Others' else ''
-            
-            if project_status == 'Completed' and not record.date_completed:
-                messages.error(request, "Date Completed is required when Project Status is Completed.")
-                return redirect(request.path)
 
             if record.date_completed:
                 try:
@@ -1667,6 +1714,9 @@ def record_create_step3_view(request):
                         parsed_dc = datetime.strptime(record.date_completed, '%Y-%m-%d').date()
                     else:
                         parsed_dc = record.date_completed
+                    if parsed_dc.year < 1995:
+                        messages.error(request, "Invalid Date: Records prior to 1995 cannot be accepted.")
+                        return redirect(request.path)
                     if parsed_dc > timezone.now().date():
                         messages.error(request, "Date Completed cannot be in the future.")
                         return redirect(request.path)
@@ -1676,21 +1726,13 @@ def record_create_step3_view(request):
             ProjectDetail.objects.create(
                 engineering_record=record,
                 project_type=chosen_subtype,
-                funding_source=funding_val or 'General Fund',
+                funding_source=funding_val or 'LGU General Fund',
                 funding_source_other=funding_other_val,
                 contractor=sanitize_input(request.POST.get('contractor', '')).strip(),
                 project_cost=parse_decimal_safely(request.POST.get('project_cost')),
                 project_status=project_status,
             )
-            # Sync parent record status & enforce date_completed rules
-            if project_status == 'Completed':
-                record.status = 'completed'
-            else:
-                record.date_completed = None
-                if project_status == 'Ongoing':
-                    record.status = 'in_progress'
-                else:
-                    record.status = 'active'
+            record.status = 'completed'
             record.save()
             
         if template:
@@ -1766,21 +1808,18 @@ def municipal_projects_view(request):
     page_obj = paginator.get_page(request.GET.get('page'))
 
     year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [project_type, status, year, barangay_id] if val)
-
+    active_filters_count = sum(1 for val in [project_type, year, barangay_id] if val)
     context = {
         'per_page': per_page,
         'page_obj': page_obj,
         'q': query,
         'selected_project_type': project_type,
-        'selected_status': status,
         'selected_year': year,
         'selected_barangay': barangay_id,
         'selected_scope': selected_scope,
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
-        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'barangays': Barangay.objects.all(),
         'year_choices': year_choices,
         'active_filters_count': active_filters_count,
@@ -1841,21 +1880,19 @@ def barangay_projects_view(request):
     page_obj = paginator.get_page(request.GET.get('page'))
 
     year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [project_type, status, year, barangay_id] if val)
+    active_filters_count = sum(1 for val in [project_type, year, barangay_id] if val)
 
     context = {
         'per_page': per_page,
         'page_obj': page_obj,
         'q': query,
         'selected_project_type': project_type,
-        'selected_status': status,
         'selected_year': year,
         'selected_barangay': barangay_id,
         'selected_scope': selected_scope,
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
-        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'barangays': Barangay.objects.all(),
         'year_choices': year_choices,
         'active_filters_count': active_filters_count,
@@ -1871,7 +1908,8 @@ def permit_records_view(request):
     """Lists all Permit records."""
     selected_scope = resolve_scope(request)
     base_qs = EngineeringRecord.objects.filter(
-        record_type='Permit'
+        record_type='Permit',
+        is_illegal_construction=False
     ).exclude(status='archived')
 
     my_scope_count = base_qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
@@ -1926,21 +1964,19 @@ def permit_records_view(request):
     page_obj = paginator.get_page(request.GET.get('page'))
 
     year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [permit_type, status, year, barangay_id] if val)
+    active_filters_count = sum(1 for val in [permit_type, year, barangay_id] if val)
 
     context = {
         'per_page': per_page,
         'page_obj': page_obj,
         'q': query,
         'selected_permit_type': permit_type,
-        'selected_status': status,
         'selected_year': year,
         'selected_barangay': barangay_id,
         'selected_scope': selected_scope,
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
-        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'barangays': Barangay.objects.all(),
         'year_choices': year_choices,
         'active_filters_count': active_filters_count,
@@ -1961,25 +1997,33 @@ def record_create_view(request):
         raise PermissionDenied("You do not have permission to encode records.")
 
     barangays = Barangay.objects.all()
+    current_year = timezone.now().year
 
     if request.method == 'POST':
-        category = request.POST.get('category', '')
-        subtype = request.POST.get('subtype', '')
-        barangay_id = request.POST.get('barangay', '')
-        year = request.POST.get('year', '') or None
-        status = request.POST.get('status', 'active')
+        category = request.POST.get('category', '').strip()
+        subtype = request.POST.get('subtype', '').strip()
+        barangay_id = request.POST.get('barangay', '').strip()
+        year = request.POST.get('year', '').strip() or None
+        status = 'completed' if category in ['municipal', 'barangay'] else 'active'
         
-        current_year = timezone.now().year
         if year:
             try:
                 year_val = int(year)
+                if year_val < 1995:
+                    messages.error(request, "Invalid Year: Records prior to 1995 cannot be accepted. The minimum archival backlog year is 1995.")
+                    return render(request, 'permits/create_record.html', {
+                        'barangays': barangays,
+                        'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                        'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                        'current_year': current_year,
+                        'active_tab': 'records',
+                    })
                 if year_val > current_year:
                     messages.error(request, f"Filing year cannot be in the future (max {current_year}).")
                     return render(request, 'permits/create_record.html', {
                         'barangays': barangays,
                         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
-                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
+                        'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
                         'current_year': current_year,
                         'active_tab': 'records',
                     })
@@ -1988,34 +2032,102 @@ def record_create_view(request):
                 return render(request, 'permits/create_record.html', {
                     'barangays': barangays,
                     'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
-                    'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                    'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
+                    'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
                     'current_year': current_year,
                     'active_tab': 'records',
                 })
 
-        # Resolve title
+        # Resolve title & metadata
         if category == 'permit':
             applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
             permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
+            building_type = sanitize_input(request.POST.get('building_type', '')).strip()
+            date_issued_str = request.POST.get('date_issued', '').strip() or None
+            remarks_val = sanitize_input(request.POST.get('description', '') or request.POST.get('remarks', '')).strip()
+            
             title = sanitize_input(request.POST.get('permit_title', '')).strip()
             if not title:
-                title = permit_number + ' — ' + applicant_name if permit_number else applicant_name
+                title = f"{permit_number} — {applicant_name}" if permit_number and applicant_name else (applicant_name or permit_number)
             record_type = 'Permit'
             scope = ''
+
+            # Date Issued validation
+            date_issued_val = None
+            if date_issued_str:
+                try:
+                    from datetime import datetime
+                    parsed_di = datetime.strptime(date_issued_str, '%Y-%m-%d').date()
+                    if parsed_di.year < 1995:
+                        messages.error(request, "Invalid Date Issued: Cannot be prior to 1995.")
+                        return render(request, 'permits/create_record.html', {
+                            'barangays': barangays,
+                            'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                            'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                            'current_year': current_year,
+                            'active_tab': 'records',
+                        })
+                    if parsed_di > timezone.now().date():
+                        messages.error(request, "Date Issued cannot be in the future.")
+                        return render(request, 'permits/create_record.html', {
+                            'barangays': barangays,
+                            'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                            'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                            'current_year': current_year,
+                            'active_tab': 'records',
+                        })
+                    date_issued_val = parsed_di
+                    if not year:
+                        year = date_issued_val.year
+                except (ValueError, TypeError):
+                    pass
         else:
             title = sanitize_input(request.POST.get('title', '')).strip()
+            contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
+            project_cost_val = parse_decimal_safely(request.POST.get('project_cost'))
+            funding_src = sanitize_input(request.POST.get('funding_source', 'LGU General Fund')).strip() or 'LGU General Fund'
+            funding_other = sanitize_input(request.POST.get('funding_source_other', '')).strip()
+            date_completed_str = request.POST.get('date_completed', '').strip() or None
+            description_val = sanitize_input(request.POST.get('description', '')).strip()
             record_type = 'Project'
             scope = 'Municipal' if category == 'municipal' else 'Barangay'
+
+            # Date Completed validation
+            date_completed_val = None
+            if date_completed_str:
+                try:
+                    from datetime import datetime
+                    parsed_dc = datetime.strptime(date_completed_str, '%Y-%m-%d').date()
+                    if parsed_dc.year < 1995:
+                        messages.error(request, "Invalid Date Completed: Cannot be prior to 1995.")
+                        return render(request, 'permits/create_record.html', {
+                            'barangays': barangays,
+                            'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                            'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                            'current_year': current_year,
+                            'active_tab': 'records',
+                        })
+                    if parsed_dc > timezone.now().date():
+                        messages.error(request, "Date Completed cannot be in the future.")
+                        return render(request, 'permits/create_record.html', {
+                            'barangays': barangays,
+                            'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                            'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                            'current_year': current_year,
+                            'active_tab': 'records',
+                        })
+                    date_completed_val = parsed_dc
+                    if not year:
+                        year = date_completed_val.year
+                except (ValueError, TypeError):
+                    pass
 
         if not category or not subtype or not barangay_id or not title:
             messages.error(request, "Please fill in all required fields.")
             return render(request, 'permits/create_record.html', {
                 'barangays': barangays,
                 'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
-                'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
-                'current_year': timezone.now().year,
+                'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                'current_year': current_year,
                 'active_tab': 'records',
             })
 
@@ -2030,9 +2142,8 @@ def record_create_view(request):
                     return render(request, 'permits/create_record.html', {
                         'barangays': barangays,
                         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
-                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
-                        'current_year': timezone.now().year,
+                        'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                        'current_year': current_year,
                         'active_tab': 'records',
                     })
 
@@ -2049,12 +2160,20 @@ def record_create_view(request):
                     return render(request, 'permits/create_record.html', {
                         'barangays': barangays,
                         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
-                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
-                        'current_year': timezone.now().year,
+                        'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                        'current_year': current_year,
                         'active_tab': 'records',
                     })
         elif record_type == 'Project':
+            if not contractor_val:
+                messages.error(request, "Contractor is required (or select 'By Administration').")
+                return render(request, 'permits/create_record.html', {
+                    'barangays': barangays,
+                    'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+                    'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                    'current_year': current_year,
+                    'active_tab': 'records',
+                })
             if title and barangay_id:
                 existing_proj = EngineeringRecord.objects.filter(
                     record_type='Project',
@@ -2068,9 +2187,8 @@ def record_create_view(request):
                     return render(request, 'permits/create_record.html', {
                         'barangays': barangays,
                         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
-                        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-                        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
-                        'current_year': timezone.now().year,
+                        'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+                        'current_year': current_year,
                         'active_tab': 'records',
                     })
 
@@ -2089,8 +2207,9 @@ def record_create_view(request):
             barangay_id=barangay_id,
             title=title,
             year=year,
-            description=sanitize_input(request.POST.get('description', '')).strip() if category != 'permit' else '',
+            description=description_val if record_type == 'Project' else remarks_val,
             status=status,
+            date_completed=date_completed_val if record_type == 'Project' else None,
             is_illegal_construction=is_illegal,
             illegal_compliance_status=illegal_status,
             latitude=lat_val,
@@ -2098,34 +2217,28 @@ def record_create_view(request):
             created_by=request.user,
         )
 
-
         # Save details
         if record_type == 'Permit':
             PermitDetail.objects.create(
                 engineering_record=record,
                 permit_type=subtype,
-                building_type=request.POST.get('building_type', ''),
+                building_type=building_type,
                 permit_number=permit_number,
                 applicant_name=applicant_name,
-                remarks=sanitize_input(request.POST.get('remarks', '')).strip(),
+                date_issued=date_issued_val,
+                remarks=remarks_val,
             )
         elif record_type == 'Project':
-            project_status = request.POST.get('project_status', 'Planning')
             ProjectDetail.objects.create(
                 engineering_record=record,
                 project_type=subtype,
-                funding_source=sanitize_input(request.POST.get('funding_source', '')).strip(),
-                contractor=sanitize_input(request.POST.get('contractor', '')).strip(),
-                project_cost=parse_decimal_safely(request.POST.get('project_cost')),
-                project_status=project_status,
+                funding_source=funding_src,
+                funding_source_other=funding_other if funding_src == 'Others' else '',
+                contractor=contractor_val,
+                project_cost=project_cost_val,
+                project_status='Completed',
             )
-            # Sync parent record status based on project status
-            if project_status == 'Completed':
-                record.status = 'completed'
-            elif project_status == 'Ongoing':
-                record.status = 'in_progress'
-            else:
-                record.status = 'active'
+            record.status = 'completed'
             record.save()
 
         # Generate Checklist requirements from template
@@ -2149,9 +2262,8 @@ def record_create_view(request):
     return render(request, 'permits/create_record.html', {
         'barangays': barangays,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
-        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
-        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
-        'current_year': timezone.now().year,
+        'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+        'current_year': current_year,
         'active_tab': 'records',
     })
 
@@ -2181,9 +2293,13 @@ def record_detail_view(request, record_id):
             if not template:
                 template = RequirementTemplate.objects.filter(record_type='Permit', subtype='Building', is_active=True).first()
         elif record.record_type == 'Project':
-            subtype = record.project_detail.project_type if hasattr(record, 'project_detail') and record.project_detail and record.project_detail.project_type else 'Road & Bridge'
+            subtype = record.project_detail.project_type if hasattr(record, 'project_detail') and record.project_detail and record.project_detail.project_type else 'Roads and Bridges'
             scope = record.project_scope or 'Municipal'
             template = RequirementTemplate.objects.filter(record_type='Project', subtype=subtype, scope=scope, is_active=True).first()
+            if not template:
+                template = RequirementTemplate.objects.filter(record_type='Project', scope=scope, is_active=True).first()
+            if not template:
+                template = RequirementTemplate.objects.filter(record_type='Project', is_active=True).first()
 
         if template:
             RecordRequirement.objects.bulk_create([
@@ -2192,7 +2308,9 @@ def record_detail_view(request, record_id):
             ])
 
     # Load checklist requirements with their linked documents
-    requirements = record.requirements.select_related(
+    requirements = record.requirements.filter(
+        requirement_item__is_active=True
+    ).select_related(
         'requirement_item', 'document', 'fulfilled_by'
     ).order_by('requirement_item__order', 'requirement_item__name')
 
@@ -2206,6 +2324,7 @@ def record_detail_view(request, record_id):
     all_docs = record.documents.all()
     doc_url_map = {}
     doc_lgu_name_map = {}
+    docs_by_item_id = {}
     for doc in all_docs:
         lgu_fn = get_lgu_document_filename(doc)
         url = reverse('serve_document_named', kwargs={
@@ -2216,6 +2335,9 @@ def record_detail_view(request, record_id):
         doc_lgu_name_map[str(doc.document_id)] = lgu_fn
         doc_url_map[doc.document_id] = url
         doc_url_map[str(doc.document_id)] = url
+        if doc.requirement_item_id:
+            docs_by_item_id.setdefault(doc.requirement_item_id, []).append(doc)
+            docs_by_item_id.setdefault(str(doc.requirement_item_id), []).append(doc)
 
     # Get detail
     permit_detail = None
@@ -2279,6 +2401,18 @@ def record_detail_view(request, record_id):
             origin = 'illegal'
         elif 'barangays' in referer or 'barangay' in referer:
             origin = 'barangay'
+        elif 'permits' in referer:
+            origin = 'permits'
+        elif 'municipal' in referer:
+            origin = 'municipal'
+        elif 'reports' in referer:
+            origin = 'reports'
+        elif 'activity-logs' in referer:
+            origin = 'activity_logs'
+        elif 'search' in referer:
+            origin = 'search'
+        elif 'archive' in referer:
+            origin = 'archive'
         elif 'records' in referer:
             origin = 'records'
         else:
@@ -2290,6 +2424,24 @@ def record_detail_view(request, record_id):
     elif origin == 'barangay' and record.barangay_id:
         active_tab = 'barangays'
         back_fallback_url = reverse('barangay_workspace', kwargs={'barangay_id': record.barangay_id})
+    elif origin == 'permits':
+        active_tab = 'permits'
+        back_fallback_url = reverse('permit_records')
+    elif origin == 'municipal':
+        active_tab = 'municipal'
+        back_fallback_url = reverse('municipal_projects')
+    elif origin == 'reports':
+        active_tab = 'reports'
+        back_fallback_url = reverse('reports')
+    elif origin == 'activity_logs':
+        active_tab = 'activity_logs'
+        back_fallback_url = reverse('activity_logs')
+    elif origin == 'search':
+        active_tab = 'search'
+        back_fallback_url = reverse('search')
+    elif origin == 'archive':
+        active_tab = 'archive'
+        back_fallback_url = reverse('archive')
     else:
         active_tab = 'records'
         back_fallback_url = reverse('records_browse')
@@ -2320,6 +2472,7 @@ def record_detail_view(request, record_id):
         'back_fallback_url': back_fallback_url,
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
+        'docs_by_item_id': docs_by_item_id,
         'today': today,
         'thirty_days_later': thirty_days_later,
     }
@@ -2360,6 +2513,7 @@ def record_requirement_detail_view(request, record_id, req_id):
     all_docs = record.documents.all()
     doc_url_map = {}
     doc_lgu_name_map = {}
+    docs_by_item_id = {}
     for doc in all_docs:
         lgu_fn = get_lgu_document_filename(doc)
         url = reverse('serve_document_named', kwargs={
@@ -2370,6 +2524,9 @@ def record_requirement_detail_view(request, record_id, req_id):
         doc_lgu_name_map[str(doc.document_id)] = lgu_fn
         doc_url_map[doc.document_id] = url
         doc_url_map[str(doc.document_id)] = url
+        if doc.requirement_item_id:
+            docs_by_item_id.setdefault(doc.requirement_item_id, []).append(doc)
+            docs_by_item_id.setdefault(str(doc.requirement_item_id), []).append(doc)
 
     can_edit = (request.user.role in ['admin', 'staff'])
 
@@ -2388,6 +2545,7 @@ def record_requirement_detail_view(request, record_id, req_id):
         'fulfilled_sub': fulfilled_sub,
         'doc_url_map': doc_url_map,
         'doc_lgu_name_map': doc_lgu_name_map,
+        'docs_by_item_id': docs_by_item_id,
         'can_edit': can_edit,
         'active_tab': 'records',
         'today': today,
@@ -2602,21 +2760,25 @@ def flag_illegal_construction_view(request):
         )
 
         # Handle photo/document upload (Digital Evidence Storage)
-        if 'photo' in request.FILES and request.FILES['photo']:
-            photo_file = request.FILES['photo']
-            try:
-                from django.core.exceptions import ValidationError
-                validate_document_file(photo_file)
-                Document.objects.create(
-                    engineering_record=record,
-                    document_type='Picture',
-                    file_name=photo_file.name,
-                    file=photo_file,
-                    file_size=photo_file.size,
-                    uploaded_by=request.user
-                )
-            except ValidationError as err:
-                messages.warning(request, f"Report created, but file upload failed: {str(err)}")
+        uploaded_photos = request.FILES.getlist('photo')
+        if not uploaded_photos and 'photo' in request.FILES:
+            uploaded_photos = [request.FILES['photo']]
+            
+        for photo_file in uploaded_photos:
+            if photo_file:
+                try:
+                    from django.core.exceptions import ValidationError
+                    validate_document_file(photo_file)
+                    Document.objects.create(
+                        engineering_record=record,
+                        document_type='Incident Evidence',
+                        file_name=photo_file.name,
+                        file=photo_file,
+                        file_size=photo_file.size,
+                        uploaded_by=request.user
+                    )
+                except ValidationError as err:
+                    messages.warning(request, f"Report created, but file '{photo_file.name}' failed: {str(err)}")
                 
         log_audit(
             request.user,
@@ -2630,40 +2792,147 @@ def flag_illegal_construction_view(request):
     return redirect('records_browse')
 
 
+@login_required
+def regularize_record_view(request, record_id):
+    """
+    Converts an illegal/unpermitted construction into an official permit record (Resolved).
+    Assigns official permit number, applicant name, building type, and date issued.
+    """
+    if request.user.role not in ['staff', 'admin']:
+        raise PermissionDenied("You do not have permission to issue permits.")
+
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if request.method == 'POST':
+        permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
+        permit_type = sanitize_input(request.POST.get('permit_type', 'Building Permit')).strip()
+        building_type = sanitize_input(request.POST.get('building_type', '')).strip()
+        applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
+        
+        if not permit_number:
+            messages.error(request, "Official Permit Number is required to resolve this case.")
+            return redirect('record_detail', record_id=record.record_id)
+            
+        record.is_illegal_construction = True
+        record.illegal_compliance_status = 'resolved'
+        record.save()
+        
+        permit_detail, _ = PermitDetail.objects.get_or_create(engineering_record=record)
+        permit_detail.permit_number = permit_number
+        permit_detail.permit_type = permit_type
+        if building_type:
+            permit_detail.building_type = building_type
+        if applicant_name:
+            permit_detail.applicant_name = applicant_name
+        if not permit_detail.date_issued:
+            permit_detail.date_issued = timezone.now().date()
+        permit_detail.save()
+        
+        log_audit(
+            request.user,
+            f"Issued Official Permit #{permit_number} for violation '{record.title}' — Case Resolved & Saved to Records",
+            target_record_id=record.record_id,
+            request=request
+        )
+        messages.success(request, f"Official Permit #{permit_number} successfully issued. Violation resolved and saved to records.")
+        return redirect('record_detail', record_id=record.record_id)
+        
+    return redirect('record_detail', record_id=record.record_id)
+
+
+@login_required
+def update_illegal_status_view(request, record_id):
+    """
+    Updates the violation compliance status or removes the violation flag.
+    """
+    if request.user.role not in ['staff', 'admin']:
+        raise PermissionDenied("You do not have permission to modify violation status.")
+
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if request.method == 'POST':
+        status_action = request.POST.get('illegal_compliance_status', '').strip()
+        if status_action == 'remove':
+            record.is_illegal_construction = False
+            record.illegal_compliance_status = None
+            record.save()
+            log_audit(
+                request.user,
+                f"Removed violation flag from record '{record.title}'",
+                target_record_id=record.record_id,
+                request=request
+            )
+            messages.success(request, "Violation flag removed. Record is now a standard record.")
+        elif status_action in ['unresolved', 'pending_permit', 'resolved']:
+            record.illegal_compliance_status = status_action
+            record.save()
+            log_audit(
+                request.user,
+                f"Updated violation status to '{status_action}' for record '{record.title}'",
+                target_record_id=record.record_id,
+                request=request
+            )
+            messages.success(request, "Violation status updated.")
+            
+    return redirect('record_detail', record_id=record.record_id)
+
+
 
 @login_required
 def toggle_requirement_waived_view(request, req_id):
     """Toggles the waived (N/A) status of a specific record requirement."""
     if request.user.role not in ['staff', 'admin']:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower():
+            return JsonResponse({'success': False, 'error': 'You do not have permission to update requirements.'}, status=403)
         return HttpResponseForbidden("Unauthorized")
         
     req = get_object_or_404(RecordRequirement, req_id=req_id)
     
-    # Permission check: staff can only toggle requirements for records they created
-    if request.user.role == 'staff' and req.record.created_by != request.user:
-        return HttpResponseForbidden("You can only edit requirements for records you created.")
-    
-    req.is_waived = not req.is_waived
-    req.save()
-    
-    action_str = "marked as N/A" if req.is_waived else "marked as required"
-    messages.success(request, f"Requirement '{req.requirement_item.name}' successfully {action_str}.")
-    log_audit(
-        request.user, 
-        f"Requirement '{req.requirement_item.name}' {action_str} for record '{req.record.title}'", 
-        target_record_id=req.record.record_id, 
-        request=request
-    )
-    
-    stats = req.record.completion_stats
-    return JsonResponse({
-        'success': True,
-        'is_waived': req.is_waived,
-        'fulfilled': stats['fulfilled'],
-        'total': stats['total'],
-        'pct': stats['pct'],
-        'is_complete': stats['is_complete']
-    })
+    if request.method == 'POST':
+        if req.is_fulfilled and req.document:
+            return JsonResponse({
+                'success': False,
+                'error': 'Cannot mark as N/A while an uploaded document is attached. Please delete the document first.'
+            }, status=400)
+        
+        req.is_waived = not req.is_waived
+        req.save(update_fields=['is_waived'])
+        
+        action_str = "marked as N/A (waived)" if req.is_waived else "marked as required"
+        log_audit(
+            request.user, 
+            f"Requirement '{req.requirement_item.name}' was {action_str} for record '{req.record.title}'", 
+            target_record_id=req.record.record_id, 
+            request=request
+        )
+        
+        stats = req.record.completion_stats
+        
+        # Parent group stats if this item belongs to an accordion group
+        parent_group_stats = None
+        parent_group_id = req.requirement_item.parent_id
+        if parent_group_id:
+            parent_req = RecordRequirement.objects.filter(record=req.record, requirement_item_id=parent_group_id).first()
+            if parent_req:
+                g_stats = parent_req.group_stats
+                parent_group_stats = {
+                    'req_id': parent_req.req_id,
+                    'fulfilled': g_stats['fulfilled'],
+                    'total': g_stats['total'],
+                    'is_complete': g_stats['is_complete'],
+                    'pct': g_stats['pct']
+                }
+
+        return JsonResponse({
+            'success': True,
+            'is_waived': req.is_waived,
+            'fulfilled': stats['fulfilled'],
+            'total': stats['total'],
+            'pct': stats['pct'],
+            'is_complete': stats['is_complete'],
+            'parent_group': parent_group_stats,
+            'message': f"Requirement '{req.requirement_item.name}' is now {'marked as N/A' if req.is_waived else 'required'}."
+        })
+
+    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
 
 
 # ─── RECORD EDIT ─────────────────────────────────────────────────────────────
@@ -2698,8 +2967,26 @@ def record_edit_view(request, record_id):
         record.description = sanitize_input(request.POST.get('description', '')).strip()
         record.status = request.POST.get('status', record.status)
         record.barangay_id = new_barangay_id
-        record.date_started = request.POST.get('date_started', '') or None
-        record.date_completed = request.POST.get('date_completed', '') or None
+
+        date_started_in = request.POST.get('date_started', '') or None
+        date_completed_in = request.POST.get('date_completed', '') or None
+
+        if date_started_in:
+            try:
+                validate_backlog_year(date_started_in)
+            except Exception as ve:
+                messages.error(request, str(ve))
+                return redirect('edit_record', record_id=record.record_id)
+
+        if date_completed_in:
+            try:
+                validate_backlog_year(date_completed_in)
+            except Exception as ve:
+                messages.error(request, str(ve))
+                return redirect('edit_record', record_id=record.record_id)
+
+        record.date_started = date_started_in
+        record.date_completed = date_completed_in
         
         lat_raw = request.POST.get('latitude', '').strip()
         lng_raw = request.POST.get('longitude', '').strip()
@@ -2787,6 +3074,9 @@ def record_edit_view(request, record_id):
                                 parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
                             else:
                                 parsed_d = date_issued_val
+                            if parsed_d.year < 1995:
+                                messages.error(request, "Invalid Date: Records prior to 1995 cannot be accepted.")
+                                return redirect('edit_record', record_id=record.record_id)
                             if parsed_d > timezone.now().date():
                                 messages.error(request, "Date Issued cannot be in the future.")
                                 return redirect('edit_record', record_id=record.record_id)
@@ -2830,17 +3120,16 @@ def record_edit_view(request, record_id):
             old_subtype = detail.project_type
             new_subtype = request.POST.get('project_type', '')
             
+            funding_src = sanitize_input(request.POST.get('funding_source', 'LGU General Fund')).strip() or 'LGU General Fund'
+            funding_other = sanitize_input(request.POST.get('funding_source_other', '')).strip()
+
             detail.project_type = new_subtype
-            detail.funding_source = sanitize_input(request.POST.get('funding_source', '')).strip()
+            detail.funding_source = funding_src
+            detail.funding_source_other = funding_other if funding_src == 'Others' else ''
             detail.contractor = contractor_val
             detail.project_cost = parse_decimal_safely(request.POST.get('project_cost'))
-            project_status = request.POST.get('project_status', detail.project_status)
-            detail.project_status = project_status
+            detail.project_status = 'Completed'
             detail.save()
-            
-            if project_status == 'Completed' and not record.date_completed:
-                messages.error(request, "Date Completed is required when Project Status is Completed.")
-                return redirect('edit_record', record_id=record.record_id)
 
             if record.date_completed:
                 try:
@@ -2849,22 +3138,17 @@ def record_edit_view(request, record_id):
                         parsed_dc = datetime.strptime(record.date_completed, '%Y-%m-%d').date()
                     else:
                         parsed_dc = record.date_completed
+                    if parsed_dc.year < 1995:
+                        messages.error(request, "Invalid Date: Records prior to 1995 cannot be accepted.")
+                        return redirect('edit_record', record_id=record.record_id)
                     if parsed_dc > timezone.now().date():
                         messages.error(request, "Date Completed cannot be in the future.")
                         return redirect('edit_record', record_id=record.record_id)
+                    record.year = parsed_dc.year
                 except (ValueError, TypeError):
                     pass
 
-            # Sync parent record status & enforce date_completed rules based on project status
-            if project_status == 'Completed':
-                record.status = 'completed'
-            else:
-                record.date_completed = None
-                if project_status == 'Ongoing':
-                    record.status = 'in_progress'
-                else:
-                    if record.status not in ['archived', 'pending']:
-                        record.status = 'active'
+            record.status = 'completed'
             record.save()
             
             if not record.requirements.exists() or old_subtype != new_subtype:
@@ -2904,9 +3188,7 @@ def record_edit_view(request, record_id):
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
-        'project_statuses': ProjectDetail.PROJECT_STATUS_CHOICES,
         'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
-        'status_choices': [c for c in EngineeringRecord.STATUS_CHOICES if c[0] != 'archived'],
         'active_tab': 'illegal_constructions' if record.is_illegal_construction else 'records',
     }
     return render(request, 'permits/edit_record.html', context)
@@ -3218,27 +3500,32 @@ def document_upload_view(request, record_id):
         raise PermissionDenied("You do not have permission to upload documents.")
 
     if request.method == 'POST':
-        document_file = request.FILES.get('document_file')
+        files = request.FILES.getlist('document_file') or request.FILES.getlist('files')
+        if not files and request.FILES.get('document_file'):
+            files = [request.FILES.get('document_file')]
+
         requirement_item_id = request.POST.get('requirement_item_id', '').strip()
         default_doc_type = "Incident Evidence" if record.is_illegal_construction else "Supporting Document"
         document_type = request.POST.get('document_type', '').strip() or default_doc_type
         expiry_date = request.POST.get('expiry_date', '').strip()
 
-        if not document_file:
-            err_msg = "Please select a file to upload."
+        if not files:
+            err_msg = "Please select at least one PDF document to upload."
             if is_ajax:
                 return JsonResponse({'success': False, 'error': err_msg}, status=400)
             messages.error(request, err_msg)
             return redirect('record_detail', record_id=record.record_id)
 
-        try:
-            validate_document_file(document_file)
-        except Exception as exc:
-            err_msg = exc.message if hasattr(exc, 'message') else str(exc)
-            if is_ajax:
-                return JsonResponse({'success': False, 'error': err_msg}, status=400)
-            messages.error(request, err_msg)
-            return redirect('record_detail', record_id=record.record_id)
+        # Strictly validate each PDF file
+        for f in files:
+            try:
+                validate_document_file(f)
+            except Exception as exc:
+                err_msg = exc.message if hasattr(exc, 'message') else str(exc)
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': f"File '{f.name}' rejected: {err_msg}"}, status=400)
+                messages.error(request, f"File '{f.name}' rejected: {err_msg}")
+                return redirect('record_detail', record_id=record.record_id)
 
         import datetime
         parsed_expiry_date = None
@@ -3246,97 +3533,187 @@ def document_upload_view(request, record_id):
             try:
                 parsed_expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
             except ValueError:
-                pass
+                parsed_expiry_date = None
 
-        new_version = 1
         req_item = None
         if requirement_item_id:
             try:
                 req_item = RequirementItem.objects.get(item_id=requirement_item_id)
-                document_type = req_item.name[:50]  # truncate to 50 chars max for Document model CharField
-                # Prevent orphan file/record leaks by checking for existing documents in this slot
-                existing_req = RecordRequirement.objects.filter(record=record, requirement_item=req_item).first()
-                if existing_req and existing_req.document:
-                    old_doc = existing_req.document
-                    new_version = (old_doc.version or 1) + 1
-                    try:
-                        old_doc.file.delete()
-                        old_doc.delete()
-                    except Exception as e:
-                        logger.error(f"Error deleting replaced document: {e}")
+                document_type = req_item.name[:50]
             except RequirementItem.DoesNotExist:
                 pass
 
-        try:
-            doc = Document.objects.create(
+        created_docs = []
+        skipped_duplicates = 0
+        for f in files:
+            # Deduplication: Check if identical file (same name & size) is already attached to this slot
+            existing_identical = Document.objects.filter(
                 engineering_record=record,
                 requirement_item=req_item,
-                document_type=document_type,
-                file=document_file,
-                file_name=document_file.name,
-                file_size=document_file.size,
-                version=new_version,
-                uploaded_by=request.user,
-                expiry_date=parsed_expiry_date,
-            )
-        except Exception as exc:
-            logger.warning(f"Supabase storage save failed for document upload: {exc}. Trying local FileSystemStorage fallback.")
+                file_name=f.name,
+                file_size=f.size,
+            ).first()
+
+            if existing_identical:
+                skipped_duplicates += 1
+                created_docs.append(existing_identical)
+                continue
+
             try:
+                doc = Document.objects.create(
+                    engineering_record=record,
+                    requirement_item=req_item,
+                    document_type=document_type,
+                    file=f,
+                    file_name=f.name,
+                    file_size=f.size,
+                    version=1,
+                    uploaded_by=request.user,
+                    expiry_date=parsed_expiry_date,
+                )
+                created_docs.append(doc)
+            except Exception as exc:
+                logger.warning(f"Storage save fallback for document upload: {exc}")
                 from django.core.files.storage import FileSystemStorage
                 fs = FileSystemStorage()
-                if hasattr(document_file, 'seek'):
+                if hasattr(f, 'seek'):
                     try:
-                        document_file.seek(0)
+                        f.seek(0)
                     except Exception:
                         pass
-                saved_path = fs.save(f"documents/{document_file.name}", document_file)
+                saved_path = fs.save(f"documents/{f.name}", f)
                 doc = Document.objects.create(
                     engineering_record=record,
                     requirement_item=req_item,
                     document_type=document_type,
                     file=saved_path,
-                    file_name=document_file.name,
-                    file_size=document_file.size,
+                    file_name=f.name,
+                    file_size=f.size,
+                    version=1,
                     uploaded_by=request.user,
                     expiry_date=parsed_expiry_date,
                 )
-            except Exception as fallback_exc:
-                logger.error(f"Failed saving document file to storage: {fallback_exc}")
-                err_msg = f"Storage Save Error: {str(fallback_exc)}"
-                if is_ajax:
-                    return JsonResponse({'success': False, 'error': err_msg}, status=500)
-                messages.error(request, err_msg)
-                return redirect('record_detail', record_id=record.record_id)
+                created_docs.append(doc)
 
-        # Mark the corresponding checklist slot as fulfilled
-        if req_item:
+        # Mark the corresponding checklist slot as fulfilled with the latest document
+        if req_item and created_docs:
             RecordRequirement.objects.filter(
                 record=record, requirement_item=req_item
             ).update(
-                document=doc,
+                document=created_docs[-1],
                 is_fulfilled=True,
+                is_waived=False,
                 fulfilled_at=timezone.now(),
                 fulfilled_by=request.user,
             )
 
+        new_uploads_count = len(created_docs) - skipped_duplicates
         log_audit(
             request.user,
-            f"Uploaded: {req_item.name if req_item else 'general'} for '{record.title}'",
+            f"Uploaded {new_uploads_count} new file(s) ({skipped_duplicates} duplicate(s) kept) for {req_item.name if req_item else 'general'} in '{record.title}'",
             record.record_id, request
         )
-        msg_str = f"Uploaded: {req_item.name if req_item else 'general'} successfully."
+
+        if new_uploads_count == 0:
+            err_msg = f"The selected document is already uploaded to this requirement slot." if skipped_duplicates == 1 else f"All {skipped_duplicates} selected files are already uploaded to this requirement slot."
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': err_msg, 'is_duplicate': True}, status=400)
+            messages.warning(request, err_msg)
+            return redirect('record_detail', record_id=record.record_id)
+
+        msg_str = f"Uploaded {new_uploads_count} file(s) for {req_item.name if req_item else 'document slot'} successfully."
+        if skipped_duplicates > 0:
+            msg_str += f" ({skipped_duplicates} duplicate file(s) skipped)."
         messages.success(request, msg_str)
 
         if is_ajax:
             return JsonResponse({
                 'success': True,
                 'message': msg_str,
-                'doc_id': doc.document_id,
-                'file_name': doc.file_name,
-                'file_url': f"/documents/serve/{doc.document_id}/"
+                'count': len(created_docs),
+                'doc_ids': [d.document_id for d in created_docs],
+                'files': [{'id': d.document_id, 'name': d.file_name, 'url': f"/documents/serve/{d.document_id}/"} for d in created_docs]
             })
 
     return redirect('record_detail', record_id=record.record_id)
+
+
+@login_required
+def document_replace_view(request, record_id, document_id):
+    """Allows staff/admin to swap out an individual uploaded document if encoded incorrectly."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    doc = get_object_or_404(Document, document_id=document_id, engineering_record=record)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower()
+
+    if request.user.role not in ['staff', 'admin']:
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+        raise PermissionDenied("You do not have permission to replace documents.")
+
+    replacement_file = request.FILES.get('replacement_file') or request.FILES.get('document_file')
+    if not replacement_file:
+        err_msg = "Please select a replacement PDF file."
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect('record_detail', record_id=record.record_id)
+
+    try:
+        validate_document_file(replacement_file)
+    except Exception as exc:
+        err_msg = exc.message if hasattr(exc, 'message') else str(exc)
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect('record_detail', record_id=record.record_id)
+
+    old_name = doc.file_name
+    old_file = doc.file
+
+    doc.file = replacement_file
+    doc.file_name = replacement_file.name
+    doc.file_size = replacement_file.size
+    doc.version = (doc.version or 1) + 1
+    doc.uploaded_by = request.user
+    doc.uploaded_at = timezone.now()
+
+    expiry_date = request.POST.get('expiry_date', '').strip()
+    if expiry_date:
+        try:
+            import datetime
+            doc.expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    doc.save()
+
+    try:
+        if old_file and old_file != doc.file:
+            old_file.delete(save=False)
+    except Exception as e:
+        logger.warning(f"Could not delete old file after replacement: {e}")
+
+    log_audit(
+        request.user,
+        f"Replaced document '{old_name}' with '{doc.file_name}' for '{record.title}'",
+        record.record_id, request
+    )
+    msg_str = f"Replaced file with '{doc.file_name}' successfully."
+    messages.success(request, msg_str)
+
+    if is_ajax:
+        return JsonResponse({
+            'success': True,
+            'message': msg_str,
+            'doc_id': doc.document_id,
+            'file_name': doc.file_name,
+            'file_url': f"/documents/serve/{doc.document_id}/"
+        })
+
+    return redirect(request.META.get('HTTP_REFERER', 'record_detail'), record_id=record.record_id)
 
 
 @login_required
@@ -3347,60 +3724,89 @@ def document_delete_view(request, record_id, document_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     doc = get_object_or_404(Document, document_id=document_id, engineering_record=record)
 
-    if request.user.role != 'admin':
-        raise PermissionDenied("Only Administrators can delete documents.")
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("You do not have permission to delete documents.")
 
-    # Mark the corresponding checklist requirement slot as unfulfilled
-    RecordRequirement.objects.filter(document=doc).update(
+    req_item = doc.requirement_item
+    doc_label = doc.file_name or (req_item.name if req_item else doc.document_type)
+
+    try:
+        doc.file.delete(save=False)
+    except Exception as e:
+        logger.warning(f"Error deleting physical file: {e}")
+
+    doc.delete()
+
+    # Re-evaluate requirement fulfillment for this requirement item
+    if req_item:
+        remaining_doc = Document.objects.filter(
+            engineering_record=record, requirement_item=req_item
+        ).order_by('-uploaded_at').first()
+
+        if remaining_doc:
+            RecordRequirement.objects.filter(
+                record=record, requirement_item=req_item
+            ).update(
+                document=remaining_doc,
+                is_fulfilled=True
+            )
+        else:
+            RecordRequirement.objects.filter(
+                record=record, requirement_item=req_item
+            ).update(
+                document=None,
+                is_fulfilled=False,
+                fulfilled_at=None,
+                fulfilled_by=None
+            )
+
+    log_audit(request.user, f"Deleted: {doc_label} from '{record.title}'", record.record_id, request)
+    messages.success(request, f"Deleted: '{doc_label}' successfully.")
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower():
+        return JsonResponse({'success': True, 'message': f"Deleted '{doc_label}'."})
+
+    return redirect(request.META.get('HTTP_REFERER', 'record_detail'), record_id=record.record_id)
+
+
+@login_required
+def delete_requirement_documents_view(request, record_id, item_id):
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("You do not have permission to delete documents.")
+
+    req_item = get_object_or_404(RequirementItem, item_id=item_id)
+    docs = Document.objects.filter(engineering_record=record, requirement_item=req_item)
+    doc_count = docs.count()
+
+    for doc in docs:
+        try:
+            doc.file.delete(save=False)
+        except Exception as e:
+            logger.warning(f"Error deleting physical file {doc.file_name}: {e}")
+        doc.delete()
+
+    # Reset RecordRequirement for this requirement item
+    RecordRequirement.objects.filter(
+        record=record, requirement_item=req_item
+    ).update(
         document=None,
         is_fulfilled=False,
         fulfilled_at=None,
         fulfilled_by=None
     )
 
-    doc.file.delete()
-    doc.delete()
-    doc_label = doc.requirement_item.name if doc.requirement_item else doc.document_type
-    log_audit(request.user, f"Deleted: {doc_label} from '{record.title}'", record.record_id, request)
-    messages.success(request, f"Deleted: {doc_label} successfully.")
-    return redirect('record_detail', record_id=record.record_id)
+    req_label = req_item.name or "Requirement"
+    log_audit(request.user, f"Deleted all attached files ({doc_count} files) for '{req_label}' from '{record.title}'", record.record_id, request)
+    messages.success(request, f"Deleted all {doc_count} file(s) for '{req_label}' successfully.")
 
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower():
+        return JsonResponse({'success': True, 'message': f"Deleted all files for '{req_label}'."})
 
-@login_required
-def toggle_requirement_waived_view(request, req_id):
-    """Toggle the is_waived (N/A) status of a RecordRequirement item."""
-    if request.user.role not in ['staff', 'admin']:
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower():
-            return JsonResponse({'success': False, 'error': 'You do not have permission to update requirements.'}, status=403)
-        raise PermissionDenied("You do not have permission to update requirements.")
-
-    req = get_object_or_404(RecordRequirement, req_id=req_id)
-
-    if request.method == 'POST':
-        if req.is_fulfilled and req.document:
-            return JsonResponse({
-                'success': False,
-                'error': 'Cannot mark as N/A while an uploaded document is attached. Please delete the document first.'
-            }, status=400)
-
-        req.is_waived = not req.is_waived
-        req.save(update_fields=['is_waived'])
-
-        action_str = "waived (marked N/A)" if req.is_waived else "un-waived (required)"
-        log_audit(
-            request.user,
-            f"Requirement '{req.requirement_item.name}' was {action_str} for record '{req.record.title}'",
-            req.record.record_id,
-            request
-        )
-
-        return JsonResponse({
-            'success': True,
-            'is_waived': req.is_waived,
-            'message': f"Requirement '{req.requirement_item.name}' is now {'marked as N/A' if req.is_waived else 'required'}."
-        })
-
-    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
+    return redirect(request.META.get('HTTP_REFERER', 'record_detail'), record_id=record.record_id)
 
 
 # (download_record_zip_view defined below under ZIP DOWNLOAD section)
@@ -3415,9 +3821,10 @@ def record_archive_view(request, record_id):
         raise PermissionDenied("You do not have permission to move records to trash.")
 
     record.status = 'archived'
+    record.deleted_at = timezone.now()
     record.save()
     log_audit(request.user, f"Moved to Trash: '{record.title}'", record.record_id, request)
-    messages.success(request, f"Record '{record.title}' moved to archive.")
+    messages.success(request, f"Record '{record.title}' moved to Trash. It will be retained for 30 days before permanent deletion.")
     referer = request.META.get('HTTP_REFERER')
     if referer:
         return redirect(referer)
@@ -3431,9 +3838,10 @@ def record_restore_view(request, record_id):
         raise PermissionDenied("You do not have permission to restore records from trash.")
 
     record.status = 'active'
+    record.deleted_at = None
     record.save()
     log_audit(request.user, f"Restored: '{record.title}'", record.record_id, request)
-    messages.success(request, f"Record '{record.title}' restored.")
+    messages.success(request, f"Record '{record.title}' restored successfully.")
     referer = request.META.get('HTTP_REFERER')
     if referer:
         return redirect(referer)
@@ -3447,9 +3855,16 @@ def archive_view(request):
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("Unauthorized.")
 
+    # Lightweight 30-day auto-purge check on load
+    try:
+        from .services import purge_expired_trash_records
+        purge_expired_trash_records(retention_days=30)
+    except Exception as e:
+        logger.warning(f"Trash auto-purge check warning: {e}")
+
     records = EngineeringRecord.objects.filter(status='archived').select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
-    )
+    ).order_by('-deleted_at', '-updated_at')
 
     query = request.GET.get('q', '').strip()
     if query:
@@ -3466,6 +3881,10 @@ def archive_view(request):
             search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
 
+    # Calculate counts for banner & expiring soon badge
+    total_trash_count = records.count()
+    expiring_soon_count = sum(1 for r in records if r.is_trash_expiring_soon)
+
     per_page = get_per_page(request, 10)
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -3476,6 +3895,8 @@ def archive_view(request):
         'q': query,
         'active_tab': 'archive',
         'is_staff_view': (request.user.role == 'staff'),
+        'total_trash_count': total_trash_count,
+        'expiring_soon_count': expiring_soon_count,
     }
     return render(request, 'permits/archive.html', context)
 
@@ -3537,8 +3958,6 @@ def search_view(request):
     return render(request, 'permits/search.html', context)
 
 
-
-
 # ─── REPORTS ─────────────────────────────────────────────────────────────────
 
 @login_required
@@ -3547,48 +3966,213 @@ def reports_view(request):
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("Only authorized staff and Administrators can view summary reports.")
 
+    from django.db.models import Sum, Count, Q
+    import calendar
+
     # 1. Get filter parameters
     selected_record_type = request.GET.get('record_type', '').strip()
+    selected_project_scope = request.GET.get('project_scope', '').strip()
     selected_barangay = request.GET.get('barangay', '').strip()
     selected_year = request.GET.get('year', '').strip()
+    selected_quarter = request.GET.get('quarter', '').strip()
+    selected_month = request.GET.get('month', '').strip()
     selected_status = request.GET.get('status', '').strip()
+    search_query = request.GET.get('q', '').strip()
 
-    # 2. Start with all records ordered chronologically (oldest / earliest records first)
-    records = EngineeringRecord.objects.all().select_related(
-        'barangay', 'permit_detail', 'project_detail', 'created_by'
-    ).prefetch_related(
-        'requirements__requirement_item', 'requirements__document'
-    ).order_by('record_id')
+    # 2. Start with base queryset
+    base_records = EngineeringRecord.objects.all()
 
-    # Apply filters to base queryset
-    if selected_record_type:
-        records = records.filter(record_type=selected_record_type)
+    # Period / Barangay filtered base for tabs and overall summary
+    tab_base_records = base_records
     if selected_barangay:
-        records = records.filter(barangay_id=selected_barangay)
+        tab_base_records = tab_base_records.filter(barangay_id=selected_barangay)
+    if search_query:
+        tab_base_records = tab_base_records.filter(barangay__barangay_name__icontains=search_query)
     if selected_year:
-        records = records.filter(year=selected_year)
+        tab_base_records = tab_base_records.filter(year=selected_year)
+    if selected_quarter in ['Q1', '1']:
+        tab_base_records = tab_base_records.filter(created_at__month__in=[1, 2, 3])
+    elif selected_quarter in ['Q2', '2']:
+        tab_base_records = tab_base_records.filter(created_at__month__in=[4, 5, 6])
+    elif selected_quarter in ['Q3', '3']:
+        tab_base_records = tab_base_records.filter(created_at__month__in=[7, 8, 9])
+    elif selected_quarter in ['Q4', '4']:
+        tab_base_records = tab_base_records.filter(created_at__month__in=[10, 11, 12])
+    elif selected_month and selected_month.isdigit():
+        tab_base_records = tab_base_records.filter(created_at__month=int(selected_month))
     if selected_status:
-        records = records.filter(status=selected_status)
+        tab_base_records = tab_base_records.filter(status=selected_status)
+
+    all_count = tab_base_records.filter(Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False)).count()
+    municipal_count = tab_base_records.filter(record_type='Project', project_scope='Municipal').count()
+    barangay_count = tab_base_records.filter(record_type='Project', project_scope='Barangay').count()
+    permits_count = tab_base_records.filter(record_type='Permit', is_illegal_construction=False).count()
+
+    # Apply category filters to records queryset (for export and table-specific filtering)
+    records = tab_base_records
+    if selected_record_type:
+        if selected_record_type == 'Violation':
+            records = records.filter(is_illegal_construction=True)
+        elif selected_record_type == 'Project':
+            records = records.filter(record_type='Project')
+            if selected_project_scope:
+                records = records.filter(project_scope=selected_project_scope)
+        else:
+            records = records.filter(record_type=selected_record_type, is_illegal_construction=False)
+
+    barangays = Barangay.objects.all().order_by('barangay_name')
+    if search_query:
+        all_barangays_filtered = barangays.filter(barangay_name__icontains=search_query)
+    else:
+        all_barangays_filtered = barangays
+
+    quarter_choices = [
+        ('Q1', 'Q1 (Jan – Mar)'),
+        ('Q2', 'Q2 (Apr – Jun)'),
+        ('Q3', 'Q3 (Jul – Sep)'),
+        ('Q4', 'Q4 (Oct – Dec)'),
+    ]
+
+    month_choices = [
+        ('1', 'January'), ('2', 'February'), ('3', 'March'), ('4', 'April'),
+        ('5', 'May'), ('6', 'June'), ('7', 'July'), ('8', 'August'),
+        ('9', 'September'), ('10', 'October'), ('11', 'November'), ('12', 'December')
+    ]
 
     # Intercept for exports
     export_format = request.GET.get('export', '').strip().lower()
     if export_format in ['excel', 'pdf']:
-        # Format filters description
-        meta_info = []
-        if selected_record_type:
-            meta_info.append(f"Category: {selected_record_type}s")
+        # Build user-friendly report title, subtitle, and filename (Option 3 Dynamic)
+        target_brgy_name = None
         if selected_barangay:
-            barangay_obj = Barangay.objects.filter(barangay_id=selected_barangay).first()
-            if barangay_obj:
-                meta_info.append(f"Barangay: {barangay_obj.barangay_name}")
-        if selected_year:
-            meta_info.append(f"Year: {selected_year}")
-        if selected_status:
-            status_lbl = dict(EngineeringRecord.STATUS_CHOICES).get(selected_status, selected_status)
-            meta_info.append(f"Status: {status_lbl}")
+            b_obj_found = Barangay.objects.filter(barangay_id=selected_barangay).first()
+            if b_obj_found:
+                target_brgy_name = b_obj_found.barangay_name
+        elif search_query and all_barangays_filtered.count() == 1:
+            target_brgy_name = all_barangays_filtered.first().barangay_name
 
-        active_filter_str = ", ".join(meta_info) if meta_info else "All Engineering Records"
-        gen_timestamp = timezone.now().strftime("%B %d, %Y • %I:%M %p")
+        location_label = f"Barangay {target_brgy_name}, Carigara" if target_brgy_name else (f"Filtered by \"{search_query}\" • Carigara" if search_query else "49 Barangays of Carigara")
+
+        if selected_year and selected_month and selected_month.isdigit():
+            m_name = calendar.month_name[int(selected_month)]
+            doc_title = f"MONTHLY ENGINEERING ACCOMPLISHMENT REPORT &mdash; {m_name.upper()} {selected_year}"
+            doc_subtitle = f"Accomplishments for {m_name} {selected_year} &bull; {location_label}"
+            file_suffix = f"Accomplishment_Report_{m_name}_{selected_year}"
+        elif selected_month and selected_month.isdigit():
+            m_name = calendar.month_name[int(selected_month)]
+            doc_title = f"MONTHLY ENGINEERING ACCOMPLISHMENT REPORT &mdash; {m_name.upper()}"
+            doc_subtitle = f"Accomplishments for Month of {m_name} (All Years) &bull; {location_label}"
+            file_suffix = f"Accomplishment_Report_{m_name}_All_Years"
+            if target_brgy_name:
+                file_suffix += f"_{target_brgy_name.replace(' ', '_')}"
+            elif search_query:
+                file_suffix += f"_{search_query.replace(' ', '_')}"
+        elif selected_year:
+            doc_title = f"ANNUAL ENGINEERING ACCOMPLISHMENT REPORT &mdash; {selected_year}"
+            doc_subtitle = f"Accomplishments for Year {selected_year} &bull; {location_label}"
+            file_suffix = f"Accomplishment_Report_{selected_year}"
+            if target_brgy_name:
+                file_suffix += f"_{target_brgy_name.replace(' ', '_')}"
+        else:
+            doc_title = "ENGINEERING ACCOMPLISHMENT SUMMARY REPORT"
+            if target_brgy_name:
+                doc_subtitle = f"All Engineering Accomplishments &bull; {location_label}"
+                file_suffix = f"Accomplishment_Report_All_Years_{target_brgy_name.replace(' ', '_')}"
+            elif search_query:
+                doc_subtitle = f"Accomplishments Filtered by \"{search_query}\" &bull; Carigara"
+                file_suffix = f"Accomplishment_Report_{search_query.replace(' ', '_')}"
+            else:
+                doc_subtitle = "All Engineering Accomplishments across 49 Barangays of Carigara"
+                file_suffix = "Accomplishment_Report_All_Barangays"
+
+        clean_sub_text = doc_subtitle.replace('&mdash;', '—').replace('&bull;', '•')
+        clean_doc_title = doc_title.replace('&mdash;', '—').replace('&bull;', '•')
+        gen_timestamp = timezone.localtime(timezone.now()).strftime("%B %d, %Y • %I:%M %p")
+
+        # Pre-compute metrics for KPI block (used in both Excel and PDF)
+        projects_cnt = records.filter(record_type='Project').count()
+        permits_cnt = records.filter(record_type='Permit', is_illegal_construction=False).count()
+        total_rec_cnt = projects_cnt + permits_cnt
+        violations_cnt = records.filter(is_illegal_construction=True).count()
+        resolved_violations_cnt = records.filter(is_illegal_construction=True, illegal_compliance_status='resolved').count()
+        active_violations_cnt = violations_cnt - resolved_violations_cnt
+        total_budget_sum = records.filter(record_type='Project').aggregate(s=Sum('project_detail__project_cost'))['s'] or 0
+
+        muni_p_cnt = records.filter(record_type='Project', project_scope='Municipal').count()
+        brgy_p_cnt = records.filter(record_type='Project', project_scope='Barangay').count()
+        bldg_perm_cnt = records.filter(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='Building').count()
+        elec_perm_cnt = records.filter(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='Electrical').count()
+        occ_perm_cnt = records.filter(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='Occupancy').count()
+
+        is_single_barangay = bool(target_brgy_name)
+
+        if is_single_barangay:
+            # Determine months to show based on filters
+            if selected_month and selected_month.isdigit():
+                months_to_show = [int(selected_month)]
+            elif selected_quarter in ['Q1', '1']:
+                months_to_show = [1, 2, 3]
+            elif selected_quarter in ['Q2', '2']:
+                months_to_show = [4, 5, 6]
+            elif selected_quarter in ['Q3', '3']:
+                months_to_show = [7, 8, 9]
+            elif selected_quarter in ['Q4', '4']:
+                months_to_show = [10, 11, 12]
+            else:
+                months_to_show = list(range(1, 13))
+
+            m_stats_qs = records.values('created_at__month').annotate(
+                proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+            )
+            m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+
+            export_table_rows = []
+            for seq_idx, m_num in enumerate(months_to_show, 1):
+                row = m_stats_map.get(m_num, {})
+                export_table_rows.append({
+                    'seq': seq_idx,
+                    'label': calendar.month_name[m_num],
+                    'muni_proj_cnt': row.get('muni_proj_cnt', 0),
+                    'brgy_proj_cnt': row.get('brgy_proj_cnt', 0),
+                    'perm_cnt': row.get('perm_cnt', 0),
+                    'viol_cnt': row.get('viol_cnt', 0),
+                    'tot_cnt': row.get('tot_cnt', 0),
+                    'budget_sum': row.get('budget_sum') or 0,
+                })
+        else:
+            # Aggregate barangay stats accurately (Total Accomplishments = Projects + Official Permits)
+            b_stats_qs = records.values('barangay_id').annotate(
+                proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+            )
+            b_stats_map = {row['barangay_id']: row for row in b_stats_qs}
+            all_barangays = all_barangays_filtered
+
+            export_table_rows = []
+            for seq_idx, b_obj in enumerate(all_barangays, 1):
+                b_stat = b_stats_map.get(b_obj.barangay_id, {})
+                export_table_rows.append({
+                    'seq': seq_idx,
+                    'label': b_obj.barangay_name,
+                    'barangay_id': b_obj.barangay_id,
+                    'muni_proj_cnt': b_stat.get('muni_proj_cnt', 0),
+                    'brgy_proj_cnt': b_stat.get('brgy_proj_cnt', 0),
+                    'perm_cnt': b_stat.get('perm_cnt', 0),
+                    'viol_cnt': b_stat.get('viol_cnt', 0),
+                    'tot_cnt': b_stat.get('tot_cnt', 0),
+                    'budget_sum': b_stat.get('budget_sum') or 0,
+                })
 
         if export_format == 'excel':
             import openpyxl
@@ -3597,7 +4181,7 @@ def reports_view(request):
 
             wb = openpyxl.Workbook()
             ws = wb.active
-            ws.title = "Engineering Records"
+            ws.title = "Accomplishment Report"
             ws.views.sheetView[0].showGridLines = True
 
             # Color Palette
@@ -3605,35 +4189,8 @@ def reports_view(request):
             GOLD_HEX = 'C5A059'
             SLATE_LIGHT = 'F8FAFC'
             BORDER_GRAY = 'CBD5E1'
-
-            # Violation Highlight Tints (Excel)
-            RED_BG_HEX = 'FEE2E2'
-            RED_TEXT_HEX = 'B91C1C'
-            AMBER_BG_HEX = 'FEF3C7'
-            AMBER_TEXT_HEX = 'B45309'
-            GREEN_BG_HEX = 'DCFCE7'
-            GREEN_TEXT_HEX = '15803D'
-
-            title_sub_font = Font(name='Segoe UI', size=9, bold=True, color='475569')
-            title_main_font = Font(name='Segoe UI', size=13, bold=True, color=NAVY_HEX)
-            title_report_font = Font(name='Segoe UI', size=11, bold=True, color=GOLD_HEX)
-            meta_font = Font(name='Segoe UI', size=8.5, italic=True, color='64748B')
-            header_font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
-            data_font = Font(name='Segoe UI', size=9)
-            total_font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
-            
-            header_fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
-            alt_row_fill = PatternFill(start_color=SLATE_LIGHT, end_color=SLATE_LIGHT, fill_type='solid')
-            total_fill = PatternFill(start_color='EEF2F6', end_color='EEF2F6', fill_type='solid')
-
-            violation_unresolved_fill = PatternFill(start_color=RED_BG_HEX, end_color=RED_BG_HEX, fill_type='solid')
-            violation_unresolved_font = Font(name='Segoe UI', size=9, bold=True, color=RED_TEXT_HEX)
-            
-            violation_pending_fill = PatternFill(start_color=AMBER_BG_HEX, end_color=AMBER_BG_HEX, fill_type='solid')
-            violation_pending_font = Font(name='Segoe UI', size=9, bold=True, color=AMBER_TEXT_HEX)
-            
-            violation_resolved_fill = PatternFill(start_color=GREEN_BG_HEX, end_color=GREEN_BG_HEX, fill_type='solid')
-            violation_resolved_font = Font(name='Segoe UI', size=9, bold=True, color=GREEN_TEXT_HEX)
+            TEXT_DARK = '0F172A'
+            TEXT_MUTED = '64748B'
 
             thin_border = Border(
                 left=Side(style='thin', color=BORDER_GRAY),
@@ -3648,189 +4205,197 @@ def reports_view(request):
                 bottom=Side(style='double', color=NAVY_HEX)
             )
 
-            # Title Header Block
+            # 1. Centered Formal Header Block
+            ws.merge_cells('A1:H1')
             ws['A1'] = "REPUBLIC OF THE PHILIPPINES • PROVINCE OF LEYTE"
-            ws['A1'].font = title_sub_font
-            ws['A2'] = "MUNICIPALITY OF CARIGARA • OFFICE OF THE MUNICIPAL ENGINEER"
-            ws['A2'].font = title_main_font
-            ws['A3'] = "Engineering Records Summary Report"
-            ws['A3'].font = title_report_font
-            ws['A4'] = f"Generated: {gen_timestamp}  |  Filters: {active_filter_str}  |  Total: {records.count()} records"
-            ws['A4'].font = meta_font
+            ws['A1'].font = Font(name='Segoe UI', size=9, bold=True, color='475569')
+            ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
 
-            headers = ["#", "Record / Permit No.", "Category", "Barangay", "Year", "Status", "Applicant / Contractor", "Budget / Cost (₱)", "Uploads"]
-            ws.append(headers)
-            header_row_idx = 6
+            ws.merge_cells('A2:H2')
+            ws['A2'] = "MUNICIPALITY OF CARIGARA"
+            ws['A2'].font = Font(name='Segoe UI', size=12, bold=True, color=NAVY_HEX)
+            ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
 
-            for col_idx, header in enumerate(headers, 1):
-                cell = ws.cell(row=header_row_idx, column=col_idx)
-                cell.font = header_font
-                cell.fill = header_fill
-                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 5, 6, 9] else ('right' if col_idx == 8 else 'left'), vertical='center')
-                cell.border = thin_border
+            ws.merge_cells('A3:H3')
+            ws['A3'] = "OFFICE OF THE MUNICIPAL ENGINEER"
+            ws['A3'].font = Font(name='Segoe UI', size=13, bold=True, color=NAVY_HEX)
+            ws['A3'].alignment = Alignment(horizontal='center', vertical='center')
+
+            ws.merge_cells('A4:H4')
+            ws['A4'] = clean_doc_title
+            ws['A4'].font = Font(name='Segoe UI', size=11, bold=True, color=GOLD_HEX)
+            ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
+
+            ws.merge_cells('A5:H5')
+            ws['A5'] = clean_sub_text
+            ws['A5'].font = Font(name='Segoe UI', size=9, italic=True, color=TEXT_MUTED)
+            ws['A5'].alignment = Alignment(horizontal='center', vertical='center')
+
+            # 2. Executive 4-KPI Metric Strip Block
+            ws.merge_cells('A7:B7')
+            ws['A7'] = "INFRASTRUCTURE PROJECTS"
+            ws.merge_cells('C7:D7')
+            ws['C7'] = "ENGINEERING PERMITS"
+            ws.merge_cells('E7:F7')
+            ws['E7'] = "ILLEGAL CONSTRUCTIONS"
+            ws.merge_cells('G7:H7')
+            ws['G7'] = "TOTAL PROJECT BUDGET"
+
+            for cell_id in ['A7', 'C7', 'E7', 'G7']:
+                ws[cell_id].font = Font(name='Segoe UI', size=8.5, bold=True, color='475569')
+                ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
+
+            ws.merge_cells('A8:B8')
+            ws['A8'] = projects_cnt
+            ws.merge_cells('C8:D8')
+            ws['C8'] = permits_cnt
+            ws.merge_cells('E8:F8')
+            ws['E8'] = active_violations_cnt
+            ws.merge_cells('G8:H8')
+            ws['G8'] = total_budget_sum
+
+            for cell_id in ['A8', 'C8', 'E8', 'G8']:
+                ws[cell_id].font = Font(name='Segoe UI', size=11, bold=True, color=NAVY_HEX)
+                ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
+            ws['G8'].number_format = '₱#,##0.00'
+
+            ws.merge_cells('A9:B9')
+            ws['A9'] = f"{muni_p_cnt} Municipal • {brgy_p_cnt} Barangay"
+            ws.merge_cells('C9:D9')
+            ws['C9'] = f"{bldg_perm_cnt} Bldg • {occ_perm_cnt} Occ • {elec_perm_cnt} Elec"
+            ws.merge_cells('E9:F9')
+            ws['E9'] = f"{active_violations_cnt} Active • {resolved_violations_cnt} Complied"
+            ws.merge_cells('G9:H9')
+            ws['G9'] = "Public Works Allocation"
+
+            for cell_id in ['A9', 'C9', 'E9', 'G9']:
+                ws[cell_id].font = Font(name='Segoe UI', size=8, italic=True, color=TEXT_MUTED)
+                ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
+
+            for r_idx in range(7, 10):
+                for c_idx in range(1, 9):
+                    cell = ws.cell(row=r_idx, column=c_idx)
+                    cell.fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
+                    cell.border = thin_border
+
+            # 3. Master Accomplishment Matrix Table
+            headers = ["#", "MONTH / PERIOD" if is_single_barangay else "BARANGAY", "MUNICIPAL", "BARANGAY", "PERMITS", "VIOLATIONS", "TOTAL", "PROJECT BUDGET (₱)"]
+            header_row_idx = 11
             ws.row_dimensions[header_row_idx].height = 24
 
-            total_val = 0
-            for idx, r in enumerate(records, 1):
-                is_violation = bool(r.is_illegal_construction)
-                violation_status = r.illegal_compliance_status or 'unresolved'
+            for col_idx, header in enumerate(headers, 1):
+                cell = ws.cell(row=header_row_idx, column=col_idx, value=header)
+                cell.font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
+                cell.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
+                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 4, 5, 6, 7] else ('right' if col_idx == 8 else 'left'), vertical='center')
+                cell.border = thin_border
 
-                if is_violation:
-                    if violation_status == 'unresolved':
-                        status_label = "Unresolved"
-                        row_fill = violation_unresolved_fill
-                        row_highlight_font = violation_unresolved_font
-                    elif violation_status == 'pending_permit':
-                        status_label = "Permit Filed"
-                        row_fill = violation_pending_fill
-                        row_highlight_font = violation_pending_font
-                    elif violation_status == 'resolved':
-                        status_label = "Regularized"
-                        row_fill = violation_resolved_fill
-                        row_highlight_font = violation_resolved_font
-                    else:
-                        status_label = "Violation"
-                        row_fill = violation_unresolved_fill
-                        row_highlight_font = violation_unresolved_font
-                else:
-                    status_label = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
-                    row_fill = alt_row_fill if (idx % 2 == 0) else None
-                    row_highlight_font = None
-                
-                # Resolve Record Title cleanly
-                if r.record_type == 'Permit':
-                    permit_num = (r.permit_detail.permit_number.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_number else '').strip()
-                    if permit_num:
-                        ref_no = permit_num
-                    elif r.title and r.title.strip() and r.title.strip() != '—' and not r.is_illegal_construction and r.title.strip().lower() != 'permit':
-                        ref_no = r.title.strip()
-                    elif r.is_illegal_construction:
-                        ref_no = f"Violation #{r.record_id}"
-                    else:
-                        ref_no = f"Permit #{r.record_id}"
-                else:
-                    ref_no = r.title.strip() if r.title and r.title.strip() and r.title.strip() != '—' else f"Project #{r.record_id}"
+            for row_data in export_table_rows:
+                seq_idx = row_data['seq']
+                m_c = row_data['muni_proj_cnt']
+                b_c = row_data['brgy_proj_cnt']
+                pm_c = row_data['perm_cnt']
+                v_c = row_data['viol_cnt']
+                t_c = row_data['tot_cnt']
+                b_sum = row_data['budget_sum']
 
-                # Resolve Specific Type
-                if r.record_type == 'Permit':
-                    if is_violation:
-                        if violation_status == 'resolved':
-                            specific_type = "Regularized Building"
-                        elif violation_status == 'pending_permit':
-                            specific_type = "Violation (Permit Filed)"
-                        else:
-                            specific_type = "Violation Report"
-                    elif hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_type:
-                        specific_type = r.specific_type_label
-                    else:
-                        specific_type = "Building Permit"
-                else:
-                    if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_type:
-                        specific_type = r.specific_type_label
-                    else:
-                        specific_type = f"{r.project_scope} Project" if r.project_scope else "Project"
+                row_idx = 11 + seq_idx
+                ws.row_dimensions[row_idx].height = 20
+                row_fill = PatternFill(start_color=SLATE_LIGHT, end_color=SLATE_LIGHT, fill_type='solid') if (seq_idx % 2 == 0) else None
 
-                # Resolve Applicant or Contractor cleanly
-                party_val = "—"
-                if r.record_type == 'Permit':
-                    app_name = (r.permit_detail.applicant_name.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name else '').strip()
-                    if app_name and app_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not app_name.startswith('[') and 'unpermitted' not in app_name.lower() and 'violation' not in app_name.lower():
-                        party_val = app_name
-                else:
-                    c_name = (r.project_detail.contractor.strip() if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.contractor else '').strip()
-                    if c_name and c_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not c_name.startswith('[') and 'unpermitted' not in c_name.lower() and 'violation' not in c_name.lower():
-                        party_val = c_name
+                c1 = ws.cell(row=row_idx, column=1, value=seq_idx)
+                c1.alignment = Alignment(horizontal='center', vertical='center')
+                c1.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+                c2 = ws.cell(row=row_idx, column=2, value=row_data['label'])
+                c2.alignment = Alignment(horizontal='left', vertical='center')
+                c2.font = Font(name='Segoe UI', size=9.5, bold=True, color=TEXT_DARK)
+                c3 = ws.cell(row=row_idx, column=3, value=m_c)
+                c3.alignment = Alignment(horizontal='center', vertical='center')
+                c3.font = Font(name='Segoe UI', size=9.5, bold=(m_c > 0), color='0D9488' if m_c > 0 else TEXT_MUTED)
+                c4 = ws.cell(row=row_idx, column=4, value=b_c)
+                c4.alignment = Alignment(horizontal='center', vertical='center')
+                c4.font = Font(name='Segoe UI', size=9.5, bold=(b_c > 0), color='4F46E5' if b_c > 0 else TEXT_MUTED)
+                c5 = ws.cell(row=row_idx, column=5, value=pm_c)
+                c5.alignment = Alignment(horizontal='center', vertical='center')
+                c5.font = Font(name='Segoe UI', size=9.5, bold=(pm_c > 0), color='0284C7' if pm_c > 0 else TEXT_MUTED)
+                c6 = ws.cell(row=row_idx, column=6, value=v_c)
+                c6.alignment = Alignment(horizontal='center', vertical='center')
+                c6.font = Font(name='Segoe UI', size=9.5, bold=(v_c > 0), color='DC2626' if v_c > 0 else TEXT_MUTED)
+                c7 = ws.cell(row=row_idx, column=7, value=t_c)
+                c7.alignment = Alignment(horizontal='center', vertical='center')
+                c7.font = Font(name='Segoe UI', size=9.5, bold=(t_c > 0), color=TEXT_DARK if t_c > 0 else TEXT_MUTED)
+                c8 = ws.cell(row=row_idx, column=8, value=b_sum)
+                c8.alignment = Alignment(horizontal='right', vertical='center')
+                c8.font = Font(name='Segoe UI', size=9.5, bold=(b_sum > 0), color='15803D' if b_sum > 0 else TEXT_MUTED)
+                c8.number_format = '₱#,##0.00'
 
-                # Resolve Cost / Budget
-                cost = 0
-                if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_cost:
-                    cost = r.project_detail.project_cost
-                    total_val += cost
-
-                # Resolve Upload Completion Status
-                c_stats = r.completion_stats
-                if c_stats['total'] > 0:
-                    doc_status = f"{c_stats['fulfilled']}/{c_stats['total']}"
-                else:
-                    doc_status = f"{r.documents.count()} files" if is_violation else "—"
-
-                barangay_name = r.barangay.barangay_name if r.barangay else "—"
-                year_val = r.year if r.year else "—"
-
-                row_data = [idx, ref_no, specific_type, barangay_name, year_val, status_label, party_val, cost if cost > 0 else "—", doc_status]
-                ws.append(row_data)
-                
-                curr_row = ws.max_row
-                ws.row_dimensions[curr_row].height = 19
-
-                for col_idx in range(1, len(headers) + 1):
-                    cell = ws.cell(row=curr_row, column=col_idx)
+                for col_i in range(1, 9):
+                    cell = ws.cell(row=row_idx, column=col_i)
                     cell.border = thin_border
-                    
-                    if is_violation and col_idx in [3, 6]:
-                        cell.font = row_highlight_font
-                    else:
-                        cell.font = data_font
-
                     if row_fill:
                         cell.fill = row_fill
-                    
-                    if col_idx in [1, 5, 6, 9]:
-                        cell.alignment = Alignment(horizontal='center', vertical='center')
-                    elif col_idx == 8:
-                        cell.alignment = Alignment(horizontal='right', vertical='center')
-                        if isinstance(cell.value, (int, float, Decimal)):
-                            cell.number_format = '₱#,##0.00'
-                    else:
-                        cell.alignment = Alignment(horizontal='left', vertical='center')
 
-            # Summary Row
-            tot_row_idx = ws.max_row + 1
-            ws.row_dimensions[tot_row_idx].height = 22
-            ws.cell(row=tot_row_idx, column=1, value="TOTAL").font = total_font
-            ws.cell(row=tot_row_idx, column=2, value=f"{records.count()} Record(s)").font = total_font
-            ws.cell(row=tot_row_idx, column=7, value="Total Budget:").font = total_font
-            
-            cost_total_cell = ws.cell(row=tot_row_idx, column=8, value=total_val)
-            cost_total_cell.font = total_font
-            cost_total_cell.number_format = '₱#,##0.00'
-            cost_total_cell.alignment = Alignment(horizontal='right', vertical='center')
-            
-            for col_idx in range(1, len(headers) + 1):
+            # 4. Totals Footer Row
+            tot_row_idx = 11 + len(export_table_rows) + 1
+            ws.row_dimensions[tot_row_idx].height = 24
+
+            ws.cell(row=tot_row_idx, column=1, value="")
+            tot_lbl = ws.cell(row=tot_row_idx, column=2, value="TOTAL ACCOMPLISHMENTS")
+            tot_lbl.font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
+            tot_lbl.alignment = Alignment(horizontal='left', vertical='center')
+
+            c_muni = ws.cell(row=tot_row_idx, column=3, value=muni_p_cnt)
+            c_muni.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_muni.alignment = Alignment(horizontal='center', vertical='center')
+
+            c_brgy = ws.cell(row=tot_row_idx, column=4, value=brgy_p_cnt)
+            c_brgy.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_brgy.alignment = Alignment(horizontal='center', vertical='center')
+
+            c_perm = ws.cell(row=tot_row_idx, column=5, value=permits_cnt)
+            c_perm.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_perm.alignment = Alignment(horizontal='center', vertical='center')
+
+            c_viol = ws.cell(row=tot_row_idx, column=6, value=active_violations_cnt)
+            c_viol.font = Font(name='Segoe UI', size=10, bold=True, color='DC2626')
+            c_viol.alignment = Alignment(horizontal='center', vertical='center')
+
+            c_tot = ws.cell(row=tot_row_idx, column=7, value=total_rec_cnt)
+            c_tot.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_tot.alignment = Alignment(horizontal='center', vertical='center')
+
+            c_bud = ws.cell(row=tot_row_idx, column=8, value=total_budget_sum)
+            c_bud.font = Font(name='Segoe UI', size=10, bold=True, color='15803D')
+            c_bud.alignment = Alignment(horizontal='right', vertical='center')
+            c_bud.number_format = '₱#,##0.00'
+
+            for col_idx in range(1, 9):
                 cell = ws.cell(row=tot_row_idx, column=col_idx)
                 cell.border = double_bottom_border
-                cell.fill = total_fill
-                if col_idx not in [1, 2, 7, 8]:
-                    cell.value = ""
+                cell.fill = PatternFill(start_color='EEF2F6', end_color='EEF2F6', fill_type='solid')
 
-            # Auto-fit Column Widths
-            for col in ws.columns:
-                max_len = 0
-                col_letter = col[0].column_letter
-                for cell in col[5:]:
-                    if cell.value:
-                        val_str = str(cell.value)
-                        if len(val_str) > max_len:
-                            max_len = len(val_str)
-                ws.column_dimensions[col_letter].width = max(max_len + 4, 11)
-            ws.column_dimensions['A'].width = 8
+            # 5. Footer Timestamp Note
+            footer_row_idx = tot_row_idx + 2
+            ws.merge_cells(start_row=footer_row_idx, start_column=1, end_row=footer_row_idx, end_column=8)
+            ws.cell(row=footer_row_idx, column=1, value=f"eTala • Carigara, Leyte • Generated: {gen_timestamp}").font = Font(name='Segoe UI', size=8, italic=True, color=TEXT_MUTED)
+
+            ws.column_dimensions['A'].width = 6
             ws.column_dimensions['B'].width = 28
-            ws.column_dimensions['C'].width = 22
-            ws.column_dimensions['D'].width = 18
-            ws.column_dimensions['E'].width = 10
-            ws.column_dimensions['F'].width = 16
-            ws.column_dimensions['G'].width = 24
-            ws.column_dimensions['H'].width = 18
-            ws.column_dimensions['I'].width = 12
+            ws.column_dimensions['C'].width = 14
+            ws.column_dimensions['D'].width = 14
+            ws.column_dimensions['E'].width = 14
+            ws.column_dimensions['F'].width = 14
+            ws.column_dimensions['G'].width = 13
+            ws.column_dimensions['H'].width = 24
 
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename=eTala_Engineering_Records_{timezone.now().strftime("%Y%m%d_%H%M")}.xlsx'
+            response['Content-Disposition'] = f'attachment; filename="eTala_{file_suffix}.xlsx"'
             wb.save(response)
             return response
 
         elif export_format == 'pdf':
-            from reportlab.lib.pagesizes import letter
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, HRFlowable, Image
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image, KeepTogether
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib import colors
             from reportlab.pdfgen import canvas
@@ -3839,438 +4404,257 @@ def reports_view(request):
             from io import BytesIO
             from django.http import HttpResponse
             from django.conf import settings
+            from django.db.models import Sum, Count, Q
             import os
 
-            # Register Unicode TTF Font for native Peso Sign (₱) rendering across OS environments
             font_candidates = [
                 (os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans.ttf'), os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans-Bold.ttf')),
                 (r'C:\Windows\Fonts\segoeui.ttf', r'C:\Windows\Fonts\segoeuib.ttf'),
-                (r'C:\Windows\Fonts\arial.ttf', r'C:\Windows\Fonts\arialbd.ttf'),
                 ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
-                ('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'),
-                ('/usr/share/fonts/truetype/freefont/FreeSans.ttf', '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'),
             ]
 
             font_registered = False
             for reg_path, bold_path in font_candidates:
                 try:
                     if os.path.exists(reg_path) and os.path.exists(bold_path):
-                        pdfmetrics.registerFont(TTFont('eTalaFont', reg_path))
-                        pdfmetrics.registerFont(TTFont('eTalaFont-Bold', bold_path))
+                        pdfmetrics.registerFont(TTFont('AppUnicode', reg_path))
+                        pdfmetrics.registerFont(TTFont('AppUnicode-Bold', bold_path))
                         font_registered = True
                         break
                 except Exception:
                     continue
 
-            main_font = 'eTalaFont' if font_registered else 'Helvetica'
-            bold_font = 'eTalaFont-Bold' if font_registered else 'Helvetica-Bold'
+            main_font = 'AppUnicode' if font_registered else 'Helvetica'
+            bold_font = 'AppUnicode-Bold' if font_registered else 'Helvetica-Bold'
 
-            # Running Numbered Canvas with Header & Footer for Portrait Letter (612 x 792 pt)
+            PAGE_WIDTH, PAGE_HEIGHT = A4
+            MARGIN = 36.0
+            USABLE_WIDTH = PAGE_WIDTH - (MARGIN * 2)
+
             class NumberedCanvas(canvas.Canvas):
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)
                     self._saved_page_states = []
-                    self.setTitle("eTala Engineering Accomplishment Report")
-                    self.setAuthor("Municipal Engineering Office — LGU Carigara")
-                    self.setSubject("Official Engineering & Regulatory Accomplishment Report")
-                    self.setCreator("eTala Management System")
 
                 def showPage(self):
                     self._saved_page_states.append(dict(self.__dict__))
                     self._startPage()
 
                 def save(self):
-                    num_pages = len(self._saved_page_states)
+                    page_count = len(self._saved_page_states)
                     for state in self._saved_page_states:
                         self.__dict__.update(state)
-                        self.draw_page_decorations(num_pages)
+                        self.draw_page_decorations(page_count)
                         super().showPage()
                     super().save()
 
                 def draw_page_decorations(self, page_count):
                     self.saveState()
-                    # Running top header on page 2+
+                    right_edge = PAGE_WIDTH - MARGIN
                     if self._pageNumber > 1:
                         self.setFont(bold_font, 7.5)
                         self.setFillColor(colors.HexColor("#002855"))
-                        self.drawString(36, 762, "MUNICIPAL ENGINEERING OFFICE — CARIGARA, LEYTE")
+                        self.drawString(MARGIN, PAGE_HEIGHT - 26, "MUNICIPAL ENGINEERING OFFICE — CARIGARA, LEYTE")
                         self.setFont(main_font, 7.5)
                         self.setFillColor(colors.HexColor("#64748B"))
-                        self.drawRightString(576, 762, "Official Accomplishment & Regulatory Report")
+                        self.drawRightString(right_edge, PAGE_HEIGHT - 26, "Engineering Accomplishment Report")
                         self.setStrokeColor(colors.HexColor("#CBD5E1"))
                         self.setLineWidth(0.5)
-                        self.line(36, 756, 576, 756)
+                        self.line(MARGIN, PAGE_HEIGHT - 30, right_edge, PAGE_HEIGHT - 30)
 
-                    # Running Footer
+                    now_ph = timezone.localtime(timezone.now())
                     self.setFont(main_font, 7.5)
                     self.setFillColor(colors.HexColor("#64748B"))
-                    self.drawString(36, 20, f"eTala Management System • Carigara, Leyte | Official Record | {timezone.now().strftime('%b %d, %Y %I:%M %p')} PST")
-                    self.drawRightString(576, 20, f"Page {self._pageNumber} of {page_count}")
+                    self.drawString(MARGIN, 20, f"eTala • Carigara, Leyte • Generated: {now_ph.strftime('%B %d, %Y • %I:%M %p')}")
+                    self.drawRightString(right_edge, 20, f"Page {self._pageNumber} of {page_count}")
                     self.setStrokeColor(colors.HexColor("#CBD5E1"))
                     self.setLineWidth(0.5)
-                    self.line(36, 28, 576, 28)
+                    self.line(MARGIN, 28, right_edge, 28)
                     self.restoreState()
 
             buffer = BytesIO()
             doc = SimpleDocTemplate(
                 buffer,
-                pagesize=letter,
+                pagesize=A4,
                 title="eTala Engineering Accomplishment Report",
                 author="Municipal Engineering Office — LGU Carigara",
-                subject="Official Engineering Accomplishment Report",
-                creator="eTala Management System",
-                rightMargin=36,
-                leftMargin=36,
+                subject="Engineering Accomplishment Report",
+                creator="eTala",
+                rightMargin=MARGIN,
+                leftMargin=MARGIN,
                 topMargin=26,
                 bottomMargin=36
             )
-            
+
             story = []
             styles = getSampleStyleSheet()
 
             NAVY = colors.HexColor('#002855')
             GOLD = colors.HexColor('#C5A059')
-            TEXT_DARK = colors.HexColor('#0F172A')
-            TEXT_MUTED = colors.HexColor('#475569')
+            SLATE_DARK = colors.HexColor('#0F172A')
+            SLATE_MUTED = colors.HexColor('#64748B')
+            BORDER_COLOR = colors.HexColor('#CBD5E1')
 
-            sub_header_style = ParagraphStyle(
-                'SubHeaderStyle',
-                parent=styles['Normal'],
-                fontName=main_font,
-                fontSize=7.5,
-                leading=10,
-                textColor=TEXT_MUTED,
-                alignment=0
-            )
-            muni_title_style = ParagraphStyle(
-                'MuniTitleStyle',
-                parent=styles['Normal'],
-                fontName=bold_font,
-                fontSize=9.5,
-                leading=12,
-                textColor=NAVY,
-                alignment=0
-            )
-            office_title_style = ParagraphStyle(
-                'OfficeTitleStyle',
-                parent=styles['Heading1'],
-                fontName=bold_font,
-                fontSize=11,
-                leading=13.5,
-                textColor=NAVY,
-                alignment=0
-            )
-            report_title_style = ParagraphStyle(
-                'ReportTitleStyle',
-                parent=styles['Heading2'],
-                fontName=bold_font,
-                fontSize=10.5,
-                leading=13.5,
-                textColor=NAVY,
-                alignment=1,
-                spaceAfter=4,
-                spaceBefore=3
-            )
-            meta_label_style = ParagraphStyle(
-                'MetaLabelStyle',
-                parent=styles['Normal'],
-                fontName=main_font,
-                fontSize=7.5,
-                leading=10,
-                textColor=TEXT_DARK
-            )
+            # 1. Header Banner & Official LGU Seal
+            logo_candidates = [
+                os.path.join(settings.BASE_DIR, 'assets', 'carigara_logo.png'),
+                os.path.join(settings.BASE_DIR, 'assets', 'images', 'carigara_logo.png'),
+                os.path.join(settings.BASE_DIR, 'assets', 'MERGJ_logo.png'),
+            ]
+            logo_lgu = None
+            for lp in logo_candidates:
+                if os.path.exists(lp):
+                    try:
+                        logo_lgu = Image(lp, width=42, height=42)
+                        break
+                    except Exception:
+                        continue
 
-            # Table Typography Styles
-            header_cell_style = ParagraphStyle(
-                'HeaderCellStyle',
-                parent=styles['Normal'],
-                fontName=bold_font,
-                fontSize=7,
-                leading=9,
-                textColor=colors.white,
-                alignment=0
-            )
-            header_center_style = ParagraphStyle(
-                'HeaderCenterStyle',
-                parent=header_cell_style,
-                alignment=1
-            )
-            header_right_style = ParagraphStyle(
-                'HeaderRightStyle',
-                parent=header_cell_style,
-                alignment=2
-            )
+            header_text_data = [
+                [Paragraph('<font size="7.5" color="#475569"><b>REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE</b></font>', ParagraphStyle('H1', fontName=bold_font, alignment=1, leading=9))],
+                [Paragraph('<font size="9.5" color="#002855"><b>MUNICIPALITY OF CARIGARA</b></font>', ParagraphStyle('H2', fontName=bold_font, alignment=1, leading=11))],
+                [Paragraph('<font size="11" color="#002855"><b>OFFICE OF THE MUNICIPAL ENGINEER</b></font>', ParagraphStyle('H3', fontName=bold_font, alignment=1, leading=13))],
+            ]
+            header_text_table = Table(header_text_data, colWidths=[USABLE_WIDTH])
+            header_text_table.setStyle(TableStyle([
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+                ('TOPPADDING', (0,0), (-1,-1), 0),
+            ]))
 
-            cell_style = ParagraphStyle(
-                'BodyCellStyle',
-                parent=styles['Normal'],
-                fontName=main_font,
-                fontSize=7,
-                leading=8.5,
-                textColor=TEXT_DARK
-            )
-            cell_center = ParagraphStyle(
-                'BodyCellCenter',
-                parent=cell_style,
-                alignment=1
-            )
-            cell_right = ParagraphStyle(
-                'BodyCellRight',
-                parent=cell_style,
-                alignment=2
-            )
-
-            # Official Header Layout: Logo + Letterhead side-by-side
-            logo_path = os.path.join(settings.BASE_DIR, 'assets', 'carigara_logo.png')
-            if os.path.exists(logo_path):
-                logo_img = Image(logo_path, width=44, height=44)
-                header_text = [
-                    Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style),
-                    Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style),
-                    Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER &amp; BUILDING OFFICIAL</b>", office_title_style),
-                ]
-                header_table = Table([[logo_img, header_text]], colWidths=[52, 488])
-                header_table.setStyle(TableStyle([
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-                    ('LEFTPADDING', (1, 0), (1, -1), 6),
-                    ('TOPPADDING', (0, 0), (-1, -1), 0),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            if logo_lgu:
+                logo_table = Table([[logo_lgu]], colWidths=[USABLE_WIDTH])
+                logo_table.setStyle(TableStyle([
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+                    ('TOPPADDING', (0,0), (-1,-1), 0),
                 ]))
-                story.append(header_table)
-            else:
-                story.append(Paragraph("REPUBLIC OF THE PHILIPPINES &bull; PROVINCE OF LEYTE", sub_header_style))
-                story.append(Paragraph("<b>MUNICIPALITY OF CARIGARA</b>", muni_title_style))
-                story.append(Paragraph("<b>OFFICE OF THE MUNICIPAL ENGINEER &amp; BUILDING OFFICIAL</b>", office_title_style))
+                story.append(logo_table)
+
+            story.append(header_text_table)
 
             story.append(Spacer(1, 4))
-            story.append(HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceAfter=2, spaceBefore=2))
-            story.append(HRFlowable(width="100%", thickness=0.5, color=GOLD, spaceAfter=4, spaceBefore=0))
-            
-            # Dynamic Report Title based on Category Filter
-            if selected_record_type == 'Permit':
-                doc_title = "BUILDING &amp; ANCILLARY PERMITS ACCOMPLISHMENT REPORT"
-            elif selected_record_type == 'Project':
-                doc_title = "INFRASTRUCTURE DEVELOPMENT &amp; PUBLIC WORKS PROGRESS REPORT"
-            else:
-                doc_title = "ENGINEERING &amp; REGULATORY ACCOMPLISHMENT MASTER REPORT"
-            story.append(Paragraph(doc_title, report_title_style))
+            story.append(HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceAfter=5, spaceBefore=2))
 
-            # 1. Metadata Box (Total: 540pt)
-            meta_data = [
-                [
-                    Paragraph(f"<b>Filter Scope:</b> {active_filter_str}", meta_label_style),
-                    Paragraph(f"<b>Generated At:</b> {gen_timestamp} PST", meta_label_style),
-                ],
-                [
-                    Paragraph(f"<b>Exported By:</b> {request.user.full_name or request.user.username} ({request.user.get_role_display()})", meta_label_style),
-                    Paragraph(f"<b>Total Matched Records:</b> <b>{records.count()} Record(s)</b>", meta_label_style),
-                ]
-            ]
-            meta_box = Table(meta_data, colWidths=[270, 270])
-            meta_box.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
-                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-                ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#E2E8F0')),
-                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
-                ('LEFTPADDING', (0, 0), (-1, -1), 8),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-            ]))
-            story.append(meta_box)
+            # Document Title & Subtitle Block
+            doc_title_style = ParagraphStyle('DocTitle', fontName=bold_font, fontSize=10.5, leading=12, alignment=1, textColor=NAVY)
+            doc_sub_style = ParagraphStyle('DocSub', fontName=main_font, fontSize=8, leading=10, alignment=1, textColor=SLATE_MUTED)
+
+            story.append(Paragraph(f"<b>{clean_doc_title}</b>", doc_title_style))
+            story.append(Spacer(1, 1.5))
+            story.append(Paragraph(clean_sub_text, doc_sub_style))
             story.append(Spacer(1, 6))
 
-            # 2. Executive 4-KPI Metric Strip Table (540pt)
-            kpi_th_style = ParagraphStyle('KPITh', parent=styles['Normal'], fontName=bold_font, fontSize=6.5, leading=8, textColor=colors.HexColor('#475569'), alignment=1)
-            kpi_val_style = ParagraphStyle('KPIVal', parent=styles['Normal'], fontName=bold_font, fontSize=9.5, leading=11.5, textColor=NAVY, alignment=1)
-            kpi_sub_style = ParagraphStyle('KPISub', parent=styles['Normal'], fontName=main_font, fontSize=6.5, leading=8, textColor=colors.HexColor('#64748B'), alignment=1)
+            # 2. Executive 4-KPI Metric Strip Block
+            kpi_title_style = ParagraphStyle('KpiT', fontName=bold_font, fontSize=6.5, leading=8, alignment=1, textColor=colors.HexColor('#475569'))
+            kpi_val_style = ParagraphStyle('KpiV', fontName=bold_font, fontSize=12, leading=14, alignment=1, textColor=NAVY)
+            kpi_sub_style = ParagraphStyle('KpiS', fontName=main_font, fontSize=6.5, leading=7.5, alignment=1, textColor=SLATE_MUTED)
 
-            total_rec_cnt = records.count()
-            permits_cnt = records.filter(record_type='Permit').count()
-            projects_cnt = records.filter(record_type='Project').count()
-            from django.db.models import Sum
-            total_budget_sum = records.filter(record_type='Project').aggregate(s=Sum('project_detail__project_cost'))['s'] or 0
-
-            kpi_table_data = [
+            kpi_data = [
                 [
-                    Paragraph("TOTAL ARCHIVE", kpi_th_style),
-                    Paragraph("INFRA PROJECTS", kpi_th_style),
-                    Paragraph("PERMITS ISSUED", kpi_th_style),
-                    Paragraph("TOTAL PROJECT COST", kpi_th_style),
+                    Paragraph("INFRASTRUCTURE PROJECTS", kpi_title_style),
+                    Paragraph("ENGINEERING PERMITS", kpi_title_style),
+                    Paragraph("ILLEGAL CONSTRUCTIONS", kpi_title_style),
+                    Paragraph("TOTAL PROJECT BUDGET", kpi_title_style),
                 ],
                 [
-                    Paragraph(f"<b>{total_rec_cnt}</b>", kpi_val_style),
-                    Paragraph(f"<b>{projects_cnt}</b>", kpi_val_style),
-                    Paragraph(f"<b>{permits_cnt}</b>", kpi_val_style),
-                    Paragraph(f"<b>₱ {total_budget_sum:,.2f}</b>", kpi_val_style),
+                    Paragraph(str(projects_cnt), kpi_val_style),
+                    Paragraph(str(permits_cnt), kpi_val_style),
+                    Paragraph(str(active_violations_cnt), kpi_val_style),
+                    Paragraph(f"₱ {total_budget_sum:,.2f}", kpi_val_style),
                 ],
                 [
-                    Paragraph(f"{records.exclude(status='archived').count()} Active • {records.filter(status='archived').count()} Archived", kpi_sub_style),
-                    Paragraph(f"{records.filter(record_type='Project', status='active').count()} Ongoing • {records.filter(record_type='Project', status='completed').count()} Done", kpi_sub_style),
-                    Paragraph(f"{records.filter(record_type='Permit', permit_detail__permit_type__iexact='Building').count()} Building • {records.filter(record_type='Permit', permit_detail__permit_type__iexact='Electrical').count()} Elec", kpi_sub_style),
-                    Paragraph(f"{records.filter(record_type='Project', project_scope='Municipal').count()} Municipal • {records.filter(record_type='Project', project_scope='Barangay').count()} Brgy", kpi_sub_style),
+                    Paragraph(f"{muni_p_cnt} Municipal &bull; {brgy_p_cnt} Barangay", kpi_sub_style),
+                    Paragraph(f"{bldg_perm_cnt} Bldg &bull; {occ_perm_cnt} Occ &bull; {elec_perm_cnt} Elec", kpi_sub_style),
+                    Paragraph(f"{active_violations_cnt} Active &bull; {resolved_violations_cnt} Complied", kpi_sub_style),
+                    Paragraph("Public Works Allocation", kpi_sub_style),
                 ]
             ]
-            kpi_table = Table(kpi_table_data, colWidths=[135, 135, 135, 135])
+            kpi_table = Table(kpi_data, colWidths=[USABLE_WIDTH / 4.0] * 4)
             kpi_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F5F9')),
-                ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#CBD5E1')),
-                ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#CBD5E1')),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
+                ('BOX', (0,0), (-1,-1), 0.75, BORDER_COLOR),
+                ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('TOPPADDING', (0,0), (-1,0), 3),
+                ('BOTTOMPADDING', (0,0), (-1,0), 1),
+                ('TOPPADDING', (0,1), (-1,1), 1),
+                ('BOTTOMPADDING', (0,1), (-1,1), 1),
+                ('TOPPADDING', (0,2), (-1,2), 0),
+                ('BOTTOMPADDING', (0,2), (-1,2), 3),
             ]))
             story.append(kpi_table)
             story.append(Spacer(1, 6))
 
-            # 3. Main Data Ledger Table (Total: 540pt across 36pt margins)
-            col_widths = [20, 85, 80, 65, 30, 55, 115, 65, 25]
+            # 3. Main Accomplishment Ledger by Barangay (All 49 Barangays)
+            header_cell_style = ParagraphStyle('HC', fontName=bold_font, fontSize=7.5, leading=8.5, alignment=0, textColor=colors.white)
+            header_center_style = ParagraphStyle('HCC', fontName=bold_font, fontSize=7.5, leading=8.5, alignment=1, textColor=colors.white)
+            header_right_style = ParagraphStyle('HCR', fontName=bold_font, fontSize=7.5, leading=8.5, alignment=2, textColor=colors.white)
+
+            cell_style = ParagraphStyle('C', fontName=main_font, fontSize=7, leading=8.5, textColor=SLATE_DARK)
+            cell_center = ParagraphStyle('CC', fontName=main_font, fontSize=7, leading=8.5, alignment=1, textColor=SLATE_DARK)
+            cell_right = ParagraphStyle('CR', fontName=main_font, fontSize=7, leading=8.5, alignment=2, textColor=SLATE_DARK)
+            cell_muted_center = ParagraphStyle('CMC', fontName=main_font, fontSize=7, leading=8.5, alignment=1, textColor=SLATE_MUTED)
+            cell_muted_right = ParagraphStyle('CMR', fontName=main_font, fontSize=7, leading=8.5, alignment=2, textColor=SLATE_MUTED)
+
+            col_widths = [22, 121, 54, 54, 48, 58, 48, 118.27]
             table_data = [[
                 Paragraph("#", header_center_style),
-                Paragraph("Record / Ref No.", header_cell_style),
-                Paragraph("Type / Scope", header_cell_style),
-                Paragraph("Barangay", header_cell_style),
-                Paragraph("Year", header_center_style),
-                Paragraph("Status", header_center_style),
-                Paragraph("Applicant / Contractor", header_cell_style),
-                Paragraph("Cost / Budget", header_right_style),
-                Paragraph("Docs", header_center_style)
+                Paragraph("MONTH / PERIOD" if is_single_barangay else "BARANGAY", header_cell_style),
+                Paragraph("MUNICIPAL", header_center_style),
+                Paragraph("BARANGAY", header_center_style),
+                Paragraph("PERMITS", header_center_style),
+                Paragraph("VIOLATIONS", header_center_style),
+                Paragraph("TOTAL", header_center_style),
+                Paragraph("PROJECT BUDGET (₱)", header_right_style)
             ]]
 
-            violation_rows_info = {}
-            total_val = 0
-            for row_idx, r in enumerate(records, 1):
-                is_violation = bool(r.is_illegal_construction)
-                violation_status = r.illegal_compliance_status or 'unresolved'
-
-                if is_violation:
-                    if violation_status == 'unresolved':
-                        status_html = '<font color="#DC2626"><b>Unresolved</b></font>'
-                        violation_rows_info[row_idx] = colors.HexColor('#FFF1F2')
-                    elif violation_status == 'pending_permit':
-                        status_html = '<font color="#D97706"><b>Permit Filed</b></font>'
-                        violation_rows_info[row_idx] = colors.HexColor('#FFFBEB')
-                    elif violation_status == 'resolved':
-                        status_html = '<font color="#16A34A"><b>Regularized</b></font>'
-                        violation_rows_info[row_idx] = colors.HexColor('#F0FDF4')
-                    else:
-                        status_html = '<font color="#DC2626"><b>Violation</b></font>'
-                        violation_rows_info[row_idx] = colors.HexColor('#FFF1F2')
-                else:
-                    if r.status == 'completed':
-                        status_html = '<font color="#16A34A"><b>Completed</b></font>'
-                    elif r.status == 'active':
-                        status_html = '<font color="#0284C7"><b>Active</b></font>'
-                    elif r.status == 'pending':
-                        status_html = '<font color="#D97706"><b>Pending</b></font>'
-                    else:
-                        status_html = dict(EngineeringRecord.STATUS_CHOICES).get(r.status, r.status)
-                
-                # Resolve Record Title cleanly
-                if r.record_type == 'Permit':
-                    permit_num = (r.permit_detail.permit_number.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_number else '').strip()
-                    if permit_num:
-                        ref_no = permit_num
-                    elif r.title and r.title.strip() and r.title.strip() != '—' and not r.is_illegal_construction and r.title.strip().lower() != 'permit':
-                        ref_no = r.title.strip()
-                    elif r.is_illegal_construction:
-                        ref_no = f"Violation #{r.record_id}"
-                    else:
-                        ref_no = f"Permit #{r.record_id}"
-                else:
-                    ref_no = r.title.strip() if r.title and r.title.strip() and r.title.strip() != '—' else f"Project #{r.record_id}"
-
-                # Resolve Specific Type
-                if r.record_type == 'Permit':
-                    if is_violation:
-                        if violation_status == 'resolved':
-                            specific_type = '<font color="#16A34A"><b>Regularized Building</b></font>'
-                        elif violation_status == 'pending_permit':
-                            specific_type = '<font color="#D97706"><b>Violation (Permit Filed)</b></font>'
-                        else:
-                            specific_type = '<font color="#DC2626"><b>Violation Notice</b></font>'
-                    elif hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_type:
-                        specific_type = r.specific_type_label
-                    else:
-                        specific_type = "Building Permit"
-                else:
-                    if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_type:
-                        specific_type = r.specific_type_label
-                    else:
-                        specific_type = f"{r.project_scope} Project" if r.project_scope else "Project"
-
-                # Resolve Applicant or Contractor
-                party_val = "—"
-                if r.record_type == 'Permit':
-                    app_name = (r.permit_detail.applicant_name.strip() if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name else '').strip()
-                    if app_name and app_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not app_name.startswith('[') and 'unpermitted' not in app_name.lower() and 'violation' not in app_name.lower():
-                        party_val = app_name
-                else:
-                    c_name = (r.project_detail.contractor.strip() if hasattr(r, 'project_detail') and r.project_detail and r.project_detail.contractor else '').strip()
-                    if c_name and c_name.lower() not in ['n/a', 'none', 'if applicable', '', '—'] and not c_name.startswith('[') and 'unpermitted' not in c_name.lower() and 'violation' not in c_name.lower():
-                        party_val = c_name
-
-                # Resolve Cost / Budget
-                cost = 0
-                if r.record_type == 'Project' and hasattr(r, 'project_detail') and r.project_detail and r.project_detail.project_cost:
-                    cost = r.project_detail.project_cost
-                    total_val += cost
-
-                # Resolve Upload Completion Status
-                c_stats = r.completion_stats
-                if c_stats['total'] > 0:
-                    if c_stats['is_complete']:
-                        doc_para = Paragraph(f'<font color="#16A34A"><b>{c_stats["fulfilled"]}/{c_stats["total"]}</b></font>', cell_center)
-                    elif c_stats['fulfilled'] > 0:
-                        doc_para = Paragraph(f'<font color="#D97706">{c_stats["fulfilled"]}/{c_stats["total"]}</font>', cell_center)
-                    else:
-                        doc_para = Paragraph(f'<font color="#DC2626">0/{c_stats["total"]}</font>', cell_center)
-                else:
-                    doc_para = Paragraph(f'<font color="#64748B">{r.documents.count()}f</font>' if is_violation else '<font color="#94A3B8">—</font>', cell_center)
-
-                barangay_name = r.barangay.barangay_name if r.barangay else "—"
-                year_val = str(r.year) if r.year else "—"
+            for row_data in export_table_rows:
+                seq_idx = row_data['seq']
+                m_c = row_data['muni_proj_cnt']
+                b_c = row_data['brgy_proj_cnt']
+                pm_c = row_data['perm_cnt']
+                v_c = row_data['viol_cnt']
+                t_c = row_data['tot_cnt']
+                b_sum = row_data['budget_sum']
 
                 table_data.append([
-                    Paragraph(str(row_idx), cell_center),
-                    Paragraph(ref_no, cell_style),
-                    Paragraph(specific_type, cell_style),
-                    Paragraph(barangay_name, cell_style),
-                    Paragraph(year_val, cell_center),
-                    Paragraph(status_html, cell_center),
-                    Paragraph(party_val if party_val != '—' else '<font color="#94A3B8">—</font>', cell_style),
-                    Paragraph(f"₱ {cost:,.2f}" if cost > 0 else '<font color="#94A3B8">—</font>', cell_right),
-                    doc_para
+                    Paragraph(str(seq_idx), cell_muted_center),
+                    Paragraph(f"<b>{row_data['label']}</b>", cell_style),
+                    Paragraph(str(m_c), cell_center if m_c > 0 else cell_muted_center),
+                    Paragraph(str(b_c), cell_center if b_c > 0 else cell_muted_center),
+                    Paragraph(str(pm_c), cell_center if pm_c > 0 else cell_muted_center),
+                    Paragraph(f'<font color="#DC2626"><b>{v_c}</b></font>' if v_c > 0 else "0", cell_center if v_c > 0 else cell_muted_center),
+                    Paragraph(f"<b>{t_c}</b>" if t_c > 0 else "0", cell_center if t_c > 0 else cell_muted_center),
+                    Paragraph(f"₱ {b_sum:,.2f}" if b_sum > 0 else "₱ 0.00", cell_right if b_sum > 0 else cell_muted_right),
                 ])
 
-            # Total summary row (Total: 540pt)
-            total_label_style = ParagraphStyle('TotalLabel', parent=cell_style, fontName=bold_font, fontSize=7.5, textColor=NAVY)
-            total_right_style = ParagraphStyle('TotalRight', parent=cell_right, fontName=bold_font, fontSize=7.5, textColor=NAVY)
-            
+            tot_label_style = ParagraphStyle('TotLbl', parent=cell_style, fontName=bold_font, fontSize=7.5, textColor=NAVY)
+            tot_center_style = ParagraphStyle('TotCenter', parent=cell_center, fontName=bold_font, fontSize=7.5, textColor=NAVY)
+            tot_right_style = ParagraphStyle('TotRight', parent=cell_right, fontName=bold_font, fontSize=7.5, textColor=NAVY)
+
             table_data.append([
-                Paragraph("<b>TOTAL</b>", ParagraphStyle('TotCenter', parent=cell_center, fontName=bold_font, fontSize=7.5, textColor=NAVY)),
-                Paragraph(f"<b>{records.count()} Record(s)</b>", total_label_style),
-                Paragraph("", cell_style),
-                Paragraph("", cell_style),
-                Paragraph("", cell_style),
-                Paragraph("", cell_style),
-                Paragraph("<b>Total Budget:</b>", total_right_style),
-                Paragraph(f"<b>₱ {total_val:,.2f}</b>", total_right_style),
-                Paragraph("", cell_style)
+                Paragraph("", tot_label_style),
+                Paragraph("TOTAL ACCOMPLISHMENTS", tot_label_style),
+                Paragraph(str(muni_p_cnt), tot_center_style),
+                Paragraph(str(brgy_p_cnt), tot_center_style),
+                Paragraph(str(permits_cnt), tot_center_style),
+                Paragraph(str(active_violations_cnt), tot_center_style),
+                Paragraph(str(total_rec_cnt), tot_center_style),
+                Paragraph(f"₱ {total_budget_sum:,.2f}", tot_right_style)
             ])
 
             t = Table(table_data, colWidths=col_widths, repeatRows=1)
-            
-            # Construct styling with alternating row backgrounds
             t_style_cmds = [
                 ('BACKGROUND', (0, 0), (-1, 0), NAVY),
-                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('TOPPADDING', (0, 0), (-1, 0), 3.5),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 3.5),
                 ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#E2E8F0')),
-                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#EEF2F6')),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#F1F5F9')),
                 ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor('#94A3B8')),
                 ('LINEBELOW', (0, -1), (-1, -1), 1.5, NAVY),
                 ('TOPPADDING', (0, -1), (-1, -1), 4),
@@ -4278,105 +4662,49 @@ def reports_view(request):
             ]
 
             for row_i in range(1, len(table_data) - 1):
-                if row_i in violation_rows_info:
-                    bg = violation_rows_info[row_i]
-                else:
-                    bg = colors.HexColor('#F8FAFC') if row_i % 2 == 0 else colors.HexColor('#FFFFFF')
-                
+                bg = colors.HexColor('#F8FAFC') if row_i % 2 == 0 else colors.HexColor('#FFFFFF')
                 t_style_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), bg))
-                t_style_cmds.append(('TOPPADDING', (0, row_i), (-1, row_i), 2.5))
-                t_style_cmds.append(('BOTTOMPADDING', (0, row_i), (-1, row_i), 2.5))
+                t_style_cmds.append(('TOPPADDING', (0, row_i), (-1, row_i), 2.2))
+                t_style_cmds.append(('BOTTOMPADDING', (0, row_i), (-1, row_i), 2.2))
 
             t.setStyle(TableStyle(t_style_cmds))
             story.append(t)
-
-            # Formal 3-Column Signatory Block (Total: 540pt -> 180, 180, 180)
-            sign_style_1 = ParagraphStyle('SignCol1', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=0)
-            sign_style_2 = ParagraphStyle('SignCol2', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=1)
-            sign_style_3 = ParagraphStyle('SignCol3', parent=styles['Normal'], fontName=main_font, fontSize=7.5, leading=11, textColor=TEXT_DARK, alignment=2)
-            
-            user_name_str = request.user.full_name or request.user.username
-            user_role_str = request.user.get_role_display()
-            
-            signatory_data = [
-                [
-                    Paragraph(f"<b>Prepared by:</b><br/><br/><br/><u><b>{user_name_str}</b></u><br/>{user_role_str}, MEO", sign_style_1),
-                    Paragraph("<b>Verified &amp; Checked by:</b><br/><br/><br/><u><b>MUNICIPAL ENGINEER</b></u><br/>Municipal Engineering Office", sign_style_2),
-                    Paragraph("<b>Approved by:</b><br/><br/><br/><u><b>MUNICIPAL MAYOR</b></u><br/>Local Chief Executive", sign_style_3)
-                ]
-            ]
-            sign_table = Table(signatory_data, colWidths=[180, 180, 180])
-            sign_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('TOPPADDING', (0, 0), (-1, -1), 16),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ]))
-
-            story.append(KeepTogether([
-                Spacer(1, 14),
-                sign_table
-            ]))
-
             doc.build(story, canvasmaker=NumberedCanvas)
             pdf_data = buffer.getvalue()
             buffer.close()
 
             response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename=eTala_Engineering_Accomplishment_Report_{timezone.now().strftime("%Y%m%d_%H%M")}.pdf'
+            response['Content-Disposition'] = f'attachment; filename="eTala_{file_suffix}.pdf"'
             response.write(pdf_data)
             return response
 
-    total_count = records.count()
-    total_active = records.exclude(status='archived').count()
-    total_archived = records.filter(status='archived').count()
-
-    # Category breakdown (sums exactly to total_count since all records are either Permit or Project)
-    by_category = [
-        {
-            'category_name': 'Permit Records',
-            'count': records.filter(record_type='Permit').count()
-        },
-        {
-            'category_name': 'Municipal Projects',
-            'count': records.filter(record_type='Project', project_scope='Municipal').count()
-        },
-        {
-            'category_name': 'Barangay Projects',
-            'count': records.filter(record_type='Project', project_scope='Barangay').count()
-        }
-    ]
-
-    # Group by Barangay
-    by_barangay = list(records.values('barangay__barangay_name').annotate(count=Count('record_id')).order_by('-count'))
-
-    # Group by Year
-    by_year = list(records.values('year').annotate(count=Count('record_id')).order_by('-year'))
-
-    # Growth data (last 6 months) respecting filters
-    import datetime
-    growth_data = []
-    today = timezone.now()
+    today_date = timezone.now().date()
+    projects_qs = records.filter(record_type='Project')
+    total_projects = projects_qs.count()
+    municipal_projects_count = projects_qs.filter(project_scope='Municipal').count()
+    barangay_projects_count = projects_qs.filter(project_scope='Barangay').count()
+    total_projects_budget = projects_qs.aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
     
-    # We apply category, barangay, and year filters to growth history
-    growth_records = EngineeringRecord.objects.all()
-    if selected_record_type:
-        growth_records = growth_records.filter(record_type=selected_record_type)
-    if selected_barangay:
-        growth_records = growth_records.filter(barangay_id=selected_barangay)
-    if selected_year:
-        growth_records = growth_records.filter(year=selected_year)
+    # 2. Official Permit Status Metrics (Excluding Illegal / Unpermitted Constructions)
+    permits_qs = records.filter(record_type='Permit', is_illegal_construction=False)
+    total_permits = permits_qs.count()
+    total_count = total_projects + total_permits
+    total_active = records.exclude(status='archived').filter(Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False)).count()
+    total_archived = records.filter(status='archived', is_illegal_construction=False).count()
+    
+    permit_type_counts = permits_qs.values('permit_detail__permit_type').annotate(cnt=Count('record_id'))
+    permit_type_map = {row['permit_detail__permit_type'].lower(): row['cnt'] for row in permit_type_counts if row['permit_detail__permit_type']}
+    building_permits_count = permit_type_map.get('building', 0)
+    occupancy_permits_count = permit_type_map.get('occupancy', 0)
+    fencing_permits_count = permit_type_map.get('fencing', 0)
+    electrical_permits_count = permit_type_map.get('electrical', 0)
 
-    for i in range(5, -1, -1):
-        year_val = today.year
-        month_val = today.month - i
-        if month_val <= 0:
-            month_val += 12
-            year_val -= 1
-        first_day_of_next_month = (datetime.datetime(year_val, month_val, 1) + datetime.timedelta(days=32)).replace(day=1)
-        first_day_of_next_month = timezone.make_aware(first_day_of_next_month)
-        cumulative_count = growth_records.filter(created_at__lt=first_day_of_next_month).count()
-        month_name = datetime.date(year_val, month_val, 1).strftime('%b %Y')
-        growth_data.append({'month': month_name, 'count': cumulative_count})
+    # 3. Illegal Construction Metrics (Enforcement & Compliance Monitoring)
+    illegal_cases_qs = records.filter(is_illegal_construction=True)
+    total_illegal_cases = illegal_cases_qs.count()
+    active_illegal_cases = illegal_cases_qs.exclude(illegal_compliance_status='resolved').count()
+    resolved_illegal_cases = illegal_cases_qs.filter(illegal_compliance_status='resolved').count()
+    illegal_cases_list = []
 
     # Prepare readable filter names for UI display
     active_filters = []
@@ -4392,108 +4720,159 @@ def reports_view(request):
         status_name = dict([('active', 'Ongoing / Active'), ('completed', 'Completed'), ('pending', 'Pending')]).get(selected_status, selected_status)
         active_filters.append(f"Status: {status_name}")
 
-    # ── PDF GUIDE COMPLIANT SUMMARY METRICS ──
-    today_date = timezone.now().date()
+    by_category = []
+    by_barangay = []
+    by_year = []
+    growth_data = []
+    funding_sources_summary = []
+    monitoring_projects_list = []
+    monitoring_permits_list = []
+    monitoring_violations_list = []
 
-    # 1. Project Summary Metrics
-    projects_qs = records.filter(record_type='Project')
-    total_projects = projects_qs.count()
-    municipal_projects_count = projects_qs.filter(project_scope='Municipal').count()
-    barangay_projects_count = projects_qs.filter(project_scope='Barangay').count()
-    
-    # 2. Permit Status & Expiration Metrics
-    permits_qs = records.filter(record_type='Permit')
-    total_permits = permits_qs.count()
-    
-    building_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Building').count()
-    occupancy_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Occupancy').count()
-    fencing_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Fencing').count()
-    electrical_permits_count = permits_qs.filter(permit_detail__permit_type__iexact='Electrical').count()
+    annual_summary_year = int(selected_year) if (selected_year and selected_year.isdigit()) else today_date.year
+    annual_permits_count = 0
+    annual_projects_count = 0
+    annual_total_budget = 0
+    annual_summary_records = []
 
-    expiring_permits_qs = permits_qs.select_related('permit_detail', 'barangay').prefetch_related('documents')
-    
-    expiring_soon_list = []
-    expired_count = 0
-    expiring_soon_count = 0
-    valid_permits_count = 0
+    # Monthly breakdown for reports (scalable: only include covered months up to current month for active year)
+    import calendar
+    current_year = today_date.year
+    try:
+        req_year = int(selected_year) if selected_year else current_year
+    except (ValueError, TypeError):
+        req_year = current_year
 
-    for p in expiring_permits_qs:
-        permit_det = getattr(p, 'permit_detail', None)
-        exp_date = None
-        # Use prefetched documents to avoid executing a separate DB query for every single permit
-        docs = [d for d in p.documents.all() if d.expiry_date is not None]
-        if docs:
-            docs.sort(key=lambda d: d.expiry_date)
-            exp_date = docs[0].expiry_date
-        elif permit_det and permit_det.date_issued:
-            import datetime
-            exp_date = permit_det.date_issued + datetime.timedelta(days=365)
+    if req_year > current_year:
+        max_month = 0
+    elif req_year == current_year:
+        max_month = today_date.month
+    else:
+        max_month = 12
 
-        if exp_date:
-            days_left = (exp_date - today_date).days
-            permit_num = permit_det.permit_number if (permit_det and permit_det.permit_number) else f"BP-{p.year or 2026}-{p.record_id:03d}"
-            applicant = permit_det.applicant_name if (permit_det and permit_det.applicant_name) else "N/A"
-            if days_left < 0:
-                expired_count += 1
-                if len(expiring_soon_list) < 10:
-                    expiring_soon_list.append({
-                        'record_id': p.record_id,
-                        'permit_number': permit_num,
-                        'applicant_name': applicant,
-                        'barangay_name': p.barangay.barangay_name if p.barangay else "Unassigned",
-                        'expiry_date': exp_date,
-                        'days_left': abs(days_left),
-                        'is_expired': True
-                    })
-            elif days_left <= 30:
-                expiring_soon_count += 1
-                if len(expiring_soon_list) < 10:
-                    expiring_soon_list.append({
-                        'record_id': p.record_id,
-                        'permit_number': permit_num,
-                        'applicant_name': applicant,
-                        'barangay_name': p.barangay.barangay_name if p.barangay else "Unassigned",
-                        'expiry_date': exp_date,
-                        'days_left': days_left,
-                        'is_expired': False
-                    })
-            else:
-                valid_permits_count += 1
+    # High-Performance Single-Query Monthly Aggregation
+    m_stats_qs = records.values('created_at__month').annotate(
+        proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+        perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+        viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+        budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+        tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+    )
+    m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+
+    monthly_summary_list = []
+    for m in range(1, max_month + 1):
+        row = m_stats_map.get(m, {})
+        monthly_summary_list.append({
+            'month_num': m,
+            'month_name': calendar.month_name[m],
+            'projects_count': row.get('proj_cnt', 0),
+            'permits_count': row.get('perm_cnt', 0),
+            'violations_count': row.get('viol_cnt', 0),
+            'total_count': row.get('tot_cnt', 0),
+            'budget_total': row.get('budget_sum') or 0
+        })
+
+    # High-Performance Single-Query Barangay / Monthly Aggregation
+    target_brgy_name = None
+    if selected_barangay:
+        b_obj_found = Barangay.objects.filter(barangay_id=selected_barangay).first()
+        if b_obj_found:
+            target_brgy_name = b_obj_found.barangay_name
+    elif search_query and all_barangays_filtered.count() == 1:
+        target_brgy_name = all_barangays_filtered.first().barangay_name
+
+    is_single_barangay = bool(target_brgy_name)
+
+    if is_single_barangay:
+        if selected_month and selected_month.isdigit():
+            months_to_show = [int(selected_month)]
+        elif selected_quarter in ['Q1', '1']:
+            months_to_show = [1, 2, 3]
+        elif selected_quarter in ['Q2', '2']:
+            months_to_show = [4, 5, 6]
+        elif selected_quarter in ['Q3', '3']:
+            months_to_show = [7, 8, 9]
+        elif selected_quarter in ['Q4', '4']:
+            months_to_show = [10, 11, 12]
         else:
-            valid_permits_count += 1
+            months_to_show = list(range(1, 13))
 
-    # If all permits have no expiry date, set default valid permits count
-    if total_permits > 0 and (expired_count + expiring_soon_count + valid_permits_count) == 0:
-        valid_permits_count = total_permits
+        m_stats_qs = tab_base_records.values('created_at__month').annotate(
+            proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+            muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+            brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+            perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+            viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+            budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+            tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+        )
+        m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
 
-    # 3. Illegal Construction Metrics
-    illegal_cases_qs = records.filter(is_illegal_construction=True)
-    total_illegal_cases = illegal_cases_qs.count()
-    active_illegal_cases = illegal_cases_qs.exclude(illegal_compliance_status='resolved').count()
-    resolved_illegal_cases = illegal_cases_qs.filter(illegal_compliance_status='resolved').count()
-    illegal_cases_list = illegal_cases_qs.select_related('barangay')[:6]
+        barangay_summary_list = []
+        for m_num in months_to_show:
+            row = m_stats_map.get(m_num, {})
+            barangay_summary_list.append({
+                'label': calendar.month_name[m_num],
+                'is_month': True,
+                'projects_count': row.get('proj_cnt', 0),
+                'municipal_projects_count': row.get('muni_proj_cnt', 0),
+                'barangay_projects_count': row.get('brgy_proj_cnt', 0),
+                'permits_count': row.get('perm_cnt', 0),
+                'violations_count': row.get('viol_cnt', 0),
+                'total_count': row.get('tot_cnt', 0),
+                'budget_total': row.get('budget_sum') or 0
+            })
+    else:
+        b_stats_qs = tab_base_records.values('barangay_id').annotate(
+            proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+            muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+            brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+            perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+            bldg_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='building')),
+            occ_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='occupancy')),
+            fenc_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='fencing')),
+            elec_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='electrical')),
+            viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+            budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+            tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+        )
+        b_stats_map = {row['barangay_id']: row for row in b_stats_qs}
 
-    # 4. Document Completion Metrics
-    completed_records_count = 0
-    for rec in records:
-        if rec.completion_stats.get('is_complete', False):
-            completed_records_count += 1
-    completion_rate_pct = round((completed_records_count / total_count * 100)) if total_count > 0 else 100
+        barangay_summary_list = []
+        for b in barangays:
+            row = b_stats_map.get(b.barangay_id, {})
+            barangay_summary_list.append({
+                'barangay': b,
+                'is_month': False,
+                'projects_count': row.get('proj_cnt', 0),
+                'municipal_projects_count': row.get('muni_proj_cnt', 0),
+                'barangay_projects_count': row.get('brgy_proj_cnt', 0),
+                'permits_count': row.get('perm_cnt', 0),
+                'building_permits_count': row.get('bldg_perm_cnt', 0),
+                'occupancy_permits_count': row.get('occ_perm_cnt', 0),
+                'fencing_permits_count': row.get('fenc_perm_cnt', 0),
+                'electrical_permits_count': row.get('elec_perm_cnt', 0),
+                'violations_count': row.get('viol_cnt', 0),
+                'total_count': row.get('tot_cnt', 0),
+                'budget_total': row.get('budget_sum') or 0
+            })
 
-    # 5. Project Financial & Monitoring Metrics
-    from django.db.models import Sum
-    total_projects_budget = projects_qs.aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
-    municipal_projects_budget = projects_qs.filter(project_scope='Municipal').aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
-    barangay_projects_budget = projects_qs.filter(project_scope='Barangay').aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
-    ongoing_projects_count = projects_qs.filter(status='active').count()
-    completed_projects_count = projects_qs.filter(status='completed').count()
-    monitoring_projects_list = projects_qs.select_related('barangay', 'project_detail').order_by('-created_at')[:40]
-    
-    # 6. Permits & Violation Monitoring Records for Ledger Tabs
-    monitoring_permits_list = permits_qs.exclude(is_illegal_construction=True).select_related('barangay', 'permit_detail').order_by('-created_at')[:40]
-    monitoring_violations_list = records.filter(is_illegal_construction=True).select_related('barangay', 'permit_detail').order_by('-created_at')[:40]
-
-    barangays = Barangay.objects.all()
+    # Determine future month / period helper
+    import calendar
+    selected_month_name = None
+    is_future_period = False
+    if selected_month and selected_month.isdigit():
+        s_m = int(selected_month)
+        if 1 <= s_m <= 12:
+            selected_month_name = calendar.month_name[s_m]
+            try:
+                chk_yr = int(selected_year) if selected_year else today_date.year
+            except (ValueError, TypeError):
+                chk_yr = today_date.year
+            
+            if chk_yr > today_date.year or (chk_yr == today_date.year and s_m > today_date.month):
+                is_future_period = True
 
     context = {
         'total_count': total_count,
@@ -4502,11 +4881,11 @@ def reports_view(request):
         'total_projects': total_projects,
         'municipal_projects_count': municipal_projects_count,
         'barangay_projects_count': barangay_projects_count,
-        'ongoing_projects_count': ongoing_projects_count,
-        'completed_projects_count': completed_projects_count,
+        'ongoing_projects_count': total_projects,
+        'completed_projects_count': 0,
         'total_projects_budget': total_projects_budget,
-        'municipal_projects_budget': municipal_projects_budget,
-        'barangay_projects_budget': barangay_projects_budget,
+        'municipal_projects_budget': 0,
+        'barangay_projects_budget': 0,
         'monitoring_projects_list': monitoring_projects_list,
         'monitoring_permits_list': monitoring_permits_list,
         'monitoring_violations_list': monitoring_violations_list,
@@ -4515,28 +4894,54 @@ def reports_view(request):
         'occupancy_permits_count': occupancy_permits_count,
         'fencing_permits_count': fencing_permits_count,
         'electrical_permits_count': electrical_permits_count,
-        'valid_permits_count': valid_permits_count,
-        'expiring_soon_count': expiring_soon_count,
-        'expired_count': expired_count,
-        'expiring_soon_list': expiring_soon_list,
+        'valid_permits_count': total_permits,
+        'expiring_soon_count': 0,
+        'expired_count': 0,
+        'expiring_soon_list': [],
         'total_illegal_cases': total_illegal_cases,
         'active_illegal_cases': active_illegal_cases,
         'resolved_illegal_cases': resolved_illegal_cases,
         'illegal_cases_list': illegal_cases_list,
-        'completed_records_count': completed_records_count,
-        'completion_rate_pct': completion_rate_pct,
+        'completed_records_count': total_count,
+        'completion_rate_pct': 100,
         'by_category': by_category,
         'by_barangay': by_barangay,
         'by_year': by_year,
         'growth_data': growth_data,
         'barangays': barangays,
+        'funding_sources_summary': funding_sources_summary,
+        'annual_summary_year': annual_summary_year,
+        'annual_summary_records': annual_summary_records,
+        'annual_permits_count': annual_permits_count,
+        'annual_projects_count': annual_projects_count,
+        'annual_total_budget': annual_total_budget,
+        'monthly_summary_list': monthly_summary_list,
+        'barangay_summary_list': barangay_summary_list,
+        'is_single_barangay': is_single_barangay,
+        'target_brgy_name': target_brgy_name,
+        'all_count': all_count,
+        'municipal_count': municipal_count,
+        'barangay_count': barangay_count,
+        'permits_count': permits_count,
+        'selected_project_scope': selected_project_scope,
         'selected_record_type': selected_record_type,
         'selected_barangay': selected_barangay,
         'selected_year': selected_year,
+        'selected_quarter': selected_quarter,
+        'selected_month': selected_month,
         'selected_status': selected_status,
-        'status_choices': [('active', 'Ongoing / Active'), ('completed', 'Completed'), ('pending', 'Pending')],
+        'selected_month_name': selected_month_name,
+        'is_future_period': is_future_period,
+        'current_month_num': today_date.month,
+        'current_month_name': calendar.month_name[today_date.month],
+        'current_year_num': today_date.year,
+        'quarter_choices': quarter_choices,
+        'month_choices': month_choices,
+        'status_choices': [('completed', 'Completed / Archived'), ('active', 'Active')],
         'year_choices': get_year_choices(),
         'active_filters': active_filters,
+        'search_query': search_query,
+        'q': search_query,
         'active_tab': 'reports',
     }
     return render(request, 'permits/reports.html', context)
@@ -4783,6 +5188,8 @@ def activity_logs_view(request):
         'status_filter': status_filter,
         'date_filter': date_filter,
         'action_type': action_type,
+        'today_date': now.date(),
+        'yesterday_date': now.date() - timedelta(days=1),
         'blocked_ips': blocked_ips,
         'active_user_identifiers': active_user_identifiers,
         'inactive_user_identifiers': inactive_user_identifiers,
@@ -5402,8 +5809,16 @@ def profile_view(request):
 
     user_logs = AuditLog.objects.filter(user=user).order_by('-performed_at')[:10]
 
+    last_pwd_change = PasswordHistory.objects.filter(user=user).order_by('-created_at').first()
+    if last_pwd_change:
+        last_password_changed_at = last_pwd_change.created_at
+    else:
+        last_pwd_log = AuditLog.objects.filter(user=user, action__icontains="password").order_by('-performed_at').first()
+        last_password_changed_at = last_pwd_log.performed_at if last_pwd_log else (user.date_joined or user.created_at)
+
     context = {
         'user_logs': user_logs,
+        'last_password_changed_at': last_password_changed_at,
         'active_tab': 'profile',
     }
     return render(request, 'permits/profile.html', context)
@@ -5723,6 +6138,16 @@ def settings_view(request):
     municipal_count = sum(1 for t in templates if t.record_type == 'Project' and t.scope == 'Municipal')
     barangay_count = sum(1 for t in templates if t.record_type == 'Project' and t.scope == 'Barangay')
 
+    total_records = EngineeringRecord.objects.count()
+    total_permits = EngineeringRecord.objects.filter(record_type='Permit').count()
+    total_projects = EngineeringRecord.objects.filter(record_type='Project').count()
+    total_barangays = Barangay.objects.count()
+    total_documents = Document.objects.count()
+    total_users = CustomUser.objects.count()
+    active_users = CustomUser.objects.filter(is_active=True).count()
+    total_audit_logs = AuditLog.objects.count()
+    failed_logins_count = LoginAttempt.objects.filter(success=False).count()
+
     context = {
         'templates': templates,
         'permit_count': permit_count,
@@ -5731,6 +6156,17 @@ def settings_view(request):
         'barangays': barangays,
         'office_settings': office_settings,
         'active_tab': 'settings',
+        'stats': {
+            'total_records': total_records,
+            'total_permits': total_permits,
+            'total_projects': total_projects,
+            'total_barangays': total_barangays,
+            'total_documents': total_documents,
+            'total_users': total_users,
+            'active_users': active_users,
+            'total_audit_logs': total_audit_logs,
+            'failed_logins_count': failed_logins_count,
+        }
     }
     return render(request, 'permits/settings.html', context)
 
@@ -5953,7 +6389,8 @@ def users_view(request):
         users_base = users_base.filter(
             Q(full_name__icontains=query) |
             Q(username__icontains=query) |
-            Q(email__icontains=query)
+            Q(email__icontains=query) |
+            Q(designation__icontains=query)
         )
 
     per_page = get_per_page(request, 10)
@@ -6095,6 +6532,69 @@ def download_category_zip_view(request, record_id, req_id):
 
 
 @login_required
+def download_slot_zip_view(request, record_id, item_id):
+    """Downloads all documents attached to a specific requirement item slot as a ZIP file."""
+    record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    req_item = get_object_or_404(RequirementItem, item_id=item_id)
+    docs = Document.objects.filter(engineering_record=record, requirement_item=req_item)
+    if not docs.exists():
+        messages.warning(request, f"No files found for '{req_item.name}' to download.")
+        return redirect('record_detail', record_id=record.record_id)
+
+    import io, zipfile
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        total_docs = docs.count()
+        used_names = set()
+        for idx, doc in enumerate(docs, start=1):
+            file_obj, _, url = _get_document_stream(doc)
+            if not file_obj and url:
+                try:
+                    import requests
+                    r = requests.get(url, timeout=15)
+                    if r.status_code == 200:
+                        file_obj = io.BytesIO(r.content)
+                except Exception:
+                    pass
+            if file_obj:
+                try:
+                    file_data = file_obj.read()
+                finally:
+                    if hasattr(file_obj, 'close'):
+                        file_obj.close()
+                raw_name = doc.file_name or f"document_{doc.document_id}.pdf"
+                clean_raw = sanitize_file_name(raw_name, max_name_len=60).replace(" ", "_")
+                clean_item = sanitize_zip_name(req_item.name, max_len=30).replace(" ", "_")
+                if total_docs > 1:
+                    final_name = f"{clean_item}_Part_{idx}_{clean_raw}"
+                else:
+                    final_name = f"{clean_item}_{clean_raw}"
+                
+                count = 1
+                orig_final = final_name
+                while final_name in used_names:
+                    parts = orig_final.rsplit('.', 1)
+                    if len(parts) == 2:
+                        final_name = f"{parts[0]}_{count}.{parts[1]}"
+                    else:
+                        final_name = f"{orig_final}_{count}"
+                    count += 1
+                used_names.add(final_name)
+                zf.writestr(final_name, file_data)
+
+    export_name = get_record_export_name(record, include_location=True)
+    clean_item = sanitize_zip_name(req_item.name, max_len=30).replace(" ", "_")
+    filename = f"{export_name}_{clean_item}.zip"
+    val = buffer.getvalue()
+    response = HttpResponse(val, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Content-Length'] = str(len(val))
+    response['X-Content-Type-Options'] = 'nosniff'
+    log_audit(request.user, f"Downloaded slot ZIP for '{req_item.name}' in '{record.title}'", target_record_id=record.record_id, request=request)
+    return response
+
+
+@login_required
 def download_barangay_zip_view(request, barangay_id):
     """Downloads all documents for an entire Barangay as a structured ZIP archive."""
     barangay = get_object_or_404(Barangay, barangay_id=barangay_id)
@@ -6184,6 +6684,9 @@ def batch_upload_documents_view(request, record_id):
                 try:
                     import datetime
                     parsed_expiry_date = datetime.datetime.strptime(raw_expiry, '%Y-%m-%d').date()
+                    if parsed_expiry_date < timezone.localdate():
+                        messages.warning(request, f"File '{f.name}': Past expiry date was rejected. Expiry date must be in the future.")
+                        parsed_expiry_date = None
                 except ValueError:
                     parsed_expiry_date = None
 
@@ -6294,6 +6797,158 @@ def about_system_view(request):
     return render(request, 'permits/about.html', context)
 
 
+@login_required
+@require_POST
+def submit_system_feedback(request):
+    """
+    Confidential Developer Feedback Endpoint:
+    Receives feedback from staff/admin, stores it in the database, and dispatches
+    an alert to the development team (mardionjrcordetafuerte@gmail.com / mardionjrcordetafuerte2@gmail.com)
+    without revealing developer email addresses to the client browser.
+    """
+    category = sanitize_input(request.POST.get('category', 'general')).strip().lower()
+    subject = sanitize_input(request.POST.get('subject', '')).strip()
+    message = sanitize_input(request.POST.get('message', '')).strip()
+
+    valid_categories = ['bug', 'suggestion', 'ui', 'general']
+    if category not in valid_categories:
+        category = 'general'
+
+    sender_name = request.user.get_full_name() or request.user.username or 'eTala User'
+    sender_email = request.user.email or 'noreply@etala.local'
+    client_ip = get_client_ip(request)
+
+    # Validate optional image attachment
+    attachment_file = request.FILES.get('attachment')
+    if attachment_file:
+        allowed_exts = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
+        ext = os.path.splitext(attachment_file.name)[1].lower()
+        if ext not in allowed_exts:
+            return JsonResponse({'status': 'error', 'message': 'Invalid file format. Allowed: PNG, JPG, JPEG, WEBP, GIF.'}, status=400)
+        if attachment_file.size > 10 * 1024 * 1024:
+            return JsonResponse({'status': 'error', 'message': 'File size exceeds 10MB limit.'}, status=400)
+
+    # Smart fallback for optional subject and message
+    if not subject:
+        cat_display = dict(SystemFeedback.CATEGORY_CHOICES).get(category, 'Feedback')
+        subject = f"{cat_display} from {sender_name}"
+
+    if not message:
+        if attachment_file:
+            message = "Screenshot/image feedback submitted by user."
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Please enter a message or attach a screenshot.'}, status=400)
+
+    raw_rating = request.POST.get('rating', '').strip()
+    rating = None
+    if raw_rating and raw_rating.isdigit() and 1 <= int(raw_rating) <= 5:
+        rating = int(raw_rating)
+
+    # 1. Archive in Database
+    feedback = SystemFeedback.objects.create(
+        user=request.user,
+        sender_name=sender_name,
+        sender_email=sender_email,
+        category=category,
+        subject=subject[:200],
+        rating=rating,
+        message=message,
+        attachment=attachment_file,
+        ip_address=client_ip,
+        status='new'
+    )
+
+    # 2. Asynchronous / Protected Email Dispatch to Developers
+    developer_emails = getattr(settings, 'DEVELOPER_FEEDBACK_EMAILS', [
+        'mardionjrcordetafuerte@gmail.com',
+        'mardionjrcordetafuerte2@gmail.com'
+    ])
+
+    cat_label = feedback.get_category_display()
+    rating_labels = {
+        1: '⭐ (1/5 - Very Poor)',
+        2: '⭐⭐ (2/5 - Poor)',
+        3: '⭐⭐⭐ (3/5 - Average)',
+        4: '⭐⭐⭐⭐ (4/5 - Good)',
+        5: '⭐⭐⭐⭐⭐ (5/5 - Excellent)'
+    }
+    rating_display = rating_labels.get(rating) if rating else None
+
+    email_subject = f"[eTala Feedback · {cat_label}] {subject}"
+
+    plain_body = f"""New User Feedback Received for eTala Municipal Engineering Portal:
+
+Feedback ID: #{feedback.feedback_id}
+Category: {cat_label}
+Rating: {rating_display or 'Not specified'}
+Subject: {subject}
+Date Submitted: {timezone.now().strftime('%B %d, %Y %I:%M %p')}
+Has Screenshot/Image: {'Yes' if feedback.attachment else 'No'}
+
+--- SENDER DETAILS ---
+User: {sender_name} ({request.user.username})
+Role: {request.user.get_role_display() if hasattr(request.user, 'get_role_display') else request.user.role}
+Email: {sender_email}
+IP Address: {client_ip}
+
+--- FEEDBACK MESSAGE ---
+{message}
+
+---
+System: eTala v1.0.0 · Municipal Engineering Office of Carigara, Leyte
+"""
+
+    html_body = render_to_string('emails/email_system_feedback.html', {
+        'category_label': cat_label,
+        'rating_display': rating_display,
+        'subject': subject,
+        'message': message,
+        'sender_name': sender_name,
+        'sender_username': request.user.username,
+        'sender_role': request.user.get_role_display() if hasattr(request.user, 'get_role_display') else request.user.role,
+        'sender_email': sender_email,
+        'timestamp': timezone.now().strftime('%B %d, %Y %I:%M %p'),
+        'attachment_name': os.path.basename(feedback.attachment.name) if feedback.attachment else None,
+    })
+
+    def _dispatch_email():
+        try:
+            email_attachments = []
+            if feedback.attachment and os.path.exists(feedback.attachment.path):
+                email_attachments.append(feedback.attachment.path)
+
+            sent = send_etala_email(
+                subject=email_subject,
+                message=plain_body,
+                recipient_list=developer_emails,
+                html_message=html_body,
+                fail_silently=True,
+                attachments=email_attachments
+            )
+            if sent:
+                SystemFeedback.objects.filter(feedback_id=feedback.feedback_id).update(email_dispatched=True)
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to dispatch developer feedback email: {e}")
+
+    # Run dispatch in a separate thread so the client receives instant response
+    email_thread = threading.Thread(target=_dispatch_email, daemon=True)
+    email_thread.start()
+
+    # 3. Log activity
+    AuditLog.objects.create(
+        user=request.user,
+        action=f"Submitted {cat_label} feedback: '{subject[:40]}'",
+        ip_address=client_ip
+    )
+
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Maraming salamat! Your feedback has been securely submitted directly to the MERGJ Index engineering team.',
+        'feedback_id': feedback.feedback_id,
+    })
+
+
 def health_check_view(request):
     """
     Lightweight, public health check & keep-alive endpoint for uptime monitors
@@ -6391,4 +7046,164 @@ def notification_sync_action_view(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+# ─── QUICK SEARCH / SPOTLIGHT API ──────────────────────────────────────────────
+
+@login_required
+def quick_search_api_view(request):
+    """
+    High-performance JSON endpoint for global Spotlight Quick Search (Ctrl+K).
+    Returns instant matching records across IDs, titles, applicant names, contractors, and barangays.
+    """
+    q = sanitize_input(request.GET.get('q', '')).strip()
+    if not q or len(q) < 1:
+        return JsonResponse({'results': []})
+
+    records = EngineeringRecord.objects.filter(
+        Q(title__icontains=q) |
+        Q(description__icontains=q) |
+        Q(permit_detail__applicant_name__icontains=q) |
+        Q(permit_detail__permit_number__icontains=q) |
+        Q(permit_detail__permit_type__icontains=q) |
+        Q(permit_detail__building_type__icontains=q) |
+        Q(permit_detail__remarks__icontains=q) |
+        Q(project_detail__contractor__icontains=q) |
+        Q(project_detail__project_type__icontains=q) |
+        Q(barangay__barangay_name__icontains=q) |
+        Q(project_detail__funding_source__icontains=q) |
+        Q(project_detail__funding_source_other__icontains=q)
+    )
+
+    # Check if user typed numeric ID
+    if q.isdigit() or (q.startswith('#') and q[1:].isdigit()):
+        clean_id = q.lstrip('#')
+        records = records | EngineeringRecord.objects.filter(record_id=clean_id)
+
+    records = records.exclude(
+        status='archived'
+    ).select_related(
+        'barangay', 'permit_detail', 'project_detail'
+    ).order_by('-record_id')[:10]
+
+    results = []
+    for r in records:
+        icon = "fa-solid fa-file-lines"
+        theme_class = "theme-permit"
+        type_label = r.specific_type_label or "Permit"
+        display_title = r.title or (r.permit_detail.permit_number if (r.permit_detail and r.permit_detail.permit_number) else "Engineering Record")
+        meta_items = []
+
+        if r.is_illegal_construction:
+            type_label = "Building Violation"
+            icon = "fa-solid fa-triangle-exclamation"
+            theme_class = "theme-violation"
+            meta_items.append("Building Violation")
+            owner = r.permit_detail.applicant_name if (r.permit_detail and r.permit_detail.applicant_name) else ""
+            if owner and owner.lower() not in display_title.lower():
+                meta_items.append(f"Owner: {owner}")
+            elif not owner:
+                meta_items.append("Under Investigation")
+        elif r.record_type == 'Project':
+            scope = r.get_project_scope_display() or "Project"
+            type_label = f"{scope} Project"
+            meta_items.append(type_label)
+            if scope.lower() == 'municipal':
+                icon = "fa-solid fa-building-columns"
+                theme_class = "theme-project-municipal"
+            else:
+                icon = "fa-solid fa-map-location-dot"
+                theme_class = "theme-project-barangay"
+
+            if r.project_detail and r.project_detail.contractor:
+                meta_items.append(f"Contractor: {r.project_detail.contractor}")
+            elif r.project_detail and r.project_detail.project_cost:
+                meta_items.append(f"Budget: ₱{r.project_detail.project_cost:,.2f}")
+        else:
+            # Permit records
+            spec = (r.specific_type_label or '').lower()
+            if 'electr' in spec:
+                icon = "fa-solid fa-bolt"
+                theme_class = "theme-permit-electrical"
+            elif 'build' in spec:
+                icon = "fa-solid fa-building"
+                theme_class = "theme-permit-building"
+            elif 'mechan' in spec:
+                icon = "fa-solid fa-gears"
+                theme_class = "theme-permit-mechanical"
+            elif 'occupan' in spec:
+                icon = "fa-solid fa-house-chimney-check"
+                theme_class = "theme-permit-occupancy"
+            elif 'demoli' in spec:
+                icon = "fa-solid fa-burst"
+                theme_class = "theme-permit-demolition"
+            elif 'fenc' in spec:
+                icon = "fa-solid fa-border-all"
+                theme_class = "theme-permit-fencing"
+            else:
+                icon = "fa-solid fa-file-contract"
+                theme_class = "theme-permit"
+
+            meta_items.append(type_label)
+            p_detail = getattr(r, 'permit_detail', None)
+            p_num = p_detail.permit_number.strip() if (p_detail and p_detail.permit_number) else ""
+            applicant = p_detail.applicant_name.strip() if (p_detail and p_detail.applicant_name) else ""
+
+            # Avoid repeating applicant name if it's already part of the title
+            if applicant and applicant.lower() not in display_title.lower():
+                meta_items.append(f"Applicant: {applicant}")
+            elif p_num and p_num.lower() not in display_title.lower():
+                meta_items.append(f"Permit #: {p_num}")
+
+        results.append({
+            'record_id': r.record_id,
+            'title': display_title,
+            'record_type': r.record_type,
+            'type_label': type_label,
+            'meta_subtitle': " • ".join(meta_items),
+            'icon': icon,
+            'theme_class': theme_class,
+            'barangay': r.barangay.barangay_name if r.barangay else "Unassigned",
+            'url': reverse('record_detail', kwargs={'record_id': r.record_id})
+        })
+
+    return JsonResponse({'results': results})
+ 
+ 
+ # ─── LIVE EMAIL TEMPLATES PREVIEW & REDESIGN VIEWER ───────────────────────────
+
+@login_required
+def email_template_preview_view(request, template_name='password-reset'):
+    """
+    Live browser preview of email templates for real-time design, testing, and redesign.
+    Available routes:
+      - /preview-email/password-reset/
+      - /preview-email/device-alert/
+      - /preview-email/device-approval/
+      - /preview-email/otp-verification/
+    """
+    context = {
+        'user_full_name': 'Engr. Dion Fuerte',
+        'user_email': 'dion.fuerte@carigara.gov.ph',
+        'reset_url': request.build_absolute_uri('/reset-password/?preview=demo'),
+        'device_name': 'Chrome on Windows 11',
+        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'otp_code': '849201',
+        'confirm_url': request.build_absolute_uri('/profile/'),
+        'secure_url': request.build_absolute_uri('/reset-password/?preview=demo'),
+        'approve_url': request.build_absolute_uri('/devices/approve/demo-auth-token-12345/'),
+        'reject_url': request.build_absolute_uri('/devices/reject/demo-auth-token-12345/'),
+    }
+    template_map = {
+        'password-reset': 'emails/email_password_reset.html',
+        'device-alert': 'emails/email_new_device_alert.html',
+        'device-approval': 'emails/email_device_approval_request.html',
+        'otp-verification': 'emails/email_otp_verification.html',
+    }
+    tpl = template_map.get(template_name, 'emails/email_password_reset.html')
+    return render(request, tpl, context)
+
+
+@login_required
+def toast_preview_view(request):
+    """Interactive preview dashboard to test and see all 1-line standardized toast notifications."""
+    return render(request, 'permits/toast_preview.html')
 

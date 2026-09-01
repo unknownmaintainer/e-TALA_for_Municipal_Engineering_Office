@@ -118,6 +118,18 @@ def clean_audit_action(action):
         m = re.search(r"Deleted:\s*(.+?)\s*from\s*['\"]?(.+?)['\"]?$", s)
         if m:
             return f"Deleted Document: {m.group(1)}"
+    if "Uploaded" in s and "file(s)" in s:
+        m = re.search(r"Uploaded (\d+) new file\(s\).*? for (.+?)(?: in ['\"].+?['\"])?$", s)
+        if m:
+            c = m.group(1)
+            target = m.group(2).strip()
+            return f"Uploaded {c} file{'s' if c != '1' else ''} for {target}"
+    if s.startswith("Deleted all attached files") or "Deleted all attached files (" in s:
+        m = re.search(r"Deleted all attached files(?: \((\d+ files?|\d+)\))?\s*for (.+?)(?: from ['\"].+?['\"])?$", s)
+        if m:
+            qty = f" ({m.group(1)})" if m.group(1) else ""
+            target = m.group(2).strip()
+            return f"Deleted all attached files{qty} for {target}"
 
     # General cleanup of surrounding quotes for cleaner human reading
     s = re.sub(r"'([^']+)'", r"\1", s)
@@ -187,33 +199,59 @@ def compact_number(value):
 def parse_notes(text):
     """
     Parses description/notes text containing 'Label: Value' lines into a list of dicts:
-    [{'label': 'Violation', 'value': 'No Building Permit'}, ...]
-    If no ':' is found, returns a single item list [{'label': '', 'value': text}].
+    [{'label': 'Violation Category', 'value': 'Safety & Hazard Violation'}, ...]
+    Handles both newline-separated text and concatenated multi-field strings.
     """
     if not text:
         return []
     import html
-    lines = [line.strip() for line in str(text).splitlines() if line.strip()]
+    import re
+    
+    text_str = html.unescape(str(text).strip())
+    
+    # Split on newlines OR on concatenated known field prefixes
+    split_pattern = r'(?:\r?\n|(?<=[^\s:])\s*(?=(?:Violation Category|Violation Type|Violation|Structure Type|Building Type|Enforcement Action|Inspection Findings|Inspection Notes|Date Inspected|Inspection Date|Remarks|Notes)\s*:))'
+    raw_lines = re.split(split_pattern, text_str, flags=re.IGNORECASE)
+    
     parsed = []
     
-    for line in lines:
+    for raw_line in raw_lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+            
         if ':' in line:
             parts = line.split(':', 1)
-            lbl = html.unescape(parts[0].strip())
-            val = html.unescape(parts[1].strip())
-            # Clean up robotic labels to simple municipal terms
-            if lbl.lower() == 'violation category':
-                lbl = 'Violation Type'
-            elif lbl.lower() == 'inspection findings':
-                lbl = 'Inspection Notes'
+            lbl = parts[0].strip()
+            val = parts[1].strip()
+            
+            # Clean trailing punctuation and bullet separators
+            val = re.sub(r'[\s•·\-,;]+$', '', val).strip()
+            
+            # Standardize labels
+            lbl_lower = lbl.lower()
+            if lbl_lower in ['violation category', 'violation', 'violation type']:
+                lbl = 'Violation Category'
+            elif lbl_lower in ['inspection findings', 'inspection note', 'inspection notes']:
+                lbl = 'Inspection Findings'
+            elif lbl_lower == 'enforcement action':
+                lbl = 'Enforcement Action'
+            elif lbl_lower in ['structure type', 'building type']:
+                lbl = 'Structure Type'
+            elif lbl_lower in ['date inspected', 'inspection date']:
+                lbl = 'Date Inspected'
+            elif lbl_lower in ['remarks', 'notes']:
+                lbl = 'Remarks'
+                
             if val:
                 parsed.append({'label': lbl, 'value': val})
         else:
-            clean_line = html.unescape(line)
-            if parsed:
-                parsed[-1]['value'] += '\n' + clean_line
-            else:
-                parsed.append({'label': '', 'value': clean_line})
+            line_clean = re.sub(r'[\s•·\-,;]+$', '', line).strip()
+            if line_clean:
+                if parsed:
+                    parsed[-1]['value'] += '\n' + line_clean
+                else:
+                    parsed.append({'label': '', 'value': line_clean})
                 
     return parsed
 
@@ -234,6 +272,51 @@ def is_valid_applicant(name):
     return True
 
 
+@register.filter(name='short_timesince')
+def short_timesince(value):
+    """Formats a datetime into a clean, compact time ago string like '18m ago', '2h ago', '3d ago', or 'Just now'."""
+    if not value:
+        return 'Just now'
+    from django.utils import timezone
+    import datetime
+    try:
+        now = timezone.now()
+        if isinstance(value, datetime.date) and not isinstance(value, datetime.datetime):
+            diff = now.date() - value
+            days = diff.days
+            if days <= 0:
+                return 'Today'
+            elif days == 1:
+                return '1d ago'
+            elif days < 7:
+                return f'{days}d ago'
+            elif days < 30:
+                return f'{days // 7}w ago'
+            return value.strftime('%b %d')
+        
+        if timezone.is_naive(value):
+            value = timezone.make_aware(value)
+        diff = now - value
+        seconds = int(diff.total_seconds())
+        if seconds < 60:
+            return 'Just now'
+        minutes = seconds // 60
+        if minutes < 60:
+            return f'{minutes}m ago'
+        hours = minutes // 60
+        if hours < 24:
+            return f'{hours}h ago'
+        days = hours // 24
+        if days < 7:
+            return f'{days}d ago'
+        weeks = days // 7
+        if weeks < 4:
+            return f'{weeks}w ago'
+        return value.strftime('%b %d')
+    except Exception:
+        return 'Just now'
+
+
 @register.filter(name='file_icon_class')
 def file_icon_class(filename):
     """Returns the appropriate FontAwesome icon class and color based on file extension."""
@@ -251,6 +334,7 @@ def file_icon_class(filename):
     elif fn.endswith(('.zip', '.rar', '.7z', '.tar', '.gz')):
         return 'fa-solid fa-file-zipper text-warning'
     return 'fa-solid fa-file text-secondary'
+
 
 
 

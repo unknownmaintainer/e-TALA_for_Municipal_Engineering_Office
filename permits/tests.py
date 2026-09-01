@@ -272,7 +272,7 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         original_delete = self.req.document.file.delete
         self.req.document.file.delete = lambda *args, **kwargs: None
 
-        # 2. Upload replacement document
+        # 2. Upload additional document to the same slot (multi-file container support)
         doc2 = SimpleUploadedFile("test2.pdf", b"pdf content 2", content_type="application/pdf")
         response = self.client.post(url, {
             'document_file': doc2,
@@ -280,14 +280,22 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         })
         self.assertEqual(response.status_code, 302)
 
-        # Verify old document is deleted from database
-        self.assertFalse(Document.objects.filter(document_id=first_doc_id).exists())
+        # Verify both documents exist in database under the requirement slot
+        self.assertTrue(Document.objects.filter(document_id=first_doc_id).exists())
+        self.assertEqual(Document.objects.filter(engineering_record=self.record).count(), 2)
 
-        # Verify new document is linked and database record count remains 1 for documents
-        self.req.refresh_from_db()
-        self.assertTrue(self.req.is_fulfilled)
-        self.assertNotEqual(self.req.document.document_id, first_doc_id)
-        self.assertEqual(Document.objects.filter(engineering_record=self.record).count(), 1)
+        # 3. Test replace_document endpoint (swapping first document with replacement)
+        replace_url = reverse('replace_document', kwargs={'record_id': self.record.record_id, 'document_id': first_doc_id})
+        replacement_doc = SimpleUploadedFile("test_replacement.pdf", b"pdf replacement content", content_type="application/pdf")
+        replace_response = self.client.post(replace_url, {
+            'replacement_file': replacement_doc,
+        })
+        self.assertEqual(replace_response.status_code, 302)
+
+        # Verify first document record has been updated with replacement metadata
+        first_doc_obj = Document.objects.get(document_id=first_doc_id)
+        self.assertEqual(first_doc_obj.file_name, "test_replacement.pdf")
+        self.assertEqual(first_doc_obj.version, 2)
 
     def test_search_view_returns_results(self):
         from django.urls import reverse
@@ -385,7 +393,7 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.client.login(username='staffuser', password='Password123')
         flag_url = reverse('flag_illegal_construction')
 
-        dummy_img = SimpleUploadedFile("site_photo.png", b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x03\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82', content_type="image/png")
+        dummy_img = SimpleUploadedFile("site_evidence.pdf", b'%PDF-1.4 sample pdf document bytes', content_type="application/pdf")
 
         post_data = {
             'title': 'Unpermitted Commercial Post Discovered',
@@ -450,8 +458,82 @@ class RolePermissionsAndCleanupTestCase(TestCase):
 
         # Test /ping/
         ping_res = self.client.get(reverse('ping_check'))
-        self.assertEqual(ping_res.status_code, 200)
+        ping_res_status = ping_res.status_code
+        self.assertEqual(ping_res_status, 200)
         self.assertEqual(ping_res.json().get('status'), 'healthy')
+
+    def test_backlog_year_1995_cutoff(self):
+        from permits.validators import validate_backlog_year
+        from django.core.exceptions import ValidationError
+
+        # Years before 1995 must fail
+        with self.assertRaises(ValidationError):
+            validate_backlog_year(1994)
+        with self.assertRaises(ValidationError):
+            validate_backlog_year("1994-12-31")
+        with self.assertRaises(ValidationError):
+            validate_backlog_year(1990)
+
+        # 1995 and later must pass
+        try:
+            validate_backlog_year(1995)
+            validate_backlog_year("1995-01-01")
+            validate_backlog_year(2026)
+            validate_backlog_year("2026-08-25")
+        except ValidationError:
+            self.fail("validate_backlog_year raised ValidationError for valid year >= 1995!")
+
+    def test_strict_pdf_attachment_policy(self):
+        from permits.validators import validate_document_file
+        from django.core.exceptions import ValidationError
+
+        # Disallowed document types
+        docx_file = SimpleUploadedFile("document.docx", b"PK fake docx content", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        png_file = SimpleUploadedFile("photo.png", b"\x89PNG fake image", content_type="image/png")
+        txt_file = SimpleUploadedFile("notes.txt", b"plain text", content_type="text/plain")
+
+        for f in [docx_file, png_file, txt_file]:
+            with self.assertRaises(ValidationError):
+                validate_document_file(f)
+
+        # Allowed PDF
+        pdf_file = SimpleUploadedFile("plan.pdf", b"%PDF-1.4 sample content", content_type="application/pdf")
+        try:
+            validate_document_file(pdf_file)
+        except ValidationError:
+            self.fail("validate_document_file raised ValidationError for valid PDF document!")
+
+    def test_lgu_general_fund_and_project_status_defaults(self):
+        from permits.models import EngineeringRecord, ProjectDetail
+        
+        proj_record = EngineeringRecord.objects.create(
+            record_type='Project',
+            barangay=self.barangay,
+            title='Brgy Hall Roofing',
+            year=2026,
+            status='completed',
+            created_by=self.staff
+        )
+        proj_detail = ProjectDetail.objects.create(
+            engineering_record=proj_record,
+            project_type='Barangay Infrastructure',
+            project_cost=500000.00
+        )
+        self.assertEqual(proj_detail.funding_source, 'LGU General Fund')
+        self.assertEqual(proj_detail.project_status, 'Completed')
+        self.assertEqual(proj_record.status_label, 'Archived')
+
+    def test_annual_record_summary_report(self):
+        self.client.login(username='adminuser', password='Password123')
+        response = self.client.get(reverse('reports'), {'annual_year': 2026})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('annual_summary_year', response.context)
+        self.assertEqual(response.context['annual_summary_year'], 2026)
+        self.assertIn('funding_sources_summary', response.context)
+        self.assertIn('annual_permits_count', response.context)
+        self.assertIn('annual_projects_count', response.context)
+        self.assertIn('annual_total_budget', response.context)
+
 
 
 

@@ -27,11 +27,13 @@ The system is built with a clean, accessible, and government-standard design phi
 - **Dynamic Checklist Management**: Requirement checklists are dynamically generated based on the record type (Permit, Municipal Project, Barangay Project) and subtype (e.g., Building Permit, Road & Bridge Project).
 - **Document Management**: Secure document uploads with validation, Supabase Storage for cloud storage, and version history. Includes batch uploading capabilities.
 - **Record Lifecycle Tracking**: Status tracking for records, from creation and submission to review, revision, and completion.
+- **Official Reports & Dual Exports**: Generates dynamic accomplishment summaries across 49 barangays with synchronized PDF and Excel (.xlsx) exports.
+- **Violations & Enforcement**: Dedicated case management for unpermitted structures with a clean `Complied` resolution flow.
 - **Audit & Activity Logs**: Comprehensive logging of user actions for transparency and accountability. Logs can be exported to CSV.
-- **Search & Filtering**: Advanced search and filtering capabilities across all records, projects, and permits.
+- **Search & Filtering**: Advanced real-time search and multi-period filtering across all records, projects, and permits.
 
 ### UI/UX Enhancements
-- **Dashboard Analytics**: A central dashboard featuring KPI widgets, including a donut chart for digitization compliance statistics.
+- **Executive Dashboard**: A central dashboard featuring KPI widgets, including a donut chart for digitization compliance statistics.
 - **Document Expiry Tracking**: The system tracks document expiry dates and displays prominent warning badges for expiring or expired documents.
 - **Interactive Maps**: A heatmap toggle on the barangay map provides a visual density overlay of projects.
 - **Responsive Design**: The UI is fully responsive, adapting from desktop to tablet and mobile layouts, ensuring accessibility on any device.

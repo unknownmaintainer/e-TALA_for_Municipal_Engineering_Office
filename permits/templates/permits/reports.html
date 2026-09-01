@@ -1,327 +1,273 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters humanize %}
 
-{% block title %}Reports &amp; Accomplishments | eTala{% endblock %}
+{% block title %}Reports | eTala{% endblock %}
 
 {% block extra_css %}
 <style>
-    @media print {
-        body {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            padding-top: 0 !important;
+    /* ── Mobile Responsive Optimization ── */
+    @media (max-width: 767.98px) {
+        .records-filter-toolbar {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
         }
-        .sidebar, .etala-header, .btn, button, nav, .d-print-none, .card-header-actions, .filter-bar, .report-toolbar-wrapper, .report-tab-pill-group {
-            display: none !important;
+
+        .records-filter-toolbar > div:last-child {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
         }
-        .etala-content {
-            margin-left: 0 !important;
-            padding: 0 !important;
-        }
-        .content-card {
-            border: 1px solid #cbd5e1 !important;
-            box-shadow: none !important;
-            background: #ffffff !important;
-            break-inside: avoid;
-        }
-        .print-header {
-            display: block !important;
-            text-align: center;
-            margin-bottom: 2rem;
-            border-bottom: 2px solid #002855;
-            padding-bottom: 1rem;
-        }
-        .tab-pane {
-            display: block !important;
-            opacity: 1 !important;
-            visibility: visible !important;
+
+        .etala-search-pill-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 38px !important;
         }
     }
 
-    /* ── 4-Card Executive KPI Grid ── */
-    .executive-kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-        margin-bottom: 1.25rem;
+    /* ─── Premium Modern Filter Dropdowns & Panel ─── */
+    .filter-panel-unified {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+        transition: all 0.2s ease !important;
     }
-    .kpi-card {
+
+    .dark-mode .filter-panel-unified,
+    [data-bs-theme="dark"] .filter-panel-unified {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+
+    .filter-dropdown-ajax {
+        height: 38px !important;
+        font-size: 0.82rem !important;
+        font-weight: 550 !important;
+        color: #1e293b !important;
+        background-color: #f8fafc !important;
+        border: 1.5px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 6px 32px 6px 12px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        cursor: pointer !important;
+    }
+
+    .filter-dropdown-ajax:hover {
+        border-color: #94a3b8 !important;
+        background-color: #ffffff !important;
+    }
+
+    .filter-dropdown-ajax:focus {
+        border-color: #3b82f6 !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+        outline: none !important;
+    }
+
+    .dark-mode .filter-dropdown-ajax,
+    [data-bs-theme="dark"] .filter-dropdown-ajax {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+        color: #f1f5f9 !important;
+    }
+
+    /* ── Table Card & Balanced Data Grid ── */
+    .report-table-card {
         background: var(--card-bg, #ffffff);
         border: 1px solid var(--border-default, #e2e8f0);
-        border-radius: 12px;
-        padding: 16px 18px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        min-height: 110px;
+        border-radius: 14px;
         overflow: hidden;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+        transition: box-shadow 0.2s ease, border-color 0.2s ease;
     }
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        border-color: #cbd5e1;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    .dark-mode .report-table-card {
+        background: #111c2e !important;
+        border-color: rgba(255, 255, 255, 0.08) !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
     }
-    .kpi-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 6px;
-    }
-    .kpi-title {
-        font-size: 0.72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #64748b;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .kpi-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 13px;
-        flex-shrink: 0;
-    }
-    .kpi-value {
-        font-size: 1.55rem;
-        font-weight: 800;
-        line-height: 1.15;
+
+    .report-table {
         color: var(--text-primary, #0f172a);
-        margin-bottom: 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        margin-bottom: 0;
+        --bs-table-bg: transparent;
+        --bs-table-color: inherit;
+        border-collapse: separate;
+        border-spacing: 0;
     }
-    .kpi-value.currency-val {
-        font-size: 1.25rem;
-        font-weight: 800;
-        letter-spacing: -0.3px;
-    }
-    .kpi-sub {
+    .report-table th,
+    .report-table-head th {
         font-size: 0.74rem;
-        color: var(--text-muted, #64748b);
-        line-height: 1.35;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .dark-mode .kpi-card {
-        background: #1e293b;
-        border-color: #334155;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    }
-    .dark-mode .kpi-card:hover {
-        border-color: #475569;
-    }
-    .dark-mode .kpi-value {
-        color: #f8fafc;
-    }
-    .dark-mode .kpi-title,
-    .dark-mode .kpi-sub {
-        color: #94a3b8;
-    }
-
-    @media (max-width: 992px) {
-        .executive-kpi-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-        }
-    }
-    @media (max-width: 576px) {
-        .executive-kpi-grid {
-            grid-template-columns: 1fr;
-            gap: 10px;
-        }
-    }
-
-    /* ── Seamless Segmented Tabs Control ── */
-    .report-toolbar-wrapper {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: nowrap;
-        background: var(--bg-surface-subtle, rgba(0,0,0,0.015));
-    }
-    .report-tab-pill-group {
-        background: #f1f5f9;
-        padding: 3px;
-        border-radius: 10px;
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        flex-shrink: 0;
-        max-width: 100%;
-        overflow-x: auto;
-    }
-    .dark-mode .report-tab-pill-group {
-        background: #0f172a;
-        border: 1px solid #334155;
-    }
-    .report-tab-btn {
-        border: none;
-        background: transparent;
-        color: #64748b;
-        font-size: 0.78rem;
-        font-weight: 600;
-        padding: 6px 12px;
-        border-radius: 7px;
-        transition: all 0.15s ease;
-        white-space: nowrap;
-        display: inline-flex;
-        align-items: center;
-        cursor: pointer;
-    }
-    .report-tab-btn:hover {
-        color: #0f172a;
-    }
-    .report-tab-btn.active {
-        background: #ffffff;
-        color: #0284c7;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-        font-weight: 700;
-    }
-    .dark-mode .report-tab-btn {
-        color: #94a3b8;
-    }
-    .dark-mode .report-tab-btn:hover {
-        color: #f8fafc;
-    }
-    .dark-mode .report-tab-btn.active {
-        background: #1e293b;
-        color: #38bdf8;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    }
-
-    .report-filters-group {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-wrap: nowrap;
-        flex-shrink: 1;
-    }
-
-    @media (max-width: 991px) {
-        .report-toolbar-wrapper {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 10px;
-        }
-        .report-tab-pill-group {
-            width: 100%;
-            overflow-x: auto;
-            justify-content: flex-start;
-        }
-        .report-filters-group {
-            width: 100%;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-            gap: 6px;
-        }
-        .report-filters-group select {
-            width: 100% !important;
-            min-width: 0 !important;
-        }
-    }
-
-    /* ── Metric Box Container (Matching Left & Right) ── */
-    .metric-panel-card {
-        background: #f8fafc;
-        border: 1px solid var(--border-default, #e2e8f0);
-        border-radius: 12px;
-        padding: 20px;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-    .dark-mode .metric-panel-card {
-        background: rgba(15, 23, 42, 0.6);
-        border-color: #334155;
-    }
-    .metric-panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 1px solid var(--border-default, #e2e8f0);
-        padding-bottom: 12px;
-        margin-bottom: 14px;
-    }
-    .dark-mode .metric-panel-header {
-        border-bottom-color: #334155;
-    }
-    .metric-panel-title {
-        font-size: 0.76rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: #64748b;
-        margin: 0;
+        padding: 12px 18px;
+        background-color: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+        transition: background-color 0.2s ease, color 0.2s ease;
     }
-    .dark-mode .metric-panel-title {
-        color: #94a3b8;
+    .report-table td {
+        font-size: 0.84rem;
+        padding: 12px 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary, #0f172a);
+        transition: background-color 0.18s ease, color 0.18s ease;
+    }
+    .report-table tbody tr {
+        transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .report-table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+    .report-table-foot td {
+        background-color: #f8fafc !important;
+        border-top: 2px solid #cbd5e1 !important;
+        border-bottom: none !important;
+        color: var(--text-primary, #0f172a) !important;
+        font-weight: 700;
+        padding: 13px 18px;
     }
 
-    /* ── Metric Ledger Item ── */
-    .metric-ledger-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 9.5px 0;
-        border-bottom: 1px solid var(--border-default, #f1f5f9);
-        font-size: 0.84rem;
+    /* Dark Mode Table Overrides */
+    .dark-mode .report-table,
+    [data-bs-theme="dark"] .report-table {
+        color: #e2e8f0 !important;
     }
-    .metric-ledger-item:last-child {
-        border-bottom: none;
+    .dark-mode .report-table th,
+    .dark-mode .report-table-head th,
+    [data-bs-theme="dark"] .report-table th,
+    [data-bs-theme="dark"] .report-table-head th {
+        background-color: #16243b !important;
+        color: #94a3b8 !important;
+        border-bottom: 1px solid #334155 !important;
     }
-    .dark-mode .metric-ledger-item {
-        border-bottom-color: #334155;
+    .dark-mode .report-table td,
+    [data-bs-theme="dark"] .report-table td {
+        border-bottom-color: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+    .dark-mode .report-table tbody tr:hover,
+    [data-bs-theme="dark"] .report-table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.04) !important;
+    }
+    .dark-mode .report-table-foot td,
+    [data-bs-theme="dark"] .report-table-foot td {
+        background-color: #16243b !important;
+        border-top: 2px solid #334155 !important;
+        color: #f8fafc !important;
+    }
+    .dark-mode .report-table a,
+    [data-bs-theme="dark"] .report-table a {
+        color: #f8fafc !important;
+        transition: color 0.15s ease;
+    }
+    .dark-mode .report-table a:hover,
+    [data-bs-theme="dark"] .report-table a:hover {
+        color: #38bdf8 !important;
+    }
+
+    .badge-stat-pill {
+        font-family: var(--bs-font-monospace, monospace);
+        font-size: 0.80rem;
+        font-weight: 600;
+        padding: 3px 8.5px;
+        border-radius: 6px;
+        display: inline-block;
+        min-width: 26px;
+        text-align: center;
+        line-height: 1.2;
+        transition: transform 0.15s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+    .report-table tbody tr:hover .badge-stat-pill {
+        transform: scale(1.05);
+    }
+
+    /* Semantic Stat Pill Category Color Coding (Light Mode) */
+    .stat-pill-municipal {
+        background: rgba(13, 148, 136, 0.12);
+        color: #0d9488;
+    }
+    .stat-pill-barangay {
+        background: rgba(99, 102, 241, 0.12);
+        color: #4f46e5;
+    }
+    .stat-pill-permits {
+        background: rgba(2, 132, 199, 0.12);
+        color: #0284c7;
+    }
+    .stat-pill-violations {
+        background: rgba(239, 68, 68, 0.12);
+        color: #dc2626;
+    }
+    .stat-pill-total {
+        background: rgba(15, 23, 42, 0.07);
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    /* Dark Mode High-Contrast Crisp Color Palette */
+    .dark-mode .stat-pill-municipal,
+    [data-bs-theme="dark"] .stat-pill-municipal {
+        background: rgba(45, 212, 191, 0.18) !important;
+        color: #2dd4bf !important;
+    }
+    .dark-mode .stat-pill-barangay,
+    [data-bs-theme="dark"] .stat-pill-barangay {
+        background: rgba(129, 140, 248, 0.18) !important;
+        color: #a5b4fc !important;
+    }
+    .dark-mode .stat-pill-permits,
+    [data-bs-theme="dark"] .stat-pill-permits {
+        background: rgba(56, 189, 248, 0.18) !important;
+        color: #38bdf8 !important;
+    }
+    .dark-mode .stat-pill-violations,
+    [data-bs-theme="dark"] .stat-pill-violations {
+        background: rgba(248, 113, 113, 0.20) !important;
+        color: #f87171 !important;
+    }
+    .dark-mode .stat-pill-total,
+    [data-bs-theme="dark"] .stat-pill-total {
+        background: rgba(255, 255, 255, 0.12) !important;
+        color: #f8fafc !important;
+    }
+    .dark-mode .report-table .text-success,
+    [data-bs-theme="dark"] .report-table .text-success {
+        color: #4ade80 !important;
+    }
+    .dark-mode .report-table .text-danger,
+    [data-bs-theme="dark"] .report-table .text-danger {
+        color: #f87171 !important;
+    }
+    .dark-mode .report-table .text-dark-emphasis,
+    [data-bs-theme="dark"] .report-table .text-dark-emphasis {
+        color: #f1f5f9 !important;
     }
 </style>
 {% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item active">Reports &amp; Accomplishments</span>
+<span class="breadcrumb-item active">Reports</span>
 {% endblock %}
 
 {% block content %}
-<!-- Print Header (Hidden on screen, shown in print) -->
-<div class="print-header d-none">
-    <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
-        <img src="{% static 'carigara_logo.png' %}" alt="Municipal Logo" style="width: 55px; height: 55px; object-fit: contain;">
-        <div class="text-start">
-            <h4 class="fw-bold m-0" style="color: #002855;">MUNICIPAL ENGINEERING OFFICE</h4>
-            <h6 class="text-muted m-0">Official Engineering &amp; Regulatory Accomplishment Report</h6>
-        </div>
-    </div>
-    <div class="text-center text-muted small mt-1">
-        Municipality of Carigara, Province of Leyte • Generated: {% now "F d, Y" %}
-    </div>
-</div>
 
-<!-- ══ 1. MINIMAL EXECUTIVE HEADER ═════════════════════════════════════════════ -->
-<div class="etala-page-header d-print-none mb-3">
+<!-- ══ 1. HEADER & DUAL EXPORT ACTIONS ═════════════════════════════════════════ -->
+<div class="etala-page-header mb-3">
     <div>
-        <h1 class="etala-page-title mb-1">Reports &amp; Accomplishments</h1>
-        <p class="etala-page-subtitle mb-0">Official accomplishment records, infrastructure development, permit registry, and regulatory compliance.</p>
+        <h1 class="etala-page-title mb-0">Reports</h1>
     </div>
-    <div class="etala-header-actions d-flex align-items-center gap-2">
-        <button type="button" onclick="window.print()" class="btn btn-sm btn-light border d-inline-flex align-items-center gap-1.5 shadow-2xs" style="height: 36px; border-radius: 8px; font-weight: 600; font-size: 0.80rem;" title="Print official report view">
-            <i class="fa-solid fa-print text-secondary"></i>
-            <span>Print View</span>
-        </button>
-        <button type="button" onclick="triggerExport('excel')" class="btn btn-sm btn-light border d-inline-flex align-items-center gap-1.5 shadow-2xs" style="height: 36px; border-radius: 8px; font-weight: 600; font-size: 0.80rem;" title="Export Excel Spreadsheet">
-            <i class="fa-solid fa-file-excel text-success"></i>
+    <div class="etala-header-actions">
+        <button type="button" onclick="triggerExport(this, 'excel')" class="premium-btn btn-export text-nowrap d-flex align-items-center" title="Export Spreadsheet (Excel .xlsx)">
+            <span class="btn-icon"><i class="fa-solid fa-file-excel text-success"></i></span>
+            <span class="btn-divider"></span>
             <span>Export Excel</span>
         </button>
-        <button type="button" onclick="triggerExport('pdf')" class="premium-btn btn-export text-nowrap d-flex align-items-center" title="Download Official Master Summary Report (PDF)">
+        <button type="button" onclick="triggerExport(this, 'pdf')" class="premium-btn btn-export text-nowrap d-flex align-items-center" title="Download Official Summary Report (PDF)">
             <span class="btn-icon"><i class="fa-solid fa-file-pdf text-danger"></i></span>
             <span class="btn-divider"></span>
             <span>Export PDF</span>
@@ -329,436 +275,381 @@
     </div>
 </div>
 
-<!-- ══ 2. 4 EXECUTIVE BALANCED KPI METRICS ════════════════════════════════════ -->
-<div class="executive-kpi-grid">
-    <!-- Card 1: Total Records -->
-    <div class="kpi-card">
-        <div class="kpi-header">
-            <span class="kpi-title" title="Total encoded records">Total Records</span>
-            <div class="kpi-icon" style="background: #e0f2fe; color: #0284c7;">
-                <i class="fa-solid fa-folder-tree"></i>
-            </div>
-        </div>
-        <div class="kpi-value">{{ total_count }}</div>
-        <div class="kpi-sub">{{ total_projects }} Projects · {{ total_permits }} Permits</div>
-    </div>
-
-    <!-- Card 2: Infrastructure Projects -->
-    <div class="kpi-card">
-        <div class="kpi-header">
-            <span class="kpi-title" title="Infrastructure development projects">Infra Projects</span>
-            <div class="kpi-icon" style="background: #fef3c7; color: #d97706;">
-                <i class="fa-solid fa-building-columns"></i>
-            </div>
-        </div>
-        <div class="kpi-value">{{ total_projects }}</div>
-        <div class="kpi-sub">{{ ongoing_projects_count }} Ongoing · {{ completed_projects_count }} Completed</div>
-    </div>
-
-    <!-- Card 3: Permits Issued -->
-    <div class="kpi-card">
-        <div class="kpi-header">
-            <span class="kpi-title" title="Issued permits registry">Permits Issued</span>
-            <div class="kpi-icon" style="background: #ccfbf1; color: #0d9488;">
-                <i class="fa-solid fa-file-signature"></i>
-            </div>
-        </div>
-        <div class="kpi-value">{{ total_permits }}</div>
-        <div class="kpi-sub">{{ building_permits_count }} Building · {{ electrical_permits_count }} Electrical · {{ occupancy_permits_count }} Occupancy</div>
-    </div>
-
-    <!-- Card 4: Total Project Budget (Clean Scaling & No Clipping) -->
-    <div class="kpi-card" title="Total Budget: ₱{{ total_projects_budget|intcomma|default:'0.00' }}">
-        <div class="kpi-header">
-            <span class="kpi-title" title="Total public works valuation">Total Project Budget</span>
-            <div class="kpi-icon" style="background: #dcfce7; color: #15803d;">
-                <i class="fa-solid fa-peso-sign"></i>
-            </div>
-        </div>
-        <div class="kpi-value currency-val" style="font-size: clamp(1rem, 1.35vw, 1.35rem); line-height: 1.25; overflow: hidden; text-overflow: ellipsis;" title="₱{{ total_projects_budget|intcomma|default:'0.00' }}">
-            ₱{{ total_projects_budget|intcomma|default:"0.00" }}
-        </div>
-        <div class="kpi-sub">{{ municipal_projects_count }} Municipal · {{ barangay_projects_count }} Barangay</div>
-    </div>
-</div>
-
-<!-- ══ 3. UNIFIED SINGLE-SURFACE REPORT CONTAINER ═════════════════════════════ -->
-<div class="content-card" style="border-radius: 14px;">
-    
-    <!-- Unified Header Toolbar: Tabs Left + Clean Context Filters Right -->
-    <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2.5 report-toolbar-wrapper" style="background: var(--bg-surface-subtle, rgba(0,0,0,0.015));">
+<!-- ══ 2. UNIFIED COMPACT 1-LINE TOOLBAR (MATCHING RECORDS & ACTIVITY LOGS) ═══ -->
+<form method="GET" action="{% url 'reports' %}" id="reportFilterForm">
+    <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
+        style="border-bottom: 1px solid var(--border-default, rgba(255,255,255,0.08));">
         
-        <!-- Left: Pill Tabs (Category Switcher) -->
-        <div class="report-tab-pill-group d-print-none">
-            <button class="report-tab-btn active" id="tab-btn-overview" data-bs-toggle="pill" data-bs-target="#tab-overview" type="button">
-                <i class="fa-solid fa-chart-pie me-1.5"></i>
-                <span>Summary &amp; Breakdown</span>
-            </button>
-            <button class="report-tab-btn" id="tab-btn-projects" data-bs-toggle="pill" data-bs-target="#tab-projects" type="button">
-                <i class="fa-solid fa-building-columns me-1.5"></i>
-                <span>Projects ({{ total_projects }})</span>
-            </button>
-            <button class="report-tab-btn" id="tab-btn-permits" data-bs-toggle="pill" data-bs-target="#tab-permits" type="button">
-                <i class="fa-solid fa-file-contract me-1.5"></i>
-                <span>Permits ({{ total_permits }})</span>
-            </button>
-            <button class="report-tab-btn" id="tab-btn-violations" data-bs-toggle="pill" data-bs-target="#tab-violations" type="button">
-                <i class="fa-solid fa-triangle-exclamation me-1.5"></i>
-                <span>Violations ({{ total_illegal_cases }})</span>
-            </button>
+        <!-- Left: Context Title -->
+        <div class="d-inline-flex align-items-center gap-2">
+            <span class="fw-bold text-dark-emphasis" style="font-size: 0.88rem;">
+                <i class="fa-solid fa-map-location-dot text-primary me-1.5"></i>
+                Barangay Accomplishments
+            </span>
         </div>
 
-        <!-- Right: Inline Filter Dropdowns (Barangay, Year, Status) -->
-        <form method="GET" action="{% url 'reports' %}" class="report-filters-group d-print-none m-0" id="filterForm">
-            <select name="barangay" class="form-select form-select-sm rounded-2" onchange="this.form.submit()" style="font-size: 0.78rem; height: 32px; width: auto; min-width: 130px; cursor: pointer;">
-                <option value="">— Barangay —</option>
-                {% for b in barangays %}
-                <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" %}selected{% endif %}>{{ b.barangay_name }}</option>
-                {% endfor %}
-            </select>
+        <!-- Right: Compact Search Pill with Filter Toggle Button -->
+        <div class="d-flex align-items-center ms-auto" style="flex: 0 0 260px; width: 260px; max-width: 100%;">
+            <div class="etala-search-pill-wrapper">
+                <span class="etala-search-pill-icon" title="Search table">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" id="reportSearchInput" name="q" value="{{ search_query|default:'' }}"
+                    class="etala-search-pill-input search-text-input" placeholder="Search barangay..."
+                    autocomplete="off" onkeyup="filterReportTable(this.value)">
+                <button type="button" id="clearReportSearchBtn"
+                    class="clear-search-icon d-flex align-items-center justify-content-center border-0 p-0 {% if not search_query %}d-none{% endif %}"
+                    style="background: transparent;" title="Clear search" onclick="clearReportSearch()">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                </button>
 
-            <select name="year" class="form-select form-select-sm rounded-2" onchange="this.form.submit()" style="font-size: 0.78rem; height: 32px; width: auto; min-width: 95px; cursor: pointer;">
-                <option value="">— Year —</option>
-                {% for y in year_choices %}
-                <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
-                {% endfor %}
-            </select>
+                <span class="etala-search-pill-divider"></span>
 
-            <select name="status" class="form-select form-select-sm rounded-2" onchange="this.form.submit()" style="font-size: 0.78rem; height: 32px; width: auto; min-width: 105px; cursor: pointer;">
-                <option value="">— Status —</option>
-                {% for val, lbl in status_choices %}
-                <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ lbl }}</option>
-                {% endfor %}
-            </select>
-
-            {% if active_filters %}
-            <a href="{% url 'reports' %}" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" style="height: 32px; border-radius: 6px; font-size: 0.76rem; font-weight: 600;" title="Reset filters">
-                <i class="fa-solid fa-rotate-left"></i>
-                <span class="d-none d-sm-inline">Reset</span>
-            </a>
-            {% endif %}
-        </form>
+                <!-- Integrated Filter Toggle Button -->
+                <button class="etala-search-pill-filter-btn"
+                    type="button" data-bs-toggle="collapse" data-bs-target="#advancedReportsFiltersCollapse" aria-expanded="false" title="Toggle Filters">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- Main Body Area -->
-    <div class="content-card-body p-4">
-        <div class="tab-content">
-            
-            <!-- ── TAB 1: ACCOMPLISHMENT SUMMARY & BREAKDOWN (Symmetric Balanced Cards) ── -->
-            <div class="tab-pane fade show active" id="tab-overview">
-                <div class="row g-4 align-items-stretch">
-                    
-                    <!-- Left: Category Distribution Card -->
-                    <div class="col-lg-6 col-12">
-                        <div class="metric-panel-card">
-                            <div class="metric-panel-header">
-                                <h6 class="metric-panel-title">Category Distribution</h6>
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style="font-size: 0.70rem;">{{ total_count }} Records</span>
-                            </div>
-                            <div class="flex-grow-1 d-flex flex-column align-items-center justify-content-center" style="min-height: 240px;">
-                                {% if total_count > 0 %}
-                                <div style="height: 190px; width: 100%; max-width: 250px; position: relative;">
-                                    <canvas id="categoryChart"></canvas>
-                                </div>
-                                {% else %}
-                                <div class="text-center py-4 text-muted">
-                                    <i class="fa-solid fa-inbox mb-1" style="font-size: 24px;"></i>
-                                    <div class="small">No records match current filters.</div>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Accomplishment Ledger Card -->
-                    <div class="col-lg-6 col-12">
-                        <div class="metric-panel-card">
-                            <div class="metric-panel-header">
-                                <h6 class="metric-panel-title">Official Accomplishment Ledger</h6>
-                                <span class="text-muted small" style="font-size: 0.72rem;">Category Volume</span>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="metric-ledger-item">
-                                    <span class="fw-semibold"><i class="fa-solid fa-landmark text-warning me-2" style="width: 16px;"></i>Municipal Projects</span>
-                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ municipal_projects_count }}</span>
-                                </div>
-                                <div class="metric-ledger-item">
-                                    <span class="fw-semibold"><i class="fa-solid fa-map-location-dot text-info me-2" style="width: 16px;"></i>Barangay Projects</span>
-                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ barangay_projects_count }}</span>
-                                </div>
-                                <div class="metric-ledger-item">
-                                    <span class="fw-semibold"><i class="fa-solid fa-building text-primary me-2" style="width: 16px;"></i>Building Permits</span>
-                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ building_permits_count }}</span>
-                                </div>
-                                <div class="metric-ledger-item">
-                                    <span class="fw-semibold"><i class="fa-solid fa-house-chimney-user text-success me-2" style="width: 16px;"></i>Occupancy Permits</span>
-                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ occupancy_permits_count }}</span>
-                                </div>
-                                <div class="metric-ledger-item">
-                                    <span class="fw-semibold"><i class="fa-solid fa-border-all text-secondary me-2" style="width: 16px;"></i>Fencing Permits</span>
-                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ fencing_permits_count }}</span>
-                                </div>
-                                <div class="metric-ledger-item">
-                                    <span class="fw-semibold"><i class="fa-solid fa-bolt text-danger me-2" style="width: 16px;"></i>Electrical Permits</span>
-                                    <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">{{ electrical_permits_count }}</span>
-                                </div>
-                                {% if total_illegal_cases > 0 %}
-                                <div class="metric-ledger-item pt-2" style="border-top: 2px solid rgba(220, 38, 38, 0.15);">
-                                    <span class="fw-semibold text-danger"><i class="fa-solid fa-triangle-exclamation me-2" style="width: 16px;"></i>Illegal Construction Cases</span>
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 fw-bold">{{ total_illegal_cases }} ({{ resolved_illegal_cases }} Regularized)</span>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- ── TAB 2: INFRASTRUCTURE PROJECTS LEDGER ── -->
-            <div class="tab-pane fade" id="tab-projects">
-                {% if monitoring_projects_list %}
-                <div class="table-responsive">
-                    <table class="data-table mb-0" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th style="width: 32%;">PROJECT TITLE &amp; TYPE</th>
-                                <th style="width: 14%;">SCOPE</th>
-                                <th style="width: 18%;">BARANGAY</th>
-                                <th style="width: 16%;">CONTRACTOR / IMPL.</th>
-                                <th style="width: 10%; text-align: center;">STATUS</th>
-                                <th style="width: 10%; text-align: right;">ESTIMATED BUDGET</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for p in monitoring_projects_list %}
-                            <tr data-href="{% url 'record_detail' p.record_id %}" style="cursor: pointer;">
-                                <td>
-                                    <div class="cell-title">{{ p.title|default:"Untitled Project" }}</div>
-                                    <div class="text-muted small" style="font-size: 0.74rem;">{{ p.specific_type_label }}</div>
-                                </td>
-                                <td>
-                                    {% if p.project_scope == 'Barangay' %}
-                                    <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-2 py-0.5" style="font-size: 0.72rem; font-weight: 600;">Barangay</span>
-                                    {% else %}
-                                    <span class="badge bg-teal-subtle text-teal border border-teal-subtle px-2 py-0.5" style="font-size: 0.72rem; font-weight: 600;">Municipal</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-muted">{{ p.barangay.barangay_name|default:"Unassigned" }}</td>
-                                <td class="text-muted">{{ p.project_detail.contractor|default:"—" }}</td>
-                                <td class="text-center">
-                                    {% if p.status == 'completed' %}
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5" style="font-size: 0.72rem;">Completed</span>
-                                    {% else %}
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style="font-size: 0.72rem;">Ongoing</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end fw-bold font-monospace title-text-adaptive">
-                                    {% if p.project_detail.project_cost %}
-                                    ₱{{ p.project_detail.project_cost|intcomma }}
-                                    {% else %}
-                                    —
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center py-5 text-muted">
-                    <i class="fa-solid fa-building-columns mb-2 fs-3 opacity-50"></i>
-                    <h6>No infrastructure projects found matching the filter criteria.</h6>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- ── TAB 3: PERMITS REGISTRY ── -->
-            <div class="tab-pane fade" id="tab-permits">
-                {% if monitoring_permits_list %}
-                <div class="table-responsive">
-                    <table class="data-table mb-0" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th style="width: 20%;">PERMIT NO.</th>
-                                <th style="width: 30%;">APPLICANT / OWNER</th>
-                                <th style="width: 18%;">BARANGAY</th>
-                                <th style="width: 16%;">PERMIT TYPE</th>
-                                <th style="width: 16%;">DATE ISSUED</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for p in monitoring_permits_list %}
-                            <tr data-href="{% url 'record_detail' p.record_id %}" style="cursor: pointer;">
-                                <td class="fw-bold title-text-adaptive font-monospace">{{ p.permit_detail.permit_number|default:p.title }}</td>
-                                <td class="fw-semibold title-text-adaptive">
-                                    {{ p.permit_detail.applicant_name|default:p.title }}
-                                </td>
-                                <td class="text-muted">{{ p.barangay.barangay_name|default:"Unassigned" }}</td>
-                                <td>
-                                    <span class="badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.72rem;">
-                                        {{ p.permit_detail.permit_type|default:"Permit" }}
-                                    </span>
-                                </td>
-                                <td class="cell-date text-muted">
-                                    {% if p.permit_detail and p.permit_detail.date_issued %}
-                                    {{ p.permit_detail.date_issued|date:"M d, Y" }}
-                                    {% else %}
-                                    —
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center py-5 text-muted">
-                    <i class="fa-solid fa-file-signature text-secondary mb-2" style="font-size: 36px;"></i>
-                    <h6>No issued permits found matching the filter criteria.</h6>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- ── TAB 4: VIOLATIONS MONITORING ── -->
-            <div class="tab-pane fade" id="tab-violations">
-                {% if monitoring_violations_list %}
-                <div class="table-responsive">
-                    <table class="data-table mb-0" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th style="width: 10%;">ID</th>
-                                <th style="width: 32%;">STRUCTURE / INCIDENT</th>
-                                <th style="width: 20%;">PROPERTY OWNER</th>
-                                <th style="width: 16%;">BARANGAY</th>
-                                <th style="width: 12%;">DATE REPORTED</th>
-                                <th style="width: 10%; text-align: center;">STATUS</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in monitoring_violations_list %}
-                            <tr data-href="{% url 'record_detail' c.record_id %}" style="cursor: pointer;">
-                                <td class="fw-bold title-text-adaptive">#{{ c.record_id }}</td>
-                                <td class="fw-semibold title-text-adaptive">{{ c.title }}</td>
-                                <td class="text-muted">{{ c.permit_detail.applicant_name|default:"Unspecified" }}</td>
-                                <td class="text-muted">{{ c.barangay.barangay_name|default:"Unassigned" }}</td>
-                                <td class="text-muted cell-date">{{ c.date_started|default:c.created_at|date:"M d, Y" }}</td>
-                                <td class="text-center">
-                                    {% if c.illegal_compliance_status == 'resolved' %}
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5" style="font-size: 0.72rem;">Regularized</span>
-                                    {% elif c.illegal_compliance_status == 'pending_permit' %}
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-0.5" style="font-size: 0.72rem;">Permit Filed</span>
-                                    {% else %}
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5" style="font-size: 0.72rem;">Active Violation</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center py-5 text-muted">
-                    <i class="fa-solid fa-circle-check text-success mb-2" style="font-size: 36px;"></i>
-                    <h6>No illegal construction records found matching criteria.</h6>
-                </div>
-                {% endif %}
-            </div>
-
+    <!-- Active Filter Chips -->
+    {% if target_brgy_name or selected_year or selected_month %}
+    <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2.5">
+        {% if target_brgy_name %}
+        <div class="active-filter-chip d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
+            style="background: rgba(37, 99, 235, 0.08); color: #2563eb; font-size: var(--text-2xs); border: 1px solid rgba(37, 99, 235, 0.2);">
+            <span>Barangay: <strong>{{ target_brgy_name }}</strong></span>
+            <a href="?{% if selected_year %}year={{ selected_year }}&{% endif %}{% if selected_month %}month={{ selected_month }}{% endif %}" class="clear-chip-btn text-decoration-none">&times;</a>
         </div>
+        {% endif %}
+
+        {% if selected_year %}
+        <div class="active-filter-chip d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
+            style="background: rgba(37, 99, 235, 0.08); color: #2563eb; font-size: var(--text-2xs); border: 1px solid rgba(37, 99, 235, 0.2);">
+            <span>Year: <strong>{{ selected_year }}</strong></span>
+            <a href="?{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_month %}month={{ selected_month }}{% endif %}" class="clear-chip-btn text-decoration-none">&times;</a>
+        </div>
+        {% endif %}
+
+        {% if selected_month_name %}
+        <div class="active-filter-chip d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill"
+            style="background: rgba(37, 99, 235, 0.08); color: #2563eb; font-size: var(--text-2xs); border: 1px solid rgba(37, 99, 235, 0.2);">
+            <span>Month: <strong>{{ selected_month_name }}</strong></span>
+            <a href="?{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}{% endif %}" class="clear-chip-btn text-decoration-none">&times;</a>
+        </div>
+        {% endif %}
+
+        <a href="{% url 'reports' %}"
+            class="action-btn action-btn-ghost action-btn-xs ms-auto text-decoration-none"
+            style="font-size: var(--text-2xs); padding: 2px 6px;">
+            Reset All
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Collapsible filters panel (Inline compact design) -->
+    <div class="collapse {% if selected_barangay or selected_year or selected_month %}show{% endif %}"
+        id="advancedReportsFiltersCollapse">
+        <div class="filter-panel-unified py-2.5 px-3 rounded-3 border mb-3">
+            <div class="row row-cols-md-3 row-cols-1 g-2 align-items-end">
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Barangay</label>
+                    <select name="barangay" class="form-select form-select-sm filter-dropdown-ajax" onchange="this.form.submit()">
+                        <option value="">All Barangays (49)</option>
+                        {% for b in barangays %}
+                        <option value="{{ b.barangay_id }}" {% if selected_barangay == b.barangay_id|stringformat:"i" or selected_barangay == b.barangay_id|stringformat:"s" %}selected{% endif %}>{{ b.barangay_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Year</label>
+                    <select name="year" class="form-select form-select-sm filter-dropdown-ajax" onchange="this.form.submit()">
+                        <option value="">All Years</option>
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if selected_year == y|stringformat:"i" or selected_year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label text-muted fw-bold mb-1"
+                        style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Specific Month</label>
+                    <select name="month" class="form-select form-select-sm filter-dropdown-ajax" onchange="this.form.submit()">
+                        <option value="">All Months</option>
+                        {% for m_val, m_lbl in month_choices %}
+                        <option value="{{ m_val }}" {% if selected_month == m_val %}selected{% endif %}>{{ m_lbl }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- ══ 3. ACCOMPLISHMENT LEDGER TABLE CARD ════════════════════════════════════ -->
+<div class="report-table-card mb-4">
+    <div class="table-responsive" style="max-height: 640px; overflow-y: auto;">
+        <table class="table table-sm align-middle mb-0 report-table">
+            <thead class="report-table-head sticky-top">
+                <tr>
+                    <th class="text-center" style="width: 4%;">#</th>
+                    <th style="width: 24%;">{% if is_single_barangay %}MONTH / PERIOD{% else %}BARANGAY{% endif %}</th>
+                    <th class="text-center" style="width: 11%;" title="Municipal-funded & Administered Infrastructure Projects">MUNICIPAL</th>
+                    <th class="text-center" style="width: 11%;" title="Barangay-level Infrastructure Projects">BARANGAY</th>
+                    <th class="text-center" style="width: 11%;" title="Official Engineering & Building Permits">PERMITS</th>
+                    <th class="text-center" style="width: 11%;" title="Unpermitted Structures / Violations">VIOLATIONS</th>
+                    <th class="text-center" style="width: 10%;">TOTAL</th>
+                    <th class="text-end" style="width: 18%;">PROJECT BUDGET</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b_item in barangay_summary_list %}
+                <tr class="report-data-row"
+                    data-muni-projects="{{ b_item.municipal_projects_count }}"
+                    data-brgy-projects="{{ b_item.barangay_projects_count }}"
+                    data-permits="{{ b_item.permits_count }}"
+                    data-violations="{{ b_item.violations_count }}"
+                    data-total="{{ b_item.total_count }}"
+                    data-budget="{{ b_item.budget_total|stringformat:'.2f' }}">
+                    <td class="text-center text-muted font-monospace" style="font-size: 0.80rem;">{{ forloop.counter }}</td>
+                    <td class="fw-semibold">
+                        {% if b_item.is_month %}
+                        <span class="text-dark-emphasis">{{ b_item.label }}</span>
+                        {% else %}
+                        <a href="{% url 'barangay_workspace' b_item.barangay.barangay_id %}" class="text-decoration-none text-dark-emphasis hover-primary" title="Open Barangay Workspace">
+                            <span>{{ b_item.barangay.barangay_name }}</span>
+                        </a>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if b_item.municipal_projects_count > 0 %}
+                        <span class="badge-stat-pill stat-pill-municipal">{{ b_item.municipal_projects_count }}</span>
+                        {% else %}
+                        <span class="text-muted font-monospace" style="font-size: 0.82rem;">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if b_item.barangay_projects_count > 0 %}
+                        <span class="badge-stat-pill stat-pill-barangay">{{ b_item.barangay_projects_count }}</span>
+                        {% else %}
+                        <span class="text-muted font-monospace" style="font-size: 0.82rem;">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if b_item.permits_count > 0 %}
+                        <span class="badge-stat-pill stat-pill-permits">{{ b_item.permits_count }}</span>
+                        {% else %}
+                        <span class="text-muted font-monospace" style="font-size: 0.82rem;">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if b_item.violations_count > 0 %}
+                        <span class="badge-stat-pill stat-pill-violations">{{ b_item.violations_count }}</span>
+                        {% else %}
+                        <span class="text-muted font-monospace" style="font-size: 0.82rem;">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if b_item.total_count > 0 %}
+                        <span class="badge-stat-pill stat-pill-total">{{ b_item.total_count }}</span>
+                        {% else %}
+                        <span class="text-muted font-monospace" style="font-size: 0.82rem;">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end font-monospace fw-bold title-text-adaptive">
+                        {% if b_item.budget_total > 0 %}
+                        <span class="text-success">₱{{ b_item.budget_total|floatformat:2|intcomma }}</span>
+                        {% else %}
+                        <span class="text-muted font-monospace" style="font-size: 0.82rem;">₱0.00</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">No accomplishment records available.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="report-table-foot fw-bold">
+                <tr>
+                    <td></td>
+                    <td id="footTotalLabel">TOTAL</td>
+                    <td class="text-center font-monospace text-dark-emphasis" id="footMuniProjects">{{ municipal_projects_count }}</td>
+                    <td class="text-center font-monospace text-dark-emphasis" id="footBrgyProjects">{{ barangay_projects_count }}</td>
+                    <td class="text-center font-monospace text-dark-emphasis" id="footPermits">{{ total_permits }}</td>
+                    <td class="text-center font-monospace text-danger" id="footViolations">{{ active_illegal_cases }}</td>
+                    <td class="text-center font-monospace text-dark-emphasis" id="footTotal">{{ total_count }}</td>
+                    <td class="text-end font-monospace text-success" id="footBudget">₱{{ total_projects_budget|floatformat:2|intcomma|default:"0.00" }}</td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
 </div>
 
-{% endblock %}
-
-{% block extra_js %}
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-{{ growth_data|json_script:"growth-data-script" }}
-{{ by_barangay|json_script:"barangay-data-script" }}
-{{ by_category|json_script:"category-data-script" }}
-
+<!-- Client-side Scripts -->
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const isDark = document.body.classList.contains('dark-mode') || document.documentElement.getAttribute('data-bs-theme') === 'dark';
-    const textColor = isDark ? '#94a3b8' : '#64748b';
-
-    // Records by Category Doughnut Chart
-    const ctxCategory = document.getElementById('categoryChart');
-    if (ctxCategory) {
-        const rawCategoryElem = document.getElementById('category-data-script');
-        const rawCategory = rawCategoryElem ? JSON.parse(rawCategoryElem.textContent || '[]') : [];
-        const categoryCounts = [
-            rawCategory[0] && typeof rawCategory[0].count !== 'undefined' ? rawCategory[0].count : 0,
-            rawCategory[1] && typeof rawCategory[1].count !== 'undefined' ? rawCategory[1].count : 0,
-            rawCategory[2] && typeof rawCategory[2].count !== 'undefined' ? rawCategory[2].count : 0
-        ];
-        new Chart(ctxCategory, {
-            type: 'doughnut',
-            data: {
-                labels: ['Permits', 'Municipal Projects', 'Barangay Projects'],
-                datasets: [{
-                    data: categoryCounts,
-                    backgroundColor: ['#0284c7', '#f59e0b', '#0d9488'],
-                    borderWidth: 2,
-                    borderColor: isDark ? '#1e293b' : '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            boxWidth: 10,
-                            padding: 10,
-                            color: textColor,
-                            font: { size: 10, family: 'Inter, sans-serif' }
-                        }
-                    }
-                }
-            }
-        });
+(function() {
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
-    // Row Click Redirection
-    document.querySelectorAll('tr[data-href]').forEach(row => {
-        row.addEventListener('click', function (e) {
-            if (!e.target.closest('a') && !e.target.closest('button')) {
-                window.location.href = this.dataset.href;
+    window.filterReportTable = function(query) {
+        const q = (query || '').toLowerCase().trim();
+        const clearBtn = document.getElementById('clearReportSearchBtn');
+        if (clearBtn) {
+            if (q) {
+                clearBtn.classList.remove('d-none');
+            } else {
+                clearBtn.classList.add('d-none');
             }
-        });
-    });
-});
-
-function triggerExport(format) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('export', format);
-    const exportUrl = `${window.location.pathname}?${urlParams.toString()}`;
-    const ext = format === 'excel' ? 'xlsx' : 'pdf';
-    const filename = `eTala_Engineering_Accomplishment_Report.${ext}`;
-    
-    const formatUpper = format === 'excel' ? 'Excel Spreadsheet' : 'PDF Report';
-    
-    if (window.downloadFileWithToast) {
-        window.downloadFileWithToast(exportUrl, filename, {
-            title: `Exporting ${formatUpper}`,
-            startMsg: `Building ${formatUpper} with current filters...`,
-            successTitle: `${formatUpper} Ready`,
-            successMsg: `Report sent to your browser downloads.`
-        });
-    } else {
-        let downloadFrame = document.getElementById('etalaDownloadIframe');
-        if (!downloadFrame) {
-            downloadFrame = document.createElement('iframe');
-            downloadFrame.id = 'etalaDownloadIframe';
-            downloadFrame.style.display = 'none';
-            document.body.appendChild(downloadFrame);
         }
-        downloadFrame.src = exportUrl;
-    }
-}
+
+        const table = document.querySelector('.report-table');
+        if (!table) return;
+        
+        const rows = table.querySelectorAll('tbody tr.report-data-row');
+        let visibleCount = 0;
+        let sumMuniProjects = 0;
+        let sumBrgyProjects = 0;
+        let sumPermits = 0;
+        let sumViolations = 0;
+        let sumTotal = 0;
+        let sumBudget = 0.0;
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            if (!q || text.includes(q)) {
+                row.style.display = '';
+                visibleCount++;
+                sumMuniProjects += parseInt(row.getAttribute('data-muni-projects') || '0', 10);
+                sumBrgyProjects += parseInt(row.getAttribute('data-brgy-projects') || '0', 10);
+                sumPermits += parseInt(row.getAttribute('data-permits') || '0', 10);
+                sumViolations += parseInt(row.getAttribute('data-violations') || '0', 10);
+                sumTotal += parseInt(row.getAttribute('data-total') || '0', 10);
+                sumBudget += parseFloat(row.getAttribute('data-budget') || '0');
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Dynamic No-Match Row
+        let noMatchRow = document.getElementById('reportNoMatchRow');
+        if (visibleCount === 0 && rows.length > 0) {
+            if (!noMatchRow) {
+                noMatchRow = document.createElement('tr');
+                noMatchRow.id = 'reportNoMatchRow';
+                noMatchRow.innerHTML = `<td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-circle-exclamation me-1 text-warning"></i>No matching barangays found for "${escapeHtml(q)}".</td>`;
+                table.querySelector('tbody').appendChild(noMatchRow);
+            } else {
+                noMatchRow.style.display = '';
+                noMatchRow.innerHTML = `<td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-circle-exclamation me-1 text-warning"></i>No matching barangays found for "${escapeHtml(q)}".</td>`;
+            }
+        } else if (noMatchRow) {
+            noMatchRow.style.display = 'none';
+        }
+
+        // Dynamically update the footer cells to match ONLY the visible filtered rows!
+        const footMuniProjects = document.getElementById('footMuniProjects');
+        const footBrgyProjects = document.getElementById('footBrgyProjects');
+        const footPermits = document.getElementById('footPermits');
+        const footViolations = document.getElementById('footViolations');
+        const footTotal = document.getElementById('footTotal');
+        const footBudget = document.getElementById('footBudget');
+        const footTotalLabel = document.getElementById('footTotalLabel');
+
+        if (footMuniProjects) footMuniProjects.textContent = sumMuniProjects;
+        if (footBrgyProjects) footBrgyProjects.textContent = sumBrgyProjects;
+        if (footPermits) footPermits.textContent = sumPermits;
+        if (footViolations) footViolations.textContent = sumViolations;
+        if (footTotal) footTotal.textContent = sumTotal;
+        if (footBudget) {
+            footBudget.textContent = '₱' + sumBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (footTotalLabel) {
+            footTotalLabel.textContent = q ? `TOTAL (${visibleCount} BRGY${visibleCount === 1 ? '' : 'S'})` : 'TOTAL';
+        }
+    };
+
+    window.clearReportSearch = function() {
+        const input = document.getElementById('reportSearchInput');
+        if (input) {
+            input.value = '';
+            window.filterReportTable('');
+            input.focus();
+            // If submitted with search query in URL, clean the URL param
+            const url = new URL(window.location);
+            if (url.searchParams.has('q')) {
+                url.searchParams.delete('q');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('reportSearchInput');
+        if (searchInput && searchInput.value) {
+            window.filterReportTable(searchInput.value);
+        }
+    });
+
+    window.triggerExport = function(btn, format) {
+        const fmt = format || 'pdf';
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchInput = document.getElementById('reportSearchInput');
+        const queryVal = (searchInput ? searchInput.value : '').trim();
+        if (queryVal) {
+            urlParams.set('q', queryVal);
+        } else {
+            urlParams.delete('q');
+        }
+        urlParams.set('export', fmt);
+        const exportUrl = `${window.location.pathname}?${urlParams.toString()}`;
+        const ext = fmt === 'excel' ? 'xlsx' : 'pdf';
+        
+        let fileSuffix = 'Accomplishment_Report';
+        const yr = urlParams.get('year');
+        const mo = urlParams.get('month');
+        const qVal = urlParams.get('q');
+        const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        
+        if (yr && mo && parseInt(mo) >= 1 && parseInt(mo) <= 12) {
+            fileSuffix += `_${monthNames[parseInt(mo)]}_${yr}`;
+        } else if (mo && parseInt(mo) >= 1 && parseInt(mo) <= 12) {
+            fileSuffix += `_${monthNames[parseInt(mo)]}_All_Years`;
+        } else if (yr) {
+            fileSuffix += `_${yr}`;
+        } else if (qVal) {
+            fileSuffix += `_${qVal.replace(/\s+/g, '_')}`;
+        } else {
+            fileSuffix += '_All_Barangays';
+        }
+        const filename = `eTala_${fileSuffix}.${ext}`;
+        
+        if (window.downloadFileWithToast) {
+            window.downloadFileWithToast(exportUrl, filename, {
+                title: fmt === 'excel' ? 'Exporting Spreadsheet' : 'Exporting PDF Report',
+                startMsg: `Generating summary report in ${fmt.toUpperCase()} format, please wait...`,
+                successTitle: `${fmt.toUpperCase()} Ready`,
+                successMsg: `Summary report downloaded successfully.`,
+                buttonElement: btn
+            });
+        } else {
+            let downloadFrame = document.getElementById('etalaDownloadIframe');
+            if (!downloadFrame) {
+                downloadFrame = document.createElement('iframe');
+                downloadFrame.id = 'etalaDownloadIframe';
+                downloadFrame.style.display = 'none';
+                document.body.appendChild(downloadFrame);
+            }
+            downloadFrame.src = exportUrl;
+        }
+    };
+})();
 </script>
+
 {% endblock %}

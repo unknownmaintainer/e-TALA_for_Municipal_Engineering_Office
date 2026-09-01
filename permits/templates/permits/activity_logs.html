@@ -1,6 +1,7 @@
 {% extends 'permits/base.html' %}
 {% load static %}
 {% load permit_filters %}
+{% load humanize %}
 
 {% block title %}Activity Logs | eTala{% endblock %}
 
@@ -41,50 +42,88 @@
 <div class="content-card">
     <div class="content-card-body" style="padding: 24px;">
         
-        <!-- Toolbar: Sub-Tabs & Filters (Unified 1-Line Compact Design) -->
+        <!-- Toolbar: Sub-Tabs & Filters (Unified 1-Line Compact Design like Records) -->
         <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
             <input type="hidden" name="tab" id="activeLogTabInput" value="{{ active_log_tab|default:'audit' }}">
             {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2.5 mb-3 d-print-none">
-                <!-- Left: Scope Segmented Control (Audit Trail / Login History) -->
-                <div class="scope-segmented-control flex-shrink-0" style="height: 34px;">
-                    <button class="scope-pill-btn {% if active_log_tab != 'login' %}active{% endif %}" id="log-tab-btn-audit" onclick="switchLogTab('audit')" type="button" title="Audit Trail">
-                        <i class="fa-solid fa-list-check"></i>
-                        <span>Audit Trail</span>
-                    </button>
+            <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
+                style="border-bottom: 1px solid var(--border-default, rgba(255,255,255,0.08)); max-width: 100%; box-sizing: border-box;">
+                <!-- Left: Category Tabs (Clean Records Style) -->
+                <div class="filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
+                    style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 1 1 auto; min-width: 0; overflow-x: auto;">
+                    
                     {% if request.user.role == 'admin' %}
-                    <button class="scope-pill-btn {% if active_log_tab == 'login' %}active{% endif %}" id="log-tab-btn-login" onclick="switchLogTab('login')" type="button" title="Login History">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <span>Login History</span>
+                    <button type="button"
+                        class="filter-tab {% if active_log_tab != 'login' %}active{% endif %}"
+                        id="log-tab-btn-audit"
+                        onclick="switchLogTab('audit')"
+                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        <i class="fa-solid fa-list-check me-1.5"></i>Audit Trail
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if active_log_tab == 'login' %}active{% endif %}"
+                        id="log-tab-btn-login"
+                        onclick="switchLogTab('login')"
+                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        <i class="fa-solid fa-shield-halved me-1.5"></i>Login History
+                    </button>
+                    {% else %}
+                    <button type="button"
+                        class="filter-tab {% if not action_type or action_type == 'all' %}active{% endif %}"
+                        onclick="filterActionType('all', event)"
+                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        All Activities
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if action_type == 'update' %}active{% endif %}"
+                        onclick="filterActionType('update', event)"
+                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        Updated
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if action_type == 'upload' %}active{% endif %}"
+                        onclick="filterActionType('upload', event)"
+                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        Uploaded
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if action_type == 'delete' %}active{% endif %}"
+                        onclick="filterActionType('delete', event)"
+                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        Deleted
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if action_type == 'create' %}active{% endif %}"
+                        onclick="filterActionType('create', event)"
+                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        Created
                     </button>
                     {% endif %}
                 </div>
 
                 <!-- Right: Compact Search & Filter Pill -->
-                <div class="d-flex align-items-center ms-auto" style="flex: 0 0 260px; width: 260px; max-width: 100%;">
-                    <div class="etala-search-pill-wrapper w-100" style="height: 34px; border-radius: 10px; padding: 0 10px; gap: 6px;">
-                        <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search logs">
-                            <i class="fa-solid fa-magnifying-glass" style="font-size: 12px;"></i>
+                <div class="d-flex align-items-center flex-shrink-0 ms-auto" style="flex: 0 0 250px; width: 250px; max-width: 100%;">
+                    <div class="etala-search-pill-wrapper w-100">
+                        <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search logs">
+                            <i class="fa-solid fa-magnifying-glass"></i>
                         </button>
                         <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                            placeholder="{% if active_log_tab == 'login' %}Search email or account...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off" style="font-size: 0.78rem;">
+                            placeholder="{% if active_log_tab == 'login' %}Search email or account...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off">
 
                         <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                            style="width: 12px; height: 12px; margin-right: 4px; flex-shrink: 0;">
+                            style="width: 12px; height: 12px; border-width: 2px;">
                             <span class="visually-hidden">Searching...</span>
                         </div>
 
-                        {% if query %}
-                        <a href="?tab={{ active_log_tab|default:'audit' }}" id="logClearSearchBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 clear-search-icon" style="background: transparent;" title="Clear search">
-                            <i class="fa-solid fa-xmark" style="font-size: 12px;"></i>
+                        <a href="?tab={{ active_log_tab|default:'audit' }}" id="logClearSearchBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not query %}d-none{% endif %}" title="Clear search">
+                            <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                         </a>
-                        {% endif %}
 
-                        <span class="etala-search-pill-divider" style="height: 14px;"></span>
+                        <span class="etala-search-pill-divider"></span>
 
                         <!-- Integrated Filter Toggle Button -->
-                        <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters" style="padding: 2px;">
-                            <i class="fa-solid fa-sliders" style="font-size: 12px;"></i>
+                        <button class="etala-search-pill-filter-btn" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
+                            <i class="fa-solid fa-sliders"></i>
                         </button>
                     </div>
                 </div>
@@ -196,11 +235,11 @@
                         </thead>
                         <tbody>
                             {% for log in log_page_obj %}
-                            <tr id="log-{{ log.log_id }}" data-log-id="{{ log.log_id }}" style="transition: all 0.4s ease;">
+                            <tr id="log-{{ log.log_id }}" data-log-id="{{ log.log_id }}">
                                 {% if request.user.role == 'admin' or record_id %}
                                 <td data-label="Staff Member" style="vertical-align: middle;">
-                                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
-                                        <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(2, 132, 199, 0.12); color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(2, 132, 199, 0.25); flex-shrink: 0; overflow: hidden;">
+                                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                                        <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: rgba(2, 132, 199, 0.12); color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(2, 132, 199, 0.25); flex-shrink: 0; overflow: hidden;">
                                             {% if log.user.profile_picture_url %}
                                             <img src="{{ log.user.profile_picture_url }}" alt="" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
                                             {% else %}
@@ -208,10 +247,10 @@
                                             {% endif %}
                                         </div>
                                         <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
+                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.84rem; line-height: 1.25;">
                                                 {{ log.user.full_name|default:log.user.username }}
                                             </div>
-                                            <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
+                                            <div class="text-muted text-truncate" style="font-size: 0.71rem; margin-top: 2px;">
                                                 {{ log.user.designation|default:log.user.get_role_display }}
                                             </div>
                                         </div>
@@ -219,10 +258,9 @@
                                 </td>
                                 {% endif %}
 
-                                <td data-label="Action Performed" style="vertical-align: middle; white-space: normal !important; overflow: hidden;">
-                                    <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; width: 100%;">
+                                <td data-label="Action Performed" style="vertical-align: middle; white-space: normal !important;">
+                                    <div style="display: flex; align-items: flex-start; gap: 11px; min-width: 0; width: 100%;">
                                         <div class="activity-action-icon d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5 {% if 'Created' in log.action or 'Added' in log.action %}icon-created{% elif 'Updated' in log.action or 'Modified' in log.action %}icon-updated{% elif 'Uploaded' in log.action %}icon-uploaded{% elif 'Deleted' in log.action or 'Trash' in log.action or 'Removed' in log.action %}icon-deleted{% elif 'Alerts' in log.action or 'Email' in log.action %}icon-alert{% else %}icon-default{% endif %}">
-
                                             <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square{% elif 'Uploaded' in log.action %}fa-cloud-arrow-up{% elif 'Trash' in log.action %}fa-box-archive{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash{% elif 'Alerts' in log.action or 'Email' in log.action %}fa-bell{% elif 'ZIP' in log.action or 'Download' in log.action %}fa-file-zipper{% elif 'Blocked' in log.action %}fa-shield-halved{% else %}fa-clock-rotate-left{% endif %}" style="font-size: 13px;"></i>
                                         </div>
                                         <div style="min-width: 0; flex: 1;">
@@ -245,7 +283,7 @@
 
                                 <td class="text-end" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
                                     <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
-                                        {{ log.performed_at|date:"h:i:s A" }}
+                                        {{ log.performed_at|date:"h:i A" }}
                                     </div>
                                     <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                         {{ log.performed_at|date:"M d, Y" }}
@@ -283,7 +321,7 @@
                         <!-- Page Jump Input -->
                         <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                             <span>Page:</span>
-                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 54px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
+                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
                             <span>/ {{ log_page_obj.paginator.num_pages }}</span>
                         </div>
                         {% endif %}
@@ -297,15 +335,15 @@
                                 <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                                 {% endif %}
 
-                                {% if log_page_obj.number > 3 %}
+                                {% if log_page_obj.number > 2 %}
                                 <li class="page-item"><a class="page-link" href="?log_page=1{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date_range={{ date_filter }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}&per_page={{ per_page }}">1</a></li>
-                                {% if log_page_obj.number > 4 %}
+                                {% if log_page_obj.number > 3 %}
                                 <li class="page-item disabled"><span class="page-link">…</span></li>
                                 {% endif %}
                                 {% endif %}
 
                                 {% for p in log_page_obj.paginator.page_range %}
-                                {% if p >= log_page_obj.number|add:-2 and p <= log_page_obj.number|add:2 %}
+                                {% if p >= log_page_obj.number|add:-1 and p <= log_page_obj.number|add:1 %}
                                     {% if log_page_obj.number == p %}
                                     <li class="page-item active"><span class="page-link">{{ p }}</span></li>
                                     {% else %}
@@ -314,8 +352,8 @@
                                 {% endif %}
                                 {% endfor %}
 
-                                {% if log_page_obj.number < log_page_obj.paginator.num_pages|add:-2 %}
-                                    {% if log_page_obj.number < log_page_obj.paginator.num_pages|add:-3 %}
+                                {% if log_page_obj.number < log_page_obj.paginator.num_pages|add:-1 %}
+                                    {% if log_page_obj.number < log_page_obj.paginator.num_pages|add:-2 %}
                                     <li class="page-item disabled"><span class="page-link">…</span></li>
                                     {% endif %}
                                     <li class="page-item"><a class="page-link" href="?log_page={{ log_page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if date_filter %}&date_range={{ date_filter }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}&per_page={{ per_page }}">{{ log_page_obj.paginator.num_pages }}</a></li>
@@ -421,7 +459,7 @@
                                 </td>
                                 <td class="text-end" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
                                     <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
-                                        {{ attempt.timestamp|date:"h:i:s A" }}
+                                        {{ attempt.timestamp|date:"h:i A" }}
                                     </div>
                                     <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
                                         {{ attempt.timestamp|date:"M d, Y" }}
@@ -538,7 +576,7 @@
                         <!-- Page Jump Input -->
                         <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                             <span>Page:</span>
-                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 54px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
+                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
                             <span>/ {{ login_page_obj.paginator.num_pages }}</span>
                         </div>
                         {% endif %}
@@ -552,15 +590,15 @@
                                 <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                                 {% endif %}
 
-                                {% if login_page_obj.number > 3 %}
+                                {% if login_page_obj.number > 2 %}
                                 <li class="page-item"><a class="page-link" href="?login_page=1&status={{ status_filter }}&q={{ query }}&per_page={{ per_page }}">1</a></li>
-                                {% if login_page_obj.number > 4 %}
+                                {% if login_page_obj.number > 3 %}
                                 <li class="page-item disabled"><span class="page-link">…</span></li>
                                 {% endif %}
                                 {% endif %}
 
                                 {% for p in login_page_obj.paginator.page_range %}
-                                {% if p >= login_page_obj.number|add:-2 and p <= login_page_obj.number|add:2 %}
+                                {% if p >= login_page_obj.number|add:-1 and p <= login_page_obj.number|add:1 %}
                                     {% if login_page_obj.number == p %}
                                     <li class="page-item active"><span class="page-link">{{ p }}</span></li>
                                     {% else %}
@@ -569,8 +607,8 @@
                                 {% endif %}
                                 {% endfor %}
 
-                                {% if login_page_obj.number < login_page_obj.paginator.num_pages|add:-2 %}
-                                    {% if login_page_obj.number < login_page_obj.paginator.num_pages|add:-3 %}
+                                {% if login_page_obj.number < login_page_obj.paginator.num_pages|add:-1 %}
+                                    {% if login_page_obj.number < login_page_obj.paginator.num_pages|add:-2 %}
                                     <li class="page-item disabled"><span class="page-link">…</span></li>
                                     {% endif %}
                                     <li class="page-item"><a class="page-link" href="?login_page={{ login_page_obj.paginator.num_pages }}&status={{ status_filter }}&q={{ query }}&per_page={{ per_page }}">{{ login_page_obj.paginator.num_pages }}</a></li>
@@ -621,6 +659,210 @@
 </div>
 
 <style>
+    /* Quick Action Filter Pills (Instant 1-Click Filtering) */
+    .quick-action-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5.5px;
+        background: #ffffff;
+        color: #64748b;
+        font-size: 0.74rem;
+        font-weight: 600;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid #cbd5e1;
+        cursor: pointer;
+        transition: all 0.16s ease;
+        line-height: 1.2;
+        user-select: none;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .quick-action-pill i {
+        font-size: 10px;
+    }
+    .quick-action-pill:hover {
+        background: #f8fafc;
+        color: #0f172a;
+        border-color: #94a3b8;
+        transform: translateY(-1px);
+    }
+    .quick-action-pill.active {
+        background: #0f172a;
+        color: #ffffff;
+        border-color: #0f172a;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+    }
+    .quick-action-pill.pill-update.active {
+        background: #0284c7;
+        border-color: #0284c7;
+        color: #ffffff;
+    }
+    .quick-action-pill.pill-upload.active {
+        background: #0d9488;
+        border-color: #0d9488;
+        color: #ffffff;
+    }
+    .quick-action-pill.pill-delete.active {
+        background: #e11d48;
+        border-color: #e11d48;
+        color: #ffffff;
+    }
+    .quick-action-pill.pill-create.active {
+        background: #059669;
+        border-color: #059669;
+        color: #ffffff;
+    }
+    .dark-mode .quick-action-pill,
+    [data-bs-theme="dark"] .quick-action-pill {
+        background: #1e293b;
+        border-color: #334155;
+        color: #94a3b8;
+    }
+    .dark-mode .quick-action-pill:hover,
+    [data-bs-theme="dark"] .quick-action-pill:hover {
+        background: #334155;
+        color: #f8fafc;
+    }
+    .dark-mode .quick-action-pill.active,
+    [data-bs-theme="dark"] .quick-action-pill.active {
+        background: #38bdf8;
+        color: #0f172a;
+        border-color: #38bdf8;
+    }
+
+    /* Visual Action Category Badges */
+    .activity-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 1.5px 7px;
+        border-radius: 4px;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.35px;
+        text-transform: uppercase;
+        line-height: 1.2;
+    }
+    .activity-badge.badge-create {
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+    .activity-badge.badge-upload {
+        background: #f0fdfa;
+        color: #0f766e;
+        border: 1px solid #99f6e4;
+    }
+    .activity-badge.badge-delete {
+        background: #fff1f2;
+        color: #be123c;
+        border: 1px solid #fecdd3;
+    }
+    .activity-badge.badge-update {
+        background: #f0f9ff;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+    .activity-badge.badge-alert {
+        background: #fffbeb;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+
+    .dark-mode .activity-badge.badge-create,
+    [data-bs-theme="dark"] .activity-badge.badge-create {
+        background: rgba(5, 150, 105, 0.18);
+        color: #34d399;
+        border-color: rgba(5, 150, 105, 0.35);
+    }
+    .dark-mode .activity-badge.badge-upload,
+    [data-bs-theme="dark"] .activity-badge.badge-upload {
+        background: rgba(13, 148, 136, 0.18);
+        color: #2dd4bf;
+        border-color: rgba(13, 148, 136, 0.35);
+    }
+    .dark-mode .activity-badge.badge-delete,
+    [data-bs-theme="dark"] .activity-badge.badge-delete {
+        background: rgba(225, 29, 72, 0.18);
+        color: #fb7185;
+        border-color: rgba(225, 29, 72, 0.35);
+    }
+    .dark-mode .activity-badge.badge-update,
+    [data-bs-theme="dark"] .activity-badge.badge-update {
+        background: rgba(2, 132, 199, 0.18);
+        color: #38bdf8;
+        border-color: rgba(2, 132, 199, 0.35);
+    }
+    .dark-mode .activity-badge.badge-alert,
+    [data-bs-theme="dark"] .activity-badge.badge-alert {
+        background: rgba(217, 119, 6, 0.18);
+        color: #fbbf24;
+        border-color: rgba(217, 119, 6, 0.35);
+    }
+
+    /* Timeline Date Section Headers */
+    .timeline-date-pill {
+        display: inline-flex;
+        align-items: center;
+        background: #f1f5f9;
+        color: #334155;
+        font-size: 0.71rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        padding: 3px 10px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .timeline-date-line {
+        height: 1px;
+        background: linear-gradient(90deg, #e2e8f0 0%, rgba(226, 232, 240, 0.2) 100%);
+    }
+    .dark-mode .timeline-date-pill,
+    [data-bs-theme="dark"] .timeline-date-pill {
+        background: #1e293b;
+        color: #94a3b8;
+        border-color: #334155;
+    }
+    .dark-mode .timeline-date-line,
+    [data-bs-theme="dark"] .timeline-date-line {
+        background: #334155;
+    }
+
+    /* Clickable Reference Record Pill */
+    .ref-record-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #f8fafc;
+        color: #0284c7;
+        border: 1px solid #cbd5e1;
+        padding: 2px 7.5px;
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.15s ease;
+    }
+    .ref-record-pill:hover {
+        background: #e0f2fe;
+        border-color: #7dd3fc;
+        color: #0369a1;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(2, 132, 199, 0.12);
+    }
+    .dark-mode .ref-record-pill,
+    [data-bs-theme="dark"] .ref-record-pill {
+        background: #1e293b;
+        border-color: #334155;
+        color: #38bdf8;
+    }
+    .dark-mode .ref-record-pill:hover,
+    [data-bs-theme="dark"] .ref-record-pill:hover {
+        background: #0f172a;
+        border-color: #0284c7;
+    }
+
     /* Activity Action Icon Badges */
     .activity-action-icon {
         width: 26px;
@@ -976,6 +1218,11 @@
             if (searchInput) searchInput.placeholder = 'Search email, IP address...';
         }
 
+        const scopeControl = document.querySelector('.scope-segmented-control');
+        if (scopeControl && typeof window.updateSegmentedGlider === 'function') {
+            window.updateSegmentedGlider(scopeControl, isInitial);
+        }
+
         if (!isInitial) {
             const form = document.getElementById('activityLogsFilterForm');
             if (form) {
@@ -1086,6 +1333,22 @@
                     }
                 }
 
+                // Sync filter tabs active state
+                try {
+                    const urlObj = new URL(url, window.location.origin);
+                    const currentAction = urlObj.searchParams.get('action_type') || 'all';
+                    document.querySelectorAll('.filter-tabs .filter-tab').forEach(tab => {
+                        const tabText = tab.textContent.trim().toLowerCase();
+                        if (currentAction === 'all' && (tabText.includes('all') || tabText.includes('audit'))) {
+                            tab.classList.add('active');
+                        } else if (currentAction !== 'all' && tabText.includes(currentAction)) {
+                            tab.classList.add('active');
+                        } else {
+                            tab.classList.remove('active');
+                        }
+                    });
+                } catch(e) {}
+
                 // Sync URL history
                 window.history.pushState({}, '', url);
                 updateSettingsExportUrl();
@@ -1103,6 +1366,26 @@
 
         window.updateLogsTableAJAX = updateLogsTableAJAX;
 
+        window.filterActionType = function (actionVal, event) {
+            if (event) event.preventDefault();
+            const actionSelect = document.querySelector('select[name="action_type"]');
+            if (actionSelect) actionSelect.value = actionVal;
+
+            const form = document.getElementById('activityLogsFilterForm');
+            if (form) {
+                const formData = new FormData(form);
+                formData.set('action_type', actionVal);
+                formData.set('log_page', '1');
+                const params = new URLSearchParams(formData);
+                const newUrl = window.location.pathname + '?' + params.toString();
+                if (window.updateLogsTableAJAX) {
+                    window.updateLogsTableAJAX(newUrl);
+                } else {
+                    window.location.search = params.toString();
+                }
+            }
+        };
+
         function triggerFormSearch() {
             if (filterForm) {
                 const formData = new FormData(filterForm);
@@ -1116,7 +1399,10 @@
             logSearchInput.addEventListener('input', function () {
                 clearTimeout(logSearchTimer);
                 if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
-                if (logClearBtn) logClearBtn.classList.add('d-none');
+                if (logClearBtn) {
+                    if (logSearchInput.value.trim().length > 0) logClearBtn.classList.remove('d-none');
+                    else logClearBtn.classList.add('d-none');
+                }
                 logSearchTimer = setTimeout(() => {
                     triggerFormSearch();
                 }, 300);

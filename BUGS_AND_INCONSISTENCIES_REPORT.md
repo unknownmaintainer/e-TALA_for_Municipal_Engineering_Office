@@ -68,11 +68,11 @@ Bawat panuntunan ng sistema ay sumusunod sa **7-Point Structured Standard**:
 
 ### Rule 2: 📁 Document File Size Limit & Upload Validation
 * **Trigger:** Tuwing mag-a-upload ng single document o batch files (`/upload/` o `/batch-upload/`).
-* **Condition:** Sukat ng file ay lumampas sa **50 MB** o hindi kasama sa allowed extensions (`.pdf`, `.jpg`, `.jpeg`, `.png`, `.webp`).
+* **Condition:** Sukat ng file ay lumampas sa **25 MB** o hindi kasama sa allowed extensions (`.pdf`, `.jpg`, `.jpeg`, `.png`, `.webp`).
 * **Action:** Bina-block ng backend validator (`validate_document_file`) bago ma-save sa server storage at nagtatapon ng ValidationError.
 * **User / Role:** Lahat ng users na nag-a-upload ng files.
-* **Display:** Toast error message: *"File exceeds 50MB limit. Please compress and re-upload."*
-* **Purpose:** Proteksyon sa server disk space at pagpapanatili ng mabilis na page loads habang sinusuportahan ang multi-sheet blueprints.
+* **Display:** Toast error message: *"File exceeds 25MB limit. Please compress and re-upload."*
+* **Purpose:** Proteksyon sa server disk space, memory optimization, at pagpapanatili ng mabilis na page loads habang sinusuportahan ang multi-sheet blueprints.
 * **Exceptions:** Wala. Mandatory sa lahat ng upload inputs.
 
 ---
@@ -100,22 +100,6 @@ Bawat panuntunan ng sistema ay sumusunod sa **7-Point Structured Standard**:
 * **Display:** Redirect sa login page na may notice kung kinakailangan.
 * **Purpose:** Protektahan ang official LGU records alinsunod sa Data Privacy Act (RA 10173).
 * **Exceptions:** Active user interactions continually refresh session activity (`SESSION_SAVE_EVERY_REQUEST = True`).
-
----
-
-### Rule 5: 📊 Record Status Display Standards
-* **Trigger:** Pagpapakita ng status pill sa browse tables, detail views, at maps.
-* **Condition:** Nakabase sa `record.status`, `record.record_type`, at `illegal_compliance_status`.
-* **Action:** Nagre-render ng standardized CSS badge tokens:
-  * 🟡 **Pending** (`bg-warning-subtle text-warning`) — *Pending review / permit application filed*
-  * 🔵 **Active / In Progress** (`bg-primary-subtle text-primary`) — *Ongoing review o ongoing infra work*
-  * 🟢 **Completed / Approved** (`bg-success-subtle text-success`) — *Issued permit o tapos na proyekto*
-  * 🔴 **Unresolved** (`bg-danger-subtle text-danger`) — *Active violation / Stop order in effect*
-  * 🟢 **Regularized** (`bg-emerald-subtle text-emerald`) — *Complied violation na binigyan na ng legal permit*
-* **User / Role:** Lahat ng tumitingin ng records.
-* **Display:** Icon + standardized status label.
-* **Purpose:** Mabilis at malinaw na assessment ng status sa isang tingin pa lang.
-* **Exceptions:** Wala.
 
 ---
 

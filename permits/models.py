@@ -150,6 +150,10 @@ class EngineeringRecord(models.Model):
     created_by = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='engineering_records')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, db_index=True,
+        help_text='Timestamp when moved to trash / archived for 60-day auto-retention tracking.'
+    )
 
     class Meta:
         ordering = ['-created_at']
@@ -165,10 +169,32 @@ class EngineeringRecord(models.Model):
             models.Index(fields=['-created_at']),
             models.Index(fields=['record_type', 'status']),
             models.Index(fields=['barangay', 'year']),
+            models.Index(fields=['status', 'deleted_at']),
         ]
 
     def __str__(self):
         return f"[{self.record_type}] {self.title}"
+
+    @property
+    def trash_days_remaining(self):
+        """Calculates days left before permanent deletion based on 30-day retention policy."""
+        if self.status != 'archived':
+            return 30
+        ref_time = self.deleted_at or self.updated_at or self.created_at
+        if not ref_time:
+            return 30
+        delta = timezone.now() - ref_time
+        return max(0, 30 - delta.days)
+
+    @property
+    def is_trash_expiring_soon(self):
+        """Returns True if archived and 7 days or fewer remaining before permanent deletion."""
+        return self.status == 'archived' and self.trash_days_remaining <= 7
+
+    @property
+    def is_trash_expired(self):
+        """Returns True if archived and exceeded 30 days."""
+        return self.status == 'archived' and self.trash_days_remaining <= 0
 
     @property
     def specific_type_label(self):
@@ -214,17 +240,10 @@ class EngineeringRecord(models.Model):
         if self.status == 'archived':
             return "Archived"
         if self.record_type == 'Project':
-            if self.status in ['in_progress', 'active', 'pending']:
-                return "Ongoing"
-            elif self.status == 'completed':
-                return "Completed"
-            return "Ongoing"
+            return "Archived"
         else: # Permit
             if self.is_illegal_construction and self.illegal_compliance_status == 'resolved':
-                return "Regularized"
-            if hasattr(self, 'permit_detail') and self.permit_detail:
-                if not self.permit_detail.date_issued:
-                    return "Pending Issuance"
+                return "Complied"
             return "Issued"
 
     @property
@@ -254,8 +273,8 @@ class EngineeringRecord(models.Model):
         elif st == 'resolved':
             return {
                 'status': 'resolved',
-                'label': 'Regularized',
-                'short_label': 'Regularized',
+                'label': 'Complied',
+                'short_label': 'Complied',
                 'badge_class': 'bg-success text-white',
                 'bg_style': 'background:#dcfce7; color:#15803d; border:1px solid #86efac;',
                 'color': '#15803d'
@@ -301,8 +320,8 @@ class EngineeringRecord(models.Model):
         else:
             reqs = list(self.requirements.select_related('requirement_item', 'document'))
         
-        # Leaf requirement items (not parent container groups)
-        leaf_reqs = [r for r in reqs if not r.requirement_item.is_parent_group]
+        # Leaf requirement items (not parent container groups) and only active items
+        leaf_reqs = [r for r in reqs if not r.requirement_item.is_parent_group and r.requirement_item.is_active]
         total = len(leaf_reqs)
         
         from django.utils import timezone
@@ -369,23 +388,17 @@ class PermitDetail(models.Model):
 
 class ProjectDetail(models.Model):
     PROJECT_TYPE_CHOICES = (
-        ('Road & Bridge', 'Road & Bridge'),
-        ('Vertical Structure', 'Vertical Structure'),
-        ('Flood Control', 'Flood Control'),
-        ('Potable Water', 'Potable Water'),
-        ('Building', 'Building'),
-        ('Water System', 'Water System'),
-        ('Drainage', 'Drainage'),
-        ('Multi-purpose Hall', 'Multi-purpose Hall'),
-        ('Others', 'Others'),
+        ('Roads and Bridges', 'Roads and Bridges'),
+        ('Vertical Structures', 'Vertical Structures'),
+        ('Flood Control and Drainage System', 'Flood Control and Drainage System'),
+        ('Potable Water System', 'Potable Water System'),
     )
     PROJECT_STATUS_CHOICES = (
-        ('Ongoing', 'Ongoing'),
         ('Completed', 'Completed'),
     )
 
     FUNDING_SOURCE_CHOICES = (
-        ('General Fund', 'General Fund'),
+        ('LGU General Fund', 'LGU General Fund'),
         ('Barangay Fund', 'Barangay Fund'),
         ('20% Development Fund', '20% Development Fund'),
         ('LDRRM Fund', 'LDRRM Fund'),
@@ -405,11 +418,11 @@ class ProjectDetail(models.Model):
         EngineeringRecord, on_delete=models.CASCADE, related_name='project_detail'
     )
     project_type = models.CharField(max_length=50, choices=PROJECT_TYPE_CHOICES)
-    funding_source = models.CharField(max_length=255, choices=FUNDING_SOURCE_CHOICES, blank=True, default='General Fund')
+    funding_source = models.CharField(max_length=255, choices=FUNDING_SOURCE_CHOICES, blank=True, default='LGU General Fund')
     funding_source_other = models.CharField(max_length=255, blank=True, default='', help_text='Specified if Funding Source is Others')
     contractor = models.CharField(max_length=255, blank=True, default='')
     project_cost = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
-    project_status = models.CharField(max_length=20, choices=PROJECT_STATUS_CHOICES, default='Ongoing')
+    project_status = models.CharField(max_length=20, choices=PROJECT_STATUS_CHOICES, default='Completed')
 
     def __str__(self):
         return f"{self.project_type} — {self.engineering_record.title}"
@@ -710,4 +723,43 @@ class UserDevice(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.device_name} ({self.status})"
+
+
+# ─── SYSTEM FEEDBACK MODEL ───────────────────────────────────────────────────
+
+class SystemFeedback(models.Model):
+    CATEGORY_CHOICES = [
+        ('bug', 'Bug / Issue Report'),
+        ('suggestion', 'Feature Suggestion'),
+        ('ui', 'UI / UX Improvement'),
+        ('general', 'General Feedback'),
+    ]
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('in_review', 'In Review'),
+        ('resolved', 'Resolved'),
+    ]
+
+    feedback_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='system_feedbacks')
+    sender_name = models.CharField(max_length=150)
+    sender_email = models.EmailField(max_length=254)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='general')
+    subject = models.CharField(max_length=200)
+    rating = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        choices=[(1, '1 - Very Poor'), (2, '2 - Poor'), (3, '3 - Average'), (4, '4 - Good'), (5, '5 - Excellent')]
+    )
+    message = models.TextField()
+    attachment = models.ImageField(upload_to='feedback_attachments/', null=True, blank=True)
+    email_dispatched = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.subject} by {self.sender_name} ({self.created_at:%Y-%m-%d})"
 

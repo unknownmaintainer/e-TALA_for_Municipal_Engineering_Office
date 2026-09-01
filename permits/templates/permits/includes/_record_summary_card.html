@@ -1,0 +1,309 @@
+{% load permit_filters humanize %}
+
+<!-- Standardized Reusable Record Summary Sidebar Card -->
+<div class="content-card record-summary-card d-flex flex-column overflow-hidden"
+    style="border-radius: 16px; height: auto !important; padding: 0 !important;">
+    
+    <!-- Standardized Header -->
+    <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap" style="padding: 13px 20px !important; min-height: 62px !important; height: 62px !important; border-top-left-radius: 15px !important; border-top-right-radius: 15px !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important;">
+        <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(37, 99, 235, 0.12); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2); border-radius: 9px;">
+                <i class="fa-solid fa-circle-info" style="font-size: 15px;"></i>
+            </div>
+            <div class="min-w-0 flex-grow-1">
+                <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em;">Record Summary</h5>
+            </div>
+        </div>
+        {% if show_close_btn %}
+        <button type="button" class="summary-close-btn" onclick="toggleRecordSummary()" title="Close Summary Panel">
+            <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Card Body: Key-Value Pairs (Consistent: icon + label on 1st line, value below) -->
+    <div class="content-card-body p-3.5 d-flex flex-column gap-1" style="font-size: 0.84rem;">
+        
+        <!-- Record ID -->
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-hashtag text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Record ID</span>
+            </div>
+            <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                #{{ record.record_id }}
+            </div>
+        </div>
+
+        <!-- Type / Classification -->
+        {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-file-contract text-success opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Permit Type</span>
+            </div>
+            <div class="fw-bold text-success title-text-adaptive text-break ps-4 d-inline-flex align-items-center gap-1.5" style="font-size: 0.88rem; line-height: 1.35;">
+                <i class="fa-solid fa-certificate" style="font-size: 12px;"></i>
+                <span>{{ record.permit_detail.permit_type|default:"Building Permit" }} (Resolved)</span>
+            </div>
+        </div>
+        {% elif record.is_illegal_construction %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-triangle-exclamation text-danger opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Record Type</span>
+            </div>
+            <div class="fw-bold text-danger text-break ps-4 d-inline-flex align-items-center gap-1.5" style="font-size: 0.88rem; line-height: 1.35;">
+                <span>Building Violation</span>
+            </div>
+        </div>
+        {% elif record.record_type == 'Project' %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-diagram-project text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Project Type</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.specific_type_label }}
+            </div>
+        </div>
+        {% else %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-file-contract text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Permit Type</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.specific_type_label }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Applicant / Property Owner (or Title if general) -->
+        {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>{% if record.is_illegal_construction %}Property Owner{% else %}Applicant Name{% endif %}</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.permit_detail.applicant_name }}
+            </div>
+        </div>
+        {% elif record.is_illegal_construction %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Property Owner</span>
+            </div>
+            <div class="text-muted fst-italic ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                Under Investigation
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Permit No. or Violation Status -->
+        {% if not record.is_illegal_construction and record.permit_detail and record.permit_detail.permit_number %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-id-card text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Permit No.</span>
+            </div>
+            <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.permit_detail.permit_number }}
+            </div>
+        </div>
+        {% elif record.is_illegal_construction and record.permit_detail and record.permit_detail.permit_number %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-id-card text-success opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Issued Permit No.</span>
+            </div>
+            <div class="fw-bold text-success font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.permit_detail.permit_number }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Building Type (Permits) -->
+        {% if record.permit_detail and record.permit_detail.building_type %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-building text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Building Type</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.permit_detail.get_building_type_display|default:record.permit_detail.building_type }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Date Inspected (Violations) -->
+        {% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' and record.date_started %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-magnifying-glass text-warning opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Date Inspected</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.date_started|date:"M d, Y" }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Date Issued (Permits) -->
+        {% if record.permit_detail and record.permit_detail.date_issued %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-calendar-check text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Date Issued</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.permit_detail.date_issued|date:"M d, Y" }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Date Completed (Projects) -->
+        {% if record.record_type == 'Project' and record.date_completed %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-calendar-check text-success opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Date Completed</span>
+            </div>
+            <div class="fw-bold text-success text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.date_completed|date:"M d, Y" }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Project Budget -->
+        {% if record.project_detail and record.project_detail.project_cost %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-sack-dollar text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Project Budget</span>
+            </div>
+            <div class="fw-bold text-success text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                ₱ {{ record.project_detail.project_cost|intcomma }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Funding Source -->
+        {% if record.project_detail and record.project_detail.funding_source %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-building-columns text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Funding Source</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.project_detail.funding_source }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Contractor -->
+        {% if record.project_detail and record.project_detail.contractor %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-helmet-safety text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Contractor</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.project_detail.contractor }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Barangay -->
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-location-dot text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Barangay</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.barangay.barangay_name|default:"Unassigned" }}
+            </div>
+        </div>
+
+        <!-- Created / Encoded By -->
+        <div class="py-1.5 border-bottom d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-user-pen text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Created / Encoded By</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {{ record.created_by.full_name|default:record.created_by.username }}
+                {% if record.created_by.designation %}
+                <span class="text-muted fw-normal d-block" style="font-size: 0.73rem;">{{ record.created_by.designation }}</span>
+                {% endif %}
+                <span class="text-muted fw-normal d-block" style="font-size: 0.73rem; margin-top: 1px;">
+                    <i class="fa-regular fa-calendar-plus me-1"></i>{{ record.created_at|date:"M d, Y • h:i A" }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Last Updated -->
+        <div class="py-1.5 d-flex flex-column gap-0.5">
+            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                <i class="fa-solid fa-clock-rotate-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Last Updated</span>
+            </div>
+            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+                {% if latest_log and latest_log.performed_at %}
+                    {{ latest_log.performed_at|date:"M d, Y • h:i A" }}
+                {% else %}
+                    {{ record.updated_at|date:"M d, Y • h:i A" }}
+                {% endif %}
+                {% if latest_log and latest_log.user %}
+                <span class="text-muted fw-normal d-block" style="font-size: 0.74rem; margin-top: 1px;">
+                    by {{ latest_log.user.full_name|default:latest_log.user.username }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional Notes & Description Section -->
+    {% if record.description %}
+    {% with notes_list=record.description|parse_notes %}
+    <div class="pt-2 mt-2 border-top d-flex flex-column gap-1 p-3.5">
+        <div class="d-flex align-items-center gap-2 text-muted mb-1" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+            <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+            <span>{% if record.is_illegal_construction %}Violation &amp; Inspection Notes{% else %}Description{% endif %}</span>
+        </div>
+        
+        {% for item in notes_list %}
+        {% if item.value %}
+            {% if item.label == 'Structure Type' and record.permit_detail.building_type %}
+                {# Skip duplicate Structure Type since Building Type is already in summary above #}
+            {% elif item.label == 'Date Inspected' and record.date_started %}
+                {# Skip duplicate Date Inspected since Date Inspected is already in summary above #}
+            {% else %}
+            <div class="py-1 border-bottom d-flex flex-column gap-0.5 ps-4">
+                {% if item.label %}
+                <div class="text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                    {{ item.label }}
+                </div>
+                {% endif %}
+                <div class="title-text-adaptive text-break" style="font-size: 0.86rem; line-height: 1.45; font-weight: 500;">
+                    {{ item.value|linebreaksbr }}
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endwith %}
+    {% endif %}
+
+    {% if return_to_detail_link %}
+    <div class="p-3 border-top mt-2">
+        <a href="{% url 'record_detail' record.record_id %}" class="btn btn-light border w-100 py-1.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5" style="font-size: 0.82rem; border-radius: 8px; background: #ffffff;">
+            <i class="fa-solid fa-arrow-left me-1"></i> Return to Main Record
+        </a>
+    </div>
+    {% endif %}
+</div>
