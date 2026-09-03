@@ -235,6 +235,16 @@ class EngineeringRecord(models.Model):
             return f"{scope} Project" if scope else "Project"
 
     @property
+    def latest_update_log(self):
+        """Returns the most recent update/modification AuditLog entry, excluding the initial creation event."""
+        AuditLogModel = self._meta.apps.get_model('permits', 'AuditLog')
+        return AuditLogModel.objects.filter(
+            target_record_id=self.record_id
+        ).exclude(
+            action__istartswith='Created'
+        ).select_related('user').order_by('-performed_at').first()
+
+    @property
     def status_label(self):
         """Returns clean contextual status label for digital storage and archiving."""
         if self.status == 'archived':

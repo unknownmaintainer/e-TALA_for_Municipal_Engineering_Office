@@ -42,7 +42,7 @@ from .models import (
     RequirementTemplate, RequirementItem, RecordRequirement,
     BlockedIP, UserDevice, SystemFeedback,
 )
-from .validators import validate_document_file, sanitize_input, validate_password_strength, validate_backlog_year
+from .validators import validate_document_file, validate_violation_evidence_file, sanitize_input, validate_password_strength, validate_backlog_year
 from .utils import get_client_ip, process_avatar_image
 from .permissions import role_required, admin_required, staff_or_admin_required, has_role
 from .services import (
@@ -53,7 +53,8 @@ from .services import (
     send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records,
     parse_decimal_safely, send_etala_email,
     parse_device_user_agent, get_client_device_token,
-    dispatch_device_approval_request, dispatch_new_device_login_alert
+    dispatch_device_approval_request, dispatch_new_device_login_alert,
+    execute_automated_backup, get_latest_backup_info
 )
 
 
@@ -245,7 +246,7 @@ def generate_and_dispatch_2fa_otp(user, request, device_name, ip_address):
 
     user_full_name = user.full_name or user.get_full_name() or user.username
     subject = f'🛡️ eTala Verification Code: {otp_code}'
-    timestamp_str = timezone.now().strftime('%b %d, %Y • %I:%M %p')
+    timestamp_str = timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p')
 
     html_content = render_to_string('emails/email_otp_verification.html', {
         'user_full_name': user_full_name,
@@ -445,6 +446,7 @@ def verify_otp_view(request):
                 request.session.pop(k, None)
 
             log_audit(user, f"2FA OTP verified successfully on new device: {device_name}", request=request)
+            dispatch_new_device_login_alert(user, device, request)
             messages.success(request, "Device verified successfully.")
             response = redirect('dashboard')
             if remember_device:
@@ -494,7 +496,7 @@ def email_preview_new_device_view(request):
     return render(request, 'emails/email_new_device_alert.html', {
         'user_full_name': 'Mardion Cordeta',
         'device_name': 'Android Mobile • Google Chrome',
-        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'timestamp': timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p'),
     })
 
 
@@ -514,7 +516,7 @@ def email_preview_otp_verification_view(request):
         'user_full_name': 'Mardion Cordeta',
         'otp_code': '582910',
         'device_name': 'Windows PC • Google Chrome',
-        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'timestamp': timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p'),
     })
 
 
@@ -526,7 +528,7 @@ def email_preview_device_approval_view(request):
         'requester_role': 'Staff',
         'requester_email': 'john.carlos@carigara.gov.ph',
         'device_name': 'MacBook Pro • Safari 17',
-        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'timestamp': timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p'),
         'approval_url': '#',
     })
 
@@ -544,7 +546,7 @@ def email_preview_feedback_view(request):
         'sender_username': 'dion_admin',
         'sender_role': 'Administrator',
         'sender_email': 'admin@carigara.gov.ph',
-        'timestamp': timezone.now().strftime('%B %d, %Y • %I:%M %p'),
+        'timestamp': timezone.localtime(timezone.now()).strftime('%B %d, %Y • %I:%M %p'),
         'attachment_name': 'sample_watermark_concept.png' if show_screenshot else None,
         'attachment_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80' if show_screenshot else None,
     })
@@ -949,7 +951,7 @@ def ensure_barangay_schema():
         if Barangay.objects.filter(psgc_code__isnull=False).count() < 49:
             OFFICIAL_49_CARIGARA_BARANGAYS = [
                 {"name": "Balilit", "psgc": "0803715001", "lat": 11.2874, "lng": 124.6950},
-                {"name": "Barayong", "psgc": "0803715002", "lat": 11.2682, "lng": 124.6722},
+                {"name": "Barayong", "psgc": "0803715002", "lat": 11.2608, "lng": 124.6755},
                 {"name": "Barugohay Central", "psgc": "0803715003", "lat": 11.2960, "lng": 124.6986},
                 {"name": "Barugohay Norte", "psgc": "0803715004", "lat": 11.3029, "lng": 124.7050},
                 {"name": "Barugohay Sur", "psgc": "0803715005", "lat": 11.2720, "lng": 124.6994},
@@ -1016,6 +1018,7 @@ def ensure_barangay_schema():
                     b.longitude = lng
                     b.save()
             Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()
+            Barangay.objects.filter(barangay_name__iexact='Barayong').update(latitude=11.2608, longitude=124.6755)
     except Exception:
         pass
 
@@ -1025,6 +1028,7 @@ def ensure_barangay_schema():
 @login_required
 def barangays_view(request):
     ensure_barangay_schema()
+    Barangay.objects.filter(barangay_name__iexact='Barayong').update(latitude=11.2608, longitude=124.6755)
 
     # Clean up dummy test junk entries if present
     Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()
@@ -1402,21 +1406,12 @@ def illegal_constructions_view(request):
                 Q(permit_detail__building_type__icontains=token) |
                 Q(permit_detail__remarks__icontains=token)
             )
+            # 4-Digit Year token matching (e.g. 2024, 2025, 2026)
+            if token.isdigit() and len(token) == 4:
+                year_val = int(token)
+                if 1900 <= year_val <= 2100:
+                    token_filter |= Q(year=year_val) | Q(created_at__year=year_val) | Q(date_started__year=year_val)
             
-            # Smart Status matching for Violations
-            if token_lower == 'unresolved':
-                token_filter |= Q(illegal_compliance_status='unresolved')
-            elif token_lower in ['pending', 'filed', 'pending_permit']:
-                token_filter |= Q(illegal_compliance_status='pending_permit')
-            elif token_lower in ['regularized', 'resolved', 'complied']:
-                token_filter |= Q(illegal_compliance_status='resolved')
-            
-            num_clean = re.sub(r'^[#recREC\-\s]+', '', token)
-            if num_clean.isdigit():
-                num_val = int(num_clean)
-                token_filter |= Q(record_id=num_val)
-                if 1900 <= num_val <= 2100:
-                    token_filter |= Q(year=num_val) | Q(created_at__year=num_val) | Q(date_started__year=num_val)
             qs = qs.filter(token_filter)
         qs = qs.distinct()
 
@@ -1788,8 +1783,6 @@ def municipal_projects_view(request):
             Q(project_detail__contractor__icontains=query) |
             Q(project_detail__project_type__icontains=query)
         )
-        if query.isdigit():
-            search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
     if project_type:
         records = records.filter(project_detail__project_type=project_type)
@@ -1860,8 +1853,6 @@ def barangay_projects_view(request):
             Q(project_detail__contractor__icontains=query) |
             Q(project_detail__project_type__icontains=query)
         )
-        if query.isdigit():
-            search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
     if project_type:
         records = records.filter(project_detail__project_type=project_type)
@@ -1935,8 +1926,6 @@ def permit_records_view(request):
             Q(permit_detail__permit_type__icontains=query) |
             Q(barangay__barangay_name__icontains=query)
         )
-        if query.isdigit():
-            search_filter |= Q(record_id=int(query))
         records = records.filter(search_filter).distinct()
     if permit_type:
         records = records.filter(permit_detail__permit_type=permit_type)
@@ -2768,17 +2757,22 @@ def flag_illegal_construction_view(request):
             if photo_file:
                 try:
                     from django.core.exceptions import ValidationError
-                    validate_document_file(photo_file)
+                    validate_violation_evidence_file(photo_file)
+                    
+                    is_image = photo_file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+                    doc_type = 'Picture' if is_image else 'Inspection Report'
+                    
                     Document.objects.create(
                         engineering_record=record,
-                        document_type='Incident Evidence',
+                        document_type=doc_type,
                         file_name=photo_file.name,
                         file=photo_file,
                         file_size=photo_file.size,
                         uploaded_by=request.user
                     )
                 except ValidationError as err:
-                    messages.warning(request, f"Report created, but file '{photo_file.name}' failed: {str(err)}")
+                    err_msg = err.message if hasattr(err, 'message') else str(err)
+                    messages.warning(request, f"Report created, but file '{photo_file.name}' failed: {err_msg}")
                 
         log_audit(
             request.user,
@@ -2963,9 +2957,8 @@ def record_edit_view(request, record_id):
                 messages.error(request, f"Project '{new_title}' already exists in this Barangay for {record.year}.")
                 return redirect('edit_record', record_id=record.record_id)
 
-        record.title = new_title
-        record.description = sanitize_input(request.POST.get('description', '')).strip()
-        record.status = request.POST.get('status', record.status)
+        if record.status != 'archived':
+            record.status = request.POST.get('status', record.status)
         record.barangay_id = new_barangay_id
 
         date_started_in = request.POST.get('date_started', '') or None
@@ -3148,7 +3141,8 @@ def record_edit_view(request, record_id):
                 except (ValueError, TypeError):
                     pass
 
-            record.status = 'completed'
+            if record.status != 'archived':
+                record.status = 'completed'
             record.save()
             
             if not record.requirements.exists() or old_subtype != new_subtype:
@@ -3826,7 +3820,7 @@ def record_archive_view(request, record_id):
     log_audit(request.user, f"Moved to Trash: '{record.title}'", record.record_id, request)
     messages.success(request, f"Record '{record.title}' moved to Trash. It will be retained for 30 days before permanent deletion.")
     referer = request.META.get('HTTP_REFERER')
-    if referer:
+    if referer and f"/records/{record.record_id}/" not in referer and f"/records/{record.record_id}" not in referer:
         return redirect(referer)
     return redirect('records_browse')
 
@@ -3867,19 +3861,18 @@ def archive_view(request):
     ).order_by('-deleted_at', '-updated_at')
 
     query = request.GET.get('q', '').strip()
-    if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(barangay__barangay_name__icontains=query) |
-            Q(permit_detail__permit_number__icontains=query) |
-            Q(permit_detail__applicant_name__icontains=query) |
-            Q(permit_detail__permit_type__icontains=query) |
-            Q(project_detail__contractor__icontains=query)
+    record_type = request.GET.get('record_type', '').strip()
+    barangay_id = request.GET.get('barangay', '').strip()
+    year = request.GET.get('year', '').strip()
+
+    if query or record_type or barangay_id or year:
+        records = filter_engineering_records(
+            records,
+            query=query,
+            record_type=record_type,
+            barangay_id=barangay_id,
+            year=year
         )
-        if query.isdigit():
-            search_filter |= Q(record_id=int(query))
-        records = records.filter(search_filter).distinct()
 
     # Calculate counts for banner & expiring soon badge
     total_trash_count = records.count()
@@ -3889,10 +3882,20 @@ def archive_view(request):
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
+    barangays = Barangay.objects.all().order_by('barangay_name')
+    current_year = timezone.now().year
+    year_choices = list(range(2020, current_year + 2))
+    year_choices.reverse()
+
     context = {
         'per_page': per_page,
         'page_obj': page_obj,
         'q': query,
+        'selected_record_type': record_type,
+        'selected_barangay': barangay_id,
+        'selected_year': year,
+        'barangays': barangays,
+        'year_choices': year_choices,
         'active_tab': 'archive',
         'is_staff_view': (request.user.role == 'staff'),
         'total_trash_count': total_trash_count,
@@ -6075,6 +6078,18 @@ def settings_view(request):
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
 
+        elif action == 'run_auto_backup':
+            res = execute_automated_backup(user=request.user)
+            if res.get('success'):
+                messages.success(
+                    request,
+                    f"Automated Smart-Sync backup completed successfully! {res['total_records']} records snapshotted, "
+                    f"{res['new_files_synced']} new media files synced to vault."
+                )
+            else:
+                messages.error(request, "Failed to run automated backup.")
+            return redirect('settings')
+
         elif action == 'db_restore':
             backup_file = request.FILES.get('backup_file')
             if not backup_file:
@@ -6166,7 +6181,8 @@ def settings_view(request):
             'active_users': active_users,
             'total_audit_logs': total_audit_logs,
             'failed_logins_count': failed_logins_count,
-        }
+        },
+        'backup_info': get_latest_backup_info(),
     }
     return render(request, 'permits/settings.html', context)
 
@@ -6882,7 +6898,7 @@ Feedback ID: #{feedback.feedback_id}
 Category: {cat_label}
 Rating: {rating_display or 'Not specified'}
 Subject: {subject}
-Date Submitted: {timezone.now().strftime('%B %d, %Y %I:%M %p')}
+Date Submitted: {timezone.localtime(timezone.now()).strftime('%B %d, %Y %I:%M %p')}
 Has Screenshot/Image: {'Yes' if feedback.attachment else 'No'}
 
 --- SENDER DETAILS ---
@@ -6907,7 +6923,7 @@ System: eTala v1.0.0 · Municipal Engineering Office of Carigara, Leyte
         'sender_username': request.user.username,
         'sender_role': request.user.get_role_display() if hasattr(request.user, 'get_role_display') else request.user.role,
         'sender_email': sender_email,
-        'timestamp': timezone.now().strftime('%B %d, %Y %I:%M %p'),
+        'timestamp': timezone.localtime(timezone.now()).strftime('%B %d, %Y %I:%M %p'),
         'attachment_name': os.path.basename(feedback.attachment.name) if feedback.attachment else None,
     })
 
@@ -7024,17 +7040,19 @@ def notification_sync_action_view(request):
             return JsonResponse({'success': False, 'error': 'Missing action_type'}, status=400)
 
         if action_type == 'mark_read' and notif_id:
-            AuditLog.objects.get_or_create(user=request.user, action=f"NOTIF_READ:{notif_id}")
+            if not AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{notif_id}").exists():
+                AuditLog.objects.create(user=request.user, action=f"NOTIF_READ:{notif_id}")
         elif action_type == 'mark_unread' and notif_id:
             AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{notif_id}").delete()
         elif action_type == 'delete' and notif_id:
-            AuditLog.objects.get_or_create(user=request.user, action=f"NOTIF_DELETED:{notif_id}")
+            if not AuditLog.objects.filter(user=request.user, action=f"NOTIF_DELETED:{notif_id}").exists():
+                AuditLog.objects.create(user=request.user, action=f"NOTIF_DELETED:{notif_id}")
             AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{notif_id}").delete()
         elif action_type == 'mark_all_read':
             if isinstance(notif_ids, list):
                 for nid in notif_ids:
-                    if nid:
-                        AuditLog.objects.get_or_create(user=request.user, action=f"NOTIF_READ:{nid}")
+                    if nid and not AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{nid}").exists():
+                        AuditLog.objects.create(user=request.user, action=f"NOTIF_READ:{nid}")
 
         # Invalidate user notification cache
         cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}_v2"
@@ -7073,10 +7091,12 @@ def quick_search_api_view(request):
         Q(project_detail__funding_source_other__icontains=q)
     )
 
-    # Check if user typed numeric ID
-    if q.isdigit() or (q.startswith('#') and q[1:].isdigit()):
-        clean_id = q.lstrip('#')
-        records = records | EngineeringRecord.objects.filter(record_id=clean_id)
+    # 4-Digit Year matching (e.g. 2024, 2025, 2026)
+    if q.isdigit() and len(q) == 4:
+        year_val = int(q)
+        if 1900 <= year_val <= 2100:
+            year_q = Q(year=year_val) | Q(created_at__year=year_val) | Q(date_started__year=year_val) | Q(date_completed__year=year_val)
+            records = records | EngineeringRecord.objects.filter(year_q)
 
     records = records.exclude(
         status='archived'
@@ -7130,7 +7150,7 @@ def quick_search_api_view(request):
                 icon = "fa-solid fa-gears"
                 theme_class = "theme-permit-mechanical"
             elif 'occupan' in spec:
-                icon = "fa-solid fa-house-chimney-check"
+                icon = "fa-solid fa-house-circle-check"
                 theme_class = "theme-permit-occupancy"
             elif 'demoli' in spec:
                 icon = "fa-solid fa-burst"
@@ -7185,7 +7205,7 @@ def email_template_preview_view(request, template_name='password-reset'):
         'user_email': 'dion.fuerte@carigara.gov.ph',
         'reset_url': request.build_absolute_uri('/reset-password/?preview=demo'),
         'device_name': 'Chrome on Windows 11',
-        'timestamp': timezone.now().strftime('%b %d, %Y • %I:%M %p'),
+        'timestamp': timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p'),
         'otp_code': '849201',
         'confirm_url': request.build_absolute_uri('/profile/'),
         'secure_url': request.build_absolute_uri('/reset-password/?preview=demo'),

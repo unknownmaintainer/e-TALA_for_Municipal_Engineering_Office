@@ -28,6 +28,7 @@ urlpatterns = [
     path('password-reset/', views.forgot_password_view, name='password_reset_alias'),
     path('reset-password/', views.reset_password_view, name='reset_password'),
     path('preview-toasts/', views.toast_preview_view, name='preview_toasts'),
+    path('toast-preview/', views.toast_preview_view, name='toast_preview_alias'),
 
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),

@@ -418,6 +418,34 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertIsNotNone(audit_entry)
         self.assertIn("Reported violation", audit_entry.action)
 
+    def test_flag_illegal_construction_with_photo(self):
+        from django.urls import reverse
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from permits.models import EngineeringRecord
+
+        self.client.login(username='staffuser', password='Password123')
+        flag_url = reverse('flag_illegal_construction')
+
+        dummy_photo = SimpleUploadedFile("inspection_snap.jpg", b'\xff\xd8\xff\xe0\x00\x10JFIF sample jpg bytes', content_type="image/jpeg")
+
+        post_data = {
+            'title': 'Illegal Fence Extension Discovered',
+            'barangay': self.barangay.barangay_id,
+            'location_address': 'Purok 2, Carigara',
+            'date_discovered': '2026-08-10',
+            'illegal_compliance_status': 'unresolved',
+            'photo': dummy_photo
+        }
+
+        res = self.client.post(flag_url, post_data)
+        self.assertEqual(res.status_code, 302)
+
+        record = EngineeringRecord.objects.get(title='Illegal Fence Extension Discovered')
+        self.assertTrue(record.is_illegal_construction)
+        self.assertIsNotNone(record.discovery_photo)
+        self.assertEqual(record.discovery_photo.document_type, 'Picture')
+        self.assertEqual(record.discovery_photo.file_name, 'inspection_snap.jpg')
+
     def test_supabase_storage_routing(self):
         from permits.storage import SupabaseStorage
         storage = SupabaseStorage()
@@ -533,6 +561,78 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertIn('annual_permits_count', response.context)
         self.assertIn('annual_projects_count', response.context)
         self.assertIn('annual_total_budget', response.context)
+
+    def test_all_zip_export_endpoints(self):
+        import zipfile
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from permits.models import Document, RequirementTemplate, RequirementItem, RecordRequirement
+
+        self.client.login(username='adminuser', password='Password123')
+
+        # Create template, parent group and child item
+        tmpl = RequirementTemplate.objects.create(name='Standard Building Permit', record_type='Permit')
+        parent_item = RequirementItem.objects.create(template=tmpl, name='Architectural Plans', is_parent_group=True, order=1)
+        child_item = RequirementItem.objects.create(template=tmpl, parent=parent_item, name='Floor Plan', is_parent_group=False, order=1)
+
+        # Upload a dummy file attached to child_item
+        dummy_file = SimpleUploadedFile("floor_plan.pdf", b"%PDF-1.4 sample blueprint data", content_type="application/pdf")
+        doc = Document.objects.create(
+            engineering_record=self.record,
+            requirement_item=child_item,
+            document_type='Blueprint',
+            file=dummy_file,
+            file_name='floor_plan.pdf',
+            file_size=len(b"%PDF-1.4 sample blueprint data"),
+            uploaded_by=self.admin
+        )
+        parent_req = RecordRequirement.objects.create(record=self.record, requirement_item=parent_item)
+        RecordRequirement.objects.create(record=self.record, requirement_item=child_item, document=doc, is_fulfilled=True)
+
+        # 1. Single Record ZIP Export
+        rec_zip_url = reverse('download_record_zip', kwargs={'record_id': self.record.record_id})
+        res = self.client.get(rec_zip_url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res['Content-Type'], 'application/zip')
+        with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
+            namelist = zf.namelist()
+            self.assertIn('00_RECORD_SUMMARY.txt', namelist)
+            self.assertTrue(any('floor_plan' in name.lower() or 'floor' in name.lower() for name in namelist))
+
+        # 2. Category ZIP Export
+        cat_zip_url = reverse('download_category_zip', kwargs={'record_id': self.record.record_id, 'req_id': parent_req.req_id})
+        res = self.client.get(cat_zip_url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res['Content-Type'], 'application/zip')
+        with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
+            self.assertTrue(len(zf.namelist()) > 0)
+
+        # 3. Slot ZIP Export
+        slot_zip_url = reverse('download_slot_zip', kwargs={'record_id': self.record.record_id, 'item_id': child_item.item_id})
+        res = self.client.get(slot_zip_url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res['Content-Type'], 'application/zip')
+        with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
+            self.assertTrue(len(zf.namelist()) > 0)
+
+        # 4. Barangay ZIP Export
+        brgy_zip_url = reverse('download_barangay_zip', kwargs={'barangay_id': self.barangay.barangay_id})
+        res = self.client.get(brgy_zip_url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res['Content-Type'], 'application/zip')
+        with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
+            namelist = zf.namelist()
+            self.assertTrue(any('00_BARANGAY_SUMMARY.txt' in name for name in namelist))
+
+        # 5. Municipal Full Archive ZIP Export
+        muni_zip_url = reverse('download_municipal_zip')
+        res = self.client.get(muni_zip_url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res['Content-Type'], 'application/zip')
+        with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
+            namelist = zf.namelist()
+            self.assertTrue(any('00_MUNICIPAL_SUMMARY.txt' in name for name in namelist))
+
 
 
 

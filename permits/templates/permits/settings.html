@@ -73,28 +73,22 @@
     }
 
     .kpi-data-val {
-        font-size: 1.30rem;
+        font-size: 1.45rem;
         font-weight: 800;
         color: #0f172a;
         line-height: 1.15;
         letter-spacing: -0.02em;
-    }
-
-    .kpi-data-lbl {
-        font-size: 0.74rem;
-        font-weight: 700;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
         margin-bottom: 2px;
     }
 
     .kpi-data-sub {
-        font-size: 0.72rem;
-        color: #94a3b8;
+        font-size: 0.80rem;
+        font-weight: 600;
+        color: #64748b;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        letter-spacing: -0.01em;
     }
 
     /* ── Main Dual Action Cards (100% Symmetrical Balance) ─────────────── */
@@ -149,7 +143,7 @@
         font-size: 1.12rem;
         font-weight: 800;
         color: #0f172a;
-        margin: 0 0 2px 0;
+        margin: 0;
         letter-spacing: -0.015em;
     }
 
@@ -327,6 +321,11 @@
         color: #f8fafc !important;
     }
 
+    .dark-mode .kpi-data-sub,
+    [data-bs-theme="dark"] .kpi-data-sub {
+        color: #94a3b8 !important;
+    }
+
     .dark-mode .kpi-blue,
     [data-bs-theme="dark"] .kpi-blue {
         background: rgba(2, 132, 199, 0.16) !important;
@@ -436,16 +435,13 @@
     <!-- ══ PAGE HEADER ════════════════════════════════════════════════════════ -->
     <div class="etala-page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3.5">
         <div>
-            <h1 class="etala-page-title mb-1">Backup</h1>
-            <p class="etala-page-subtitle mb-0">Save a copy of your records or restore a previous file.</p>
+            <h1 class="etala-page-title mb-0">Backup</h1>
         </div>
-
-        <div class="d-flex align-items-center gap-2">
-            <span
-                class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3 py-2 d-inline-flex align-items-center gap-1.5"
-                style="font-size: 0.78rem; font-weight: 600;">
-                <i class="fa-solid fa-circle-check" style="font-size: 10px;"></i>
-
+        <div class="d-flex align-items-center gap-2 {% if not backup_info.last_backup_time %}d-none{% endif %}" id="lastBackupBadgeWrapper">
+            <span class="text-secondary" style="font-size: 0.76rem; font-weight: 500;">
+                <i class="fa-solid fa-cloud-arrow-up text-success me-1"></i>
+                Last Backup: <strong class="text-body" id="lastBackupTimeDisplay">{{ backup_info.last_backup_str }}</strong>
+            </span>
         </div>
     </div>
 
@@ -457,7 +453,6 @@
                 <i class="fa-solid fa-folder-open"></i>
             </div>
             <div class="min-w-0">
-                <div class="kpi-data-lbl">Total Records</div>
                 <div class="kpi-data-val">{{ stats.total_records|default:0|intcomma }}</div>
                 <div class="kpi-data-sub">Permits &amp; Projects</div>
             </div>
@@ -469,9 +464,8 @@
                 <i class="fa-solid fa-map-location-dot"></i>
             </div>
             <div class="min-w-0">
-                <div class="kpi-data-lbl">Workspaces</div>
                 <div class="kpi-data-val">{{ stats.total_barangays|default:0 }}</div>
-                <div class="kpi-data-sub">Barangay Jurisdictions</div>
+                <div class="kpi-data-sub">Barangays</div>
             </div>
         </div>
 
@@ -481,7 +475,6 @@
                 <i class="fa-solid fa-file-lines"></i>
             </div>
             <div class="min-w-0">
-                <div class="kpi-data-lbl">Digital Files</div>
                 <div class="kpi-data-val">{{ stats.total_documents|default:0|intcomma }}</div>
                 <div class="kpi-data-sub">Uploaded Documents</div>
             </div>
@@ -500,7 +493,6 @@
                     </div>
                     <div>
                         <h2 class="card-header-title">Save Copy</h2>
-                        <p class="card-header-desc">Download data to your computer</p>
                     </div>
                 </div>
 
@@ -542,7 +534,6 @@
                     </div>
                     <div>
                         <h2 class="card-header-title">Restore Copy</h2>
-                        <p class="card-header-desc">Import records from a saved file</p>
                     </div>
                 </div>
 
@@ -654,15 +645,29 @@
 
     function handleDownloadBackup(form) {
         if (window.showToast) {
-            window.showToast('info', 'Downloading Backup', 'Preparing your backup file, download will start shortly...');
+            window.showToast('info', '', 'Preparing backup file...');
         }
+        // Instantly update the Last Backup display without requiring a page refresh
+        try {
+            const now = new Date();
+            const dateStr = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).format(now);
+            const timeStr = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).format(now);
+            const timeDisplay = document.getElementById('lastBackupTimeDisplay');
+            if (timeDisplay) {
+                timeDisplay.textContent = dateStr + ' - ' + timeStr;
+            }
+            const badgeWrapper = document.getElementById('lastBackupBadgeWrapper');
+            if (badgeWrapper) {
+                badgeWrapper.classList.remove('d-none');
+            }
+        } catch(e) {}
     }
 
     function triggerRestoreConfirmation() {
         const fileInput = document.getElementById('backupFileInput');
         if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
             if (window.showToast) {
-                window.showToast('warning', 'File Required', 'Please choose a backup file first.');
+                window.showToast('warning', '', 'Please choose a backup file first');
             } else {
                 alert('Please choose a backup file first.');
             }
@@ -674,7 +679,7 @@
         const fileName = fileInput.files[0].name;
         if (!fileName.toLowerCase().endsWith('.json')) {
             if (window.showToast) {
-                window.showToast('error', 'Invalid Format', 'Please upload a valid eTala backup file.');
+                window.showToast('error', '', 'Invalid format. Please select a JSON backup file');
             } else {
                 alert('Please upload a valid eTala backup file.');
             }
@@ -683,20 +688,20 @@
 
         if (window.showConfirmModal) {
             showConfirmModal({
-                title: 'Restore Records from Backup?',
-                message: `Are you sure you want to restore records from "${fileName}"? This will synchronize all records into your system.`,
+                title: 'Restore Database Records?',
+                message: 'Are you sure you want to restore the system from this backup file? All permits, projects, and municipal records will be synchronized.',
                 confirmText: 'Restore Records',
                 confirmBg: '#059669',
                 onConfirm: function () {
                     if (window.showToast) {
-                        window.showToast('info', 'Restoring Database', 'Processing backup file, please wait...');
+                        window.showToast('info', '', 'Restoring database records...');
                     }
                     const form = document.getElementById('restoreBackupForm');
                     if (form) form.submit();
                 }
             });
         } else {
-            if (confirm(`Are you sure you want to restore records from "${fileName}"?`)) {
+            if (confirm('Are you sure you want to restore the system from this backup file? All permits, projects, and municipal records will be synchronized.')) {
                 const form = document.getElementById('restoreBackupForm');
                 if (form) form.submit();
             }

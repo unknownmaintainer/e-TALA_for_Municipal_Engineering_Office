@@ -277,13 +277,12 @@
 </style>
 
 <!-- ══ HEADING ════════════════════════════════════════════════════════ -->
-<div class="etala-page-header">
+<div class="etala-page-header mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h1 class="etala-page-title">Illegal Constructions</h1>
-        <p class="etala-page-subtitle">Track unpermitted structures, site inspections, and regularization compliance.</p>
+        <h1 class="etala-page-title mb-0">Illegal Constructions</h1>
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-    <div class="etala-header-actions">
+    <div class="etala-header-actions d-flex align-items-center gap-2">
         <button type="button" class="premium-btn btn-delete text-decoration-none" data-bs-toggle="modal"
             data-bs-target="#flagIllegalModal" title="Flag Illegal Construction">
             <span class="btn-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
@@ -299,31 +298,32 @@
     <input type="hidden" name="stage" value="{{ stage_filter }}">
 
     <!-- ══ UNIFIED COMPACT 1-LINE TOOLBAR (Tabs Left, Compact Search Right) ══ -->
-
-    <!-- ══ UNIFIED COMPACT 1-LINE TOOLBAR (Left Badge, Compact Search Right) ══ -->
     <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
         style="border-bottom: 1px solid var(--border-default, rgba(0,0,0,0.06)); max-width: 100%; box-sizing: border-box;">
         
-        <!-- Left: Active Cases Label -->
+        <!-- Left: Clean Active Violations Badge Pill -->
         <div class="d-flex align-items-center gap-2">
-            <span class="fw-bold text-dark" style="font-size: 0.88rem;">Active Violations</span>
+            <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 0.78rem; font-weight: 600;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
+                <span>{{ all_count|default:0 }} Active Violations</span>
+            </span>
         </div>
 
-        <!-- Right: Compact Search Pill (Contained, no overflow) -->
+        <!-- Right: Compact Search Pill (Contained, standard 250px) -->
         <div class="d-flex align-items-center ms-auto" style="flex: 0 0 250px; width: 250px; max-width: 250px;">
             <div class="etala-search-pill-wrapper">
                 <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search records">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </button>
                 <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                    placeholder="Search violation, owner..." value="{{ q|default:'' }}" autocomplete="off">
+                    placeholder="Search violation, owner..." value="{{ q|default:'' }}" autocomplete="off" maxlength="80">
 
                 <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
                     style="width: 12px; height: 12px; border-width: 2px;">
                     <span class="visually-hidden">Searching...</span>
                 </div>
 
-                <a href="?barangay={{ selected_barangay }}&year={{ selected_year }}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}"
+                <a href="?barangay={{ selected_barangay }}&year={{ selected_year }}{% if selected_scope %}&scope={{ selected_scope }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}"
                     class="clear-search-icon d-flex align-items-center justify-content-center {% if not q %}d-none{% endif %}"
                     title="Clear search">
                     <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
@@ -425,12 +425,12 @@
                 <thead>
                     <tr>
                         <th class="text-center cell-row-num" style="width: 48px; min-width: 48px;">#</th>
-                        <th style="width: 34%; min-width: 190px;">Title</th>
+                        <th style="width: 32%; min-width: 180px;">Title</th>
                         <th style="width: 20%; min-width: 130px;">Type</th>
                         <th style="width: 18%; min-width: 130px;">Barangay</th>
                         <th style="width: 10%; min-width: 70px;">Year</th>
                         <th style="width: 10%; min-width: 75px;">Uploads</th>
-                        <th class="text-end" style="width: 4%; min-width: 44px; padding-right: 14px;"></th>
+                        <th class="text-end" style="width: 60px; min-width: 60px; padding-right: 20px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -455,9 +455,8 @@
                                     {% endif %}
                                 </div>
                             </div>
-                        </td>
-                        <td>
-                            <span class="type-text-unresolved">Building Violation</span>
+                        <td class="cell-type">
+                            <span class="tag tag-permit fw-semibold" style="font-size: 0.78rem;" title="Building Violation">Building Violation</span>
                         </td>
                         <td class="cell-barangay" style="white-space: nowrap;">
                             {% if r.barangay %}
@@ -482,11 +481,11 @@
                             <span class="text-muted" style="font-size: 0.82rem; opacity: 0.65;">—</span>
                             {% endif %}
                         </td>
-                        <td class="text-end pe-3 action-menu-cell" style="width: 55px;"
+                        <td class="text-end action-menu-cell" style="width: 60px; min-width: 60px; padding-right: 20px !important;"
                             onclick="event.stopPropagation();">
                             <div class="dropdown" onclick="event.stopPropagation();">
                                 <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
-                                    data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" data-bs-auto-close="true"
+                                    data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
                                     onclick="event.stopPropagation();" title="Actions">
                                     <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
                                 </button>
@@ -516,7 +515,7 @@
                                         <a class="dropdown-item d-flex align-items-center flex-nowrap gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap action-dropdown-danger"
                                             href="javascript:void(0)"
                                             data-url="{% url 'archive_record' r.record_id %}"
-                                            data-title="{{ r.title|escapejs }}"
+                                            data-title="{{ r.title }}"
                                             onclick="confirmArchiveRecord(this.dataset.url, this.dataset.title)">
                                             <i class="fa-solid fa-trash-can" style="font-size: 13px; width: 16px; flex-shrink: 0;"></i>
                                             <span>Move to Trash</span>
@@ -752,12 +751,14 @@
                     </div>
                 </div>
 
-                <div class="modal-footer border-top px-4 py-2.5 bg-light d-flex align-items-center justify-content-end gap-2 flex-shrink-0">
-                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem; height: 38px;">Cancel</button>
-                    <button type="submit" class="btn text-white px-3.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" style="border-radius: 8px; font-size: 0.82rem; height: 38px; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); border: none; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
-                        <i class="fa-solid fa-check" style="font-size: 12px;"></i>
-                        <span>Issue Permit &amp; Resolve</span>
-                    </button>
+                <div class="modal-footer border-top px-4 py-3 bg-light flex-shrink-0">
+                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" class="btn btn-light border py-2 fw-semibold text-secondary w-100" data-bs-dismiss="modal" style="border-radius: 9px; font-size: 0.85rem; height: 42px; background: #ffffff; border-color: #cbd5e1 !important;">Cancel</button>
+                        <button type="submit" class="btn text-white py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm w-100" style="border-radius: 9px; font-size: 0.85rem; height: 42px; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); border: none; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
+                            <i class="fa-solid fa-check" style="font-size: 13px;"></i>
+                            <span>Issue Permit &amp; Resolve</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -997,10 +998,11 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function confirmArchiveRecord(url, title) {
+    const cleanTitle = (title || 'this record').trim();
     if (window.showConfirmModal) {
         showConfirmModal({
             title: 'Move to Trash?',
-            message: "This will move '" + title + "' to the trash archive.",
+            message: "This will move '" + cleanTitle + "' to the trash archive.",
             confirmText: 'MOVE TO TRASH',
             cancelText: 'CANCEL',
             confirmClass: 'action-btn-danger',
@@ -1009,7 +1011,7 @@ function confirmArchiveRecord(url, title) {
             }
         });
     } else {
-        if (confirm("Are you sure you want to move '" + title + "' to Trash?")) {
+        if (confirm("Are you sure you want to move '" + cleanTitle + "' to Trash?")) {
             window.location.href = url;
         }
     }

@@ -10,7 +10,7 @@ from permits.models import Barangay, EngineeringRecord
 # Sources: Philippine Statistics Authority (PSA PSGC 0803715000) & PhilAtlas Reference Centroids
 OFFICIAL_49_CARIGARA_BARANGAYS = [
     {"name": "Balilit", "psgc": "0803715001", "lat": 11.2874, "lng": 124.6950},
-    {"name": "Barayong", "psgc": "0803715002", "lat": 11.2682, "lng": 124.6722},
+    {"name": "Barayong", "psgc": "0803715002", "lat": 11.2608, "lng": 124.6755},
     {"name": "Barugohay Central", "psgc": "0803715003", "lat": 11.2960, "lng": 124.6986},
     {"name": "Barugohay Norte", "psgc": "0803715004", "lat": 11.3029, "lng": 124.7050},
     {"name": "Barugohay Sur", "psgc": "0803715005", "lat": 11.2720, "lng": 124.6994},

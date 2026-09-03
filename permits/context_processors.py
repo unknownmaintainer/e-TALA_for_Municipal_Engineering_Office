@@ -31,7 +31,7 @@ def recent_notifications(request):
             local_ts = timezone.localtime(latest_failed.timestamp)
             time_str = local_ts.strftime('%b %d, %Y • %I:%M %p')
             alert_action = f'{failed_count} Failed Login Attempt{"s" if failed_count > 1 else ""}'
-            notif_id = f"sec_{latest_failed.pk}_{slugify(time_str)}"
+            notif_id = f"sec_{latest_failed.pk}"
             alerts.append({
                 'id': notif_id,
                 'type': 'security',
@@ -57,7 +57,7 @@ def recent_notifications(request):
     
     for doc in alert_docs:
         doc_label = doc.requirement_item.name if doc.requirement_item else doc.document_type
-        doc_id_slug = f"doc_{doc.document_id}_{doc.expiry_date.strftime('%Y%m%d')}"
+        doc_id_slug = f"doc_{doc.document_id}"
         if doc.expiry_date < today_date:
             alerts.append({
                 'id': doc_id_slug,
@@ -96,12 +96,12 @@ def recent_notifications(request):
     for tr in expiring_trash_records:
         days_left = tr.trash_days_remaining
         if days_left <= 7:
-            trash_notif_id = f"trash_exp_{tr.record_id}_{days_left}d"
+            trash_notif_id = f"trash_exp_{tr.record_id}"
             alerts.append({
                 'id': trash_notif_id,
                 'type': 'trash_warning',
                 'action': f"Trash Warning: '{tr.title}' will be permanently deleted in {days_left} day{'s' if days_left != 1 else ''}.",
-                'url': f"{reverse('archive')}?q={tr.record_id}",
+                'url': reverse('archive'),
                 'badge': 'Auto-Purge in 7d',
                 'time': f"{days_left} day{'s' if days_left != 1 else ''} left to restore",
                 'user': None,
@@ -123,15 +123,32 @@ def recent_notifications(request):
         elif act.startswith('NOTIF_DELETED:'):
             deleted_ids.add(act[14:])
 
+    def _matches_saved_state(target_id, action_text, saved_set):
+        if not target_id:
+            return False
+        target_str = str(target_id).strip()
+        if target_str in saved_set:
+            return True
+        action_slug = slugify(action_text) if action_text else ''
+        if action_slug and action_slug in saved_set:
+            return True
+        for s in saved_set:
+            s_str = str(s).strip()
+            if not s_str:
+                continue
+            if s_str == target_str or s_str == action_slug or s_str.startswith(f"{target_str}_") or target_str.startswith(f"{s_str}_") or (action_slug and (s_str.startswith(f"{action_slug}_") or action_slug.startswith(f"{s_str}_"))):
+                return True
+        return False
+
     # Filter out deleted alerts and compute real-time unread count
     filtered_alerts = []
     unread_count = 0
     for a in alerts:
         notif_id = a.get('id') or f"{slugify(a['action'])}_{slugify(a['time'])}"
         a['id'] = notif_id
-        if notif_id in deleted_ids:
+        if _matches_saved_state(notif_id, a.get('action'), deleted_ids):
             continue
-        is_read = notif_id in read_ids
+        is_read = _matches_saved_state(notif_id, a.get('action'), read_ids)
         a['is_read'] = is_read
         if not is_read:
             unread_count += 1

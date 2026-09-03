@@ -1,146 +1,804 @@
-System Requirements & Workflow
-Engineering Records Archiving and Retrieval Management System (ERARMS)
-Municipal Engineering Office — Carigara, Leyte
-1. System Overview
-ERARMS is a web-based internal information system designed to digitize, organize, and manage engineering records of the Municipal Engineering Office of Carigara, Leyte. It replaces manual paper-based filing by providing a centralized repository for municipal projects, barangay projects, and building/permit records, complete with digital document checklists, user access controls, and audit logging.
+====================================================================================================
+eTala: Engineering Records Archiving and Retrieval Management System (ERARMS)
+Municipal Engineering Office — Municipality of Carigara, Leyte
+MASTER SYSTEM ARCHITECTURE, DATABASE BLUEPRINT & END-TO-END OPERATIONAL GUIDE
+====================================================================================================
 
-2. Functional Requirements
-Functional requirements describe what the system must do — specific behaviors, features, and operations.
+DOCUMENT INFORMATION:
+• Title: Master System Specification, Database Architecture & Operational Manual
+• Client: Municipal Engineering Office, Local Government Unit (LGU) of Carigara, Leyte
+• System Codename: eTala (ERARMS)
+• Production Standard: Version 2.0 (Complete Enterprise Edition)
+• Geographic Jurisdiction: All 49 Barangays of Carigara, Leyte
 
-FR-01 — User Authentication & Session Management
-ID	Requirement
-FR-01.1	The system shall allow registered users to log in using their email address and password.
-FR-01.2	The system shall support a "Remember Me" option that extends the session duration.
-FR-01.3	The system shall lock out a user account after 5 consecutive failed login attempts and log each attempt.
-FR-01.4	The system shall log the IP address, timestamp, and result of every login attempt.
-FR-01.5	The system shall automatically redirect authenticated users to the Dashboard upon successful login.
-FR-01.6	The system shall automatically redirect unauthenticated requests to the Login page.
-FR-01.7	Logged-in users shall be able to log out, which terminates their active session.
-FR-01.8	The system shall include a Forgot Password flow for account recovery.
-FR-02 — User Role Management
-ID	Requirement
-FR-02.1	The system shall support two (2) roles: Engineering Staff and Administrator.
-FR-02.2	Engineering Staff can create and edit records they own, upload documents, and browse all records.
-FR-02.3	Administrators have full access: they can manage all records, manage users, access settings, archive records, and view audit logs.
-FR-02.4	Non-admin users cannot access the User Management or System Settings pages.
-FR-02.5	Non-admin users shall see masked project costs (e.g., ₱,,*.**, ) for records they did not create.
-FR-03 — User Account Management (Admin Only)
-ID	Requirement
-FR-03.1	Administrators shall be able to create new user accounts by providing full name, email, role, and temporary password.
-FR-03.2	The system shall auto-generate a unique username from the email prefix (with numeric suffix if taken).
-FR-03.3	Administrators shall be able to activate or deactivate any user account (except their own).
-FR-03.4	Administrators shall be able to reset the password of any user account.
-FR-03.5	New passwords must meet the minimum strength policy: at least 8 characters, one uppercase, one lowercase, one digit.
-FR-03.6	Administrators cannot deactivate their own account from the User Management page.
-FR-04 — Engineering Record Management
-ID	Requirement
-FR-04.1	The system shall support three (3) categories of engineering records: Municipal Projects, Barangay Projects, and Permits (Building, Electrical, Occupancy, Fencing, Demolition, Renovation, Sanitary, Mechanical).
-FR-04.2	Users shall be able to create a new record from a single form by selecting: Type, Sub-type, Title/Applicant Name, Barangay, and Year.
-FR-04.3	Each record shall have a unique system-generated Record ID.
-FR-04.4	Records shall store the following core fields: Title, Record Type, Project Scope (Municipal/Barangay), Barangay, Year, Status, Date Started, Date Completed, Description, and Encoder (created by).
-FR-04.5	Permit records shall additionally store: Permit Number, Permit Type, Building Type, Applicant Name, Resolution Required flag, and Remarks.
-FR-04.6	Project records shall additionally store: Project Type, Funding Source, Contractor, Project Cost (₱), and Project Status (Planning, Procurement, Ongoing, Completed, Suspended).
-FR-04.7	Authorized users shall be able to edit any field of a record after creation.
-FR-04.8	Administrators shall be able to archive a record, which removes it from the active records list but preserves it in the database.
-FR-04.9	Administrators shall be able to restore an archived record back to active status.
-FR-04.10	Record statuses shall include: Pending, Active, In Progress, Completed, Archived.
-FR-05 — Document Checklist & Uploads
-ID	Requirement
-FR-05.1	Upon creation of a new record, the system shall automatically load a document checklist based on the record type and sub-type from a pre-configured Requirement Template.
-FR-05.2	Each checklist item shall display: document name, description, fulfillment status (✓ or ☐), who fulfilled it, and when.
-FR-05.3	Users shall be able to upload a file to fulfill a specific checklist slot.
-FR-05.4	Accepted upload formats shall be: PDF, JPG, PNG, DOCX. Maximum file size: 10 MB.
-FR-05.5	Users shall be able to preview uploaded documents directly in the browser (PDF/image inline viewer).
-FR-05.6	Users shall be able to replace an uploaded document without losing the checklist fulfillment link.
-FR-05.7	Users shall be able to delete an uploaded document, which marks the checklist item as unfulfilled again.
-FR-05.8	The system shall display a completion percentage (e.g., 3/5 documents — 60%) for each record's checklist.
-FR-05.9	Document files shall be stored securely in Cloudinary and accessed only via signed, time-limited tokens (10-minute expiry).
-FR-05.10	Each document shall record: file name, file size, document type, uploader, and upload timestamp.
-FR-06 — Records Browse & Search
-ID	Requirement
-FR-06.1	The system shall provide a Records page listing all engineering records in a paginated table (20 per page).
-FR-06.2	Users shall be able to filter records using inline tab buttons: All Records, Municipal Projects, Barangay Projects, Permits.
-FR-06.3	Users shall be able to further filter by Barangay, Status, and Year using dropdown selectors.
-FR-06.4	Users shall be able to search records by Title, Applicant Name, Permit Number, or Contractor Name.
-FR-06.5	Search and filters shall work together (combined queries).
-FR-06.6	An empty state message shall be shown when no results match the filters.
-FR-07 — Dashboard
-ID	Requirement
-FR-07.1	The Dashboard shall display summary count cards: Total Records, Municipal Projects, Barangay Projects, Permit Records, Incomplete Checklists, and Archived Records.
-FR-07.2	The Dashboard shall show a Recent Records table listing the latest 10 records with their type, status, and barangay.
-FR-07.3	The Dashboard shall highlight records with incomplete checklists so users can quickly act.
-FR-07.4	The Dashboard shall display Chart.js visualizations: a bar chart (Records encoded per year) and a doughnut chart (Permit type distribution).
-FR-08 — Reports & Dual Exports
-ID	Requirement
-FR-08.1	Users shall be able to generate dynamic accomplishment summary reports across all 49 Barangays of Carigara filtered by year, month, quarter, and barangay.
-FR-08.2	Reports shall display 4-KPI summary metrics, a 49-Barangay Master Matrix, and accounting totals row (Total Accomplishments = Infrastructure Projects + Official Engineering Permits).
-FR-08.3	Users shall be able to export dynamic reports in matching high-fidelity PDF and Excel (.xlsx) formats with centered LGU letterhead and natural file naming.
-FR-08.4	Illegal construction violations shall be monitored separately as enforcement indicators without inflating official accomplishment figures.
-FR-08.5	Search queries in the report shall dynamically recalculate footer accounting totals in real-time and export strictly the filtered barangay records.
-FR-09 — Audit Logging
-ID	Requirement
-FR-09.1	The system shall record an audit log entry for every significant action: login, logout, record creation, record edit, record archive, document upload, document delete, user creation, password reset, and settings changes.
-FR-09.2	Each log entry shall include: action description, user, target record ID (if applicable), IP address, and timestamp.
-FR-09.3	Administrators shall be able to view the audit log from the Settings page.
-FR-10 — System Settings (Admin Only)
-ID	Requirement
-FR-10.1	Administrators shall be able to update Office Information: office name, municipality, and province.
-FR-10.2	Administrators shall be able to trigger a Database Backup which downloads a JSON archive of system metadata.
-FR-10.3	Administrators shall be able to restore the system from an uploaded backup file.
-FR-10.4	The Settings page shall display the list of Requirement Templates (document checklists) configured for each record type.
-FR-10.5	The logged-in administrator shall be able to change their own password from the Settings page.
-FR-11 — User Profile
-ID	Requirement
-FR-11.1	Every user shall have a Profile page showing their username, email, full name, role, and account creation date.
-FR-11.2	Users shall be able to update their profile information (full name, email).
-FR-11.3	Users shall be able to change their own password from their profile.
-3. Non-Functional Requirements
-Non-functional requirements describe how the system should perform — quality attributes and constraints.
 
-NFR-01 — Security
-ID	Requirement
-NFR-01.1	All web pages shall be served over HTTPS in production.
-NFR-01.2	The system shall use Django's CSRF protection on all POST form submissions.
-NFR-01.3	All user inputs shall be sanitized before processing to prevent XSS and injection attacks.
-NFR-01.4	Passwords shall be stored using Django's PBKDF2 hashing algorithm (never plaintext).
-NFR-01.5	Document files shall be accessible only via time-limited signed tokens (10-minute expiry) to prevent unauthorized direct access.
-NFR-01.6	Failed login attempts (5+) shall trigger account lockout, preventing brute-force attacks.
-NFR-01.7	Role-based access control (RBAC) shall be enforced on every protected view — unauthorized access returns a 403 Forbidden response.
-NFR-01.8	Django sessions shall expire after a configurable idle period.
-NFR-02 — Performance
-ID	Requirement
-NFR-02.1	The Records list page shall load within 3 seconds for up to 500 records on a standard LAN connection.
-NFR-02.2	Database queries shall use indexed fields (record_type, barangay, status, year, title) to ensure fast filtering.
-NFR-02.3	Document uploads shall be handled asynchronously via Cloudinary to avoid blocking the main server thread.
-NFR-02.4	Pages shall render using server-side templates (Django/Jinja2) for fast initial load without JavaScript dependency.
-NFR-03 — Usability
-ID	Requirement
-NFR-03.1	All primary functions (create record, upload document, search) shall be reachable within 3–4 clicks from any screen.
-NFR-03.2	The interface shall use consistent typography, color coding, and iconography throughout all pages.
-NFR-03.3	Status badges shall use color coding: green (Active/Completed), amber (In Progress), gray (Pending/Archived).
-NFR-03.4	Form validation errors shall display inline, next to the relevant field, in plain language.
-NFR-03.5	The system shall display toast/flash notifications for all successful actions and errors.
-NFR-03.6	The sidebar shall be collapsible to maximize screen space on smaller monitors.
-NFR-03.7	The system shall not require any browser plugins or extensions to operate.
-NFR-04 — Reliability & Availability
-ID	Requirement
-NFR-04.1	The system shall target 99% uptime during office hours (Monday–Friday, 8:00 AM – 5:00 PM).
-NFR-04.2	The system shall not lose data during a page refresh, back navigation, or accidental form closure (records are saved to the database before redirect).
-NFR-04.3	The system shall handle unexpected database errors gracefully by displaying a user-friendly error page.
-NFR-05 — Maintainability
-ID	Requirement
-NFR-05.1	The system shall be built using Django 6.0 (Python) following the Model-View-Template (MVT) architecture pattern.
-NFR-05.2	All environment-specific settings (SECRET_KEY, database URL, Cloudinary credentials) shall be stored in environment variables, not in source code.
-NFR-05.3	The codebase shall include an automated test suite covering authentication, record CRUD, and document uploads.
-NFR-05.4	Database schema changes shall be managed through Django migrations.
-NFR-06 — Compatibility
-ID	Requirement
-NFR-06.1	The system shall be compatible with the latest versions of Google Chrome, Microsoft Edge, and Mozilla Firefox.
-NFR-06.2	The system shall be usable on desktop and laptop screens (minimum resolution: 1024×768).
-NFR-06.3	The system shall use Bootstrap 5.3 for responsive layout support.
-NFR-07 — Data Integrity
-ID	Requirement
-NFR-07.1	Every record shall have a non-nullable created_by field linking it to the user who encoded it.
-NFR-07.2	Deleting a Barangay or User shall be protected — the system shall refuse deletion if related records exist (Django PROTECT constraint).
-NFR-07.3	Archived records shall never be hard-deleted — they remain in the database and can be restored.
-NFR-07.4	Document files shall be version-tracked — each upload increments the version number of the document slot.
+====================================================================================================
+TABLE OF CONTENTS
+====================================================================================================
+1. EXECUTIVE SUMMARY & SYSTEM OVERVIEW
+2. COMPLETE DATABASE ARCHITECTURE & ENTITY-RELATIONSHIP BLUEPRINT
+   • 2.1 Core Relational Schema & Tables
+   • 2.2 Table-by-Table Data Dictionary & Key Fields
+   • 2.3 Foreign Key Rules & Data Integrity Protection (PROTECT vs CASCADE)
+   • 2.4 Indexing Strategy for Fast Performance
+3. END-TO-END SECURITY ARCHITECTURE & PROCESS FLOWS
+   • 3.1 Authentication & Password Security
+   • 3.2 5-Attempt Lockout & 15-Minute Automatic Cool-Off Process
+   • 3.3 Multi-Session & Device Security Verification
+   • 3.4 Role-Based Access Control (RBAC) & View Protection
+   • 3.5 CSRF, XSS Sanitization & Input Defense
+   • 3.6 Time-Limited Signed Token Document Security
+   • 3.7 IP Firewall & Automated Blocking Mechanism
+4. DEEP OPERATIONAL PROCESS FLOWS (STEP-BY-STEP)
+   • Process 1: User Sign-In, Session Management & Password Recovery
+   • Process 2: Executive Dashboard & Live Visual Intelligence
+   • Process 3: The 3-Step Guided Record Encoding Wizard
+   • Process 4: Automated Document Checklists, Versioning & In-Browser Preview
+   • Process 5: Document Expiry Tracking & Proactive Notification Pipeline
+   • Process 6: Universal 250px Live Search & Multi-Token Query Engine
+   • Process 7: Trash Lifecycle (Soft-Delete -> 30-Day Recovery -> Auto-Purge)
+   • Process 8: 49 Barangays Master Grid & Leaflet GIS Mapping
+   • Process 9: Illegal Construction Flagging, Investigation & Regularization
+   • Process 10: Official Accomplishment Reports & Dual PDF/Excel Export
+   • Process 11: User Management & Safe Employee Deactivation
+   • Process 12: Audit Logging & Database Anti-Bloat Architecture
+   • Process 13: Automated Daily Backups, 14-Day Retention & Disaster Recovery
+5. BUSINESS LOGIC, MATHEMATICAL FORMULAS & CALCULATION ENGINES
+6. RETENTION SCHEDULES & DATA LIFECYCLE CHEAT SHEET
+7. COMPREHENSIVE CLIENT FAQ & TROUBLESHOOTING GUIDE
+
+
+====================================================================================================
+1. EXECUTIVE SUMMARY & SYSTEM OVERVIEW
+====================================================================================================
+The Engineering Records Archiving and Retrieval Management System (eTala) is an internal,
+web-based enterprise management and digital archiving system developed specifically for the
+Municipal Engineering Office of the Local Government Unit (LGU) of Carigara, Leyte.
+
+It eliminates manual, paper-heavy physical filing and centralizes all engineering data:
+  1. Infrastructure Projects: Municipal-funded and Barangay-level public civil works.
+  2. Official Engineering Permits: Building, Electrical, Mechanical, Occupancy, Fencing,
+     Demolition, Renovation, and Sanitary permits.
+  3. Digital Compliance Checklists: Document requirements loaded automatically per permit type.
+  4. Geospatial Intelligence: Interactive GIS map locating projects across all 49 barangays.
+  5. Executive Reporting: Instant, print-ready PDF and Excel reports for the Mayor, Sangguniang
+     Bayan (SB), and Commission on Audit (COA).
+
+
+====================================================================================================
+2. COMPLETE DATABASE ARCHITECTURE & ENTITY-RELATIONSHIP BLUEPRINT
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+2.1 CORE RELATIONAL SCHEMA & TABLE RELATIONSHIPS
+----------------------------------------------------------------------------------------------------
+The database follows a Polymorphic Normalized Architecture where all engineering entries share a
+central master table (`EngineeringRecord`) that links seamlessly to specialized detail tables,
+document attachments, and audit logs.
+
+                                   +-------------------+
+                                   |    CustomUser     | (Staff / Admin)
+                                   +---------+---------+
+                                             | 1
+                                             |
+                                             | * (created_by)
++----------------+ 1           *   +---------v-----------+ 1           1   +------------------+
+|    Barangay    +-----------------+  EngineeringRecord  +-----------------+   PermitDetail   |
+| (49 Barangays) | (PROTECT)       +----+-----+-----+----+ (CASCADE)       | (Permit Numbers) |
++----------------+                      |     |     |                      +------------------+
+                                        |     |     | 1               1    +------------------+
+                                        |     |     +----------------------+  ProjectDetail   |
+                                        |     |     | (CASCADE)            | (Cost, Funding)  |
+                                        |     |     |                      +------------------+
+                                        |     |     | 1               *    +------------------+
+                                        |     |     +----------------------+     Document     |
+                                        |     |       (CASCADE)            | (PDF, Scans, JPG)|
+                                        |     |                            +--------+---------+
+                                        |     | 1                     *             | 1
+                                        |     +-----------------------+             |
+                                        |       (CASCADE)             |             |
+                                        |                             |             | (SET_NULL)
+                                        |                     +-------v-------+ 1   |
+                                        |                     |RecordRequirement+---+
+                                        |                     | (Checklist)   |
+                                        |                     +-------^-------+
+                                        |                             | *
+                                        |                             | (PROTECT)
+                                        |                     +-------+-------+
+                                        |                     |RequirementItem|
+                                        |                     +-------^-------+
+                                        |                             | *
+                                        |                             | (CASCADE)
+                                        |                     +-------+-----------+
+                                        |                     |RequirementTemplate|
+                                        |                     +-------------------+
+                                        |
+                                        | 1                   *
+                                        +---------------------+ AuditLog
+                                          (target_record_id)    (Operation History)
+
+
+----------------------------------------------------------------------------------------------------
+2.2 TABLE-BY-TABLE DATA DICTIONARY & KEY FIELDS
+----------------------------------------------------------------------------------------------------
+
+1. `CustomUser` (User Accounts & Authentication)
+   • `id` (Primary Key): Auto-incrementing unique user identifier.
+   • `username`: Auto-generated unique alphanumeric identifier (e.g. `maria.santos`).
+   • `email`: Unique email address used for login and security verification.
+   • `password`: PBKDF2 SHA256 hashed password string.
+   • `full_name`: Official employee name (e.g. `Engr. Maria Santos`).
+   • `designation`: Official job title (e.g. `Municipal Engineer`, `Building Inspector`).
+   • `role`: Access level -> `admin` (Full Control) or `staff` (Standard Encoder).
+   • `profile_picture`: Secure file path to user's uploaded avatar image.
+   • `is_active`: Boolean flag indicating if account is active or deactivated.
+
+2. `Barangay` (Geographical Master List)
+   • `barangay_id` (Primary Key): Unique numeric ID (1 to 49).
+   • `barangay_name`: Unique official name of the barangay.
+   • `psgc_code`: Official PSA Philippine Standard Geographic Code (e.g. `0803715001`).
+   • `district`: Poblacion, Coastal, Upland, or Rural district cluster.
+   • `latitude` / `longitude`: Exact geocoded coordinates for GIS mapping.
+
+3. `EngineeringRecord` (Central Master Records Table)
+   • `record_id` (Primary Key): System-wide unique record number.
+   • `record_type`: Primary category -> `Permit` or `Project`.
+   • `project_scope`: Scope tier -> `Municipal` or `Barangay` (for projects).
+   • `title`: Official title of project or applicant record.
+   • `barangay_id`: Foreign Key pointing to `Barangay`.
+   • `year`: Calendar/backlog year of the record.
+   • `status`: Lifecycle state -> `pending`, `active`, `in_progress`, `completed`, `archived`.
+   • `is_illegal_construction`: Boolean flag for unpermitted structures.
+   • `illegal_compliance_status`: `unresolved`, `pending_permit`, or `resolved`.
+   • `created_by_id`: Foreign Key pointing to `CustomUser` encoder.
+   • `created_at` / `updated_at`: Precise timestamps.
+   • `deleted_at`: Soft-delete timestamp used for 30-day trash retention calculation.
+
+4. `PermitDetail` (Specialized Permit Attributes - 1:1 with EngineeringRecord)
+   • `engineering_record_id`: Foreign Key (One-to-One) to `EngineeringRecord`.
+   • `permit_type`: `Building`, `Electrical`, `Mechanical`, `Occupancy`, `Fencing`, `Demolition`.
+   • `permit_number`: Official issued permit serial number (e.g. `2026-06-00001`).
+   • `applicant_name`: Full legal name of property owner / applicant.
+   • `building_type`: `Residential`, `Commercial`, `Industrial`, `Institutional`, `Agricultural`.
+   • `date_issued`: Date the permit was officially granted.
+   • `resolution_required`: Boolean flag if Sangguniang Bayan resolution was required.
+   • `remarks`: Technical notes, inspection observations, or conditional clauses.
+
+5. `ProjectDetail` (Specialized Infrastructure Attributes - 1:1 with EngineeringRecord)
+   • `engineering_record_id`: Foreign Key (One-to-One) to `EngineeringRecord`.
+   • `project_type`: `Roads and Bridges`, `Vertical Structures`, `Flood Control and Drainage`, `Potable Water`.
+   • `funding_source`: `20% Development Fund`, `LGU General Fund`, `LGSF`, `National Fund`, etc.
+   • `contractor`: Name of executing construction firm or "By Administration".
+   • `project_cost`: Exact financial budget in Philippine Pesos (₱).
+   • `project_status`: Engineering state (Planning, Procurement, Ongoing, Completed, Suspended).
+
+6. `RequirementTemplate` (Checklist Rule Engine)
+   • `template_id`: Unique ID of the checklist profile.
+   • `record_type`: Target category (`Permit` or `Project`).
+   • `subtype`: Specific type (e.g. `Building`, `Road & Bridge`, `Fencing`).
+   • `scope`: Scope tier (`Municipal`, `Barangay`, or blank for permits).
+
+7. `RequirementItem` (Individual Document Slot Definition)
+   • `item_id`: Unique checklist item identifier.
+   • `template_id`: Foreign Key to `RequirementTemplate`.
+   • `parent_id`: Self-referencing Foreign Key for nested sub-documents (e.g. Architectural Plan under Building Plans).
+   • `is_group`: Boolean indicating if this is a parent group container.
+   • `name`: Document name (e.g. `Barangay Clearance`, `Fire Safety Inspection Certificate`).
+   • `is_required`: Boolean flag indicating if mandatory for 100% compliance.
+
+8. `RecordRequirement` (Per-Record Checklist Fulfillment Matrix)
+   • `record_id`: Foreign Key to `EngineeringRecord`.
+   • `requirement_item_id`: Foreign Key to `RequirementItem`.
+   • `document_id`: Foreign Key (One-to-One) to uploaded `Document` file.
+   • `is_fulfilled`: Boolean flag (True when valid file is attached).
+   • `is_waived`: Boolean flag for legally exempt requirements.
+   • `fulfilled_at` / `fulfilled_by`: Timestamp and user who satisfied the requirement.
+
+9. `Document` (Uploaded File Metadata & Storage Registry)
+   • `document_id`: Unique document file ID.
+   • `engineering_record_id`: Foreign Key to `EngineeringRecord`.
+   • `file_name`: Sanitized original filename.
+   • `file`: Secure cloud/disk storage path.
+   • `file_size`: File size in bytes (max 10 MB).
+   • `version`: Version number (increments on document replacement).
+   • `expiry_date`: Expiration date for time-sensitive clearances (e.g. FSIC).
+   • `uploaded_by_id`: Foreign Key to `CustomUser`.
+
+10. `AuditLog` (System-Wide Accountability Log)
+    • `log_id`: Unique log sequence ID.
+    • `user_id`: Foreign Key to `CustomUser` who performed the action.
+    • `action`: Short, clear description of the operation (e.g. `Created Building Permit: 2026-06-00001`).
+    • `target_record_id`: ID of affected engineering record.
+    • `ip_address`: Client IP address of encoder.
+    • `performed_at`: Precise immutable timestamp.
+
+11. `UserDevice` (Device Fingerprinting & Security Trust Registry)
+    • `device_token`: Secure cryptographic hash representing browser/device hardware signature.
+    • `user_id`: Foreign Key to `CustomUser`.
+    • `device_name`: Human-readable name (e.g. `Windows 11 • Chrome 124`).
+    • `status`: `approved`, `pending`, or `rejected`.
+    • `last_seen_at`: Timestamp of latest access.
+
+12. `LoginAttempt` (Brute-Force & Security Audit Log)
+    • `email_attempted`: Email address entered during login.
+    • `success`: Boolean (True if authentication succeeded).
+    • `ip_address`: Request IP address.
+    • `timestamp`: Exact time of login attempt.
+
+13. `BlockedIP` (Security Firewall Blacklist)
+    • `ip_address`: Blocked IP address.
+    • `reason`: Reason for restriction (e.g. `Excessive brute-force password attacks`).
+    • `blocked_at`: Timestamp of restriction.
+
+
+----------------------------------------------------------------------------------------------------
+2.3 FOREIGN KEY RULES & DATA INTEGRITY CONSTRAINTS
+----------------------------------------------------------------------------------------------------
+To guarantee that records can NEVER be accidentally broken or orphaned:
+
+• `on_delete=models.PROTECT`:
+  - `Barangay` -> `EngineeringRecord`: Prevents deleting a Barangay if it contains any records.
+  - `CustomUser` -> `EngineeringRecord`: Prevents deleting a User if they have authored records.
+    (This is why former employees are Deactivated rather than Deleted).
+  - `RequirementItem` -> `RecordRequirement`: Prevents deleting requirement definitions that are
+    actively attached to existing records.
+
+• `on_delete=models.CASCADE`:
+  - `EngineeringRecord` -> `PermitDetail` / `ProjectDetail` / `Document` / `RecordRequirement`:
+    When a record is permanently purged after 30 days in Trash, all its attached details and
+    document records are cleanly and completely purged together.
+
+
+----------------------------------------------------------------------------------------------------
+2.4 DATABASE INDEXING STRATEGY (SUB-300ms PERFORMANCE)
+----------------------------------------------------------------------------------------------------
+High-speed database indexes are configured on frequently queried columns:
+  • Single Indexes: `record_type`, `project_scope`, `barangay`, `status`, `year`, `title`, `deleted_at`.
+  • Composite Indexes:
+    - `[record_type, status]`: High-speed filtering of active permits vs projects.
+    - `[barangay, year]`: Fast reporting aggregations across the 49 barangays.
+    - `[status, deleted_at]`: Instant lookup of trash records expiring within 30 days.
+
+
+====================================================================================================
+3. END-TO-END SECURITY ARCHITECTURE & PROCESS FLOWS
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+3.1 AUTHENTICATION & PASSWORD SECURITY
+----------------------------------------------------------------------------------------------------
+• Algorithm: Passwords are encrypted using Django's PBKDF2 (Password-Based Key Derivation Function 2)
+  with a SHA-256 hash and 600,000 cryptographic iterations. Plaintext passwords are NEVER stored.
+• Password Complexity Rule: Must be at least 8 characters long, containing at least one uppercase
+  letter, one lowercase letter, and one number.
+• Password History Prevention: The system retains password hashes in `PasswordHistory` to prevent
+  users from immediately reusing previous passwords.
+
+----------------------------------------------------------------------------------------------------
+3.2 5-ATTEMPT LOCKOUT & 15-MINUTE AUTOMATIC COOL-OFF PROCESS
+----------------------------------------------------------------------------------------------------
+• Failure Counter: Every failed password attempt for an account is tracked in real-time.
+• Lockout Threshold: On the 5th consecutive failure, `django-axes` triggers an immediate lockout.
+• 15-Minute Auto Cool-Off: The lockout remains active for exactly 15 minutes.
+• Automatic Recovery: The user simply waits 15 minutes. After 15 minutes, the timer expires and the
+  login form unlocks automatically without requiring administrative intervention.
+• Counter Reset on Success: Entering the correct password before reaching 5 attempts resets the
+  failure count back to zero (0).
+• Administrator Override: An Administrator can unlock any account immediately by resetting the user's
+  password or executing `python manage.py axes_reset`.
+
+----------------------------------------------------------------------------------------------------
+3.3 MULTI-SESSION & DEVICE SECURITY VERIFICATION
+----------------------------------------------------------------------------------------------------
+• Multi-Session Flexibility: Staff members can keep active sessions open on their desktop workstation
+  and their laptop/tablet simultaneously without being forcefully disconnected.
+• Device Fingerprinting (`UserDevice`): Each device generates a unique cryptographic device token based
+  on hardware characteristics and browser headers.
+• New Device Security Notification: Signing in from an unrecognized device triggers an instant email
+  alert to the user to confirm the login was authentic.
+
+----------------------------------------------------------------------------------------------------
+3.4 ROLE-BASED ACCESS CONTROL (RBAC) & VIEW PROTECTION
+----------------------------------------------------------------------------------------------------
+• Server-Side Authorization: Every web route is strictly decorated with `@login_required`,
+  `@admin_required`, or `@staff_or_admin_required`.
+• Non-Admin Lockdown: Engineering Staff who attempt to access `/users/`, `/settings/`, or system backup
+  endpoints are immediately blocked with an `HTTP 403 Forbidden` response.
+• Financial Masking: Engineering Staff see masked project costs (e.g. `₱ ••••••••`) for records
+  belonging to other departments to preserve municipal financial privacy.
+
+----------------------------------------------------------------------------------------------------
+3.5 CSRF, XSS SANITIZATION & INPUT DEFENSE
+----------------------------------------------------------------------------------------------------
+• CSRF Protection: Every POST/PUT/DELETE request requires a valid, cryptographically signed
+  Cross-Site Request Forgery (CSRF) token cookie. Requests lacking this token are rejected.
+• XSS Defense: All user text inputs pass through `sanitize_input()` which strips dangerous HTML tags,
+  JavaScript execution payloads (`<script>`, `onerror=`), and control characters.
+• Search Sanitization: Universal search inputs allow only alphanumeric text, spaces, and safe
+  punctuation (`-_.#()',/`). Unsafe script symbols are removed in real-time before querying.
+
+----------------------------------------------------------------------------------------------------
+3.6 TIME-LIMITED SIGNED TOKEN DOCUMENT SECURITY
+----------------------------------------------------------------------------------------------------
+• Private Storage: Attached documents (PDFs, structural plans, tax scans) are stored in secure
+  cloud buckets and are NOT directly accessible via public URLs.
+• 10-Minute Ephemeral Tokens: When an authorized user clicks to preview a document, the server
+  generates a time-limited signed URL that expires in 10 minutes. Direct links cannot be shared or leaked.
+
+----------------------------------------------------------------------------------------------------
+3.7 IP FIREWALL & AUTOMATED BLOCKING MECHANISM
+----------------------------------------------------------------------------------------------------
+• `IPBlockMiddleware`: Inspects the client IP address on every incoming web request.
+• Instant 403 Blocking: If an IP address matches an entry in `BlockedIP`, the request is immediately
+  terminated with an access-denied screen before reaching the database or application logic.
+
+
+====================================================================================================
+4. DEEP OPERATIONAL PROCESS FLOWS (STEP-BY-STEP)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+PROCESS 1: USER SIGN-IN, SESSION MANAGEMENT & PASSWORD RECOVERY
+----------------------------------------------------------------------------------------------------
+1. Step 1: User visits `/login/` and enters their registered Email and Password.
+2. Step 2: Server checks credentials. If valid -> logs in, creates a session, and redirects to Dashboard.
+3. Step 3: If invalid -> increments failure counter. If counter reaches 5 -> displays 15-minute cool-off message.
+4. Step 4 (Forgot Password): User clicks "Forgot Password?", enters email, and receives a secure,
+   signed one-time reset link valid for 24 hours. Clicking the link allows creating a new password.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 2: EXECUTIVE DASHBOARD & LIVE VISUAL INTELLIGENCE
+----------------------------------------------------------------------------------------------------
+1. Summary KPIs: Live counts of Total Records, Municipal Projects, Barangay Projects, Permits,
+   Incomplete Checklists, and Trash items.
+2. Real-Time Charts:
+   • Annual Encoding Volume (Chart.js Bar Chart): Visualizes infrastructure growth across years.
+   • Permit Sub-Type Distribution (Chart.js Doughnut Chart): Shows proportion of Building vs
+     Electrical vs Occupancy permits.
+3. Quick Navigation: Direct shortcut buttons to create records, inspect reports, or view GIS map.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 3: THE 3-STEP GUIDED RECORD ENCODING WIZARD
+----------------------------------------------------------------------------------------------------
+• STEP 1: SCOPE & CATEGORIZATION (`/records/create/step1/`)
+  1. User selects Category: Municipal Project, Barangay Project, or Engineering Permit.
+  2. User selects Sub-type (e.g. Building, Electrical, Roads & Bridges, Flood Control).
+  3. User picks Barangay from the 49 official barangays of Carigara.
+  4. User enters Calendar Year (validated between 1990 and current year).
+
+• STEP 2: TECHNICAL & FINANCIAL DETAILS (`/records/create/step2/`)
+  1. For Projects: Title, Contractor, Project Cost (₱), Funding Source, Status, Dates.
+  2. For Permits: Permit Number (`2026-06-00001`), Applicant Name, Building Classification, Dates.
+  3. Form validation triggers: Ensures mandatory fields are present and valid.
+
+• STEP 3: DIGITAL CHECKLIST GENERATION (`/records/create/step3/`)
+  1. The system matches the `RequirementTemplate` and automatically creates checklist slots.
+  2. Encoder can upload required files (PDF, JPG, DOCX) immediately or save and upload later.
+  3. Record is saved with status `active` and assigned a permanent unique `record_id`.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 4: AUTOMATED DOCUMENT CHECKLISTS, VERSIONING & IN-BROWSER PREVIEW
+----------------------------------------------------------------------------------------------------
+1. Dedicated Slots: Each requirement (e.g. Structural Analysis, FSIC) displays as an upload slot.
+2. Direct Upload: Drag and drop or browse files up to 10 MB.
+3. Progress Percentage: A completion pill dynamically computes:
+     Completion Rate = (Fulfilled Required Documents / Total Required Documents) * 100%
+4. Document Replacement (Versioning): Uploading a new scan over an existing slot replaces the active
+   file, increments `version` (e.g. v1 -> v2), and updates the fulfillment timestamp.
+5. In-Browser Viewer: Clicking "Preview" opens an inline modal displaying the PDF or image with
+   pan, zoom, and rotate controls without downloading to local disk.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 5: DOCUMENT EXPIRY TRACKING & PROACTIVE NOTIFICATIONS
+----------------------------------------------------------------------------------------------------
+1. Expiry Recording: Documents like Fire Safety Clearance or Insurance record an `expiry_date`.
+2. 30-Day Window Alert: When a document is within 30 days of expiring, the system generates an
+   alert in the Topbar Bell Notifications.
+3. Persistent Read State: Clicking or marking the notification as read permanently records
+   `NOTIF_READ:<doc_id>` in the database. The alert will NEVER reappear as unread.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 6: UNIVERSAL 250px LIVE SEARCH & MULTI-TOKEN QUERY ENGINE
+----------------------------------------------------------------------------------------------------
+1. Standard Compact Search Pill: Standardized width of 250px across all modules.
+2. 300ms Debounce: As user types, a 300ms timer waits before sending an asynchronous AJAX request.
+3. Multi-Token Query: Query "2026 Canfabi Building" matches records with Year 2026, Barangay Canfabi,
+   and Permit Type Building simultaneously.
+4. Keyboard Shortcut: Pressing `Esc` clears the search instantly.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 7: TRASH LIFECYCLE (SOFT-DELETE -> 30-DAY RECOVERY -> AUTO-PURGE)
+----------------------------------------------------------------------------------------------------
+1. Soft-Delete: Admin deletes a record -> Status changes to `archived` and `deleted_at` is set to now.
+2. 30-Day Safety Window: The record sits in `/archive/`. Details and files remain completely safe.
+3. 1-Click Restore: Admin clicks "Restore" in kebab menu (⋮) -> Status returns to `active`.
+4. 30-Day Auto-Purge: When `deleted_at` exceeds 30 days, `purge_expired_trash_records` permanently
+   erases the record and deletes all associated files from cloud storage.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 8: 49 BARANGAYS MASTER GRID & LEAFLET GIS MAPPING
+----------------------------------------------------------------------------------------------------
+1. Master Grid: 49 cards showing summary projects, permits, and accomplishments per barangay.
+2. GIS Map Engine: Interactive Leaflet map centered at `[11.2608, 124.6755]` (Carigara Town Center).
+3. Barangay Workspace: Dedicated view for any barangay listing all historical civil works and permits.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 9: ILLEGAL CONSTRUCTION FLAGGING & REGULARIZATION
+----------------------------------------------------------------------------------------------------
+1. Flagging Violation: Staff flags unpermitted work, attaches inspection photos and location.
+2. Tracking Pipeline: `Unresolved` -> `Permit Application Filed` -> `Complied / Permitted`.
+3. Report Separation Rule: Violations are monitored strictly as enforcement indicators and are NEVER
+   counted as positive municipal accomplishments in official reports.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 10: OFFICIAL ACCOMPLISHMENT REPORTS & DUAL PDF/EXCEL EXPORT
+----------------------------------------------------------------------------------------------------
+1. 49-Barangay Master Matrix: Computes total projects and permits filtered by Year, Month, or Quarter.
+2. Standard Formula: Total Accomplishments = Infrastructure Projects + Engineering Permits.
+3. Dual Export Formats:
+   • Print-Ready PDF: Formatted Legal/A4 layout, centered official LGU letterhead, signature blocks.
+   • Excel Spreadsheet (.xlsx): Formatted data matrix for SB and COA auditing.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 11: USER MANAGEMENT & SAFE EMPLOYEE DEACTIVATION
+----------------------------------------------------------------------------------------------------
+1. Account Creation: Admin creates staff account (Name, Email, Role, Temporary Password).
+2. Auto-Username: Clean username generated automatically from email prefix.
+3. Deactivation vs Deletion: Inactive staff accounts are Deactivated (`is_active=False`). Historical
+   records authored by the staff remain 100% intact in the database.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 12: AUDIT LOGGING & DATABASE ANTI-BLOAT ARCHITECTURE
+----------------------------------------------------------------------------------------------------
+1. Accountability Logging: Records Create, Edit, Trash, Restore, Purge, and User Role changes.
+2. Anti-Bloat Filter: Routine operations (viewing pages, downloading files, login attempts) are
+   ignored to prevent database bloat.
+3. CSV Export: Admin can export the complete audit trail to CSV anytime.
+
+----------------------------------------------------------------------------------------------------
+PROCESS 13: AUTOMATED DAILY BACKUPS, 14-DAY RETENTION & DISASTER RECOVERY
+----------------------------------------------------------------------------------------------------
+1. Daily Snapshots: System takes an automated JSON snapshot of all database records every 24 hours.
+2. 14-Day Retention: Retains the 14 latest backup files and auto-deletes older snapshots.
+3. 1-Click Manual Backup: Admin can download a complete system backup archive anytime.
+4. Disaster Recovery: Admin can upload a backup file to restore the entire database in minutes.
+
+
+====================================================================================================
+5. BUSINESS LOGIC, MATHEMATICAL FORMULAS & CALCULATION ENGINES
+====================================================================================================
+
+1. OFFICIAL ACCOMPLISHMENT FORMULA:
+   ---------------------------------------------------------------------------------------------
+   TOTAL ACCOMPLISHMENTS = TOTAL INFRASTRUCTURE PROJECTS + TOTAL OFFICIAL PERMITS ISSUED
+   ---------------------------------------------------------------------------------------------
+   * Violations and illegal constructions are strictly excluded from positive accomplishment totals.
+
+2. DOCUMENT CHECKLIST COMPLETION RATE:
+   ---------------------------------------------------------------------------------------------
+   COMPLETION RATE (%) = (FULFILLED REQUIRED DOCUMENTS / TOTAL REQUIRED DOCUMENTS) * 100%
+   ---------------------------------------------------------------------------------------------
+   * Parent group headers are excluded; only leaf requirements determine the mathematical percentage.
+
+3. TRASH REMAINING DAYS FORMULA:
+   ---------------------------------------------------------------------------------------------
+   DAYS REMAINING = MAX(0, 30 - (CURRENT_TIMESTAMP - DELETED_AT_TIMESTAMP) in Days)
+   ---------------------------------------------------------------------------------------------
+   * Auto-purge triggers when DAYS REMAINING reaches 0.
+
+
+====================================================================================================
+6. RETENTION SCHEDULES & DATA LIFECYCLE CHEAT SHEET
+====================================================================================================
++--------------------------------+--------------------+--------------------------------------------------+
+| Data Type / Entity             | Retention Schedule | Automatic Action Taken Upon Expiration           |
++--------------------------------+--------------------+--------------------------------------------------+
+| Soft-Deleted Trash Records     |      30 Days       | Permanently purged from database & cloud disk.   |
+| Routine Successful Logins      |      90 Days       | Cleaned automatically via `purge_expired_data`.  |
+| Temporary Export ZIP Bundles   |      24 Hours      | Cleaned automatically from server temp storage.  |
+| Database Backup Snapshots      |      14 Days       | Oldest snapshots removed; keeps latest 14 days.  |
+| Official Audit Logs            |     Permanent      | Kept indefinitely; exportable to CSV anytime.    |
+| Engineering Master Records     |     Permanent      | Active records preserved indefinitely.           |
++--------------------------------+--------------------+--------------------------------------------------+
+
+
+====================================================================================================
+7. COMPREHENSIVE ZIP & EXPORT ARCHIVAL DATA STRUCTURES
+====================================================================================================
+
+eTala provides four (4) standardized ZIP export hierarchies designed for municipal engineering recordkeeping, COA audit compliance, offline document archiving, and disaster recovery:
+
+----------------------------------------------------------------------------------------------------
+1. SINGLE RECORD ZIP ARCHIVE (Export Record ZIP)
+----------------------------------------------------------------------------------------------------
+• Triggered Via: Record Details page (`/records/<record_id>/download-zip/`)
+• Target File  : `<Sanitized_Record_Title>_Documents.zip`
+• Folder Hierarchy & Contents:
+  ├── 00_RECORD_SUMMARY.txt             <-- Formatted plaintext metadata sheet (Title, Date, Cost, Owner)
+  ├── 01_Building_Plans/                <-- Parent requirement group folder (prefixed with 2-digit order)
+  │   ├── Architectural_Plans.pdf
+  │   └── Structural_Calculations.pdf
+  ├── 02_Program_of_Works.pdf           <-- Direct root file for standalone single leaf requirements
+  ├── 03_Detailed_Estimates.pdf
+  ├── 04_Specifications.pdf
+  └── Additional_Attachments/           <-- Site inspection photos, incident notes & auxiliary files
+      ├── Site_Inspection_Photo_1.jpg
+      └── Topographic_Map.pdf
+
+----------------------------------------------------------------------------------------------------
+2. REQUIREMENT CATEGORY / SLOT ZIP ARCHIVE (Export Category ZIP)
+----------------------------------------------------------------------------------------------------
+• Triggered Via: Requirement Group Header (`/records/<record_id>/download-category/<req_id>/`)
+• Target File  : `<Record_Title>_<Category_Name>.zip`
+• Contents     : Direct collection of all uploaded PDFs attached to that specific checklist group.
+
+----------------------------------------------------------------------------------------------------
+3. BARANGAY WORKSPACE ZIP ARCHIVE (Export Entire Barangay Archive)
+----------------------------------------------------------------------------------------------------
+• Triggered Via: Barangay Workspace header (`/barangays/<barangay_id>/download-zip/`)
+• Target File  : `Barangay_<Barangay_Name>_Records_<YYYY-MM-DD>.zip`
+• Folder Hierarchy & Contents:
+  Barangay_<Barangay_Name>/
+    ├── 00_BARANGAY_SUMMARY.txt         <-- Master inventory index of all infrastructure and permits
+    ├── 01_Municipal_Projects/          <-- LGU Municipal-funded projects in this barangay
+    │   └── <Year>_<Project_Title>/
+    │       ├── 00_RECORD_SUMMARY.txt
+    │       ├── 01_Building_Plans/
+    │       │   └── Plan_and_Profiles.pdf
+    │       └── 02_Program_of_Works.pdf
+    ├── 02_Barangay_Projects/           <-- Barangay local-funded infrastructure projects
+    │   └── <Year>_<Project_Title>/
+    │       ├── 00_RECORD_SUMMARY.txt
+    │       └── 01_Plans_and_Drawings.pdf
+    ├── 03_Building_Permits/            <-- Official permits issued within the barangay
+    │   └── <Year>_<Permit_Number>_<Applicant_Name>/
+    │       ├── 00_RECORD_SUMMARY.txt
+    │       └── 01_Building_Plans/
+    └── 04_Illegal_Constructions/       <-- Recorded structure violations and compliance trackers
+        └── <Structure_Name>_Case-<ID>/
+            ├── 00_RECORD_SUMMARY.txt
+            └── Additional_Attachments/
+                └── Violation_Site_Photo.jpg
+
+----------------------------------------------------------------------------------------------------
+4. FULL MUNICIPAL MASTER ARCHIVE (Export All 49 Barangays)
+----------------------------------------------------------------------------------------------------
+• Triggered Via: System Export Center (`/records/export/municipal-zip/`) [Admin Only]
+• Target File  : `Carigara_Engineering_Records_<YYYY-MM-DD>.zip`
+• Folder Hierarchy & Contents:
+  Carigara_Engineering_Records_<YYYY-MM-DD>/
+    ├── 00_MUNICIPAL_SUMMARY.txt        <-- Executive summary of all 49 barangays and total records
+    ├── Barangay_Balilit/
+    │   ├── 00_BARANGAY_SUMMARY.txt
+    │   ├── 01_Municipal_Projects/...
+    │   └── 03_Building_Permits/...
+    ├── Barangay_Canfabi/
+    │   ├── 00_BARANGAY_SUMMARY.txt
+    │   └── 01_Municipal_Projects/...
+    ├── Barangay_Ponong/...
+    └── Barangay_Sawang/...             <-- Complete subtrees for all 49 Carigara Barangays
+
+----------------------------------------------------------------------------------------------------
+5. DATABASE SYSTEM BACKUP PACKAGE (.etala / .json snapshot)
+----------------------------------------------------------------------------------------------------
+• Triggered Via: Backup Settings (`/settings/`) [Admin Only] or Automated 24h Background Task
+• Target File  : `etala_backup_<YYYYMMDD_HHMMSS>.json`
+• Contents     : Complete cryptographic serialization of all relational database tables (Users,
+                 Barangays, Engineering Records, Permit/Project Details, Document Checklist templates,
+                 and Audit Trails) ready for 1-click restore during server migrations or disaster recovery.
+
+
+====================================================================================================
+8. COMPREHENSIVE CLIENT FAQ & TROUBLESHOOTING GUIDE (50 ESSENTIAL QUESTIONS)
+====================================================================================================
+
+PART I: USER ACCOUNTS, LOGIN, SESSIONS & SECURITY
+----------------------------------------------------------------------------------------------------
+Q01: What happens if an employee types the wrong password 5 times in a row?
+A01: The account is temporarily locked for safety. You have three easy ways to handle it:
+     • Option A (Standard): Wait 15 minutes. The timer will automatically unlock the login screen.
+     • Option B (Immediate): Click "Forgot Password" on the login screen to reset your password via email.
+     • Option C (Admin): An Administrator can reset the password immediately from the User Management page.
+
+Q02: What happens if I type the wrong password 3 times, but get it right on the 4th try?
+A02: The failed attempt counter immediately resets back to zero (0). You will not be locked out.
+
+Q03: Can multiple engineers or staff use the same account on different computers at the same time?
+A03: Yes! eTala supports flexible multi-session logins so staff can work on desktop PCs and laptops
+     simultaneously without being abruptly disconnected.
+
+Q04: How do I change or recover my password if I forget it?
+A04: Click the "Forgot Password" link on the login page, enter your registered email address, and click
+     "Send Reset Link". Open the email in your inbox and click the secure link to set your new password.
+
+Q05: What are the minimum password strength rules for eTala?
+A05: Passwords must be at least 8 characters long and contain at least one uppercase letter (A-Z), one
+     lowercase letter (a-z), and at least one number (0-9).
+
+Q06: Can I reuse my old password when changing it?
+A06: No. For municipal security compliance, eTala checks your password history to prevent reusing recent passwords.
+
+Q07: What happens when an employee resigns, transfers, or retires from the Engineering Office?
+A07: The Administrator goes to User Management (`/users/`) and toggles the user's status to "Deactivated".
+     This prevents future logins while permanently protecting all historical records and audit logs created
+     by that employee (zero broken data).
+
+Q08: Why did I receive an email saying "New Device Login Alert"?
+A08: Whenever your account signs in from a computer, phone, or browser that you have not used before,
+     eTala automatically notifies you by email so you know your account is safe.
+
+Q09: How can I update my profile name, designation, or avatar picture?
+A09: Click your name or avatar in the upper-right corner of the topbar, select "User Profile", make your
+     desired changes, and click "Save Changes".
+
+Q10: What should I do when leaving a shared office workstation?
+A10: Always click your avatar on the top right and select "Log out" to securely terminate your session.
+
+
+PART II: RECORD ENCODING, PERMITS & PROJECT MANAGEMENT
+----------------------------------------------------------------------------------------------------
+Q11: Can I save a new record even if I don't have all the required document attachments yet?
+A11: Yes! In Step 3 of the Creation Wizard, you can save the record as Active. You can return anytime to
+     upload the remaining documents as applicants or contractors submit them.
+
+Q12: What is the difference between a Municipal Project and a Barangay Project?
+A12: Municipal Projects are major public infrastructure funded directly by the Municipal Government (e.g.
+     20% Development Fund, Municipal Hall facilities). Barangay Projects are local community civil works
+     funded through Barangay Funds or specific local community allocations.
+
+Q13: What is the standard format for entering a Permit Number?
+A13: Use the official municipal standard format (e.g. `2026-06-00001` or standard sequence numbers like `4333333`).
+
+Q14: Can we encode backlog records from previous years (e.g. 2020, 2018)?
+A14: Yes! In Step 1 of the Creation Wizard, you can select any valid past year to digitize historical physical records.
+
+Q15: What should I do if I made a mistake in the Title, Barangay, or Project Cost?
+A15: Open the record's detail page, click the "Edit Record" button at the top-right, modify the information,
+     and click "Save Changes". The edit will be logged automatically in the system audit trail.
+
+Q16: Why are project costs masked (e.g. ₱ ••••••••) for some users?
+A16: To protect municipal financial privacy, non-admin staff see masked project costs for records authored by
+     other departments unless granted administrative permission.
+
+Q17: What does the "Sangguniang Bayan (SB) Resolution Required" checkbox mean?
+A17: It indicates that the project or permit required a formal municipal council legislative authorization
+     or endorsement before issuance.
+
+Q18: What project statuses are available in eTala?
+A18: Projects can be set to: Planning, Procurement, Ongoing, Completed, or Suspended.
+
+Q19: Can an Engineering Staff member delete a record?
+A19: No. Only Administrators have permission to move records to the Trash to prevent accidental data loss.
+
+Q20: How are multi-phase construction projects recorded?
+A20: Encode each phase clearly in the title (e.g. "Concreting of Local Access Road - Phase 1" and
+     "Concreting of Local Access Road - Phase 2") so each phase tracks its own budget and checklist.
+
+
+PART III: DOCUMENT CHECKLISTS, UPLOADS & IN-BROWSER PREVIEW
+----------------------------------------------------------------------------------------------------
+Q21: What file formats are accepted for document uploads?
+A21: eTala accepts PDF documents (`.pdf`), high-resolution images (`.jpg`, `.jpeg`, `.png`), and Word documents (`.docx`).
+
+Q22: What is the maximum allowed file size for each document?
+A22: Each individual document slot accepts files up to 10.0 Megabytes (MB).
+
+Q23: Do I need to download a PDF or blueprint to my computer to view it?
+A23: No! eTala features a built-in In-Browser Document Viewer. Clicking "Preview" opens the document
+     instantly inside the system with zoom, rotate, and multi-page reading tools.
+
+Q24: What happens if I upload the wrong document or need to replace a blurry scan?
+A24: Click the "Replace" button on that document slot and choose the new file. The system automatically
+     updates the slot to the new file and increments the version counter (e.g. v1 -> v2).
+
+Q25: What does the checklist percentage badge (e.g. 80%) mean?
+A25: It indicates the proportion of mandatory required documents that have been uploaded. When all required
+     documents are attached, the badge turns bright green (100% Complete).
+
+Q26: Can a required document be "Waived" if not applicable to a specific applicant?
+A26: Yes. Authorized staff can click "Waive" on a requirement slot for legally exempt cases, satisfying the slot.
+
+Q27: How does Document Expiry Tracking work?
+A27: When uploading time-sensitive documents (e.g. Fire Safety Inspection Certificates or Contractor Licenses),
+     you can set an Expiry Date. The system monitors this date and alerts you 30 days before it expires.
+
+Q28: Are uploaded municipal documents accessible to the public on the internet?
+A28: No. Documents are stored in secure cloud storage and can ONLY be viewed through time-limited signed
+     tokens (10-minute expiry) accessible strictly to logged-in authorized staff.
+
+Q29: What happens if our office internet is slow during an upload?
+A29: eTala uses asynchronous streaming uploads with progress indicators so you can see the upload progress.
+
+Q30: Can we upload multiple building plan pages as one file?
+A30: Yes! We recommend scanning multi-page architectural, structural, or sanitary plans into a single multi-page PDF.
+
+
+PART IV: SEARCH, FILTERING & RECORDS NAVIGATION
+----------------------------------------------------------------------------------------------------
+Q31: How fast is the search in eTala?
+A31: eTala searches across thousands of municipal records in under 300 milliseconds using instant live AJAX debouncing.
+
+Q32: What can I type in the search bar to find a record?
+A32: You can search by Record Title, Applicant/Owner Name, Contractor Name, Permit Number, Barangay Name,
+     Year, or Category (e.g. typing "2026 Canfabi Solar" finds matching solar records in Canfabi for 2026).
+
+Q33: How do I quickly clear what I typed in the search bar?
+A33: You can click the `(X)` icon inside the search bar or simply press the `Escape` (Esc) key on your keyboard.
+
+Q34: What characters are allowed in the search bar?
+A34: Letters (`a-z`, `A-Z`), Numbers (`0-9`), Spaces, and standard search punctuation (`- _ . # ( ) ' , /`).
+     Deliberate programming symbols (`< > { } " ; \ ^ $`) are stripped automatically for security.
+
+Q35: How do I view records from only one specific barangay?
+A35: Go to "Records", click the "Barangay" dropdown filter, and choose your desired barangay from the 49 options.
+
+Q36: Can I export the exact search results I am viewing on screen?
+A36: Yes! After searching or filtering, clicking "Export" downloads an Excel or PDF containing strictly the filtered results.
+
+Q37: Where can I find records that were encoded years ago?
+A37: Go to "Records" and choose "All Records", or select the specific historical year from the Year filter dropdown.
+
+
+PART V: TRASH, ARCHIVING & 30-DAY AUTO-PURGE
+----------------------------------------------------------------------------------------------------
+Q38: What happens when an Administrator deletes an active record?
+A38: The record is NOT permanently erased. It is safely moved to the "Trash & Archive" area (Soft Delete).
+
+Q39: How long does an accidentally deleted record stay in the Trash?
+A39: It stays safely in the Trash for exactly 30 calendar days.
+
+Q40: How do I restore a record that was deleted by mistake?
+A40: An Administrator opens "Trash & Archive" in the sidebar, finds the record, clicks the kebab menu (⋮),
+     and selects "Restore". The record and all its attached files return to the active list immediately.
+
+Q41: What happens after 30 days in the Trash?
+A41: The system automatically purges the record and permanently deletes its attached files from the server
+     disk to free up space (30-Day Auto-Purge Policy).
+
+Q42: Can a record be restored after the 30-day auto-purge has passed?
+A42: No. Once 30 days pass and the record is purged, it cannot be restored unless retrieved from a system backup file.
+
+Q43: Why did a Trash Warning notification stop showing after I clicked it?
+A43: eTala uses permanent notification IDs. Once you read or click a warning, it stays marked as read permanently.
+
+
+PART VI: 49 BARANGAYS & LEAFLET GIS MAPPING
+----------------------------------------------------------------------------------------------------
+Q44: Are all 49 barangays of Carigara included in the system?
+A44: Yes! All 49 barangays (Poblacion Barangays 1–5, coastal, upland, and rural barangays) are fully integrated.
+
+Q45: How do I view project locations on the interactive map?
+A45: Go to "Barangays" in the sidebar and click the "Show Map" button. The interactive Leaflet GIS map
+     will open showing all barangay project markers centered on Carigara town center (`11.2608, 124.6755`).
+
+Q46: What happens when I click a marker on the map?
+A46: A popup card appears showing the Barangay name, total completed projects, and total issued permits with a
+     link to open that barangay's dedicated workspace.
+
+
+PART VII: ILLEGAL CONSTRUCTIONS & VIOLATIONS
+----------------------------------------------------------------------------------------------------
+Q47: How do we record an unpermitted or illegal construction activity?
+A47: Click "New Record", choose "Illegal Construction Violation", input the location, owner details, and attach
+     inspection photos.
+
+Q48: Are illegal construction violations counted in official municipal accomplishment totals?
+A48: No! Violations are tracked strictly as Enforcement Indicators and are excluded from positive accomplishment
+     metrics so official LGU reports remain accurate and compliant.
+
+
+PART VIII: REPORTS, AUDIT LOGS & SYSTEM BACKUPS
+----------------------------------------------------------------------------------------------------
+Q49: How do I generate and print official reports for the Mayor, Sangguniang Bayan, or COA?
+A49: Go to "Reports" in the sidebar, choose your desired Year, Quarter, or Month, and click "Export to PDF".
+     The system produces a document with official Carigara LGU letterheads and signature blocks ready for signing.
+
+Q50: How do system backups work and how often are they performed?
+A50: eTala automatically creates a complete database backup snapshot every 24 hours. The system keeps the 14 latest
+     daily backups and cleans older snapshots automatically. Administrators can also click "Backup Database"
+     anytime to download an immediate backup copy to their computer.
+
+====================================================================================================
+End of Master Specification, Operational Blueprint & 50-Item FAQ Manual
+eTala (ERARMS) — Municipal Engineering Office, Carigara, Leyte
+====================================================================================================

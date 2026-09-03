@@ -66,6 +66,43 @@ def validate_document_file(file):
     # Virus scan validation
     virus_scan_file(file)
 
+
+def validate_violation_evidence_file(file):
+    """
+    Validate that an attachment uploaded during Notice of Violation / Illegal Construction reporting
+    is either a site photo (.jpg, .jpeg, .png, .webp) or a Notice of Violation document (.pdf),
+    does not exceed 50MB, and passes security checks.
+    Official engineering records remain strictly PDF-only.
+    """
+    ext = os.path.splitext(file.name)[1].lower()
+    allowed_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp']
+    if ext not in allowed_exts:
+        raise ValidationError(
+            "Invalid file format. For violation reports, please attach site photos (JPG, PNG, WEBP) "
+            "or a Notice of Violation PDF document."
+        )
+
+    # MIME type validation
+    allowed_mime_types = [
+        'application/pdf', 'application/x-pdf', 'application/acrobat', 
+        'applications/vnd.pdf', 'text/pdf', 'text/x-pdf',
+        'image/jpeg', 'image/pjpeg', 'image/png', 'image/webp', 'image/x-png'
+    ]
+    if hasattr(file, 'content_type') and file.content_type:
+        ct = file.content_type.lower()
+        if ct not in allowed_mime_types:
+            raise ValidationError(
+                "Invalid file content type. Only photos (JPG, PNG, WEBP) and PDF documents are supported for violation reporting."
+            )
+
+    # Size validation (50MB limit)
+    max_size = 50 * 1024 * 1024  # 50MB in bytes
+    if file.size > max_size:
+        raise ValidationError("File exceeds 50MB limit. Please compress and re-upload.")
+
+    # Virus scan validation
+    virus_scan_file(file)
+
 def sanitize_input(value):
     """Sanitize user input to prevent XSS by stripping tags and escaping HTML."""
     if not value:

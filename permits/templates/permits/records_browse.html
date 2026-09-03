@@ -300,8 +300,7 @@
 <!-- ══ HEADING ════════════════════════════════════════════════════════ -->
 <div class="etala-page-header">
     <div>
-        <h1 class="etala-page-title">Records Management</h1>
-        <p class="etala-page-subtitle">Search, filter, and manage all municipal permits, projects, and archived records.</p>
+        <h1 class="etala-page-title mb-0">Records Management</h1>
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
     <div class="etala-header-actions">
@@ -548,12 +547,12 @@
                 <thead>
                     <tr>
                         <th class="text-center cell-row-num" style="width: 48px; min-width: 48px;">#</th>
-                        <th style="width: 32%; min-width: 180px;">Title</th>
-                        <th style="width: 24%; min-width: 150px;">Type</th>
+                        <th style="width: 30%; min-width: 170px;">Title</th>
+                        <th style="width: 23%; min-width: 140px;">Type</th>
                         <th style="width: 17%; min-width: 120px;">Barangay</th>
-                        <th style="width: 9%; min-width: 60px;">Year</th>
-                        <th style="width: 10%; min-width: 80px;">Uploads</th>
-                        <th class="text-end" style="width: 4%; min-width: 40px; padding-right: 14px;"></th>
+                        <th style="width: 8%; min-width: 55px;">Year</th>
+                        <th style="width: 10%; min-width: 75px;">Uploads</th>
+                        <th class="text-end" style="width: 60px; min-width: 60px; padding-right: 20px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -653,11 +652,11 @@
                             {% endif %}
                             {% endwith %}
                         </td>
-                        <td class="text-end pe-3 action-menu-cell" style="width: 55px;"
+                        <td class="text-end action-menu-cell" style="width: 60px; min-width: 60px; padding-right: 20px !important;"
                             onclick="event.stopPropagation();">
                             <div class="dropdown" onclick="event.stopPropagation();">
                                 <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
-                                    data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" data-bs-auto-close="true"
+                                    data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
                                     onclick="event.stopPropagation();" title="Actions">
                                     <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
                                 </button>
@@ -676,7 +675,7 @@
                                     <li><a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap action-dropdown-danger"
                                             href="javascript:void(0)"
                                             data-url="{% url 'archive_record' r.record_id %}"
-                                            data-title="{{ r.title|escapejs }}"
+                                            data-title="{% if r.record_type == 'Permit' %}{% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}{{ r.permit_detail.applicant_name }}{% elif r.title and r.title != 'Permit' %}{{ r.title }}{% else %}{{ r.specific_type_label }}{% endif %}{% else %}{{ r.title }}{% endif %}"
                                             onclick="confirmArchiveRecord(this.dataset.url, this.dataset.title)"><i
                                                 class="fa-solid fa-trash-can text-danger" style="font-size: 13px; flex-shrink: 0;"></i> <span>Move to Trash</span></a></li>
                                     {% endif %}
@@ -1130,10 +1129,11 @@
         });
 
         function confirmArchiveRecord(archiveUrl, recordTitle) {
+            const cleanTitle = (recordTitle || 'this record').trim();
             if (window.showConfirmModal) {
                 showConfirmModal({
                     title: 'Move to Trash?',
-                    message: "This will move '" + recordTitle + "' to the trash archive.",
+                    message: "This will move '" + cleanTitle + "' to the trash archive.",
                     confirmText: 'MOVE TO TRASH',
                     cancelText: 'CANCEL',
                     confirmClass: 'action-btn-danger',
@@ -1142,7 +1142,7 @@
                     }
                 });
             } else {
-                if (confirm("Move record '" + recordTitle + "' to Trash?")) {
+                if (confirm("Move record '" + cleanTitle + "' to Trash?")) {
                     window.location.href = archiveUrl;
                 }
             }

@@ -74,13 +74,6 @@
                                 style="height: 180px; background: #f8fafc; border-color: #cbd5e1 !important;">
                                 <div id="flagLocationMap" style="width: 100%; height: 100%;"></div>
 
-                                <!-- HD Map Layer Switcher Pill -->
-                                <div class="position-absolute top-0 end-0 m-1.5" style="z-index: 999;">
-                                    <div class="btn-group btn-group-sm shadow-sm" role="group" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(4px); border-radius: 6px; padding: 2px; border: 1px solid rgba(0,0,0,0.12);">
-                                        <button type="button" class="btn btn-xs fw-semibold flag-layer-pill" id="flagLayerSatBtn" onclick="setFlagMapLayer('satellite')" style="font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; border: none; background: #0284c7; color: #ffffff; transition: all 0.15s ease;">Satellite HD</button>
-                                        <button type="button" class="btn btn-xs fw-semibold flag-layer-pill" id="flagLayerStrBtn" onclick="setFlagMapLayer('streets')" style="font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; border: none; background: transparent; color: #64748b; transition: all 0.15s ease;">Streets HD</button>
-                                    </div>
-                                </div>
 
                                 <!-- Guide Badge Overlay -->
                                 <div id="flagMapGuideOverlay"
@@ -139,7 +132,7 @@
                         <div class="col-12">
                             <label class="cr-label">Attach Photo or Notice <span class="text-muted fw-normal">(Optional)</span></label>
                             <div class="cr-dropzone-box" id="flagPhotoDropzone">
-                                <input type="file" name="photo" accept="image/*,.pdf" id="flagPhotoInput" class="cr-dropzone-input">
+                                <input type="file" name="photo" accept=".pdf,image/*,.jpg,.jpeg,.png,.webp" id="flagPhotoInput" class="cr-dropzone-input">
                                 
                                 <!-- Empty State -->
                                 <div id="flagPhotoEmptyState" class="cr-dropzone-empty">
@@ -148,7 +141,7 @@
                                     </div>
                                     <div class="cr-dropzone-text">
                                         <span class="cr-dropzone-main">Choose site photo or Notice of Violation</span>
-                                        <span class="cr-dropzone-sub">PNG, JPG, PDF up to 25 MB</span>
+                                        <span class="cr-dropzone-sub">JPG, PNG, WEBP, or PDF up to 50 MB</span>
                                     </div>
                                 </div>
 
@@ -186,17 +179,19 @@
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="modal-footer border-top px-4 py-3 bg-white d-flex align-items-center justify-content-end gap-2 flex-shrink-0">
-                    <button type="button" class="btn btn-light border px-3.5 py-2 fw-semibold text-secondary"
-                        data-bs-dismiss="modal" style="border-radius: 9px; font-size: 0.82rem; height: 38px; min-width: 85px;">
-                        Cancel
-                    </button>
-                    <button type="submit" form="flagIllegalForm"
-                        class="btn text-white px-4 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm"
-                        style="border-radius: 9px; font-size: 0.82rem; height: 38px; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 12px;"></i>
-                        <span>Report Violation</span>
-                    </button>
+                <div class="modal-footer border-top px-4 py-3 bg-white flex-shrink-0">
+                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" class="btn btn-light border py-2 fw-semibold text-secondary w-100"
+                            data-bs-dismiss="modal" style="border-radius: 9px; font-size: 0.85rem; height: 42px; background: #f1f5f9; border-color: #e2e8f0 !important;">
+                            Cancel
+                        </button>
+                        <button type="submit" form="flagIllegalForm"
+                            class="btn text-white py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm w-100"
+                            style="border-radius: 9px; font-size: 0.85rem; height: 42px; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);">
+                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 13px;"></i>
+                            <span>Report Violation</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -844,12 +839,13 @@
                 selectedSize.textContent = `${sz} MB`;
 
                 // Update icon according to type
-                if (f.type.includes('pdf')) {
-                    typeIcon.className = 'fa-solid fa-file-pdf';
-                } else if (f.type.includes('image')) {
-                    typeIcon.className = 'fa-solid fa-file-image';
+                const lowerName = f.name.toLowerCase();
+                if ((f.type && f.type.includes('pdf')) || lowerName.endsWith('.pdf')) {
+                    typeIcon.className = 'fa-solid fa-file-pdf text-danger';
+                } else if ((f.type && f.type.includes('image')) || /\.(jpe?g|png|webp)$/i.test(lowerName)) {
+                    typeIcon.className = 'fa-solid fa-file-image text-primary';
                 } else {
-                    typeIcon.className = 'fa-solid fa-file-lines';
+                    typeIcon.className = 'fa-solid fa-file-lines text-secondary';
                 }
 
                 emptyState.classList.add('d-none');

@@ -5,7 +5,9 @@ import io
 import json
 import logging
 import os
+from pathlib import Path
 import re
+import shutil
 import threading
 import zipfile
 
@@ -940,7 +942,7 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
                         counter = 2
                         while folder_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            folder_path = f"{base_p}_v{counter}_REPLACED{ext_p}"
+                            folder_path = f"{base_p}_Part_{counter}{ext_p}"
                             counter += 1
                         used_paths.add(folder_path)
 
@@ -1202,11 +1204,16 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
             elif token_lower == 'unresolved':
                 token_filter |= Q(is_illegal_construction=True, illegal_compliance_status='unresolved')
             
-            # Numeric token matching for Record IDs
-            num_clean = re.sub(r'^[#recREC\-\s]+', '', token)
-            if num_clean.isdigit():
-                num_val = int(num_clean)
-                token_filter |= Q(record_id=num_val)
+            # 4-Digit Year token matching (e.g. 2024, 2025, 2026)
+            if token.isdigit() and len(token) == 4:
+                year_val = int(token)
+                if 1900 <= year_val <= 2100:
+                    token_filter |= (
+                        Q(year=year_val) |
+                        Q(created_at__year=year_val) |
+                        Q(date_started__year=year_val) |
+                        Q(date_completed__year=year_val)
+                    )
             
             qs = qs.filter(token_filter)
 
@@ -1326,6 +1333,7 @@ def dispatch_new_device_login_alert(user, device, request):
     user_full_name = user.full_name or user.get_full_name() or user.username
     subject = f'🛡️ eTala Security Notice — New Device Login Detected'
     confirm_url = request.build_absolute_uri(reverse('profile')) if request else '#'
+    timestamp_str = timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p')
     
     # Generate direct 1-click password reset token link for instant lockdown
     try:
@@ -1439,5 +1447,182 @@ def purge_expired_trash_records(retention_days=30, dry_run=False):
         'purged_documents': purged_docs_count,
         'retention_days': retention_days,
         'dry_run': dry_run,
+    }
+
+
+# ─── AUTOMATED HYBRID SMART-SYNC BACKUP ENGINE ───────────────────────────────
+
+def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_run=False):
+    """
+    Executes a complete, automated Hybrid Smart-Sync Backup:
+    1. Generates a structured JSON database snapshot of all permits models.
+    2. Performs smart incremental mirroring of media files (copies only new/modified files).
+    3. Auto-purges old database snapshots exceeding retention_days (default: 14 days).
+    4. Logs an audit trail event in AuditLog.
+    """
+    from django.apps import apps
+    from django.core import serializers
+
+    now = timezone.now()
+    timestamp_str = now.strftime('%Y%m%d_%H%M%S')
+    db_filename = f"etala_db_{timestamp_str}.json"
+
+    if not target_dir:
+        env_path = os.getenv('BACKUP_STORAGE_PATH', '').strip()
+        if env_path:
+            base_backup_dir = Path(env_path)
+        else:
+            base_backup_dir = Path(settings.BASE_DIR) / 'backups'
+    else:
+        base_backup_dir = Path(target_dir)
+
+    db_dir = base_backup_dir / 'database'
+    media_backup_dir = base_backup_dir / 'media'
+
+    if not dry_run:
+        db_dir.mkdir(parents=True, exist_ok=True)
+        media_backup_dir.mkdir(parents=True, exist_ok=True)
+
+    db_file_path = db_dir / db_filename
+
+    # 1. Database serialization
+    app_models = apps.get_app_config('permits').get_models()
+    all_objects = []
+    for model_cls in app_models:
+        try:
+            all_objects.extend(list(model_cls.objects.all()))
+        except Exception as e:
+            logger.warning(f"Could not serialize model {model_cls.__name__}: {e}")
+
+    total_records = len(all_objects)
+
+    if not dry_run:
+        json_data = serializers.serialize('json', all_objects, indent=2)
+        with open(db_file_path, 'w', encoding='utf-8') as f:
+            f.write(json_data)
+
+    # 2. Smart Incremental Media Sync
+    new_files_synced = 0
+    total_media_files = 0
+    media_root = Path(settings.MEDIA_ROOT)
+
+    if media_root.exists():
+        for src_path in media_root.rglob('*'):
+            if src_path.is_file():
+                total_media_files += 1
+                rel_path = src_path.relative_to(media_root)
+                dest_path = media_backup_dir / rel_path
+
+                needs_copy = False
+                if not dest_path.exists():
+                    needs_copy = True
+                else:
+                    try:
+                        src_stat = src_path.stat()
+                        dest_stat = dest_path.stat()
+                        if src_stat.st_size != dest_stat.st_size or src_stat.st_mtime > dest_stat.st_mtime:
+                            needs_copy = True
+                    except Exception:
+                        needs_copy = True
+
+                if needs_copy:
+                    if not dry_run:
+                        dest_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src_path, dest_path)
+                    new_files_synced += 1
+
+    # 3. Auto-purge old snapshots exceeding retention period
+    purged_snapshots = 0
+    cutoff_time = now - timedelta(days=retention_days)
+
+    if db_dir.exists():
+        for old_file in db_dir.glob('etala_db_*.json'):
+            try:
+                file_mtime = datetime.datetime.fromtimestamp(old_file.stat().st_mtime, tz=datetime.timezone.utc)
+                if file_mtime < cutoff_time:
+                    if not dry_run:
+                        old_file.unlink()
+                    purged_snapshots += 1
+            except Exception as e:
+                logger.warning(f"Error checking/deleting old backup file {old_file}: {e}")
+
+    # 4. Audit Log
+    if not dry_run:
+        try:
+            log_msg = f"Automated System Backup: {db_filename} ({total_records} records, {new_files_synced} new files synced, {purged_snapshots} expired snapshots cleaned)"
+            AuditLog.objects.create(
+                user=user,
+                action=log_msg
+            )
+        except Exception as e:
+            logger.error(f"Audit log error during auto-backup: {e}")
+
+    # 5. Optional Supabase Cloud Sync
+    supabase_synced = False
+    supabase_url = getattr(settings, 'SUPABASE_URL', None) or os.getenv('SUPABASE_URL')
+    supabase_key = getattr(settings, 'SUPABASE_KEY', None) or os.getenv('SUPABASE_KEY')
+    if supabase_url and supabase_key and not dry_run:
+        try:
+            from .storage import SupabaseStorage
+            from django.core.files.base import ContentFile
+            bucket = getattr(settings, 'SUPABASE_BUCKET_NAME', 'etala-documents')
+            sup_storage = SupabaseStorage(bucket_name=bucket)
+            if sup_storage._is_configured():
+                with open(db_file_path, 'rb') as f:
+                    sup_storage.save(f"backups/{db_filename}", ContentFile(f.read()))
+                supabase_synced = True
+        except Exception as e:
+            logger.warning(f"Could not upload backup to Supabase: {e}")
+
+    return {
+        'success': True,
+        'db_filename': db_filename,
+        'db_path': str(db_file_path),
+        'backup_dir': str(base_backup_dir),
+        'total_records': total_records,
+        'new_files_synced': new_files_synced,
+        'total_media_files': total_media_files,
+        'purged_snapshots': purged_snapshots,
+        'retention_days': retention_days,
+        'supabase_synced': supabase_synced,
+        'timestamp': timezone.localtime(now).strftime('%Y-%m-%d %I:%M %p'),
+        'dry_run': dry_run,
+    }
+
+
+def get_latest_backup_info(target_dir=None):
+    """
+    Retrieves metadata about the most recent backup operation.
+    Checks AuditLog first, then falls back to physical backup directory inspection.
+    """
+    if not target_dir:
+        env_path = os.getenv('BACKUP_STORAGE_PATH', '').strip()
+        if env_path:
+            base_backup_dir = Path(env_path)
+        else:
+            base_backup_dir = Path(settings.BASE_DIR) / 'backups'
+    else:
+        base_backup_dir = Path(target_dir)
+
+    db_dir = base_backup_dir / 'database'
+    media_dir = base_backup_dir / 'media'
+
+    # Check latest audit log for backup
+    latest_log = AuditLog.objects.filter(
+        Q(action__icontains='Automated System Backup') | Q(action__icontains='Exported full database backup')
+    ).order_by('-performed_at').first()
+
+    last_time = latest_log.performed_at if latest_log else None
+
+    # Count physical files if available
+    total_snapshots = len(list(db_dir.glob('etala_db_*.json'))) if db_dir.exists() else 0
+    total_synced_media = sum(1 for _ in media_dir.rglob('*') if _.is_file()) if media_dir.exists() else 0
+
+    return {
+        'last_backup_time': last_time,
+        'last_backup_str': timezone.localtime(last_time).strftime('%b %d, %Y - %I:%M %p') if last_time else 'No backup yet',
+        'total_snapshots': total_snapshots,
+        'total_synced_media': total_synced_media,
+        'backup_dir': str(base_backup_dir),
     }
 

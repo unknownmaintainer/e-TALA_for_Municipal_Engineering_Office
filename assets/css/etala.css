@@ -5423,28 +5423,40 @@ input[type="date"] {
 }
 
 .dropdown-menu {
-    animation: dropdownMenuSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    transform-origin: top right;
+    animation: dropdownFadeIn 0.15s ease forwards;
+    max-height: 280px !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
 }
 
-@keyframes dropdownMenuSlideIn {
+@keyframes dropdownFadeIn {
     from {
         opacity: 0;
-        transform: translateY(-5px) scale(0.98);
     }
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
     }
 }
 
-/* Smart Auto-Dropup Support for Bottom Table Rows */
-.dropup .dropdown-menu,
-.data-table .dropup .dropdown-menu,
-.action-menu-cell .dropup .dropdown-menu,
-.dropdown.dropup .dropdown-menu,
-.action-menu-cell.dropup .dropdown-menu,
-td .dropdown.dropup .dropdown-menu {
+.dropdown-menu::-webkit-scrollbar {
+    width: 5px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.5);
+    border-radius: 4px;
+}
+
+/* Smart Auto-Dropup Support for Bottom Table Rows & Viewport Edges */
+.dropup > .dropdown-menu,
+.data-table .dropup > .dropdown-menu,
+.data-table td .dropup > .dropdown-menu,
+.action-menu-cell.dropup > .dropdown-menu,
+.action-dropdown.dropup > .dropdown-menu,
+.dropdown.dropup > .dropdown-menu,
+.table-card-responsive .dropup > .dropdown-menu,
+td .dropdown.dropup > .dropdown-menu,
+.dropdown-menu.dropup-active {
     top: auto !important;
     bottom: 100% !important;
     inset: auto 0px 100% auto !important;
@@ -5452,6 +5464,7 @@ td .dropdown.dropup .dropdown-menu {
     margin-bottom: 6px !important;
     transform: none !important;
     transform-origin: bottom right !important;
+    z-index: 999999 !important;
 }
 
 /* ─── 17. BREAKDOWN LIST ITEM ──────────────────────────────────────────────── */
@@ -7180,35 +7193,23 @@ textarea.form-control:focus {
 .illegal-title-pending_permit { color: #b45309 !important; font-weight: 700 !important; }
 .illegal-title-resolved { color: #15803d !important; font-weight: 700 !important; }
 
-/* Clean Frameless Type Column Indicators (No Background Box, No Border) */
-.type-text-unresolved {
-    color: #475569 !important;
-    font-weight: 500 !important;
-    font-size: var(--text-xs) !important;
-}
-
-.type-text-pending {
-    color: #475569 !important;
-    font-weight: 500 !important;
-    font-size: var(--text-xs) !important;
-}
-
+/* Clean Frameless Type Column Indicators (High Contrast & Clear) */
+.type-text-unresolved,
+.type-text-pending,
 .type-text-resolved {
-    color: #475569 !important;
-    font-weight: 500 !important;
-    font-size: var(--text-xs) !important;
+    color: #1e293b !important;
+    font-weight: 600 !important;
+    font-size: 0.82rem !important;
 }
 
-.dark-mode .type-text-unresolved {
-    color: #94a3b8 !important;
-}
-
-.dark-mode .type-text-pending {
-    color: #94a3b8 !important;
-}
-
-.dark-mode .type-text-resolved {
-    color: #94a3b8 !important;
+.dark-mode .type-text-unresolved,
+.dark-mode .type-text-pending,
+.dark-mode .type-text-resolved,
+[data-bs-theme="dark"] .type-text-unresolved,
+[data-bs-theme="dark"] .type-text-pending,
+[data-bs-theme="dark"] .type-text-resolved {
+    color: #f1f5f9 !important;
+    font-weight: 600 !important;
 }
 
 /* ═══ Ultra-Clean Frameless Plain-Text Status Indicators (No Dots, No Boxes) ═══ */
@@ -9522,9 +9523,10 @@ td.action-column,
     position: relative !important;
 }
 
-.data-table .dropdown-menu,
-.table-card-responsive .dropdown-menu,
-.action-dropdown .dropdown-menu {
+.data-table .dropdown:not(.dropup) > .dropdown-menu,
+.data-table td .dropdown:not(.dropup) > .dropdown-menu,
+.table-card-responsive .dropdown:not(.dropup) > .dropdown-menu,
+.action-dropdown:not(.dropup) > .dropdown-menu {
     position: absolute !important;
     top: 100% !important;
     bottom: auto !important;
@@ -9534,6 +9536,26 @@ td.action-column,
     margin-bottom: 0 !important;
     z-index: 99999 !important;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Dropup (opens upwards for bottom rows) */
+.data-table .dropup > .dropdown-menu,
+.data-table td .dropup > .dropdown-menu,
+.data-table .dropdown.dropup > .dropdown-menu,
+.table-card-responsive .dropup > .dropdown-menu,
+.action-dropdown.dropup > .dropdown-menu,
+.dropdown.dropup > .dropdown-menu,
+.dropup > .dropdown-menu,
+.dropdown-menu.dropup-active {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    margin-top: 0 !important;
+    margin-bottom: 6px !important;
+    z-index: 99999 !important;
+    box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.15), 0 -8px 10px -6px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Prevent table overflow from clipping dropdown */
@@ -9574,7 +9596,6 @@ body {
 .content-card,
 .btn,
 .nav-item,
-.dropdown-menu,
 .stat-card-grid,
 .filter-bar-wrap,
 .form-control,
@@ -10887,22 +10908,27 @@ h3.h5 {
 
 /* ─── FIXED ACTION COLUMN & FLOATING THREE-DOT DROPDOWN MENU ─── */
 .action-menu-cell {
-    width: 55px !important;
-    min-width: 55px !important;
-    max-width: 55px !important;
+    width: 64px !important;
+    min-width: 64px !important;
+    max-width: 64px !important;
     position: relative !important;
     text-align: right !important;
+    padding-right: 24px !important;
     white-space: nowrap !important;
     overflow: visible !important;
 }
 
-.row-action-btn {
+.row-action-btn,
+.checklist-kebab-btn,
+.brgy-kebab-btn {
     background: transparent !important;
-    border: 1px solid transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
     width: 32px !important;
     height: 32px !important;
     padding: 0 !important;
-    border-radius: 8px !important;
+    border-radius: 50% !important;
     color: var(--gray-500, #64748b) !important;
     cursor: pointer !important;
     transition: background-color 0.15s ease, color 0.15s ease !important;
@@ -10910,20 +10936,61 @@ h3.h5 {
     align-items: center !important;
     justify-content: center !important;
     line-height: 1 !important;
+    margin-right: 4px !important;
 }
 
 .row-action-btn:hover,
 .row-action-btn:focus,
-.row-action-btn[aria-expanded="true"] {
+.row-action-btn[aria-expanded="true"],
+.checklist-kebab-btn:hover,
+.checklist-kebab-btn:focus,
+.checklist-kebab-btn[aria-expanded="true"],
+.brgy-kebab-btn:hover,
+.brgy-kebab-btn:focus,
+.brgy-kebab-btn[aria-expanded="true"] {
     background-color: var(--gray-100, #f1f5f9) !important;
     color: var(--slate-800, #0f172a) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.dark-mode .row-action-btn,
+.dark-mode .checklist-kebab-btn,
+.dark-mode .brgy-kebab-btn,
+[data-bs-theme="dark"] .row-action-btn,
+[data-bs-theme="dark"] .checklist-kebab-btn,
+[data-bs-theme="dark"] .brgy-kebab-btn {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: #cbd5e1 !important;
 }
 
 .dark-mode .row-action-btn:hover,
 .dark-mode .row-action-btn:focus,
-.dark-mode .row-action-btn[aria-expanded="true"] {
-    background-color: #334155 !important;
-    color: #f8fafc !important;
+.dark-mode .row-action-btn[aria-expanded="true"],
+.dark-mode .checklist-kebab-btn:hover,
+.dark-mode .checklist-kebab-btn:focus,
+.dark-mode .checklist-kebab-btn[aria-expanded="true"],
+.dark-mode .brgy-kebab-btn:hover,
+.dark-mode .brgy-kebab-btn:focus,
+.dark-mode .brgy-kebab-btn[aria-expanded="true"],
+[data-bs-theme="dark"] .row-action-btn:hover,
+[data-bs-theme="dark"] .row-action-btn:focus,
+[data-bs-theme="dark"] .row-action-btn[aria-expanded="true"],
+[data-bs-theme="dark"] .checklist-kebab-btn:hover,
+[data-bs-theme="dark"] .checklist-kebab-btn:focus,
+[data-bs-theme="dark"] .checklist-kebab-btn[aria-expanded="true"],
+[data-bs-theme="dark"] .brgy-kebab-btn:hover,
+[data-bs-theme="dark"] .brgy-kebab-btn:focus,
+[data-bs-theme="dark"] .brgy-kebab-btn[aria-expanded="true"] {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    color: #38bdf8 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 /* Card & Table Action Dropdown Snug Position */
@@ -14085,4 +14152,474 @@ html, body {
 .dark-mode .tooltip.bs-tooltip-end .tooltip-arrow::before,
 [data-bs-theme="dark"] .tooltip.bs-tooltip-end .tooltip-arrow::before {
     border-right-color: #090d16 !important;
+}
+
+/* ─── OFFICIAL ETALA BRAND EMBLEM SAFEGUARD ─── */
+.brand-logo-circle {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    max-width: 38px !important;
+    max-height: 38px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    flex-shrink: 0 !important;
+    background: transparent !important;
+    border: 2px solid rgba(255, 255, 255, 0.65) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+    display: block !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════
+   eTala RESPONSIVE DESIGN STANDARD (320px – 767px Mobile & Small Screen Engine)
+   ════════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    /* ── 1. Page Shell & Horizontal Overflow Containment ── */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+
+    .etala-layout {
+        overflow-x: hidden !important;
+        width: 100% !important;
+    }
+
+    .etala-main {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .etala-content {
+        padding: 14px 14px 88px 14px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* ── 2. Top Header & Floating Capsule (Mobile Viewport Precision) ── */
+    .etala-header {
+        padding: 6px 10px !important;
+        height: 50px !important;
+        min-height: 50px !important;
+        max-height: 50px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .etala-header-container,
+    .etala-header .d-flex {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .header-left {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-shrink: 0 !important;
+        gap: 6px !important;
+        max-width: 45% !important;
+    }
+
+    .header-back-btn {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        min-height: 32px !important;
+        max-width: 32px !important;
+        max-height: 32px !important;
+        padding: 0 !important;
+        border-radius: 8px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+    }
+
+    .header-back-btn span {
+        display: none !important;
+    }
+
+    /* When Back Button is present on mobile, strictly hide breadcrumb */
+    .header-back-btn ~ .etala-breadcrumb-capsule,
+    .header-back-btn + .etala-breadcrumb-capsule,
+    .etala-breadcrumb-capsule.d-none {
+        display: none !important;
+    }
+
+    .etala-breadcrumb-capsule {
+        max-width: 120px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        font-size: 0.70rem !important;
+        padding: 2px 6px !important;
+        flex-shrink: 1 !important;
+        display: inline-flex;
+        align-items: center !important;
+    }
+
+    .etala-breadcrumb-capsule .breadcrumb-chevron {
+        margin: 0 2px !important;
+        font-size: 9px !important;
+    }
+
+    .header-right {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 3px !important;
+        margin-left: auto !important;
+        flex-shrink: 0 !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .header-action-group {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 2px !important;
+        flex-wrap: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+
+    .header-v-divider {
+        display: none !important;
+    }
+
+    .header-search-icon-btn,
+    .header-bell-btn {
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
+        max-width: 30px !important;
+        max-height: 30px !important;
+        padding: 0 !important;
+        flex-shrink: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .theme-switch-btn {
+        width: 38px !important;
+        height: 22px !important;
+        min-width: 38px !important;
+        min-height: 22px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .header-user-profile-btn {
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        flex-shrink: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+    }
+
+    .header-user-profile-btn .fa-chevron-down,
+    .header-user-profile-btn span {
+        display: none !important;
+    }
+
+    .header-user-profile-btn .header-avatar {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        min-height: 28px !important;
+        max-width: 28px !important;
+        max-height: 28px !important;
+    }
+
+    /* ── 3. Page Headers & Action Bars ── */
+    .etala-page-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        margin-bottom: 16px !important;
+    }
+
+    .etala-page-title {
+        font-size: 1.25rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .etala-page-subtitle {
+        font-size: 0.78rem !important;
+    }
+
+    .etala-header-actions {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    .etala-header-actions .premium-btn,
+    .etala-header-actions .btn,
+    .etala-header-actions .etala-btn {
+        flex: 1 1 auto !important;
+        min-height: 44px !important;
+        justify-content: center !important;
+        font-size: 0.82rem !important;
+    }
+
+    /* ── 4. Forms, Inputs & 16px iOS Anti-Zoom Standard ── */
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px !important;
+        min-height: 44px !important;
+        border-radius: 10px !important;
+    }
+
+    .etala-search-pill-wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 44px !important;
+    }
+
+    .users-search-form-wrapper,
+    #archiveFilterForm,
+    #userSearchForm,
+    #recordsFilterForm {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+    }
+
+    /* ── 4.5. Checklist & Scope Controls (Mobile Precision) ── */
+    .compact-checklist-actions {
+        display: none !important;
+    }
+
+    .scope-segmented-control-wrapper {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* ── 5. Universal Table-to-Card Smart Reflow ── */
+    .data-table.table-card-responsive,
+    .table-card-responsive {
+        width: 100% !important;
+        display: block !important;
+        border: 0 !important;
+    }
+
+    .table-card-responsive thead {
+        display: none !important;
+    }
+
+    .table-card-responsive tbody,
+    .table-card-responsive tr,
+    .table-card-responsive td {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .table-card-responsive tbody tr {
+        margin-bottom: 12px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 14px !important;
+        padding: 14px !important;
+        position: relative !important;
+        background: #ffffff !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+    }
+
+    .dark-mode .table-card-responsive tbody tr,
+    [data-bs-theme="dark"] .table-card-responsive tbody tr {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .table-card-responsive tbody td {
+        padding: 4px 0 !important;
+        border: none !important;
+    }
+
+    .table-card-responsive tbody td.cell-row-num {
+        display: none !important;
+    }
+
+    .table-card-responsive tbody td.action-menu-cell,
+    .table-card-responsive tbody td.text-end.action-menu-cell {
+        position: absolute !important;
+        top: 12px !important;
+        right: 12px !important;
+        width: auto !important;
+        padding: 0 !important;
+    }
+
+    .table-card-responsive tbody td.cell-title-wrap,
+    .table-card-responsive tbody td[data-label="Record Title"],
+    .table-card-responsive tbody td[data-label="Title"] {
+        padding-right: 38px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .table-card-responsive .row-action-btn {
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 8px !important;
+        background: #f1f5f9 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .dark-mode .table-card-responsive .row-action-btn,
+    [data-bs-theme="dark"] .table-card-responsive .row-action-btn {
+        background: #334155 !important;
+        color: #f8fafc !important;
+    }
+
+    /* ── 6. Mobile Modals (Centered, 90vh, Sticky Actions) ── */
+    .modal-dialog {
+        margin: 12px auto !important;
+        max-width: calc(100vw - 24px) !important;
+        display: flex !important;
+        align-items: center !important;
+        min-height: calc(100% - 24px) !important;
+    }
+
+    .modal-content {
+        max-height: 88vh !important;
+        border-radius: 16px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    .modal-header {
+        padding: 14px 16px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .modal-body {
+        overflow-y: auto !important;
+        padding: 16px !important;
+        flex-grow: 1 !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .modal-footer {
+        padding: 12px 16px !important;
+        display: flex !important;
+        gap: 8px !important;
+        flex-shrink: 0 !important;
+        background: inherit !important;
+    }
+
+    .modal-footer .btn,
+    .modal-footer .etala-btn,
+    .modal-footer .premium-btn {
+        flex: 1 1 50% !important;
+        min-height: 44px !important;
+        margin: 0 !important;
+        font-size: 0.85rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* ── 7. Touch Targets & Floating Action Controls (44px - 48px) ── */
+    .btn,
+    .etala-btn,
+    .premium-btn,
+    .nav-item,
+    .dropdown-item,
+    .form-check-input {
+        touch-action: manipulation;
+    }
+
+    .mobile-bottom-nav {
+        display: flex !important;
+        height: 60px !important;
+        background: rgba(255, 255, 255, 0.96) !important;
+        backdrop-filter: blur(12px) !important;
+        border-top: 1px solid #e2e8f0 !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 1040 !important;
+        align-items: center !important;
+        justify-content: space-around !important;
+    }
+
+    .dark-mode .mobile-bottom-nav,
+    [data-bs-theme="dark"] .mobile-bottom-nav {
+        background: rgba(15, 23, 42, 0.96) !important;
+        border-top-color: #334155 !important;
+    }
+
+    .mobile-nav-item {
+        min-width: 48px !important;
+        min-height: 48px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        color: #64748b !important;
+        text-decoration: none !important;
+        font-size: 0.68rem !important;
+        font-weight: 600 !important;
+    }
+
+    .mobile-nav-item.active {
+        color: #2563eb !important;
+    }
+
+    .dark-mode .mobile-nav-item.active,
+    [data-bs-theme="dark"] .mobile-nav-item.active {
+        color: #60a5fa !important;
+    }
+
+    .mobile-fab-circle {
+        width: 46px !important;
+        height: 46px !important;
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%) !important;
+        color: #ffffff !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45) !important;
+        margin-top: -14px !important;
+    }
+}
+
+/* Ultra-Compact Screens (< 380px) */
+@media (max-width: 380px) {
+    .etala-content {
+        padding: 10px 10px 84px 10px !important;
+    }
+
+    .etala-page-title {
+        font-size: 1.15rem !important;
+    }
+
+    .etala-header-actions .premium-btn,
+    .etala-header-actions .btn {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
 }

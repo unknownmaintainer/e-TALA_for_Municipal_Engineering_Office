@@ -30,6 +30,18 @@
         max-width: 480px !important;
         margin: 1.5rem auto !important;
     }
+    #addBarangayModal.modal.fade .modal-dialog,
+    #editBarangayModal.modal.fade .modal-dialog {
+        transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease !important;
+    }
+    .brgy-kebab-btn,
+    .dropdown-item,
+    .premium-btn,
+    .etala-btn,
+    .scope-pill-btn {
+        touch-action: manipulation;
+        cursor: pointer;
+    }
     #addBarangayModal .modal-content,
     #editBarangayModal .modal-content {
         border-radius: 18px !important;
@@ -829,7 +841,6 @@
 <div class="etala-page-header mb-2 py-0.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <h1 class="etala-page-title mb-0" style="font-size: 1.35rem; line-height: 1.2;">Barangay Workspaces</h1>
-        <p class="etala-page-subtitle mb-0" style="font-size: 0.78rem; line-height: 1.3;">Geographic records archiving across Carigara barangays.</p>
     </div>
     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
     <div class="d-flex align-items-center gap-2">
@@ -896,12 +907,6 @@
     </div>
 </div>
 
-<!-- ══ RESULT COUNT ROW (COMPACT) ═════════════════════════════════════════════ -->
-<div class="d-flex align-items-center justify-content-between mb-2 px-1">
-    <div class="text-muted small font-medium" style="font-size: 0.74rem; color: var(--gray-500, #64748B);">
-        <span id="resultCountText">Showing {{ shown_barangays_count|default:49 }} of {{ total_barangays_count|default:49 }} barangays</span>
-    </div>
-</div>
 
 <!-- Layout for Map and Cards Grid -->
 <div class="row g-3 mb-4" id="barangayContentRow">
@@ -1110,11 +1115,13 @@
                     </div>
                 </div>
 
-                <div class="modal-footer px-3.5 py-2.5 border-top d-flex justify-content-end align-items-center gap-2">
-                    <button type="button" class="etala-btn etala-btn-secondary" data-bs-dismiss="modal" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">Cancel</button>
-                    <button type="submit" class="etala-btn etala-btn-primary" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">
-                        <i class="fa-solid fa-plus me-1"></i> <span>Add Barangay</span>
-                    </button>
+                <div class="modal-footer px-3.5 py-2.5 border-top">
+                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" class="etala-btn etala-btn-secondary w-100" data-bs-dismiss="modal" style="height: 38px; font-size: 0.84rem;">Cancel</button>
+                        <button type="submit" class="etala-btn etala-btn-primary w-100" style="height: 38px; font-size: 0.84rem; display: inline-flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-plus me-1"></i> <span>Add Barangay</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1166,11 +1173,13 @@
                     </div>
                 </div>
 
-                <div class="modal-footer px-3.5 py-2.5 border-top d-flex justify-content-end align-items-center gap-2">
-                    <button type="button" class="etala-btn etala-btn-secondary" data-bs-dismiss="modal" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">Cancel</button>
-                    <button type="submit" class="etala-btn etala-btn-primary" style="height: 34px; padding: 0 14px; font-size: 0.80rem;">
-                        <i class="fa-solid fa-floppy-disk me-1"></i> <span>Save Changes</span>
-                    </button>
+                <div class="modal-footer px-3.5 py-2.5 border-top">
+                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" class="etala-btn etala-btn-secondary w-100" data-bs-dismiss="modal" style="height: 38px; font-size: 0.84rem;">Cancel</button>
+                        <button type="submit" class="etala-btn etala-btn-primary w-100" style="height: 38px; font-size: 0.84rem; display: inline-flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> <span>Save Changes</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1199,6 +1208,36 @@
         const defaultLat = (initialLat && !isNaN(initialLat)) ? parseFloat(initialLat) : 11.2980;
         const defaultLng = (initialLng && !isNaN(initialLng)) ? parseFloat(initialLng) : 124.6890;
 
+        function updateInputs(lat, lng) {
+            const latEl = document.getElementById(latInputId);
+            const lngEl = document.getElementById(lngInputId);
+            if (latEl) latEl.value = Number(lat).toFixed(5);
+            if (lngEl) lngEl.value = Number(lng).toFixed(5);
+        }
+
+        // Fast path: Reuse existing map instance to eliminate 300-500ms DOM re-creation lag
+        if (mapContainerId === 'edit_map_picker' && editPickerMap && editPickerMarker) {
+            editPickerMap.setView([defaultLat, defaultLng], 14, { animate: false });
+            editPickerMarker.setLatLng([defaultLat, defaultLng]);
+            if (initialLat && initialLng) {
+                updateInputs(defaultLat, defaultLng);
+            }
+            requestAnimationFrame(() => {
+                if (editPickerMap) editPickerMap.invalidateSize();
+            });
+            return;
+        }
+
+        if (mapContainerId === 'add_map_picker' && addPickerMap && addPickerMarker) {
+            addPickerMap.setView([defaultLat, defaultLng], 14, { animate: false });
+            addPickerMarker.setLatLng([defaultLat, defaultLng]);
+            updateInputs(defaultLat, defaultLng);
+            requestAnimationFrame(() => {
+                if (addPickerMap) addPickerMap.invalidateSize();
+            });
+            return;
+        }
+
         const containerEl = document.getElementById(mapContainerId);
         if (containerEl) {
             L.DomEvent.disableScrollPropagation(containerEl);
@@ -1222,12 +1261,12 @@
             L.DomEvent.disableClickPropagation(mapInstance.getContainer());
         }
 
-        // High-Definition Satellite Imagery (Retina 2x Super-Sampled)
-        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
-            maxZoom: 20,
+        // OpenStreetMap (Consistent with Barangay View)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
             maxNativeZoom: 19,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Satellite'
+            subdomains: ['a', 'b', 'c'],
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(mapInstance);
 
         const customIcon = L.divIcon({
@@ -1241,13 +1280,6 @@
             draggable: true,
             icon: customIcon
         }).addTo(mapInstance);
-
-        function updateInputs(lat, lng) {
-            const latEl = document.getElementById(latInputId);
-            const lngEl = document.getElementById(lngInputId);
-            if (latEl) latEl.value = Number(lat).toFixed(5);
-            if (lngEl) lngEl.value = Number(lng).toFixed(5);
-        }
 
         if (initialLat && initialLng) {
             updateInputs(defaultLat, defaultLng);
@@ -1276,18 +1308,16 @@
         if (latInput) latInput.addEventListener('input', syncFromInputs);
         if (lngInput) lngInput.addEventListener('input', syncFromInputs);
 
+        requestAnimationFrame(() => {
+            if (mapInstance) {
+                mapInstance.invalidateSize();
+            }
+        });
         setTimeout(() => {
             if (mapInstance) {
                 mapInstance.invalidateSize();
-                mapInstance.setView([defaultLat, defaultLng], 14);
             }
-        }, 150);
-        setTimeout(() => {
-            if (mapInstance) {
-                mapInstance.invalidateSize();
-                mapInstance.setView([defaultLat, defaultLng], 14);
-            }
-        }, 350);
+        }, 80);
 
         if (mapContainerId === 'add_map_picker') {
             addPickerMap = mapInstance;
@@ -1302,10 +1332,20 @@
     document.addEventListener('DOMContentLoaded', function () {
         const addModalEl = document.getElementById('addBarangayModal');
         if (addModalEl) {
-            addModalEl.addEventListener('shown.bs.modal', function () {
+            addModalEl.addEventListener('show.bs.modal', function () {
                 const body = addModalEl.querySelector('.modal-body');
                 if (body) body.scrollTop = 0;
                 initPickerMap('add_map_picker', 'add_latitude', 'add_longitude', 11.2980, 124.6890);
+            });
+            addModalEl.addEventListener('shown.bs.modal', function () {
+                if (addPickerMap) addPickerMap.invalidateSize();
+            });
+        }
+
+        const editModalEl = document.getElementById('editBarangayModal');
+        if (editModalEl) {
+            editModalEl.addEventListener('shown.bs.modal', function () {
+                if (editPickerMap) editPickerMap.invalidateSize();
             });
         }
     });
@@ -1320,20 +1360,24 @@
         if (latInput) latInput.value = lat || '';
         if (lngInput) lngInput.value = lng || '';
 
+        // Immediately close any open dropdowns so they don't block clicks or linger
+        document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+        document.querySelectorAll('[data-bs-toggle="dropdown"][aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+
         const editModalEl = document.getElementById('editBarangayModal');
         if (!editModalEl) return;
-        if (!editBarangayModalObj && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-            editBarangayModalObj = new bootstrap.Modal(editModalEl);
-        }
-        
-        const onShown = function () {
-            const body = editModalEl.querySelector('.modal-body');
-            if (body) body.scrollTop = 0;
-            initPickerMap('edit_map_picker', 'edit_latitude', 'edit_longitude', lat ? parseFloat(lat) : 11.2980, lng ? parseFloat(lng) : 124.6890);
-            editModalEl.removeEventListener('shown.bs.modal', onShown);
-        };
-        editModalEl.addEventListener('shown.bs.modal', onShown);
-        if (editBarangayModalObj) editBarangayModalObj.show();
+
+        const bsModal = (typeof bootstrap !== 'undefined' && bootstrap.Modal)
+            ? bootstrap.Modal.getOrCreateInstance(editModalEl)
+            : null;
+
+        const parsedLat = (lat && !isNaN(lat)) ? parseFloat(lat) : 11.2980;
+        const parsedLng = (lng && !isNaN(lng)) ? parseFloat(lng) : 124.6890;
+
+        // Initialize / update picker map immediately without waiting for transition to finish
+        initPickerMap('edit_map_picker', 'edit_latitude', 'edit_longitude', parsedLat, parsedLng);
+
+        if (bsModal) bsModal.show();
     };
 
     window.confirmDeleteBarangay = function(id, name, totalRecords) {
@@ -1373,10 +1417,6 @@
         const grid = document.getElementById('barangayGrid');
         if (!grid) return;
 
-        const overlay = document.getElementById('barangaysLoadingOverlay');
-        if (overlay) overlay.classList.add('show');
-        grid.classList.add('is-sorting');
-
         // Update active UI tab pill and data-sort immediately
         const scopeControl = document.getElementById('barangaySortControl') || document.querySelector('.scope-segmented-control');
         if (scopeControl) {
@@ -1392,60 +1432,37 @@
             }
         }
 
-        setTimeout(() => {
-            const cardsArray = Array.from(document.querySelectorAll('.barangay-card-wrapper'));
+        const cardsArray = Array.from(document.querySelectorAll('.barangay-card-wrapper'));
 
-            if (sortVal === 'most_records') {
-                cardsArray.sort((a, b) => {
-                    const countA = parseInt(a.getAttribute('data-total') || '0', 10);
-                    const countB = parseInt(b.getAttribute('data-total') || '0', 10);
-                    if (countB !== countA) return countB - countA;
-                    const nameA = (a.getAttribute('data-name') || '').toLowerCase();
-                    const nameB = (b.getAttribute('data-name') || '').toLowerCase();
-                    return nameA.localeCompare(nameB);
-                });
-            } else {
-                cardsArray.sort((a, b) => {
-                    const nameA = (a.getAttribute('data-name') || '').toLowerCase();
-                    const nameB = (b.getAttribute('data-name') || '').toLowerCase();
-                    return nameA.localeCompare(nameB);
-                });
-            }
-
-            // Re-append in sorted order smoothly
-            cardsArray.forEach(card => grid.appendChild(card));
-
-            setTimeout(() => {
-                grid.classList.remove('is-sorting');
-                if (overlay) overlay.classList.remove('show');
-            }, 60);
-
-            // Update URL state smoothly without reload
-            try {
-                const url = new URL(window.location.href);
-                url.searchParams.set('sort', sortVal);
-                window.history.replaceState({}, '', url.toString());
-            } catch (e) {}
-        }, 120);
-    };
-
-    function initBarangaysPage() {
-        const addModalEl = document.getElementById('addBarangayModal');
-        if (addModalEl) {
-            addModalEl.addEventListener('shown.bs.modal', function () {
-                initPickerMap('add_map_picker', 'add_latitude', 'add_longitude', 11.2980, 124.6890);
+        if (sortVal === 'most_records') {
+            cardsArray.sort((a, b) => {
+                const countA = parseInt(a.getAttribute('data-total') || '0', 10);
+                const countB = parseInt(b.getAttribute('data-total') || '0', 10);
+                if (countB !== countA) return countB - countA;
+                const nameA = (a.getAttribute('data-name') || '').toLowerCase();
+                const nameB = (b.getAttribute('data-name') || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+        } else {
+            cardsArray.sort((a, b) => {
+                const nameA = (a.getAttribute('data-name') || '').toLowerCase();
+                const nameB = (b.getAttribute('data-name') || '').toLowerCase();
+                return nameA.localeCompare(nameB);
             });
         }
 
-        const addModal = document.getElementById('addBarangayModal');
-        const editModal = document.getElementById('editBarangayModal');
-        if (addModal && !document.body.contains(addModal)) document.body.appendChild(addModal);
-        if (editModal && !document.body.contains(editModal)) {
-            document.body.appendChild(editModal);
-            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                editBarangayModalObj = new bootstrap.Modal(editModal);
-            }
-        }
+        // Re-append in sorted order immediately without artificial delays
+        cardsArray.forEach(card => grid.appendChild(card));
+
+        // Update URL state smoothly without reload
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort', sortVal);
+            window.history.replaceState({}, '', url.toString());
+        } catch (e) {}
+    };
+
+    function initBarangaysPage() {
 
         // Card click navigation & map sync delegation
         document.addEventListener('click', function (e) {

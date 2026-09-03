@@ -531,13 +531,7 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
         padding-right: 36px !important; /* Space for absolute 3-dots button */
     }
 
-    /* Col 2: Official Designation */
-    #usersTableContainer .user-row-item-tr td[data-label="Designation"] {
-        margin-bottom: 8px !important;
-        font-size: 0.78rem !important;
-    }
-
-    /* Col 3 & 4: Role + Status in one compact horizontal line */
+    /* Role + Status in one compact horizontal line */
     #usersTableContainer .user-row-item-tr td[data-label="Role"] {
         display: inline-block !important;
         width: auto !important;
@@ -565,13 +559,16 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
     }
 
     #usersTableContainer .row-action-btn {
-        width: 34px !important;
-        height: 34px !important;
-        display: flex !important;
+        width: 32px !important;
+        height: 32px !important;
+        display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        background: rgba(0, 0, 0, 0.03) !important;
-        border-radius: 8px !important;
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        border-radius: 50% !important;
     }
 
     /* Header Actions on Mobile: Icon-Forward with Compact Text */
@@ -600,8 +597,7 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
 <!-- ══ HEADER & ACTIONS ═══════════════════════════════════════════════════ -->
 <div class="etala-page-header mb-3">
     <div>
-        <h1 class="etala-page-title">User Management</h1>
-        <p class="etala-page-subtitle">Manage engineering staff accounts, credentials, and role permissions.</p>
+        <h1 class="etala-page-title mb-0">User Management</h1>
     </div>
     
     <div class="etala-header-actions d-flex align-items-center gap-2">
@@ -617,13 +613,21 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
 
 <!-- ══ SEARCH & STATS TOOLBAR ════════════════════════════════════════════ -->
 <div class="d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
-    <!-- Left: Search Input (Integrated Pill Design - Compact) -->
-    <form method="GET" action="{% url 'users' %}" id="userSearchForm" class="m-0 users-search-form-wrapper" style="width: 280px; max-width: 280px;">
+    <!-- Left: Active Personnel Counter Pill -->
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 active-operators-badge shadow-2xs" style="font-size: 0.78rem; font-weight: 600;">
+            <i class="fa-solid fa-circle-check text-success" style="font-size: 11px;"></i>
+            <span>{{ stats.active|default:0 }} Active Personnel</span>
+        </span>
+    </div>
+
+    <!-- Right: Search Input (Standard 250px Compact Pill) -->
+    <form method="GET" action="{% url 'users' %}" id="userSearchForm" class="m-0 ms-auto users-search-form-wrapper" style="width: 250px; max-width: 250px;">
         <div class="etala-search-pill-wrapper">
             <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search users">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>
-            <input type="text" name="q" id="userSearchInput" class="etala-search-pill-input search-text-input" placeholder="Search staff, email..." value="{{ q|default:'' }}" autocomplete="off">
+            <input type="text" name="q" id="userSearchInput" class="etala-search-pill-input search-text-input" placeholder="Search staff, email..." value="{{ q|default:'' }}" autocomplete="off" maxlength="80">
 
             <div id="userSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
                 style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
@@ -635,14 +639,6 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
             </a>
         </div>
     </form>
-
-    <!-- Right: Active Personnel Counter Pill -->
-    <div class="d-flex align-items-center gap-2 ms-auto">
-        <span class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center gap-1.5 active-operators-badge shadow-2xs">
-            <i class="fa-solid fa-circle-check text-success" style="font-size: 12px;"></i>
-            <span>{{ stats.active|default:0 }} Active Personnel</span>
-        </span>
-    </div>
 </div>
 
 <!-- ── USER ACCOUNTS TABLE ── -->
@@ -652,10 +648,9 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
         <table class="data-table mb-0" style="width: 100%;">
             <thead>
                 <tr>
-                    <th style="min-width: 260px; width: 34%;">STAFF MEMBER</th>
-                    <th style="min-width: 200px; width: 26%;">OFFICIAL DESIGNATION</th>
-                    <th style="min-width: 170px; width: 22%;">ROLE</th>
-                    <th class="text-end" style="min-width: 150px; width: 18%;">STATUS & ACTIONS</th>
+                    <th style="min-width: 280px; width: 48%;">STAFF MEMBER</th>
+                    <th style="min-width: 170px; width: 26%;">ROLE</th>
+                    <th class="text-end" style="min-width: 150px; width: 26%;">STATUS & ACTIONS</th>
                 </tr>
             </thead>
             <tbody>
@@ -694,14 +689,7 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
                     </div>
                 </td>
 
-                <!-- Col 2: Official Designation -->
-                <td data-label="Designation" style="vertical-align: middle;">
-                    <div class="fw-medium text-dark-emphasis text-truncate" style="font-size: 0.82rem;">
-                        {{ u.designation|default:u.get_role_display }}
-                    </div>
-                </td>
-
-                <!-- Col 3: Role Badge -->
+                <!-- Col 2: Role Badge -->
                 <td data-label="Role" style="vertical-align: middle; white-space: nowrap;">
                     {% if u.role == 'admin' %}
                     <span class="badge-role-admin">
@@ -956,11 +944,13 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer px-4 py-3 border-top d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-3.5 py-1.5 fw-semibold" style="border-radius: 8px; font-size: 0.82rem; background-color: #002855; border-color: #002855;">
-                        <i class="fa-solid fa-plus me-1.5"></i> <span>Create Account</span>
-                    </button>
+                <div class="modal-footer px-4 py-3 border-top">
+                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" class="btn btn-light border py-2 fw-semibold text-secondary w-100" data-bs-dismiss="modal" style="border-radius: 10px; font-size: 0.88rem; height: 42px; background: #f1f5f9; border-color: #e2e8f0 !important;">Cancel</button>
+                        <button type="submit" class="btn btn-primary py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm w-100" style="border-radius: 10px; font-size: 0.88rem; height: 42px; background-color: #002855; border-color: #002855;">
+                            <i class="fa-solid fa-plus me-1"></i> <span>Create Account</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1012,11 +1002,13 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer px-4 py-3 border-top d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
-                    <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
-                        <i class="fa-solid fa-floppy-disk"></i> <span>Save Changes</span>
-                    </button>
+                <div class="modal-footer px-4 py-3 border-top">
+                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" class="btn btn-light border py-2 fw-semibold text-secondary w-100" data-bs-dismiss="modal" style="border-radius: 10px; font-size: 0.88rem; height: 42px; background: #f1f5f9; border-color: #e2e8f0 !important;">Cancel</button>
+                        <button type="submit" class="etala-btn etala-btn-primary w-100" style="border-radius: 10px; font-size: 0.88rem; height: 42px; display: inline-flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-floppy-disk me-1.5"></i> <span>Save Changes</span>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1024,54 +1016,58 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
 </div>
 
 <!-- Reset Password Modal -->
+<!-- Reset Password Modal (Centered Symmetrical Layout) -->
 <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered user-form-modal-dialog">
-        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #ccfbf1; color: #0d9488;">
-                        <i class="fa-solid fa-key" style="font-size: 15px;"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Reset User Password</h5>
-                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Set a new secure access credential</p>
-                    </div>
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 410px; margin: 1.25rem auto;">
+        <div class="modal-content border-0 position-relative custom-confirm-card" style="border-radius: 20px; background: #ffffff; text-align: center; overflow: hidden; padding: 26px 24px 22px; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.06);">
+            <!-- Fixed Absolute Close Button in Top-Right -->
+            <button type="button" class="btn-close position-absolute" data-bs-dismiss="modal" aria-label="Close" style="top: 16px; right: 16px; font-size: 0.70rem; opacity: 0.45; z-index: 5; cursor: pointer;"></button>
+
+            <!-- Center Icon Badge -->
+            <div class="d-flex justify-content-center mb-3">
+                <div style="width: 52px; height: 52px; min-width: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #ccfbf1; color: #0d9488; font-size: 20px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);">
+                    <i class="fa-solid fa-key"></i>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+
+            <!-- Center Title -->
+            <h5 class="fw-bold modal-confirm-title mb-2 text-center" style="font-size: 1.15rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; line-height: 1.35;">
+                Reset User Password
+            </h5>
+
+            <!-- Center Description -->
+            <div class="mb-3 px-1">
+                <p class="modal-confirm-desc mb-0 text-center" style="font-size: 0.85rem; color: #64748b; line-height: 1.55;">
+                    Set a new secure access password for <strong id="reset_user_name" class="text-dark"></strong>.
+                </p>
+            </div>
+
             <form action="{% url 'users' %}" method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="reset_password">
                 <input type="hidden" name="user_id" id="reset_user_id">
-                <div class="modal-body p-4">
-                    <p class="text-muted small mb-3">
-                        Enter a new password for <strong id="reset_user_name" class="text-dark"></strong>.
-                    </p>
 
-                    <div class="mb-3">
-                        <div class="d-flex align-items-center justify-content-between mb-1">
-                            <label class="form-label fw-semibold text-dark small mb-0">New Password</label>
-                            <span class="text-muted fw-medium" style="font-size: 0.71rem;">
-                                <i class="fa-solid fa-shield-halved text-secondary me-1" style="font-size: 10px;"></i>Min. 8 characters
-                            </span>
-                        </div>
-                        <div class="obo-pw-wrapper">
-                            <input type="password" name="new_password" class="obo-input" placeholder="Enter new password (min. 8 chars)" required minlength="8" id="resetPasswordInput" autocomplete="new-password">
-                            <button type="button" class="pw-toggle-btn" onclick="togglePassVisibility('resetPasswordInput', this)" title="Toggle password visibility" aria-label="Toggle password visibility">
-                                <i class="fa-solid fa-eye"></i>
-                            </button>
-                        </div>
-
-                        <div class="d-flex align-items-center gap-1.5 mt-1.5 text-muted" style="font-size: 0.72rem;">
-                            <i class="fa-solid fa-circle-info text-primary opacity-75 flex-shrink-0" style="font-size: 11px;"></i>
-                            <span>Enter the updated access credential for this account.</span>
-                        </div>
+                <div class="mb-4 text-start">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <label class="form-label fw-semibold text-dark small mb-0">New Password</label>
+                        <span class="text-muted fw-medium" style="font-size: 0.71rem;">
+                            <i class="fa-solid fa-shield-halved text-secondary me-1" style="font-size: 10px;"></i>Min. 8 chars
+                        </span>
+                    </div>
+                    <div class="obo-pw-wrapper">
+                        <input type="password" name="new_password" class="obo-input" placeholder="Enter new password (min. 8 chars)" required minlength="8" id="resetPasswordInput" autocomplete="new-password">
+                        <button type="button" class="pw-toggle-btn" onclick="togglePassVisibility('resetPasswordInput', this)" title="Toggle password visibility" aria-label="Toggle password visibility">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="modal-footer px-4 py-3 border-top d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-light border px-3.5 py-1.5 fw-semibold text-secondary" data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.82rem;">Cancel</button>
-                    <button type="submit" class="etala-btn etala-btn-primary etala-btn-sm">
-                        <i class="fa-solid fa-key"></i> <span>Reset Password</span>
+
+                <!-- Footer 50/50 Buttons -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button type="button" class="btn btn-light border py-2 fw-semibold text-secondary w-100" data-bs-dismiss="modal" style="border-radius: 10px; font-size: 0.88rem; height: 42px; background: #f1f5f9; border-color: #e2e8f0 !important;">Cancel</button>
+                    <button type="submit" class="btn btn-primary py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm w-100" style="border-radius: 10px; font-size: 0.88rem; height: 42px; background: #0d9488 !important; border: none; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);">
+                        <i class="fa-solid fa-key" style="font-size: 13px;"></i>
+                        <span>Reset Password</span>
                     </button>
                 </div>
             </form>
@@ -1079,50 +1075,59 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
     </div>
 </div>
 
-<!-- Delete User Confirmation Modal (Compact & Balanced Proportions) -->
+<!-- Delete User Confirmation Modal (Centered Symmetrical Layout) -->
 <div class="modal fade" id="deleteUserModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered user-confirm-modal-dialog">
-        <div class="modal-content border-0 shadow-2xl" style="border-radius: 20px; overflow: hidden;">
-            <div class="modal-header border-bottom px-4 py-3.5 d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 36px; height: 36px; background: #fee2e2; color: #dc2626;">
-                        <i class="fa-solid fa-trash-can" style="font-size: 15px;"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-dark mb-0" style="font-size: 1.02rem;">Delete User Account</h5>
-                        <p class="text-muted mb-0" style="font-size: 0.76rem;">Permanent account removal</p>
-                    </div>
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 410px; margin: 1.25rem auto;">
+        <div class="modal-content border-0 position-relative custom-confirm-card" style="border-radius: 20px; background: #ffffff; text-align: center; overflow: hidden; padding: 26px 24px 22px; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.06);">
+            <!-- Fixed Absolute Close Button in Top-Right -->
+            <button type="button" class="btn-close position-absolute" data-bs-dismiss="modal" aria-label="Close" style="top: 16px; right: 16px; font-size: 0.70rem; opacity: 0.45; z-index: 5; cursor: pointer;"></button>
+
+            <!-- Center Icon Badge -->
+            <div class="d-flex justify-content-center mb-3">
+                <div style="width: 52px; height: 52px; min-width: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #fee2e2; color: #dc2626; font-size: 20px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);">
+                    <i class="fa-solid fa-trash-can"></i>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+
+            <!-- Center Title -->
+            <h5 class="fw-bold modal-confirm-title mb-2 text-center" style="font-size: 1.15rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; line-height: 1.35;">
+                Delete User Account
+            </h5>
+
+            <!-- Center Description -->
+            <div class="mb-3 px-1">
+                <p class="modal-confirm-desc mb-0 text-center" style="font-size: 0.85rem; color: #64748b; line-height: 1.55;">
+                    Are you sure you want to permanently delete this user account?
+                </p>
+            </div>
+
+            <!-- Account Target Card with Clean Dynamic Avatar -->
+            <div class="p-3 rounded-3 border d-flex align-items-center gap-3 mb-2.5 delete-target-card text-start" style="background: #f8fafc;">
+                <div id="delete_user_avatar_container" class="flex-shrink-0" style="width: 40px; height: 40px;">
+                    <!-- Dynamically populated via JS -->
+                </div>
+                <div class="min-w-0 flex-grow-1">
+                    <div class="fw-bold text-dark text-truncate" id="delete_user_name" style="font-size: 0.90rem;"></div>
+                    <div class="text-muted text-truncate" id="delete_user_email" style="font-size: 0.78rem;"></div>
+                </div>
+            </div>
+
+            <!-- Subtle Standard Helper Subtext -->
+            <div class="d-flex align-items-center justify-content-center gap-1.5 text-muted mb-4" style="font-size: 0.73rem;">
+                <i class="fa-solid fa-circle-info text-primary opacity-75 flex-shrink-0" style="font-size: 11px;"></i>
+                <span>Accounts with linked records must be <strong>deactivated</strong> instead.</span>
+            </div>
+
+            <!-- Footer 50/50 Buttons -->
             <form action="{% url 'users' %}" method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="delete_user">
                 <input type="hidden" name="user_id" id="delete_user_id">
-                
-                <div class="modal-body p-4">
-                    <!-- Account Target Card with Clean Dynamic Avatar -->
-                    <div class="p-3 rounded-3 border d-flex align-items-center gap-3 mb-2.5 delete-target-card" style="background: #f8fafc;">
-                        <div id="delete_user_avatar_container" class="flex-shrink-0" style="width: 40px; height: 40px;">
-                            <!-- Dynamically populated via JS -->
-                        </div>
-                        <div class="min-w-0 flex-grow-1">
-                            <div class="fw-bold text-dark text-truncate" id="delete_user_name" style="font-size: 0.90rem;"></div>
-                            <div class="text-muted text-truncate" id="delete_user_email" style="font-size: 0.78rem;"></div>
-                        </div>
-                    </div>
-
-                    <!-- Subtle Standard Helper Subtext (Seamless & Clean) -->
-                    <div class="d-flex align-items-center gap-1.5 text-muted px-0.5" style="font-size: 0.73rem;">
-                        <i class="fa-solid fa-circle-info text-primary opacity-75 flex-shrink-0" style="font-size: 11px;"></i>
-                        <span>Accounts with linked records must be <strong>deactivated</strong> instead.</span>
-                    </div>
-                </div>
-
-                <div class="modal-footer px-4 py-2.5 border-top d-flex justify-content-end gap-2" style="border-color: #f1f5f9 !important;">
-                    <button type="button" class="btn fw-semibold confirm-cancel-btn" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn fw-bold confirm-action-btn shadow-sm" style="background-color: #dc2626; color: #ffffff;">
-                        <i class="fa-solid fa-trash-can me-1" style="font-size: 11px;"></i> <span>Delete Account</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button type="button" class="btn btn-light border py-2 fw-semibold text-secondary w-100" data-bs-dismiss="modal" style="border-radius: 10px; font-size: 0.88rem; height: 42px; background: #f1f5f9; border-color: #e2e8f0 !important;">Cancel</button>
+                    <button type="submit" class="btn btn-danger py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm w-100" style="border-radius: 10px; font-size: 0.88rem; height: 42px; background: #dc2626 !important; border: none; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);">
+                        <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
+                        <span>Delete Account</span>
                     </button>
                 </div>
             </form>
