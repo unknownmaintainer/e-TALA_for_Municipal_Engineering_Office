@@ -6539,8 +6539,11 @@ def users_view(request):
                 return redirect('users')
 
             if user_to_delete.is_superuser:
-                messages.error(request, "Superuser administrator accounts cannot be deleted.")
-                return redirect('users')
+                remaining_superusers = CustomUser.objects.filter(is_superuser=True, is_active=True).exclude(id=user_to_delete.id).count()
+                if remaining_superusers == 0:
+                    messages.error(request, "Cannot delete the last remaining Superuser Administrator account.")
+                    return redirect('users')
+
 
             target_name = user_to_delete.full_name or user_to_delete.username
             target_username = user_to_delete.username
