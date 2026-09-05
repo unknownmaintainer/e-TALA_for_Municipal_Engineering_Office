@@ -7157,7 +7157,7 @@ System: eTala v1.0.0 · Municipal Engineering Office of Carigara, Leyte
 
     return JsonResponse({
         'status': 'success',
-        'message': 'Maraming salamat! Your feedback has been securely submitted directly to the MERGJ Index engineering team.',
+        'message': 'Maraming salamat! Your feedback has been submitted.',
         'feedback_id': feedback.feedback_id,
     })
 
