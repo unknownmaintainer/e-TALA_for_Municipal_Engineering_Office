@@ -12,10 +12,12 @@ def seed_data():
     # 1. Master System Administrator Only
     admin_email = os.environ.get('SEED_ADMIN_EMAIL', 'carigaraetala@gmail.com').strip().lower()
     admin_username = os.environ.get('SEED_ADMIN_USERNAME', 'admin').strip().lower()
+    admin_name = os.environ.get('SEED_ADMIN_FULL_NAME', 'System Administrator').strip()
     admin_pass = os.environ.get('SEED_ADMIN_PASSWORD') or os.environ.get('INITIAL_ADMIN_PASSWORD')
     if not admin_pass:
         import secrets
         admin_pass = secrets.token_urlsafe(16)
+
 
 
     admin_user = CustomUser.objects.filter(email=admin_email).first()
