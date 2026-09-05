@@ -57,6 +57,11 @@ class Command(BaseCommand):
                     # Reassign records/documents to master admin
                     EngineeringRecord.objects.filter(created_by=dummy).update(created_by=admin_user)
                     Document.objects.filter(uploaded_by=dummy).update(uploaded_by=admin_user)
+                    try:
+                        from permits.models import Record
+                        Record.objects.filter(created_by=dummy).update(created_by=admin_user)
+                    except Exception:
+                        pass
                     UserDevice.objects.filter(user=dummy).delete()
                     PasswordHistory.objects.filter(user=dummy).delete()
                     AuditLog.objects.filter(user=dummy).update(user=admin_user)
