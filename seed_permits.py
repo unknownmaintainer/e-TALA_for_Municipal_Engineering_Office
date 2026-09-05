@@ -80,8 +80,7 @@ def seed_data():
 
     # 3. Seed Categories
     categories_list = [
-        "Building Permit", "Electrical Permit", "Sanitary Permit", 
-        "Mechanical Permit", "Fencing Permit", "Demolition Permit", 
+        "Building Permit", "Electrical Permit","Fencing Permit", 
         "Occupancy Permit"
     ]
     
