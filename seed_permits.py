@@ -4,76 +4,64 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'etala_project.settings')
 django.setup()
 
-from permits.models import CustomUser, Barangay, Category, Record, Document
+from permits.models import CustomUser, Barangay, Category, Record, Document, EngineeringRecord, UserDevice, PasswordHistory, AuditLog
 
 def seed_data():
     print("Seeding Engineering Records Management database...")
 
-    # 1. Create Users
-    admin_pass = os.environ.get('SEED_ADMIN_PASSWORD', 'admin123')
-    staff_pass = os.environ.get('SEED_STAFF_PASSWORD', 'password123')
-    engr_pass = os.environ.get('SEED_ENGINEER_PASSWORD', 'password123')
+    # 1. Master System Administrator Only
+    admin_email = os.environ.get('SEED_ADMIN_EMAIL', 'carigaraetala@gmail.com').strip().lower()
+    admin_username = os.environ.get('SEED_ADMIN_USERNAME', 'admin').strip().lower()
+    admin_name = os.environ.get('SEED_ADMIN_FULL_NAME', 'System Administrator').strip()
+    admin_pass = os.environ.get('SEED_ADMIN_PASSWORD') or 'eTala@2026'
 
-    users_data = [
-        {
-            'username': os.environ.get('SEED_ADMIN_USERNAME', 'admin'),
-            'email': os.environ.get('SEED_ADMIN_EMAIL', 'admin@gmail.com'),
-            'full_name': 'Administrator',
-            'role': 'admin',
-            'password': admin_pass,
-            'is_superuser': True,
-            'is_staff': True
-        },
-        {
-            'username': os.environ.get('SEED_STAFF_USERNAME', 'staff'),
-            'email': os.environ.get('SEED_STAFF_EMAIL', 'staff@gmail.com'),
-            'full_name': 'Staff',
-            'role': 'staff',
-            'password': staff_pass,
-            'is_superuser': False,
-            'is_staff': True
-        },
-        {
-            'username': os.environ.get('SEED_ENGINEER_USERNAME', 'staff1'),
-            'email': os.environ.get('SEED_ENGINEER_EMAIL', 'staff1@gmail.com'),
-            'full_name': 'Engr. Maria Santos',
-            'role': 'staff',
-            'password': engr_pass,
-            'is_superuser': False,
-            'is_staff': True
-        }
-    ]
+    admin_user = CustomUser.objects.filter(email=admin_email).first()
+    if not admin_user:
+        admin_user = CustomUser.objects.filter(username=admin_username).first()
 
-    users = {}
-    for ud in users_data:
-        user = CustomUser.objects.filter(email=ud['email']).first()
-        if not user:
-            user = CustomUser.objects.filter(username=ud['username']).first()
+    if admin_user:
+        admin_user.is_staff = True
+        admin_user.is_superuser = True
+        admin_user.role = 'admin'
+        admin_user.full_name = admin_name
+        admin_user.designation = 'System Administrator'
+        admin_user.email = admin_email
+        admin_user.save(update_fields=['is_staff', 'is_superuser', 'role', 'full_name', 'designation', 'email'])
+        print(f"Verified Master Admin: {admin_user.username} ({admin_user.email})")
+    else:
+        admin_user = CustomUser.objects.create_user(
+            username=admin_username,
+            email=admin_email,
+            password=admin_pass,
+            role='admin',
+            is_staff=True,
+            is_superuser=True,
+            full_name=admin_name,
+            designation='System Administrator'
+        )
+        print(f"Created Master Admin: {admin_user.username} ({admin_user.email})")
 
-        if user:
-            user.email = ud['email']
-            user.username = ud['username']
-            user.full_name = ud['full_name']
-            user.role = ud['role']
-            user.is_staff = ud['is_staff']
-            user.is_superuser = ud['is_superuser']
-            user.save()
-            print(f"Updated user: {user.username} ({user.email})")
-        else:
-            user = CustomUser.objects.create_user(
-                username=ud['username'],
-                email=ud['email'],
-                password=ud['password'],
-                role=ud['role'],
-                is_staff=ud['is_staff'],
-                is_superuser=ud['is_superuser'],
-                full_name=ud['full_name']
-            )
-            print(f"Created user: {user.username} ({user.email})")
-        
-        users[ud['role']] = user
+    # Clean up legacy dummy accounts
+    dummy_emails = ['staff@gmail.com', 'staff1@gmail.com', 'admin@gmail.com']
+    for dummy_email in dummy_emails:
+        if dummy_email.lower() == admin_email.lower():
+            continue
+        for dummy in CustomUser.objects.filter(email__iexact=dummy_email):
+            try:
+                EngineeringRecord.objects.filter(created_by=dummy).update(created_by=admin_user)
+                Document.objects.filter(uploaded_by=dummy).update(uploaded_by=admin_user)
+                Record.objects.filter(created_by=dummy).update(created_by=admin_user)
+                UserDevice.objects.filter(user=dummy).delete()
+                PasswordHistory.objects.filter(user=dummy).delete()
+                AuditLog.objects.filter(user=dummy).update(user=admin_user)
+                dummy.delete()
+                print(f"Purged dummy account: {dummy_email}")
+            except Exception as e:
+                dummy.is_active = False
+                dummy.save(update_fields=['is_active'])
+                print(f"Deactivated dummy account: {dummy_email}")
 
-    # 2. Seed Barangays
+    # 2. Seed Barangays (49 Barangays of Carigara)
     barangays_list = [
         "Bagong Lipunan", "Balilit", "Barayong", "Barugohay Central", "Barugohay Norte", 
         "Barugohay Sur", "Baybay (Poblacion)", "Binibihan", "Bislig", "Caghalo", 
@@ -87,12 +75,8 @@ def seed_data():
         "Upper Hiraan", "Upper Sogod", "Uyawan", "West Visoria"
     ]
     
-    barangay_objs = {}
     for b_name in barangays_list:
-        obj, created = Barangay.objects.get_or_create(barangay_name=b_name)
-        if created:
-            print(f"Created barangay: {b_name}")
-        barangay_objs[b_name] = obj
+        Barangay.objects.get_or_create(barangay_name=b_name)
 
     # 3. Seed Categories
     categories_list = [
@@ -101,32 +85,10 @@ def seed_data():
         "Occupancy Permit"
     ]
     
-    category_objs = {}
     for c_name in categories_list:
-        obj, created = Category.objects.get_or_create(category_name=c_name)
-        if created:
-            print(f"Created category: {c_name}")
-        category_objs[c_name] = obj
+        Category.objects.get_or_create(category_name=c_name)
 
-    # 4. Seed a test record
-    test_record = Record.objects.filter(project_name="Proposed Two-Storey Residence").first()
-    if not test_record:
-        record = Record.objects.create(
-            project_name="Proposed Two-Storey Residence",
-            record_title="Proposed Two-Storey Residential Building Construction",
-            category=category_objs["Building Permit"],
-            location_type="barangay",
-            barangay=barangay_objs["Ponong (Poblacion)"],
-            year=2026,
-            budget_amount=2500000.00,
-            archive_number="BP-2026-0012",
-            description="Two-storey residential project located in Ponong, Carigara, Leyte.",
-            status="active",
-            created_by=users["staff"]
-        )
-        print(f"Created test record: {record.project_name}")
-
-    print("Seeding complete.")
+    print("Seeding complete. Master admin verified and all dummy users purged.")
 
 if __name__ == '__main__':
     seed_data()
