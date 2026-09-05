@@ -1900,226 +1900,31 @@ def record_create_step3_view(request):
 
 @login_required
 def municipal_projects_view(request):
-    """Lists all Municipal Project records."""
-    selected_scope = resolve_scope(request)
-    base_qs = EngineeringRecord.objects.filter(
-        record_type='Project', project_scope='Municipal'
-    ).exclude(status='archived')
-
-    my_scope_count = base_qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
-    all_scope_count = base_qs.count()
-
-    if selected_scope == 'my':
-        base_qs = base_qs.filter(created_by=request.user)
-
-    records = base_qs.select_related('barangay', 'created_by', 'project_detail').order_by('-created_at')
-
-    query = request.GET.get('q', '').strip()
-    project_type = request.GET.get('project_type', '')
-    status = request.GET.get('status', '')
-    year = request.GET.get('year', '')
-    barangay_id = request.GET.get('barangay', '')
-
-    if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(barangay__barangay_name__icontains=query) |
-            Q(project_detail__contractor__icontains=query) |
-            Q(project_detail__project_type__icontains=query)
-        )
-        records = records.filter(search_filter).distinct()
-    if project_type:
-        records = records.filter(project_detail__project_type=project_type)
-    if status:
-        records = records.filter(status=status)
-    if year:
-        try:
-            records = records.filter(year=int(year))
-        except (ValueError, TypeError):
-            records = records.filter(year=year)
-    if barangay_id:
-        records = records.filter(barangay_id=barangay_id)
-
-    per_page = get_per_page(request, 10)
-    paginator = Paginator(records, per_page)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
-    year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [project_type, year, barangay_id] if val)
-    context = {
-        'per_page': per_page,
-        'page_obj': page_obj,
-        'q': query,
-        'selected_project_type': project_type,
-        'selected_year': year,
-        'selected_barangay': barangay_id,
-        'selected_scope': selected_scope,
-        'my_scope_count': my_scope_count,
-        'all_scope_count': all_scope_count,
-        'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
-        'barangays': Barangay.objects.all(),
-        'year_choices': year_choices,
-        'active_filters_count': active_filters_count,
-        'module_title': 'Municipal Projects',
-        'module_scope': 'Municipal',
-        'active_tab': 'municipal',
-    }
-    return render(request, 'permits/module_projects.html', context)
+    """Redirect legacy /municipal/ to unified records browse filtered by Municipal Projects."""
+    params = request.GET.copy()
+    params['record_type'] = 'Project'
+    params['project_scope'] = 'Municipal'
+    qstr = params.urlencode()
+    return redirect(f"{reverse('records_browse')}?{qstr}" if qstr else reverse('records_browse'))
 
 
 @login_required
 def barangay_projects_view(request):
-    """Lists all Barangay Project records."""
-    selected_scope = resolve_scope(request)
-    base_qs = EngineeringRecord.objects.filter(
-        record_type='Project', project_scope='Barangay'
-    ).exclude(status='archived')
-
-    my_scope_count = base_qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
-    all_scope_count = base_qs.count()
-
-    if selected_scope == 'my':
-        base_qs = base_qs.filter(created_by=request.user)
-
-    records = base_qs.select_related('barangay', 'created_by', 'project_detail').order_by('-created_at')
-
-    query = request.GET.get('q', '').strip()
-    project_type = request.GET.get('project_type', '')
-    status = request.GET.get('status', '')
-    year = request.GET.get('year', '')
-    barangay_id = request.GET.get('barangay', '')
-
-    if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(barangay__barangay_name__icontains=query) |
-            Q(project_detail__contractor__icontains=query) |
-            Q(project_detail__project_type__icontains=query)
-        )
-        records = records.filter(search_filter).distinct()
-    if project_type:
-        records = records.filter(project_detail__project_type=project_type)
-    if status:
-        records = records.filter(status=status)
-    if year:
-        try:
-            records = records.filter(year=int(year))
-        except (ValueError, TypeError):
-            records = records.filter(year=year)
-    if barangay_id:
-        records = records.filter(barangay_id=barangay_id)
-
-    per_page = get_per_page(request, 10)
-    paginator = Paginator(records, per_page)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
-    year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [project_type, year, barangay_id] if val)
-
-    context = {
-        'per_page': per_page,
-        'page_obj': page_obj,
-        'q': query,
-        'selected_project_type': project_type,
-        'selected_year': year,
-        'selected_barangay': barangay_id,
-        'selected_scope': selected_scope,
-        'my_scope_count': my_scope_count,
-        'all_scope_count': all_scope_count,
-        'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
-        'barangays': Barangay.objects.all(),
-        'year_choices': year_choices,
-        'active_filters_count': active_filters_count,
-        'module_title': 'Barangay Projects',
-        'module_scope': 'Barangay',
-        'active_tab': 'barangay',
-    }
-    return render(request, 'permits/module_projects.html', context)
+    """Redirect legacy /barangay/ to unified records browse filtered by Barangay Projects."""
+    params = request.GET.copy()
+    params['record_type'] = 'Project'
+    params['project_scope'] = 'Barangay'
+    qstr = params.urlencode()
+    return redirect(f"{reverse('records_browse')}?{qstr}" if qstr else reverse('records_browse'))
 
 
 @login_required
 def permit_records_view(request):
-    """Lists all Permit records."""
-    selected_scope = resolve_scope(request)
-    base_qs = EngineeringRecord.objects.filter(
-        record_type='Permit',
-        is_illegal_construction=False
-    ).exclude(status='archived')
-
-    my_scope_count = base_qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
-    all_scope_count = base_qs.count()
-
-    if selected_scope == 'my':
-        base_qs = base_qs.filter(created_by=request.user)
-
-    records = base_qs.select_related('barangay', 'created_by', 'permit_detail').order_by('-created_at')
-
-    query = request.GET.get('q', '').strip()
-    permit_type = request.GET.get('permit_type', '')
-    status = request.GET.get('status', '')
-    year = request.GET.get('year', '')
-    barangay_id = request.GET.get('barangay', '')
-
-    if query:
-        search_filter = (
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(permit_detail__applicant_name__icontains=query) |
-            Q(permit_detail__permit_number__icontains=query) |
-            Q(permit_detail__permit_type__icontains=query) |
-            Q(barangay__barangay_name__icontains=query)
-        )
-        records = records.filter(search_filter).distinct()
-    if permit_type:
-        records = records.filter(permit_detail__permit_type=permit_type)
-    if status:
-        records = records.filter(status=status)
-    if year:
-        try:
-            records = records.filter(year=int(year))
-        except (ValueError, TypeError):
-            records = records.filter(year=year)
-    if barangay_id:
-        records = records.filter(barangay_id=barangay_id)
-
-    # Count complete vs pending permits for status line
-    pending_count = 0
-    complete_count = 0
-    for r in records:
-        if r.completion_stats['is_complete']:
-            complete_count += 1
-        else:
-            pending_count += 1
-
-    per_page = get_per_page(request, 10)
-    paginator = Paginator(records, per_page)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
-    year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [permit_type, year, barangay_id] if val)
-
-    context = {
-        'per_page': per_page,
-        'page_obj': page_obj,
-        'q': query,
-        'selected_permit_type': permit_type,
-        'selected_year': year,
-        'selected_barangay': barangay_id,
-        'selected_scope': selected_scope,
-        'my_scope_count': my_scope_count,
-        'all_scope_count': all_scope_count,
-        'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
-        'barangays': Barangay.objects.all(),
-        'year_choices': year_choices,
-        'active_filters_count': active_filters_count,
-        'module_title': 'Permit Applications',
-        'active_tab': 'permits',
-        'pending_count': pending_count,
-        'complete_count': complete_count,
-    }
-    return render(request, 'permits/module_permits.html', context)
+    """Redirect legacy /permits/ to unified records browse filtered by Permits."""
+    params = request.GET.copy()
+    params['record_type'] = 'Permit'
+    qstr = params.urlencode()
+    return redirect(f"{reverse('records_browse')}?{qstr}" if qstr else reverse('records_browse'))
 
 
 # ─── CREATE RECORD (SINGLE PAGE FORM) ──────────────────────────────────────────

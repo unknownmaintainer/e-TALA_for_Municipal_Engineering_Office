@@ -1466,18 +1466,42 @@ def purge_expired_trash_records(retention_days=30, dry_run=False):
 
 # ─── AUTOMATED HYBRID SMART-SYNC BACKUP ENGINE ───────────────────────────────
 
-def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_run=False):
+def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_run=False, skip_if_already_backed_up_today=True, force=False):
     """
     Executes a complete, automated Hybrid Smart-Sync Backup:
-    1. Generates a structured JSON database snapshot of all permits models.
-    2. Performs smart incremental mirroring of media files (copies only new/modified files).
-    3. Auto-purges old database snapshots exceeding retention_days (default: 14 days).
-    4. Logs an audit trail event in AuditLog.
+    1. Checks if a backup was already performed today (by manual export or automated task).
+       If so and not force, skips execution to prevent redundant backups on the same day.
+    2. Generates a structured JSON database snapshot of all permits models.
+    3. Performs smart incremental mirroring of media files (copies only new/modified files).
+    4. Auto-purges old database snapshots exceeding retention_days (default: 14 days).
+    5. Logs an audit trail event in AuditLog.
     """
     from django.apps import apps
     from django.core import serializers
+    from django.db.models import Q
 
     now = timezone.now()
+    today_start = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Smart-Skip Check: If a backup was already completed on this calendar day, skip until tomorrow
+    if skip_if_already_backed_up_today and not force:
+        latest_today = AuditLog.objects.filter(
+            Q(action__icontains='Automated System Backup') | Q(action__icontains='Exported full database backup')
+        ).filter(performed_at__gte=today_start).order_by('-performed_at').first()
+
+        if latest_today:
+            local_time_str = timezone.localtime(latest_today.performed_at).strftime('%b %d, %Y - %I:%M %p')
+            logger.info(f"Auto-backup skipped: a backup was already performed today on {local_time_str}.")
+            return {
+                'success': True,
+                'skipped': True,
+                'reason': f"A backup was already completed today ({local_time_str}). Auto-backup skipped to prevent redundancy; next scheduled run will be tomorrow.",
+                'last_backup_time': latest_today.performed_at,
+                'last_backup_str': local_time_str,
+                'timestamp': timezone.localtime(now).strftime('%Y-%m-%d %I:%M %p'),
+                'dry_run': dry_run,
+            }
+
     timestamp_str = now.strftime('%Y%m%d_%H%M%S')
     db_filename = f"etala_db_{timestamp_str}.json"
 

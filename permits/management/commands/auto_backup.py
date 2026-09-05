@@ -23,11 +23,17 @@ class Command(BaseCommand):
             action='store_true',
             help='Simulate backup execution without writing files or modifying storage',
         )
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Force backup execution even if a backup was already created today',
+        )
 
     def handle(self, *args, **options):
         retention_days = options.get('days', 14)
         target_dir = options.get('target_dir')
         dry_run = options.get('dry_run', False)
+        force = options.get('force', False)
 
         mode_str = "[DRY-RUN] " if dry_run else ""
         self.stdout.write(self.style.NOTICE(f"{mode_str}Starting eTala Automated Smart-Sync Backup (Retention: {retention_days} days)..."))
@@ -37,9 +43,17 @@ class Command(BaseCommand):
             target_dir=target_dir,
             user=None,
             dry_run=dry_run,
+            skip_if_already_backed_up_today=True,
+            force=force,
         )
 
-        if result.get('success'):
+        if result.get('skipped'):
+            self.stdout.write(self.style.WARNING(
+                f"\n[SKIPPED] {result.get('reason')}\n"
+                f"  - Last Backup: {result.get('last_backup_str')}\n"
+                f"  - Tip: Use --force to run backup anyway regardless of same-day status.\n"
+            ))
+        elif result.get('success'):
             self.stdout.write(self.style.SUCCESS(
                 f"\n{mode_str}Backup completed successfully!\n"
                 f"  - Database Snapshot: {result['db_filename']} ({result['total_records']} records)\n"
