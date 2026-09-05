@@ -276,6 +276,79 @@ def generate_and_dispatch_2fa_otp(user, request, device_name, ip_address):
     threading.Thread(target=_send_otp, daemon=True).start()
 
 
+def generate_and_dispatch_email_change_otp(user, request, new_email):
+    """Generates cryptographically secure 6-digit OTP and dispatches to user's CURRENT email to authorize email change."""
+    import secrets
+    otp_code = f"{secrets.randbelow(900000) + 100000:06d}"
+
+    # Store state in session
+    request.session['email_change_user_id'] = user.id
+    request.session['email_change_otp'] = otp_code
+    request.session['email_change_new_email'] = new_email
+    request.session['email_change_current_email'] = user.email
+    request.session['email_change_expiry'] = (timezone.now() + timedelta(minutes=10)).isoformat()
+    request.session['email_change_attempts'] = 0
+    request.session['email_change_sent_at'] = timezone.now().isoformat()
+
+    user_full_name = user.full_name or user.get_full_name() or user.username
+    subject = f'🛡️ Authorize Email Address Change: {otp_code} — eTala'
+    timestamp_str = timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p')
+
+    html_content = render_to_string('emails/email_change_otp.html', {
+        'user_full_name': user_full_name,
+        'otp_code': otp_code,
+        'new_email': new_email,
+        'timestamp': timestamp_str,
+    })
+    plain_content = f"eTala Security Verification Code: {otp_code}\n\nA request was made to change your eTala work email address to {new_email}.\nValid for 10 minutes."
+
+    def _send_otp():
+        try:
+            send_etala_email(
+                subject=subject,
+                message=plain_content,
+                recipient_list=[user.email],
+                html_message=html_content,
+                fail_silently=False,
+            )
+            logger.info(f"Email change OTP delivered to current email: {user.email}")
+        except Exception as exc:
+            logger.error(f"Failed to deliver email change OTP to {user.email}: {exc}")
+            # Local dev log fallback
+            print("\n" + "=" * 72)
+            print(f"🔑 [eTala Email Change OTP for {user.email} (New: {new_email})]: {otp_code}")
+            print("=" * 72 + "\n")
+
+    threading.Thread(target=_send_otp, daemon=True).start()
+
+
+def dispatch_email_change_confirmation(user, old_email, new_email):
+    """Sends confirmation notice to both old and new emails."""
+    user_full_name = user.full_name or user.get_full_name() or user.username
+    subject = '✅ Work Email Address Updated — eTala'
+    html_content = render_to_string('emails/email_change_confirmation.html', {
+        'user_full_name': user_full_name,
+        'new_email': new_email,
+    })
+    plain_content = f"Your eTala work email address has been successfully updated to {new_email}."
+
+    def _send_confirm():
+        try:
+            recipients = list(set([e for e in [old_email, new_email] if e and '@' in e]))
+            if recipients:
+                send_etala_email(
+                    subject=subject,
+                    message=plain_content,
+                    recipient_list=recipients,
+                    html_message=html_content,
+                    fail_silently=True,
+                )
+        except Exception as e:
+            logger.error(f"Error sending email change confirmation: {e}")
+
+    threading.Thread(target=_send_confirm, daemon=True).start()
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -410,8 +483,8 @@ def verify_otp_view(request):
                 messages.error(request, "Verification code has expired. Click 'Resend Code' to receive a new one.")
                 return render(request, 'permits/verify_otp.html', {'masked_email': masked_email})
 
-        # Validate 6-digit OTP code
-        if (session_otp and submitted_otp == session_otp) or (settings.DEBUG and submitted_otp == '111111'):
+        # Validate 6-digit OTP code strictly against generated code
+        if session_otp and submitted_otp == session_otp:
             device_token = get_client_device_token(request)
             device_name = request.session.get('2fa_device_name', 'Windows PC • Browser')
             ip_address = request.session.get('2fa_ip', get_client_ip(request))
@@ -479,6 +552,27 @@ def resend_otp_view(request):
     generate_and_dispatch_2fa_otp(user, request, device_name, ip_address)
     messages.success(request, "A fresh 6-digit verification code has been dispatched to your email.")
     return redirect('verify_otp')
+
+
+def check_device_approval_ajax_view(request):
+    """AJAX endpoint for polling device authorization status."""
+    device_id = request.GET.get('device_id', '').strip()
+    token = request.GET.get('token', '').strip()
+    if not device_id and not token:
+        return JsonResponse({'status': 'pending'})
+    query = Q()
+    if device_id.isdigit():
+        query |= Q(id=int(device_id))
+    if token:
+        query |= Q(device_token=token)
+    device = UserDevice.objects.filter(query).first()
+    if device:
+        return JsonResponse({
+            'status': device.status,
+            'device_id': device.id,
+            'device_name': device.device_name,
+        })
+    return JsonResponse({'status': 'pending'})
 
 
 def access_restricted_view(request):
@@ -549,6 +643,26 @@ def email_preview_feedback_view(request):
         'timestamp': timezone.localtime(timezone.now()).strftime('%B %d, %Y • %I:%M %p'),
         'attachment_name': 'sample_watermark_concept.png' if show_screenshot else None,
         'attachment_url': 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80' if show_screenshot else None,
+    })
+
+
+@login_required
+def email_preview_email_change_otp_view(request):
+    """Browser preview for Email Change OTP Authorization."""
+    return render(request, 'emails/email_change_otp.html', {
+        'user_full_name': 'Erron Arguelles',
+        'otp_code': '842915',
+        'new_email': 'erron.arguelles.new@gmail.com',
+        'timestamp': timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p'),
+    })
+
+
+@login_required
+def email_preview_email_change_confirmation_view(request):
+    """Browser preview for Email Change Success Confirmation."""
+    return render(request, 'emails/email_change_confirmation.html', {
+        'user_full_name': 'Erron Arguelles',
+        'new_email': 'erron.arguelles.new@gmail.com',
     })
 
 
@@ -1150,7 +1264,7 @@ def barangay_workspace_view(request, barangay_id):
     total_permits = records.filter(record_type='Permit', is_illegal_construction=False).count()
     total_projects = records.filter(record_type='Project').count()
     total_violations = records.filter(is_illegal_construction=True).count()
-    total_documents = Document.objects.filter(engineering_record__barangay=barangay).count()
+    total_documents = Document.objects.filter(engineering_record__barangay=barangay).exclude(engineering_record__status='archived').count()
     total_records = total_projects + total_permits
 
     # Tab filter
@@ -1491,6 +1605,21 @@ def record_create_step1_view(request):
     if request.user.role not in ['staff', 'admin']:
         raise PermissionDenied("You do not have permission to encode records.")
     
+    # Store pre-selected barangay from query parameter (e.g. from Barangay Workspace)
+    brgy_param = request.GET.get('barangay')
+    if brgy_param:
+        try:
+            brgy_obj = Barangay.objects.filter(barangay_id=brgy_param).first()
+            if brgy_obj:
+                request.session['create_barangay_id'] = brgy_obj.barangay_id
+                request.session['create_barangay_name'] = brgy_obj.barangay_name
+        except Exception:
+            pass
+    else:
+        # Not initiated from a specific barangay workspace; clear any previous session lock
+        request.session.pop('create_barangay_id', None)
+        request.session.pop('create_barangay_name', None)
+
     # Pre-select category via GET parameter for quick actions
     cat_param = request.GET.get('category')
     if cat_param in ['municipal', 'barangay', 'permit']:
@@ -1505,7 +1634,9 @@ def record_create_step1_view(request):
         messages.error(request, "Invalid category selection.")
     
     return render(request, 'permits/create_step1.html', {
-        'active_tab': 'records'
+        'active_tab': 'records',
+        'preselected_barangay_id': request.session.get('create_barangay_id'),
+        'preselected_barangay_name': request.session.get('create_barangay_name'),
     })
 
 @login_required
@@ -1521,7 +1652,7 @@ def record_create_step2_view(request):
         types = [
             {'value': 'Building', 'label': 'Building Permit', 'icon': 'fa-solid fa-building', 'desc': 'Standard building permit structure approvals.'},
             {'value': 'Electrical', 'label': 'Electrical Permit', 'icon': 'fa-solid fa-bolt', 'desc': 'Electrical wiring and electrical installation approvals.'},
-            {'value': 'Occupancy', 'label': 'Occupancy Permit', 'icon': 'fa-solid fa-house-chimney-user', 'desc': 'Certificate of occupancy approvals.'},
+            {'value': 'Occupancy', 'label': 'Certificate of Occupancy', 'icon': 'fa-solid fa-house-chimney-user', 'desc': 'Final inspection & building occupancy clearances.'},
             {'value': 'Fencing', 'label': 'Fencing Permit', 'icon': 'fa-solid fa-border-all', 'desc': 'Fencing installation clearances.'},
         ]
     else:
@@ -1542,7 +1673,9 @@ def record_create_step2_view(request):
     return render(request, 'permits/create_step2.html', {
         'category': category,
         'types': types,
-        'active_tab': 'records'
+        'active_tab': 'records',
+        'preselected_barangay_id': request.session.get('create_barangay_id'),
+        'preselected_barangay_name': request.session.get('create_barangay_name'),
     })
 
 @login_required
@@ -1563,11 +1696,21 @@ def record_create_step3_view(request):
         record_type=record_type, subtype=subtype, scope=scope, is_active=True
     ).first()
     
+    preselected_barangay_id = request.session.get('create_barangay_id') or request.GET.get('barangay')
+    preselected_barangay = None
+    if preselected_barangay_id:
+        try:
+            preselected_barangay = Barangay.objects.filter(barangay_id=preselected_barangay_id).first()
+        except Exception:
+            pass
+
     context_extra = {
         'category': category,
         'subtype': subtype,
         'scope': scope,
         'barangays': barangays,
+        'preselected_barangay': preselected_barangay,
+        'preselected_barangay_id': preselected_barangay.barangay_id if preselected_barangay else None,
         'template': template,
         'current_year': timezone.now().year,
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
@@ -1738,6 +1881,8 @@ def record_create_step3_view(request):
             
         request.session.pop('create_category', None)
         request.session.pop('create_subtype', None)
+        request.session.pop('create_barangay_id', None)
+        request.session.pop('create_barangay_name', None)
         
         log_audit(
             request.user,
@@ -2307,7 +2452,15 @@ def record_detail_view(request, record_id):
     completion = record.completion_stats
 
     # Non-checklist documents (uploaded without a slot)
-    documents = record.documents.filter(requirement_item__isnull=True).order_by('-uploaded_at')
+    supporting_docs = record.documents.filter(
+        requirement_item__isnull=True
+    ).exclude(
+        document_type="Incident Evidence"
+    ).order_by('-uploaded_at')
+
+    incident_evidence_docs = record.documents.filter(
+        document_type="Incident Evidence"
+    ).order_by('-uploaded_at')
 
     # Generate signed URLs for all documents with official LGU filename path
     all_docs = record.documents.all()
@@ -2382,6 +2535,41 @@ def record_detail_view(request, record_id):
         else:
             parent_reqs.append(req)
 
+    # Smart Sorting: Pending/missing requirements appear first at the top,
+    # and completed/fulfilled requirements move to the bottom.
+    for parent_id in sub_reqs_by_parent:
+        sub_reqs_by_parent[parent_id] = sorted(
+            sub_reqs_by_parent[parent_id],
+            key=lambda s: (
+                2 if (s.is_fulfilled and s.document) else (1 if s.is_waived else 0),
+                s.requirement_item.order or 99,
+                s.requirement_item.name
+            )
+        )
+
+    def get_parent_req_sort_priority(p_req):
+        sub_list = sub_reqs_by_parent.get(p_req.requirement_item.item_id, [])
+        if sub_list or p_req.requirement_item.is_group:
+            stats = p_req.group_stats
+            # Incomplete folder group -> 0 (Top), Complete folder group -> 2 (Bottom)
+            return 2 if stats.get('is_complete') else 0
+        else:
+            if p_req.is_fulfilled and p_req.document:
+                return 2  # Completed / uploaded -> Bottom
+            elif p_req.is_waived:
+                return 1  # Waived / N/A
+            else:
+                return 0  # Pending upload -> Top
+
+    parent_reqs = sorted(
+        parent_reqs,
+        key=lambda p: (
+            get_parent_req_sort_priority(p),
+            p.requirement_item.order or 99,
+            p.requirement_item.name
+        )
+    )
+
     # Dynamic Origin Resolution (Context-Aware Navigation)
     origin = request.GET.get('from', '').strip().lower()
     if not origin:
@@ -2445,7 +2633,9 @@ def record_detail_view(request, record_id):
         'parent_reqs': parent_reqs,
         'sub_reqs_by_parent': sub_reqs_by_parent,
         'completion': completion,
-        'documents': documents,
+        'documents': supporting_docs,
+        'supporting_docs': supporting_docs,
+        'incident_evidence_docs': incident_evidence_docs,
         'attachments': all_docs,
         'doc_url_map': doc_url_map,
         'doc_lgu_name_map': doc_lgu_name_map,
@@ -2497,6 +2687,15 @@ def record_requirement_detail_view(request, record_id, req_id):
             }
 
         sub_reqs = [existing_sub_reqs[item.item_id] for item in sub_item_qs if item.item_id in existing_sub_reqs]
+        # Sort sub_reqs: Pending first, Waived middle, Uploaded/fulfilled bottom
+        sub_reqs = sorted(
+            sub_reqs,
+            key=lambda s: (
+                2 if (s.is_fulfilled and s.document) else (1 if s.is_waived else 0),
+                s.requirement_item.order or 99,
+                s.requirement_item.name
+            )
+        )
 
     # Generate document signed URLs with official LGU filename path
     all_docs = record.documents.all()
@@ -3325,30 +3524,50 @@ startxref
 
 def get_lgu_document_filename(doc):
     """
-    Standardized document filename matching the exact ZIP export naming convention in permits/services.py:
-    - If linked to a requirement slot: [Record_Export_Name]_[Requirement_Name].[ext]
-    - If supporting/unlinked: [Record_Export_Name]_[Original_Sanitized_Name].[ext]
+    Concise, standardized document filename for viewing and downloading single files:
+    - Strips noisy prefixes (e.g. '1. ', '02_') and parenthetical instructions '(5 sets)', '(Unified Form)'
+    - Keeps names readable, professional, and concise (~25 to 45 characters total)
+    - Pattern: [Short_Applicant_or_Project]_[Requirement_Name].[ext]
     Examples:
-      - Mardion_Fuerte_Barangay_Clearance.pdf
-      - Juan_Dela_Cruz_Contract_of_Lease.pdf
-      - Rehabilitation_of_Brgy_Hall_Program_of_Work.pdf
+      - Juan_Dela_Cruz_Building_Permit_Application.pdf
+      - Juan_Dela_Cruz_Building_Plans.pdf
+      - Evacuation_Center_Program_of_Works.pdf
+      - Stop_Order_Notice_to_Comply.pdf
     """
     raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
     _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
     clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
 
     rec = doc.engineering_record
-    root_folder = get_record_export_name(rec, include_location=False) if rec else ""
+    root_folder = ""
+    if rec:
+        if rec.is_illegal_construction:
+            app = rec.permit_detail.applicant_name.strip() if hasattr(rec, 'permit_detail') and rec.permit_detail and rec.permit_detail.applicant_name else ""
+            if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null', 'under investigation']:
+                root_folder = sanitize_zip_name(app, max_len=25).replace(" ", "_")
+            else:
+                root_folder = sanitize_zip_name(rec.title or "Violation", max_len=25).replace(" ", "_")
+        elif rec.record_type == 'Permit':
+            app = rec.permit_detail.applicant_name.strip() if hasattr(rec, 'permit_detail') and rec.permit_detail and rec.permit_detail.applicant_name else ""
+            if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null']:
+                root_folder = sanitize_zip_name(app, max_len=25).replace(" ", "_")
+            else:
+                root_folder = sanitize_zip_name(rec.title or "Permit", max_len=25).replace(" ", "_")
+        else:
+            root_folder = sanitize_zip_name(rec.title or "Project", max_len=25).replace(" ", "_")
 
     req_item = doc.requirement_item
     if req_item:
-        item_file_name = sanitize_zip_name(req_item.name, max_len=80).replace(" ", "_")
+        clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
+        clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
+        item_file_name = sanitize_zip_name(clean_item_name, max_len=30).replace(" ", "_")
     elif doc.document_type:
-        item_file_name = sanitize_zip_name(doc.document_type, max_len=80).replace(" ", "_")
+        clean_type = re.sub(r'\s*\([^\)]*\)', '', doc.document_type).strip()
+        clean_type = re.sub(r'^\d+[\s_.-]*', '', clean_type).strip()
+        item_file_name = sanitize_zip_name(clean_type, max_len=30).replace(" ", "_")
     else:
-        item_file_name = sanitize_file_name(raw_fname, max_name_len=80).replace(" ", "_")
-        if item_file_name.lower().endswith(clean_ext.lower()):
-            item_file_name = item_file_name[:-len(clean_ext)]
+        base_raw, _ = os.path.splitext(os.path.basename(str(raw_fname)))
+        item_file_name = sanitize_zip_name(base_raw, max_len=30).replace(" ", "_")
 
     if root_folder and root_folder.lower() not in item_file_name.lower():
         final_name = f"{root_folder}_{item_file_name}{clean_ext}"
@@ -3504,16 +3723,16 @@ def document_upload_view(request, record_id):
         expiry_date = request.POST.get('expiry_date', '').strip()
 
         if not files:
-            err_msg = "Please select at least one PDF document to upload."
+            err_msg = "Please select at least one document to upload."
             if is_ajax:
                 return JsonResponse({'success': False, 'error': err_msg}, status=400)
             messages.error(request, err_msg)
             return redirect('record_detail', record_id=record.record_id)
 
-        # Strictly validate each PDF file
+        # Strictly validate each file (PDF-only for regular records; PDF/Images for illegal constructions)
         for f in files:
             try:
-                validate_document_file(f)
+                validate_document_file(f, is_illegal_construction=record.is_illegal_construction)
             except Exception as exc:
                 err_msg = exc.message if hasattr(exc, 'message') else str(exc)
                 if is_ajax:
@@ -3530,12 +3749,12 @@ def document_upload_view(request, record_id):
                 parsed_expiry_date = None
 
         req_item = None
-        if requirement_item_id:
+        if requirement_item_id and requirement_item_id != '__additional__':
             try:
-                req_item = RequirementItem.objects.get(item_id=requirement_item_id)
+                req_item = RequirementItem.objects.get(item_id=int(requirement_item_id))
                 document_type = req_item.name[:50]
-            except RequirementItem.DoesNotExist:
-                pass
+            except (RequirementItem.DoesNotExist, ValueError, TypeError):
+                req_item = None
 
         created_docs = []
         skipped_duplicates = 0
@@ -3656,7 +3875,7 @@ def document_replace_view(request, record_id, document_id):
         return redirect('record_detail', record_id=record.record_id)
 
     try:
-        validate_document_file(replacement_file)
+        validate_document_file(replacement_file, is_illegal_construction=record.is_illegal_construction)
     except Exception as exc:
         err_msg = exc.message if hasattr(exc, 'message') else str(exc)
         if is_ajax:
@@ -5731,14 +5950,43 @@ def profile_view(request):
                 messages.error(request, "This email address is already in use by another account.")
                 return redirect('profile')
 
-            user.full_name = full_name
-            user.email = email
-
             # Only administrators can modify their own official designation in profile; staff designations are assigned by Admin in User Management
             if user.role == 'admin':
                 designation = sanitize_input(request.POST.get('designation', '')).strip()
                 user.designation = designation or "Engineering Office Head"
 
+            user.full_name = full_name
+
+            # ── If Email is Changed: Trigger 6-Digit Email Change OTP Authorization ──
+            if email != user.email:
+                user.save()  # Save full_name and designation update immediately
+                generate_and_dispatch_email_change_otp(user, request, email)
+
+                # Format masked current email (e.g. h***4@gmail.com)
+                masked_email = user.email
+                if '@' in masked_email:
+                    u_part, d_part = masked_email.split('@', 1)
+                    if len(u_part) <= 2:
+                        masked_u = u_part[0] + '***'
+                    else:
+                        masked_u = u_part[0] + '***' + u_part[-1]
+                    masked_email = f"{masked_u}@{d_part}"
+
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'require_otp': True,
+                        'masked_current_email': masked_email,
+                        'current_email': user.email,
+                        'new_email': email,
+                        'full_name': user.full_name,
+                        'designation': user.designation or '',
+                        'message': f"A 6-digit security code has been sent to your current email ({masked_email}) to authorize this change."
+                    })
+                messages.info(request, f"A 6-digit verification code has been sent to your current email ({masked_email}).")
+                return redirect('profile')
+
+            # If Email is NOT changed: Update profile details directly
             user.save()
             log_audit(user, "Updated profile details", request=request)
             if is_ajax:
@@ -5751,6 +5999,121 @@ def profile_view(request):
                     'initials': (user.full_name or user.username)[:1].upper()
                 })
             messages.success(request, "Profile updated successfully.")
+            return redirect('profile')
+
+        elif action == 'verify_email_change_otp':
+            submitted_otp = sanitize_input(request.POST.get('otp_code', '')).strip()
+            session_otp = request.session.get('email_change_otp')
+            session_user_id = request.session.get('email_change_user_id')
+            new_email = request.session.get('email_change_new_email')
+            current_email = request.session.get('email_change_current_email')
+            expiry_str = request.session.get('email_change_expiry')
+            attempts = request.session.get('email_change_attempts', 0)
+
+            if not session_otp or not new_email or session_user_id != user.id:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "No active email change request found. Please try saving again."}, status=400)
+                messages.error(request, "No active email change request found. Please try saving again.")
+                return redirect('profile')
+
+            # Check OTP Expiry (10 minutes)
+            if expiry_str:
+                try:
+                    expiry_dt = datetime.fromisoformat(expiry_str)
+                    if timezone.is_naive(expiry_dt):
+                        expiry_dt = timezone.make_aware(expiry_dt)
+                    if timezone.now() > expiry_dt:
+                        for k in ['email_change_user_id', 'email_change_otp', 'email_change_new_email', 'email_change_current_email', 'email_change_expiry', 'email_change_attempts', 'email_change_sent_at']:
+                            request.session.pop(k, None)
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'message': "Verification code has expired. Please request a new code."}, status=400)
+                        messages.error(request, "Verification code has expired. Please request a new code.")
+                        return redirect('profile')
+                except Exception:
+                    pass
+
+            # Validate 6-digit OTP strictly against generated code sent to email
+            if session_otp and submitted_otp == session_otp:
+                # Final check if email is claimed by another user
+                if CustomUser.objects.exclude(id=user.id).filter(email=new_email).exists():
+                    for k in ['email_change_user_id', 'email_change_otp', 'email_change_new_email', 'email_change_current_email', 'email_change_expiry', 'email_change_attempts', 'email_change_sent_at']:
+                        request.session.pop(k, None)
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'message': "This email address was recently registered by another user."}, status=400)
+                    messages.error(request, "This email address was recently registered by another user.")
+                    return redirect('profile')
+
+                old_email = user.email
+                user.email = new_email
+                user.save()
+
+                # Clean session state
+                for k in ['email_change_user_id', 'email_change_otp', 'email_change_new_email', 'email_change_current_email', 'email_change_expiry', 'email_change_attempts', 'email_change_sent_at']:
+                    request.session.pop(k, None)
+
+                log_audit(user, f"Work email address updated from {old_email} to {new_email} via OTP verification", request=request)
+                dispatch_email_change_confirmation(user, old_email, new_email)
+
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'message': f"Work email successfully updated to {new_email}.",
+                        'email': user.email,
+                        'full_name': user.full_name,
+                        'designation': user.designation or '',
+                        'initials': (user.full_name or user.username)[:1].upper()
+                    })
+                messages.success(request, f"Work email successfully updated to {new_email}.")
+                return redirect('profile')
+            else:
+                attempts += 1
+                request.session['email_change_attempts'] = attempts
+                if attempts >= 5:
+                    for k in ['email_change_user_id', 'email_change_otp', 'email_change_new_email', 'email_change_current_email', 'email_change_expiry', 'email_change_attempts', 'email_change_sent_at']:
+                        request.session.pop(k, None)
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'message': "Too many failed attempts. Email change request cancelled."}, status=400)
+                    messages.error(request, "Too many failed attempts. Email change request cancelled.")
+                    return redirect('profile')
+
+                remaining = 5 - attempts
+                err_msg = f"Invalid verification code. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': err_msg}, status=400)
+                messages.error(request, err_msg)
+                return redirect('profile')
+
+        elif action == 'resend_email_change_otp':
+            session_user_id = request.session.get('email_change_user_id')
+            new_email = request.session.get('email_change_new_email')
+            sent_at_str = request.session.get('email_change_sent_at')
+
+            if not new_email or session_user_id != user.id:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'message': "No pending email change request found."}, status=400)
+                messages.error(request, "No pending email change request found.")
+                return redirect('profile')
+
+            # 60-second rate limiting cooldown
+            if sent_at_str:
+                try:
+                    sent_dt = datetime.fromisoformat(sent_at_str)
+                    if timezone.is_naive(sent_dt):
+                        sent_dt = timezone.make_aware(sent_dt)
+                    elapsed = (timezone.now() - sent_dt).total_seconds()
+                    if elapsed < 60:
+                        wait_sec = int(60 - elapsed)
+                        if is_ajax:
+                            return JsonResponse({'success': False, 'message': f"Please wait {wait_sec}s before requesting a new code."}, status=429)
+                        messages.warning(request, f"Please wait {wait_sec}s before requesting a new code.")
+                        return redirect('profile')
+                except Exception:
+                    pass
+
+            generate_and_dispatch_email_change_otp(user, request, new_email)
+            if is_ajax:
+                return JsonResponse({'success': True, 'message': "A fresh 6-digit authorization code has been sent to your email."})
+            messages.success(request, "A fresh 6-digit authorization code has been sent to your email.")
             return redirect('profile')
 
         elif action == 'change_password':
@@ -5856,9 +6219,10 @@ def settings_view(request):
                 err_str = str(e)
                 logger.error(f"Error triggering expiry alerts: {err_str}")
                 if "resend.com/domains" in err_str or "only send testing emails" in err_str or "550" in err_str:
+                    from_addr = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
                     messages.warning(
                         request,
-                        "Resend Testing Restriction: Resend free tier only sends test emails to your registered account email (mardionjrcordetafuerte2@gmail.com). To send to other staff, please verify a custom domain at resend.com/domains."
+                        "Resend Testing Restriction: Resend free tier only sends test emails to your registered account owner email. To send to other staff, please verify a custom domain at resend.com/domains."
                     )
                 else:
                     messages.error(request, f"Email delivery error: {err_str}")
@@ -6536,9 +6900,11 @@ def download_category_zip_view(request, record_id, req_id):
         return redirect('record_detail', record_id=record.record_id)
 
     buffer = build_category_zip_buffer(record, parent_req, _get_document_stream)
-    export_name = get_record_export_name(record, include_location=True)
-    clean_parent = sanitize_zip_name(parent_req.requirement_item.name, max_len=25).replace(" ", "_")
-    filename = f"{export_name}_{clean_parent}.zip"
+    record_short = get_record_export_name(record, include_location=False)
+    import re
+    clean_raw_parent = re.sub(r'^\d+[\s_.-]*', '', parent_req.requirement_item.name).strip()
+    clean_parent = sanitize_zip_name(clean_raw_parent, max_len=30).replace(" ", "_")
+    filename = f"{record_short}_{clean_parent}.zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -6549,7 +6915,7 @@ def download_category_zip_view(request, record_id, req_id):
 
 @login_required
 def download_slot_zip_view(request, record_id, item_id):
-    """Downloads all documents attached to a specific requirement item slot as a ZIP file."""
+    """Downloads all documents attached to a specific requirement item slot as a ZIP file with concise, clean naming."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     req_item = get_object_or_404(RequirementItem, item_id=item_id)
     docs = Document.objects.filter(engineering_record=record, requirement_item=req_item)
@@ -6557,7 +6923,7 @@ def download_slot_zip_view(request, record_id, item_id):
         messages.warning(request, f"No files found for '{req_item.name}' to download.")
         return redirect('record_detail', record_id=record.record_id)
 
-    import io, zipfile
+    import io, zipfile, re
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
         total_docs = docs.count()
@@ -6579,12 +6945,11 @@ def download_slot_zip_view(request, record_id, item_id):
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
                 raw_name = doc.file_name or f"document_{doc.document_id}.pdf"
-                clean_raw = sanitize_file_name(raw_name, max_name_len=60).replace(" ", "_")
-                clean_item = sanitize_zip_name(req_item.name, max_len=30).replace(" ", "_")
+                clean_raw = sanitize_file_name(raw_name, max_name_len=50).replace(" ", "_")
                 if total_docs > 1:
-                    final_name = f"{clean_item}_Part_{idx}_{clean_raw}"
+                    final_name = f"{idx:02d}_{clean_raw}"
                 else:
-                    final_name = f"{clean_item}_{clean_raw}"
+                    final_name = clean_raw
                 
                 count = 1
                 orig_final = final_name
@@ -6598,9 +6963,10 @@ def download_slot_zip_view(request, record_id, item_id):
                 used_names.add(final_name)
                 zf.writestr(final_name, file_data)
 
-    export_name = get_record_export_name(record, include_location=True)
-    clean_item = sanitize_zip_name(req_item.name, max_len=30).replace(" ", "_")
-    filename = f"{export_name}_{clean_item}.zip"
+    record_short = get_record_export_name(record, include_location=False)
+    clean_raw_item = re.sub(r'^\d+[\s_.-]*', '', req_item.name).strip()
+    clean_item = sanitize_zip_name(clean_raw_item, max_len=30).replace(" ", "_")
+    filename = f"{record_short}_{clean_item}.zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -6620,18 +6986,23 @@ def download_barangay_zip_view(request, barangay_id):
 
     if docs_count == 0:
         messages.warning(request, f"No uploaded documents found for Barangay {barangay.barangay_name} to export.")
-        return redirect(request.META.get('HTTP_REFERER') or 'barangays')
+        return redirect('barangay_workspace', barangay_id=barangay.barangay_id)
 
-    buffer = build_barangay_zip_buffer(barangay, _get_document_stream, user=request.user)
-    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30).replace(" ", "_")
-    filename = f"{clean_b_name}.zip"
-    val = buffer.getvalue()
-    response = HttpResponse(val, content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    response['Content-Length'] = str(len(val))
-    response['X-Content-Type-Options'] = 'nosniff'
-    log_audit(request.user, f"Downloaded Barangay ZIP Archive for '{barangay.barangay_name}'", request=request)
-    return response
+    try:
+        buffer = build_barangay_zip_buffer(barangay, _get_document_stream, user=request.user)
+        clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30).replace(" ", "_")
+        filename = f"{clean_b_name}.zip"
+        val = buffer.getvalue()
+        response = HttpResponse(val, content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = str(len(val))
+        response['X-Content-Type-Options'] = 'nosniff'
+        log_audit(request.user, f"Downloaded Barangay ZIP Archive for '{barangay.barangay_name}'", request=request)
+        return response
+    except Exception as e:
+        logger.error(f"Error generating barangay zip for {barangay.barangay_name}: {e}", exc_info=True)
+        messages.error(request, f"Could not generate ZIP archive for Barangay {barangay.barangay_name}. Please try again.")
+        return redirect('barangay_workspace', barangay_id=barangay.barangay_id)
 
 
 @login_required
@@ -6686,7 +7057,7 @@ def batch_upload_documents_view(request, record_id):
 
         for idx, f in enumerate(files):
             try:
-                validate_document_file(f)
+                validate_document_file(f, is_illegal_construction=record.is_illegal_construction)
             except ValidationError as ve:
                 messages.error(request, f"File '{f.name}' rejected: {ve.message}")
                 continue
@@ -6875,10 +7246,7 @@ def submit_system_feedback(request):
     )
 
     # 2. Asynchronous / Protected Email Dispatch to Developers
-    developer_emails = getattr(settings, 'DEVELOPER_FEEDBACK_EMAILS', [
-        'mardionjrcordetafuerte@gmail.com',
-        'mardionjrcordetafuerte2@gmail.com'
-    ])
+    developer_emails = getattr(settings, 'DEVELOPER_FEEDBACK_EMAILS', [])
 
     cat_label = feedback.get_category_display()
     rating_labels = {
@@ -7049,14 +7417,27 @@ def notification_sync_action_view(request):
                 AuditLog.objects.create(user=request.user, action=f"NOTIF_DELETED:{notif_id}")
             AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{notif_id}").delete()
         elif action_type == 'mark_all_read':
-            if isinstance(notif_ids, list):
+            marked_any = False
+            if isinstance(notif_ids, list) and len(notif_ids) > 0:
                 for nid in notif_ids:
-                    if nid and not AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{nid}").exists():
-                        AuditLog.objects.create(user=request.user, action=f"NOTIF_READ:{nid}")
+                    nid_str = str(nid).strip()
+                    if nid_str and not AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{nid_str}").exists():
+                        AuditLog.objects.create(user=request.user, action=f"NOTIF_READ:{nid_str}")
+                        marked_any = True
+            
+            # Also capture all active system notifications dynamically
+            from .context_processors import recent_notifications
+            current_payload = recent_notifications(request)
+            for item in current_payload.get('recent_notifications', []):
+                item_id = str(item.get('id', '')).strip()
+                if item_id and not AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{item_id}").exists():
+                    AuditLog.objects.create(user=request.user, action=f"NOTIF_READ:{item_id}")
+                    marked_any = True
 
-        # Invalidate user notification cache
+        # Invalidate user notification cache across all versions
         cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}_v2"
         cache.delete(cache_key)
+        cache.delete(f"recent_notifications_{request.user.pk}_{request.user.role}")
 
         return JsonResponse({'success': True})
     except Exception as e:
@@ -7076,29 +7457,32 @@ def quick_search_api_view(request):
     if not q or len(q) < 1:
         return JsonResponse({'results': []})
 
-    records = EngineeringRecord.objects.filter(
+    # Spotlight Search: Strictly search visible identifying fields
+    search_filter = (
         Q(title__icontains=q) |
-        Q(description__icontains=q) |
         Q(permit_detail__applicant_name__icontains=q) |
         Q(permit_detail__permit_number__icontains=q) |
-        Q(permit_detail__permit_type__icontains=q) |
-        Q(permit_detail__building_type__icontains=q) |
-        Q(permit_detail__remarks__icontains=q) |
-        Q(project_detail__contractor__icontains=q) |
-        Q(project_detail__project_type__icontains=q) |
         Q(barangay__barangay_name__icontains=q) |
-        Q(project_detail__funding_source__icontains=q) |
-        Q(project_detail__funding_source_other__icontains=q)
+        Q(project_detail__contractor__icontains=q) |
+        Q(permit_detail__permit_type__icontains=q) |
+        Q(project_detail__project_type__icontains=q) |
+        Q(permit_detail__building_type__icontains=q)
     )
 
     # 4-Digit Year matching (e.g. 2024, 2025, 2026)
     if q.isdigit() and len(q) == 4:
         year_val = int(q)
         if 1900 <= year_val <= 2100:
-            year_q = Q(year=year_val) | Q(created_at__year=year_val) | Q(date_started__year=year_val) | Q(date_completed__year=year_val)
-            records = records | EngineeringRecord.objects.filter(year_q)
+            search_filter |= (
+                Q(year=year_val) |
+                Q(created_at__year=year_val) |
+                Q(date_started__year=year_val) |
+                Q(date_completed__year=year_val)
+            )
 
-    records = records.exclude(
+    records = EngineeringRecord.objects.filter(
+        search_filter
+    ).exclude(
         status='archived'
     ).select_related(
         'barangay', 'permit_detail', 'project_detail'

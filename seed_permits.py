@@ -10,31 +10,35 @@ def seed_data():
     print("Seeding Engineering Records Management database...")
 
     # 1. Create Users
+    admin_pass = os.environ.get('SEED_ADMIN_PASSWORD', 'admin123')
+    staff_pass = os.environ.get('SEED_STAFF_PASSWORD', 'password123')
+    engr_pass = os.environ.get('SEED_ENGINEER_PASSWORD', 'password123')
+
     users_data = [
         {
-            'username': 'admin',
-            'email': 'admin@gmail.com',
+            'username': os.environ.get('SEED_ADMIN_USERNAME', 'admin'),
+            'email': os.environ.get('SEED_ADMIN_EMAIL', 'admin@gmail.com'),
             'full_name': 'Administrator',
             'role': 'admin',
-            'password': 'admin123',
+            'password': admin_pass,
             'is_superuser': True,
             'is_staff': True
         },
         {
-            'username': 'staff',
-            'email': 'staff@gmail.com',
+            'username': os.environ.get('SEED_STAFF_USERNAME', 'staff'),
+            'email': os.environ.get('SEED_STAFF_EMAIL', 'staff@gmail.com'),
             'full_name': 'Staff',
             'role': 'staff',
-            'password': 'password123',
+            'password': staff_pass,
             'is_superuser': False,
             'is_staff': True
         },
         {
-            'username': 'staff1',
-            'email': 'staff1@gmail.com',
+            'username': os.environ.get('SEED_ENGINEER_USERNAME', 'staff1'),
+            'email': os.environ.get('SEED_ENGINEER_EMAIL', 'staff1@gmail.com'),
             'full_name': 'Engr. Maria Santos',
             'role': 'staff',
-            'password': 'password123',
+            'password': engr_pass,
             'is_superuser': False,
             'is_staff': True
         }

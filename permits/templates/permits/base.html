@@ -229,7 +229,7 @@
             background-color: #0f172a !important;
             background: #0f172a !important;
             color: #ffffff !important;
-            z-index: 1030 !important;
+            z-index: 1045 !important;
             border-right: 1px solid rgba(255, 255, 255, 0.10) !important;
             box-sizing: border-box !important;
         }
@@ -238,6 +238,8 @@
             background-color: #0f172a !important;
             background: #0f172a !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+            position: relative !important;
+            z-index: 1050 !important;
         }
 
         .etala-main {
@@ -554,6 +556,8 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=115">
     <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=117">
     <style>
@@ -1751,7 +1755,7 @@
         .etala-sidebar.collapsed,
         #sidebar.collapsed {
             width: 72px !important;
-            overflow: hidden !important;
+            overflow: visible !important;
         }
 
         html.sidebar-is-collapsed .etala-main,
@@ -2247,13 +2251,16 @@
 
         /* ── System Notifications Dropdown Card ── */
         .notification-dropdown-card.dropdown-menu {
-            width: 340px !important;
+            width: 360px !important;
             max-width: calc(100vw - 20px) !important;
             background: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
             box-shadow: 0 16px 40px -6px rgba(15, 23, 42, 0.16), 0 4px 12px -2px rgba(15, 23, 42, 0.08) !important;
             border-radius: 16px !important;
-            display: block !important;
+            display: flex !important;
+            flex-direction: column !important;
+            max-height: 480px !important;
+            overflow: hidden !important;
             opacity: 0 !important;
             visibility: hidden !important;
             pointer-events: none !important;
@@ -2275,6 +2282,7 @@
             background: #ffffff !important;
             border-bottom: 1px solid #f1f5f9 !important;
             padding: 11px 14px !important;
+            flex-shrink: 0 !important;
         }
 
         .notification-card-title {
@@ -2322,8 +2330,8 @@
             min-height: 34px !important;
             max-height: 34px !important;
             flex-shrink: 0 !important;
-            align-self: flex-start !important;
-            margin-top: 1px !important;
+            align-self: center !important;
+            margin-top: 0 !important;
             border-radius: 50% !important;
             display: flex !important;
             align-items: center !important;
@@ -2365,6 +2373,7 @@
             border-top: 1px solid #f1f5f9 !important;
             padding: 10px 14px !important;
             font-size: 0.80rem !important;
+            flex-shrink: 0 !important;
             transition: background 0.15s ease-in-out !important;
         }
 
@@ -3445,19 +3454,22 @@
                 filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4)) !important;
             }
 
-            /* ══ BUTTER-SMOOTH SIDEBAR TRANSITION ENGINE (INSTANT 0.18s RESPONSE) ══ */
+            /* ══ BUTTER-SMOOTH SIDEBAR TRANSITION ENGINE (60FPS HARDWARE ACCELERATED) ══ */
             .etala-sidebar,
             #sidebar {
-                transition: width 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                transition: width 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
                 will-change: width;
-                overflow: hidden !important;
+                transform: translateZ(0);
+                backface-visibility: hidden;
+                overflow-x: visible !important;
             }
 
             .etala-main,
             #sidebar~.etala-main,
             .etala-sidebar~.etala-main {
-                transition: margin-left 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                transition: margin-left 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
                 will-change: margin-left;
+                transform: translateZ(0);
             }
 
             /* Header Transition & Proportional Sizing */
@@ -3469,10 +3481,10 @@
                 justify-content: space-between !important;
                 padding: 0 16px !important;
                 gap: 10px !important;
-                transition: height 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                            padding 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                            gap 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
-                overflow: hidden !important;
+                position: relative !important;
+                transition: padding 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            gap 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
+                overflow: visible !important;
             }
 
             .sidebar-brand {
@@ -3482,7 +3494,7 @@
                 min-width: 0 !important;
                 flex: 1 1 auto !important;
                 overflow: hidden !important;
-                transition: gap 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                transition: gap 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
             }
 
             .brand-logo-circle {
@@ -3490,31 +3502,51 @@
                 height: 38px !important;
                 border-radius: 50% !important;
                 flex-shrink: 0 !important;
-                transition: width 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                            height 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                            transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                            margin 0.18s ease !important;
+                margin: 0 !important;
+                transition: margin 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
             }
 
+            /* Uniform Sidebar Collapse/Expand Arrow Button (Both Modes) */
             .sidebar-collapse-btn {
                 width: 28px !important;
                 height: 28px !important;
+                border-radius: 8px !important;
+                background: rgba(255, 255, 255, 0.08) !important;
+                border: 1px solid rgba(255, 255, 255, 0.15) !important;
+                color: rgba(255, 255, 255, 0.85) !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                cursor: pointer !important;
+                pointer-events: auto !important;
                 flex-shrink: 0 !important;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+                transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.2s ease !important;
+                z-index: 1050 !important;
+                touch-action: manipulation;
+                user-select: none;
+            }
+
+            .sidebar-collapse-btn:hover {
+                background: rgba(255, 255, 255, 0.18) !important;
+                border-color: rgba(255, 255, 255, 0.28) !important;
+                color: #ffffff !important;
+                transform: scale(1.06) !important;
+                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35) !important;
             }
 
             .sidebar-collapse-btn i,
             #collapseIcon {
-                transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                font-size: 11px !important;
+                transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
                 display: inline-block;
+                pointer-events: none !important;
             }
 
             .etala-sidebar.collapsed #sidebarCollapseBtn i,
             #sidebar.collapsed #sidebarCollapseBtn i,
             html.sidebar-is-collapsed #collapseIcon {
+                font-size: 11px !important;
                 transform: rotate(180deg) !important;
             }
 
@@ -3530,9 +3562,10 @@
                 opacity: 1;
                 max-width: 180px;
                 transform: translateX(0);
-                transition: opacity 0.14s ease,
-                            max-width 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                            transform 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                contain: paint !important;
+                transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1) 0.05s,
+                            max-width 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            transform 0.28s cubic-bezier(0.32, 0.72, 0, 1) !important;
             }
 
             .etala-sidebar.collapsed .brand-text,
@@ -3558,59 +3591,94 @@
                 max-width: 0 !important;
                 max-height: 0 !important;
                 margin-left: 0 !important;
-                transform: translateX(-10px) !important;
+                transform: translateX(-8px) !important;
                 pointer-events: none !important;
                 visibility: hidden !important;
-                transition: opacity 0.10s ease,
-                            max-width 0.18s cubic-bezier(0.16, 1, 0.3, 1),
-                            transform 0.14s ease !important;
+                transition: opacity 0.12s ease,
+                            max-width 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            transform 0.20s ease !important;
             }
 
-            /* Collapsed Header: Balanced Vertical Stack with Proportionate Breathing Room */
+            /* Collapsed Header: Clean 64px Height with Centered Emblem & Uniform Edge Toggle */
             .etala-sidebar.collapsed .sidebar-header,
-            #sidebar.collapsed .sidebar-header {
-                height: 82px !important;
-                min-height: 82px !important;
-                padding: 10px 0 6px 0 !important;
+            #sidebar.collapsed .sidebar-header,
+            html.sidebar-is-collapsed .sidebar-header {
+                height: 64px !important;
+                min-height: 64px !important;
+                padding: 0 !important;
                 display: flex !important;
-                flex-direction: column !important;
                 align-items: center !important;
                 justify-content: center !important;
-                gap: 6px !important;
+                position: relative !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+                overflow: visible !important;
+                cursor: default !important;
             }
 
             .etala-sidebar.collapsed .sidebar-brand,
-            #sidebar.collapsed .sidebar-brand {
+            #sidebar.collapsed .sidebar-brand,
+            html.sidebar-is-collapsed .sidebar-brand {
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 width: 100% !important;
+                height: 100% !important;
                 margin: 0 auto !important;
+                padding: 0 !important;
                 gap: 0 !important;
             }
 
             .etala-sidebar.collapsed .brand-logo-circle,
-            #sidebar.collapsed .brand-logo-circle {
-                width: 34px !important;
-                height: 34px !important;
+            #sidebar.collapsed .brand-logo-circle,
+            html.sidebar-is-collapsed .brand-logo-circle {
+                width: 38px !important;
+                height: 38px !important;
+                min-width: 38px !important;
+                min-height: 38px !important;
+                border-radius: 50% !important;
                 margin: 0 auto !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+                transform: none !important;
             }
 
+            /* Collapsed Mode: Perfectly matching 28px x 28px rounded rectangle on the boundary */
             .etala-sidebar.collapsed .sidebar-collapse-btn,
-            #sidebar.collapsed .sidebar-collapse-btn {
-                width: 28px !important;
-                height: 22px !important;
-                border-radius: 6px !important;
-                margin: 0 auto !important;
+            #sidebar.collapsed .sidebar-collapse-btn,
+            html.sidebar-is-collapsed .sidebar-collapse-btn {
                 display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                position: absolute !important;
+                right: -14px !important;
+                top: 50% !important;
+                transform: translateY(-50%) !important;
+                width: 28px !important;
+                height: 28px !important;
+                border-radius: 8px !important;
+                background: #0f172a !important;
+                border: 1px solid rgba(255, 255, 255, 0.18) !important;
+                color: rgba(255, 255, 255, 0.85) !important;
+                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45) !important;
+                z-index: 1060 !important;
+                cursor: pointer !important;
+                transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.2s ease !important;
             }
 
-            /* CTA Button ("+ New Record") Smooth Morph & Balanced Spacing */
+            .etala-sidebar.collapsed .sidebar-collapse-btn:hover,
+            #sidebar.collapsed .sidebar-collapse-btn:hover,
+            html.sidebar-is-collapsed .sidebar-collapse-btn:hover {
+                background: #1e293b !important;
+                border-color: rgba(255, 255, 255, 0.35) !important;
+                color: #ffffff !important;
+                transform: translateY(-50%) scale(1.08) !important;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55) !important;
+            }
+
+            /* CTA Button ("+ New Record") Smooth Morph & Balanced 44px Centering */
             .sidebar-new-record-wrap {
                 padding: 10px 12px 6px !important;
-                transition: padding 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                transition: padding 0.32s cubic-bezier(0.32, 0.72, 0, 1) !important;
             }
 
             .sidebar-new-record-btn {
@@ -3619,9 +3687,9 @@
                 align-items: center !important;
                 justify-content: center !important;
                 gap: 8px !important;
-                border-radius: 9px !important;
-                transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-                            height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                border-radius: 10px !important;
+                transition: width 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            height 0.32s cubic-bezier(0.32, 0.72, 0, 1),
                             border-radius 0.32s ease,
                             padding 0.32s ease,
                             margin 0.32s ease,
@@ -3629,26 +3697,48 @@
             }
 
             .etala-sidebar.collapsed .sidebar-new-record-wrap,
-            #sidebar.collapsed .sidebar-new-record-wrap {
-                padding: 8px 0 8px 0 !important;
+            #sidebar.collapsed .sidebar-new-record-wrap,
+            html.sidebar-is-collapsed .sidebar-new-record-wrap {
+                padding: 12px 0 8px 0 !important;
                 display: flex !important;
                 justify-content: center !important;
                 width: 100% !important;
             }
 
             .etala-sidebar.collapsed .sidebar-new-record-btn,
-            #sidebar.collapsed .sidebar-new-record-btn {
-                width: 42px !important;
-                height: 42px !important;
-                min-width: 42px !important;
-                min-height: 42px !important;
+            #sidebar.collapsed .sidebar-new-record-btn,
+            html.sidebar-is-collapsed .sidebar-new-record-btn {
+                width: 44px !important;
+                height: 44px !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
                 padding: 0 !important;
                 margin: 0 auto !important;
-                border-radius: 11px !important;
+                border-radius: 12px !important;
                 gap: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+                box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+                position: relative !important;
             }
 
-            /* Nav Item Morph & Centered 42px Touch Target Alignment */
+            .etala-sidebar.collapsed .sidebar-new-record-btn:hover,
+            #sidebar.collapsed .sidebar-new-record-btn:hover,
+            html.sidebar-is-collapsed .sidebar-new-record-btn:hover {
+                transform: translateY(-2px) scale(1.05) !important;
+                box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+            }
+
+            .etala-sidebar.collapsed .sidebar-new-record-btn i,
+            #sidebar.collapsed .sidebar-new-record-btn i,
+            html.sidebar-is-collapsed .sidebar-new-record-btn i {
+                font-size: 18px !important;
+                margin: 0 !important;
+            }
+
+            /* Nav Item Morph & Centered 44px Touch Target Alignment */
             .etala-sidebar .nav-item,
             #sidebar .nav-item {
                 display: flex !important;
@@ -3657,10 +3747,10 @@
                 padding: 8.5px 12px !important;
                 margin: 2.5px 8px !important;
                 border-radius: 9px !important;
-                transition: width 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-                            height 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-                            padding 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-                            margin 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+                transition: width 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            height 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            padding 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            margin 0.32s cubic-bezier(0.32, 0.72, 0, 1),
                             background 0.2s ease,
                             color 0.2s ease,
                             transform 0.15s ease !important;
@@ -3681,30 +3771,58 @@
             }
 
             .etala-sidebar.collapsed .nav-item,
-            #sidebar.collapsed .nav-item {
-                width: 42px !important;
-                height: 42px !important;
-                min-width: 42px !important;
-                min-height: 42px !important;
+            #sidebar.collapsed .nav-item,
+            html.sidebar-is-collapsed .nav-item {
+                width: 44px !important;
+                height: 44px !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
                 padding: 0 !important;
-                margin: 4px auto !important;
+                margin: 5px auto !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 gap: 0 !important;
-                border-radius: 9px !important;
+                border-radius: 10px !important;
+                background: transparent !important;
+                border: 1px solid transparent !important;
+                color: #94a3b8 !important;
                 box-sizing: border-box !important;
+                transition: width 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            height 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            padding 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            margin 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+                            background-color 0.15s ease,
+                            transform 0.15s ease !important;
+                position: relative !important;
+            }
+
+            .etala-sidebar.collapsed .nav-item:hover,
+            #sidebar.collapsed .nav-item:hover,
+            html.sidebar-is-collapsed .nav-item:hover {
+                background: rgba(255, 255, 255, 0.08) !important;
+                color: #f8fafc !important;
+                transform: translateY(-1px) !important;
             }
 
             .etala-sidebar.collapsed .nav-item.active,
-            #sidebar.collapsed .nav-item.active {
-                background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.15) 100%) !important;
-                border: 1.5px solid rgba(56, 189, 248, 0.45) !important;
-                box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
+            #sidebar.collapsed .nav-item.active,
+            html.sidebar-is-collapsed .nav-item.active {
+                background: rgba(37, 99, 235, 0.22) !important;
+                border: 1px solid rgba(59, 130, 246, 0.45) !important;
+                color: #60a5fa !important;
+                box-shadow: 0 0 14px rgba(37, 99, 235, 0.28) !important;
+            }
+
+            .etala-sidebar.collapsed .nav-item.active i,
+            #sidebar.collapsed .nav-item.active i,
+            html.sidebar-is-collapsed .nav-item.active i {
+                color: #60a5fa !important;
             }
 
             .etala-sidebar.collapsed .nav-item-content,
-            #sidebar.collapsed .nav-item-content {
+            #sidebar.collapsed .nav-item-content,
+            html.sidebar-is-collapsed .nav-item-content {
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
@@ -3716,12 +3834,16 @@
             }
 
             .etala-sidebar.collapsed .nav-item i,
-            #sidebar.collapsed .nav-item i {
-                margin: 0 auto !important;
-                text-align: center !important;
+            #sidebar.collapsed .nav-item i,
+            html.sidebar-is-collapsed .nav-item i {
+                font-size: 16px !important;
+                width: 20px !important;
+                height: 20px !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
+                margin: 0 auto !important;
+                flex-shrink: 0 !important;
             }
 
             /* Divider Transition & Alignment */
@@ -3732,16 +3854,71 @@
 
             .etala-sidebar.collapsed .sidebar-divider-label,
             #sidebar.collapsed .sidebar-divider-label,
-            html.sidebar-is-collapsed .sidebar-divider-label {
+            html.sidebar-is-collapsed .sidebar-divider-label,
+            .etala-sidebar.collapsed .mobile-drawer-section-label,
+            #sidebar.collapsed .mobile-drawer-section-label,
+            html.sidebar-is-collapsed .mobile-drawer-section-label {
                 display: block !important;
-                width: 22px !important;
+                width: 32px !important;
                 height: 1px !important;
-                background: rgba(255, 255, 255, 0.14) !important;
+                background: rgba(255, 255, 255, 0.12) !important;
                 padding: 0 !important;
-                margin: 10px auto 6px auto !important;
+                margin: 12px auto 8px auto !important;
                 font-size: 0 !important;
                 line-height: 0 !important;
                 border: none !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+
+            /* Sleek Floating Tooltip on Hover in Collapsed Mode */
+            @keyframes sidebarTooltipIn {
+                from {
+                    opacity: 0;
+                    transform: translate(6px, -50%);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate(0, -50%);
+                }
+            }
+
+            .etala-sidebar.collapsed .nav-item[title]:hover::after,
+            #sidebar.collapsed .nav-item[title]:hover::after,
+            html.sidebar-is-collapsed .nav-item[title]:hover::after {
+                content: attr(title);
+                position: absolute;
+                left: calc(100% + 10px);
+                top: 50%;
+                transform: translateY(-50%);
+                background: #0f172a;
+                color: #f8fafc;
+                font-size: 0.76rem;
+                font-weight: 600;
+                letter-spacing: 0.2px;
+                padding: 5px 10px;
+                border-radius: 6px;
+                white-space: nowrap;
+                pointer-events: none;
+                z-index: 1060;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                animation: sidebarTooltipIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+
+            .etala-sidebar.collapsed .nav-item[title]:hover::before,
+            #sidebar.collapsed .nav-item[title]:hover::before,
+            html.sidebar-is-collapsed .nav-item[title]:hover::before {
+                content: '';
+                position: absolute;
+                left: calc(100% + 5px);
+                top: 50%;
+                transform: translateY(-50%);
+                border-width: 5px 6px 5px 0;
+                border-style: solid;
+                border-color: transparent #0f172a transparent transparent;
+                z-index: 1060;
+                pointer-events: none;
             }
 
             /* CTA Button Shimmer & Polish */
@@ -4140,15 +4317,22 @@
                 color: #ffffff !important;
             }
 
-            .dropdown-divider {
-                border-color: #f1f5f9 !important;
-                margin: 5px 0 !important;
+            .dropdown-divider,
+            hr.dropdown-divider {
+                border-top: 1px solid #e2e8f0 !important;
+                border-bottom: none !important;
+                border-left: none !important;
+                border-right: none !important;
+                margin: 6px 0 !important;
                 opacity: 1 !important;
+                height: 0 !important;
             }
 
             .dark-mode .dropdown-divider,
-            [data-bs-theme="dark"] .dropdown-divider {
-                border-color: #334155 !important;
+            .dark-mode hr.dropdown-divider,
+            [data-bs-theme="dark"] .dropdown-divider,
+            [data-bs-theme="dark"] hr.dropdown-divider {
+                border-top-color: #334155 !important;
             }
 
             /* ── CRISP DROPDOWN ARROWS & DYNAMIC ROTATION ── */
@@ -7576,7 +7760,7 @@
         <aside class="etala-sidebar" id="sidebar">
             <!-- Sidebar Header: Official Carigara Emblem & Centered eTala Brand -->
             <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand" title="eTala — Municipal Engineering Office">
+                <a href="{% url 'dashboard' %}" class="sidebar-brand" onclick="handleBrandClick(event)" title="eTala — Municipal Engineering Office">
                     <img src="{% static 'carigara_logo.png' %}" alt="Official Seal of Municipality of Carigara"
                         class="brand-logo-circle"
                         style="width: 38px !important; height: 38px !important; min-width: 38px !important; min-height: 38px !important; border-radius: 50% !important; object-fit: cover !important; display: block !important;">
@@ -7589,7 +7773,7 @@
                         </div>
                     </div>
                 </a>
-                <button class="sidebar-collapse-btn d-none d-md-flex" id="sidebarCollapseBtn" onclick="toggleSidebar(event)" title="Collapse sidebar"
+                <button type="button" class="sidebar-collapse-btn d-none d-md-flex" id="sidebarCollapseBtn" onclick="toggleSidebar(event)" title="Collapse sidebar (Ctrl+B)"
                     aria-label="Toggle sidebar">
                     <i class="fa-solid fa-angles-left" id="collapseIcon" style="font-size: 14px;"></i>
                 </button>
@@ -8009,7 +8193,7 @@
                                         <span>About eTala</span>
                                     </a>
 
-                                    <hr class="dropdown-divider my-1" style="border-color: rgba(226, 232, 240, 0.8); opacity: 1;">
+                                    <hr class="dropdown-divider my-1">
 
                                     <a href="{% url 'logout' %}"
                                         class="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2 rounded-2 text-decoration-none text-danger dropdown-logout-item"
@@ -8109,17 +8293,29 @@
             }
         });
 
-        // Character counter for textareas
-        document.querySelectorAll('.char-counted').forEach(textarea => {
-            const label = textarea.nextElementSibling;
-            if (label && label.classList.contains('char-counter-lbl')) {
-                const limit = textarea.getAttribute('maxlength') || 250;
-                const updateCounter = () => {
-                    const count = textarea.value.length;
-                    label.textContent = `${count} / ${limit} characters`;
-                };
-                textarea.addEventListener('input', updateCounter);
-                updateCounter();
+        // Universal Live Character Counter Engine (Supports dynamic forms, modals, & static fields)
+        function updateCharCounter(inputEl) {
+            if (!inputEl) return;
+            const container = inputEl.closest('.col-md-6, .col-md-12, .col-12, .mb-3, .form-group, .content-card-body') || inputEl.parentElement;
+            const label = (container ? container.querySelector('.char-counter-lbl') : null) || inputEl.nextElementSibling;
+            if (label) {
+                const limit = inputEl.getAttribute('maxlength') || 250;
+                const count = (inputEl.value || '').length;
+                label.textContent = `${count} / ${limit}`;
+            }
+        }
+
+        document.querySelectorAll('.char-counted').forEach(updateCharCounter);
+
+        document.addEventListener('input', function(e) {
+            if (e.target && e.target.classList && e.target.classList.contains('char-counted')) {
+                updateCharCounter(e.target);
+            }
+        });
+
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.classList && e.target.classList.contains('char-counted')) {
+                updateCharCounter(e.target);
             }
         });
 
@@ -8127,9 +8323,13 @@
         // SIDEBAR COLLAPSE / EXPAND ENGINE (Robust & Persistent)
         // ═══════════════════════════════════════════════════════════
         window.toggleSidebar = function(event) {
-            if (event && event.preventDefault) event.preventDefault();
+            if (event) {
+                if (event.preventDefault) event.preventDefault();
+                if (event.stopPropagation) event.stopPropagation();
+            }
             const sidebar = document.getElementById('sidebar');
             const collapseBtn = document.getElementById('sidebarCollapseBtn');
+            const collapseIcon = document.getElementById('collapseIcon');
             if (!sidebar) return;
 
             const isCurrentlyCollapsed = sidebar.classList.contains('collapsed') || document.documentElement.classList.contains('sidebar-is-collapsed');
@@ -8139,13 +8339,18 @@
                 sidebar.classList.add('collapsed');
                 document.documentElement.classList.add('sidebar-is-collapsed');
                 try { localStorage.setItem('sidebarCollapsed', 'true'); } catch(e) {}
-                if (collapseBtn) collapseBtn.setAttribute('title', 'Expand sidebar');
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Expand sidebar (Ctrl+B)');
             } else {
                 sidebar.classList.remove('collapsed');
                 document.documentElement.classList.remove('sidebar-is-collapsed');
                 try { localStorage.setItem('sidebarCollapsed', 'false'); } catch(e) {}
-                if (collapseBtn) collapseBtn.setAttribute('title', 'Collapse sidebar');
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Collapse sidebar (Ctrl+B)');
             }
+
+            // Trigger window resize so charts/maps re-layout smoothly
+            setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+            }, 200);
         };
 
         function initSidebarState() {
@@ -8160,19 +8365,79 @@
             if (isStoredCollapsed && isDesktop && sidebar) {
                 sidebar.classList.add('collapsed');
                 document.documentElement.classList.add('sidebar-is-collapsed');
-                if (collapseBtn) collapseBtn.setAttribute('title', 'Expand sidebar');
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Expand sidebar (Ctrl+B)');
             } else if (sidebar && isDesktop) {
                 sidebar.classList.remove('collapsed');
                 document.documentElement.classList.remove('sidebar-is-collapsed');
-                if (collapseBtn) collapseBtn.setAttribute('title', 'Collapse sidebar');
+                if (collapseBtn) collapseBtn.setAttribute('title', 'Collapse sidebar (Ctrl+B)');
+            }
+
+            // Bind click directly to button for extra resilience
+            if (collapseBtn && !collapseBtn._hasBoundClick) {
+                collapseBtn._hasBoundClick = true;
+                collapseBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.toggleSidebar(e);
+                });
             }
         }
+
+        // Universal Capture-Phase Click Handler for Collapse Button & Icon
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('#sidebarCollapseBtn, .sidebar-collapse-btn');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.toggleSidebar(e);
+            }
+        }, true); // Use capturing phase to guarantee instant execution
 
         // Initialize immediately and on DOM load
         initSidebarState();
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initSidebarState);
         }
+
+        // Keyboard Shortcut: Ctrl+B or Cmd+B to toggle sidebar
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                const tag = (e.target.tagName || '').toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+                e.preventDefault();
+                window.toggleSidebar();
+            }
+        });
+
+        // Clicking the top header/seal when collapsed smoothly expands the sidebar
+        window.handleBrandClick = function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const isCollapsed = sidebar && (sidebar.classList.contains('collapsed') || document.documentElement.classList.contains('sidebar-is-collapsed'));
+            if (isCollapsed) {
+                if (event) {
+                    if (event.preventDefault) event.preventDefault();
+                    if (event.stopPropagation) event.stopPropagation();
+                }
+                window.toggleSidebar(event);
+                return false;
+            }
+            return true;
+        };
+
+        window.handleHeaderClick = function(event) {
+            if (event && event.target && event.target.closest('#sidebarCollapseBtn, .sidebar-collapse-btn')) {
+                return;
+            }
+            const sidebar = document.getElementById('sidebar');
+            const isCollapsed = sidebar && (sidebar.classList.contains('collapsed') || document.documentElement.classList.contains('sidebar-is-collapsed'));
+            if (isCollapsed) {
+                if (event) {
+                    if (event.preventDefault) event.preventDefault();
+                    if (event.stopPropagation) event.stopPropagation();
+                }
+                window.toggleSidebar(event);
+            }
+        };
 
         // Mobile drawer toggles
         window.toggleMobileSidebar = function(event) {
@@ -8580,6 +8845,8 @@
                 toastText = 'No uploaded documents to export';
             } else if (comboLower.includes('no file') || comboLower.includes('no document') || comboLower.includes('select at least')) {
                 toastText = 'Please select a file to upload';
+            } else if (comboLower.includes('upload incomplete') || (comboLower.includes('uploaded') && comboLower.includes('failed'))) {
+                toastText = (m && m.length <= 70) ? m : 'Some files uploaded, others failed';
             } else if (comboLower.includes('upload') && comboLower.includes('fail')) {
                 toastText = 'File upload failed. Please try again';
             } else if (comboLower.includes('upload') && isSuccess) {
@@ -9765,9 +10032,8 @@
                                 <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
                                     style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
                                     A special violation flag raised for structures built or started without securing a
-                                    prior Building Permit (P.D. 1096 Sec. 301). To resolve it, click 'Flag Illegal
-                                    Structure', select the compliance status (e.g. Complied / Permit Issued), and
-                                    attach legal compliance files.
+                                    prior Building Permit (P.D. 1096 Sec. 301). To resolve it, open the violation record,
+                                    enter the issued Official Building Permit Number upon payment, and attach supporting files.
                                 </div>
                             </div>
 
@@ -10422,7 +10688,9 @@
                         e.preventDefault();
                         e.stopPropagation();
                         if (window.showToast) {
-                            window.showToast('warning', 'No Uploaded Documents', 'This record has no uploaded documents or files to export.');
+                            const isBrgy = (zipBtn.getAttribute('href') || '').includes('barangay');
+                            const msg = isBrgy ? 'This barangay has no uploaded documents or files to export.' : 'This record has no uploaded documents or files to export.';
+                            window.showToast('warning', 'No Uploaded Documents', msg);
                         }
                         return false;
                     }
@@ -10747,110 +11015,8 @@
             }
         });
 
-        // ⚡ INSTANT PERSISTENT SPA PAGE TRANSITION ENGINE (ZERO WHITE FLASH, PERMANENT SIDEBAR)
+        // ⚡ INSTANT SIDEBAR PREFETCHING (Zero-Latency Browser Caching)
         (function() {
-            const bar = document.getElementById('etalaTopProgressBar');
-            let isNavigating = false;
-
-            function showBar() {
-                if (bar) {
-                    bar.classList.remove('is-finished');
-                    bar.style.width = '0%';
-                    bar.classList.add('is-loading');
-                }
-            }
-
-            function hideBar() {
-                if (bar) {
-                    bar.classList.add('is-finished');
-                    setTimeout(() => {
-                        bar.classList.remove('is-loading', 'is-finished');
-                        bar.style.width = '0%';
-                    }, 350);
-                }
-            }
-
-            async function navigateTo(url, pushState = true) {
-                if (isNavigating) return;
-                isNavigating = true;
-                showBar();
-
-                try {
-                    const response = await fetch(url, {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-
-                    if (!response.ok || (response.redirected && response.url.includes('/login'))) {
-                        window.location.href = response.url || url;
-                        return;
-                    }
-
-                    const htmlText = await response.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlText, 'text/html');
-
-                    const newContent = doc.querySelector('main.etala-content');
-                    const currentContent = document.querySelector('main.etala-content');
-                    const newHeader = doc.querySelector('header.etala-header');
-                    const currentHeader = document.querySelector('header.etala-header');
-                    const newSidebar = doc.querySelector('.sidebar-nav');
-                    const currentSidebar = document.querySelector('.sidebar-nav');
-
-                    if (!newContent || !currentContent) {
-                        window.location.href = url;
-                        return;
-                    }
-
-                    // Update page title
-                    document.title = doc.title || document.title;
-
-                    // Update active sidebar links
-                    if (newSidebar && currentSidebar) {
-                        currentSidebar.innerHTML = newSidebar.innerHTML;
-                    }
-
-                    // Update header
-                    if (newHeader && currentHeader) {
-                        currentHeader.innerHTML = newHeader.innerHTML;
-                    }
-
-                    // Smooth DOM swap of main content
-                    currentContent.innerHTML = newContent.innerHTML;
-
-                    // Execute any dynamic script blocks inside newContent
-                    const scripts = currentContent.querySelectorAll('script');
-                    scripts.forEach(oldScript => {
-                        const newScript = document.createElement('script');
-                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-                        oldScript.parentNode.replaceChild(newScript, oldScript);
-                    });
-
-                    // Re-init global date pickers & lucide icons
-                    if (window.initPremiumDatePickers) window.initPremiumDatePickers(currentContent);
-                    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-
-                    if (pushState) {
-                        window.history.pushState({ path: url }, '', url);
-                    }
-
-                    window.scrollTo({ top: 0, behavior: 'instant' });
-                    hideBar();
-                } catch (err) {
-                    console.warn('Fast transition fallback:', err);
-                    window.location.href = url;
-                } finally {
-                    isNavigating = false;
-                }
-            }
-
-            window.addEventListener('popstate', function() {
-                navigateTo(window.location.href, false);
-            });
-
-            // ⚡ Instant Sidebar Hover Prefetching (Eliminates perceived load latency)
             const prefetchedUrls = new Set();
             function prefetchUrl(url) {
                 if (!url || prefetchedUrls.has(url)) return;
@@ -10871,7 +11037,7 @@
                 const link = e.target.closest('.etala-sidebar a[href], a.nav-item[href]');
                 if (link) {
                     const href = link.getAttribute('href');
-                    if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+                    if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:')) {
                         prefetchUrl(href);
                     }
                 }
@@ -10881,55 +11047,21 @@
                 const link = e.target.closest('.etala-sidebar a[href], a.nav-item[href]');
                 if (link) {
                     const href = link.getAttribute('href');
-                    if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+                    if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:')) {
                         prefetchUrl(href);
                     }
                 }
             }, { passive: true });
 
+            // Ensure mobile drawer closes gracefully on link click
             document.addEventListener('click', function(e) {
-                const link = e.target.closest('a');
-                if (!link) return;
-
-                const href = link.getAttribute('href');
-                const target = link.getAttribute('target');
-                const download = link.hasAttribute('download');
-
-                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || target === '_blank' || download) {
-                    return;
+                const link = e.target.closest('.sidebar-nav a, a.nav-item');
+                if (link) {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar && sidebar.classList.contains('mobile-open') && typeof window.closeMobileSidebar === 'function') {
+                        window.closeMobileSidebar();
+                    }
                 }
-
-                // Check same-origin
-                try {
-                    const urlObj = new URL(href, window.location.origin);
-                    if (urlObj.origin !== window.location.origin) return;
-                } catch(err) {
-                    return;
-                }
-
-                if (link.hasAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle') || link.classList.contains('zip-download-btn') || link.closest('.dropdown-menu') || link.hasAttribute('data-no-transition') || link.classList.contains('no-transition') || href.includes('/logout/')) {
-                    return;
-                }
-
-                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
-                    return;
-                }
-
-                // Instant visual selection for sidebar links
-                const navItem = link.closest('.nav-item');
-                if (navItem) {
-                    document.querySelectorAll('.sidebar-nav .nav-item.active').forEach(item => item.classList.remove('active'));
-                    navItem.classList.add('active');
-                }
-
-                // If mobile drawer was open, close it instantly so user sees destination immediately
-                const sidebar = document.getElementById('sidebar');
-                if (sidebar && sidebar.classList.contains('mobile-open') && typeof window.closeMobileSidebar === 'function') {
-                    window.closeMobileSidebar();
-                }
-
-                e.preventDefault();
-                navigateTo(href, true);
             });
         })();
 

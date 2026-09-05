@@ -38,6 +38,9 @@ def clean_audit_action(action):
         return ''
     s = str(action).strip()
     
+    # Strip any obsolete/legacy (Status: ...) or (Compliance: ...) suffixes
+    s = re.sub(r"\s*\((?:Status|Compliance):\s*[^)]+\)", "", s, flags=re.IGNORECASE).strip()
+    
     # 1. Clean email notifications
     if 'Triggered Document Expiry Email Alerts' in s or 'Dispatched document expiry' in s:
         return 'Dispatched Document Expiry Email Alerts'
@@ -57,7 +60,7 @@ def clean_audit_action(action):
             
     # 3. Clean user creation wording
     if 'Created new' in s and 'account:' in s:
-        m = re.search(r"Created new (\w+) account: ['\"]?([^'\"\(]+)", s)
+        m = re.search(r"Created new (\w+) account:\s*['\"]?([^'\"\(]+)", s)
         if m:
             role = m.group(1).title()
             name = m.group(2).strip()
@@ -77,9 +80,11 @@ def clean_audit_action(action):
     if s in ['Changed password', 'Changed account password']:
         return 'Changed Account Password'
 
-    # 5. Clean Record Creations
+    # 5. Clean Record Creations & Updates
     if s.startswith('Created ') and ' record:' in s:
         s = re.sub(r"^Created (\w+) record:\s*['\"]?(.+?)['\"]?$", r"Created \1: \2", s)
+    if s.startswith('Updated ') and (' Project:' in s or ' Permit:' in s or ' Record:' in s):
+        s = re.sub(r"^Updated (\w+):\s*['\"]?(.+?)['\"]?$", r"Updated \1: \2", s)
 
     # 6. Clean Trash & Restores
     if s.startswith("Moved to Trash:"):
@@ -89,35 +94,105 @@ def clean_audit_action(action):
         inner = s.replace("Restored:", "").strip().strip("'\"")
         return f"Restored from Trash: {inner}"
 
-    # 7. Clean Violations & Illegal Constructions
+    # 7. Clean Violations & Illegal Constructions (Legacy and Modern)
+    if s.startswith('Flagged Illegal Construction at Barangay') or s.startswith('Flagged Illegal Construction at Brgy'):
+        m = re.search(r"Flagged Illegal Construction at (?:Barangay|Brgy\.?)\s*([^:]+):\s*(.+)", s, flags=re.IGNORECASE)
+        if m:
+            brgy = m.group(1).strip()
+            title = m.group(2).strip().strip("'\"")
+            return f"Flagged Illegal Construction: {title} (Brgy. {brgy})"
     if 'Flagged as Illegal Construction' in s:
         return 'Flagged as Illegal Construction'
     if 'Unflagged Illegal Construction' in s or 'Removed Illegal Construction flag' in s:
         return 'Removed Illegal Construction Flag'
-    if 'Updated Illegal Construction Compliance to' in s:
-        status_part = s.split('to')[-1].strip()
-        return f"Illegal Construction Status: {status_part}"
+    if 'Removed violation flag from record' in s:
+        m = re.search(r"record\s*['\"]?([^'\"]+)['\"]?", s)
+        title = f": {m.group(1)}" if m else ""
+        return f"Removed Violation Flag{title}"
+    if 'Updated Illegal Construction Compliance to' in s or 'Updated violation status to' in s:
+        m = re.search(r"for record\s*['\"]?([^'\"]+)['\"]?", s)
+        title = f": {m.group(1)}" if m else ""
+        return f"Updated Violation Status{title}"
+    if 'Issued Official Permit #' in s:
+        m = re.search(r"Issued Official Permit #([^\s]+)\s+for violation\s*['\"]?([^'\"]+)['\"]?", s)
+        if m:
+            return f"Issued Permit #{m.group(1)}: {m.group(2)}"
+        return "Issued Official Permit for Violation"
     if 'Regularized incident case into' in s:
         m = re.search(r"into (.+)", s)
-        return f"Regularized Case: {m.group(1)}" if m else "Regularized Illegal Construction"
+        return f"Regularized Record: {m.group(1)}" if m else "Regularized Illegal Construction"
     if 'Reported violation at' in s:
-        m = re.search(r"Reported violation at Brgy\.\s*([^:]+):\s*'([^']+)'\s*—\s*(.+)", s)
+        m = re.search(r"Reported violation at (?:Barangay|Brgy\.?)\s*([^:]+):\s*['\"]?([^'\"]+)['\"]?(?:\s*[—–-]\s*|\s*:\s*)(.+)", s)
         if m:
-            return f"Reported Violation: {m.group(3)} (Brgy. {m.group(1)})"
+            brgy = m.group(1).strip()
+            title = m.group(2).strip()
+            return f"Reported Violation: {title} (Brgy. {brgy})"
 
-    # 8. Clean Database Backup & Restore
+    # 8. Clean Requirement N/A & Waivers
+    if "marked as N/A (waived)" in s:
+        m = re.search(r"Requirement\s*['\"]?([^'\"]+)['\"]?", s)
+        req_name = f": {m.group(1)}" if m else ""
+        return f"Marked Requirement as N/A{req_name}"
+    if "marked as required" in s:
+        m = re.search(r"Requirement\s*['\"]?([^'\"]+)['\"]?", s)
+        req_name = f": {m.group(1)}" if m else ""
+        return f"Marked Requirement as Required{req_name}"
+
+    # 9. Clean Checklist Templates
+    if s.startswith('Created checklist template:'):
+        tmpl = s.split(':', 1)[-1].strip().strip("'\"")
+        return f"Created Template: {tmpl}"
+    if s.startswith('Updated checklist template details:'):
+        tmpl = s.split(':', 1)[-1].strip().strip("'\"")
+        return f"Updated Template: {tmpl}"
+    if 'Added ' in s and ' to template ' in s:
+        m = re.search(r"Added \w+ '([^']+)' to template '([^']+)'", s)
+        if m:
+            return f"Added Template Item: {m.group(1)}"
+    if 'Updated requirement ' in s and ' to ' in s:
+        m = re.search(r"to '([^']+)'", s)
+        if m:
+            return f"Updated Template Item: {m.group(1)}"
+    if 'Deleted requirement ' in s and ' from template' in s:
+        m = re.search(r"Deleted requirement '([^']+)'", s)
+        if m:
+            return f"Deleted Template Item: {m.group(1)}"
+
+    # 10. Clean Barangay Management
+    if s.startswith('Created Barangay '):
+        name = s.replace('Created Barangay', '').strip().strip("'\"")
+        return f"Created Barangay: {name}"
+    if s.startswith('Updated Barangay '):
+        name = s.replace('Updated Barangay', '').strip().strip("'\"")
+        return f"Updated Barangay: {name}"
+    if s.startswith('Deleted Barangay '):
+        name = s.replace('Deleted Barangay', '').strip().strip("'\"")
+        return f"Deleted Barangay: {name}"
+
+    # 11. Clean Database Backup & Restore
     if 'Exported full database backup' in s:
         return 'Exported Database Backup (JSON)'
     if 'Restored' in s and 'from backup file' in s:
         m = re.search(r"backup file '([^']+)'", s)
         fname = f" ({m.group(1)})" if m else ""
         return f"Restored Database from Backup{fname}"
+    if s.startswith('Updated office settings:'):
+        return 'Updated Office Settings'
 
-    # 9. Clean Document uploads/deletions
+    # 12. Clean Document uploads/deletions (Legacy & Modern)
+    if s.startswith("Uploaded:") and " for " in s:
+        m = re.search(r"Uploaded:\s*(.+?)\s*for\s*(.+?)(?:\s*[—–-]\s*(.+))?$", s)
+        if m:
+            doc_type = m.group(1).strip()
+            # Clean abbreviations with hyphens e.g. "FSIC - Fire Safety..." -> "Fire Safety..."
+            doc_type = re.sub(r"^[A-Z]+\s*[-–—]\s*", "", doc_type)
+            return f"Uploaded Document: {doc_type}"
     if s.startswith("Deleted:") and " from " in s:
         m = re.search(r"Deleted:\s*(.+?)\s*from\s*['\"]?(.+?)['\"]?$", s)
         if m:
-            return f"Deleted Document: {m.group(1)}"
+            doc_name = m.group(1).strip()
+            doc_name = re.sub(r"^[A-Z]+\s*[-–—]\s*", "", doc_name)
+            return f"Deleted Document: {doc_name}"
     if "Uploaded" in s and "file(s)" in s:
         m = re.search(r"Uploaded (\d+) new file\(s\).*? for (.+?)(?: in ['\"].+?['\"])?$", s)
         if m:
@@ -129,8 +204,18 @@ def clean_audit_action(action):
         if m:
             qty = f" ({m.group(1)})" if m.group(1) else ""
             target = m.group(2).strip()
-            return f"Deleted all attached files{qty} for {target}"
+            return f"Deleted attached files{qty} for {target}"
 
+    # 13. Clean Email updates
+    if "Work email address updated from" in s and "to" in s:
+        m = re.search(r"to\s+([^\s]+)\s+via OTP", s)
+        if m:
+            return f"Updated Work Email: {m.group(1)}"
+        return "Updated Work Email"
+
+    # Final polish: Remove all em-dashes (—), en-dashes (–), and stray ' - ' dividers
+    s = s.replace('—', ': ').replace('–', ': ')
+    s = re.sub(r"\s+-\s+", ": ", s)
     # General cleanup of surrounding quotes for cleaner human reading
     s = re.sub(r"'([^']+)'", r"\1", s)
     return s

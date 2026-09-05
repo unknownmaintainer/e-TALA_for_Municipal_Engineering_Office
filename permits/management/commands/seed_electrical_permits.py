@@ -77,10 +77,11 @@ class Command(BaseCommand):
         # Get or create an admin/staff user
         user = CustomUser.objects.filter(role__in=['admin', 'staff']).first()
         if not user:
+            admin_pass = os.environ.get('SEED_ADMIN_PASSWORD', 'admin123')
             user = CustomUser.objects.create_user(
-                username='admin',
-                email='admin@gmail.com',
-                password='adminpassword123',
+                username=os.environ.get('SEED_ADMIN_USERNAME', 'admin'),
+                email=os.environ.get('SEED_ADMIN_EMAIL', 'admin@gmail.com'),
+                password=admin_pass,
                 role='admin',
                 full_name='Municipal Engineering Admin'
             )

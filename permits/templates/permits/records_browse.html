@@ -933,8 +933,7 @@
                         }
                     } catch (e) { }
 
-                    // Re-attach handlers & icons after DOM swap
-                    bindChipDismissHandlers();
+                    // Re-render icons after DOM swap
                     if (window.lucide) {
                         lucide.createIcons();
                     }
@@ -1036,11 +1035,35 @@
                         const params = new URLSearchParams(formData);
                         const url = window.location.pathname + '?' + params.toString();
                         updateRecordsTableAJAX(url);
-                    } else {
-                        const url = clearSearchLink.getAttribute('href');
-                        if (url && url !== '#') updateRecordsTableAJAX(url);
                     }
                     if (searchInput) searchInput.focus();
+                    return;
+                }
+
+                // 7. Active chip dismissal buttons (Delegated)
+                const chipBtn = e.target.closest('.clear-chip-btn');
+                if (chipBtn) {
+                    e.preventDefault();
+                    const chip = chipBtn.closest('.filter-chip');
+                    if (chip) chip.style.display = 'none';
+
+                    const filterName = chipBtn.getAttribute('data-filter-name');
+                    if (form) {
+                        const targetElem = form.querySelector(`[name="${filterName}"]`);
+                        if (targetElem) {
+                            targetElem.value = '';
+                            const formData = new FormData(form);
+                            const params = new URLSearchParams(formData);
+                            const url = window.location.pathname + '?' + params.toString();
+                            updateRecordsTableAJAX(url);
+                        }
+                    }
+
+                    const container = document.querySelector('.active-filter-chips');
+                    if (container) {
+                        const visibleChips = container.querySelectorAll('.filter-chip:not([style*="display: none"])');
+                        if (visibleChips.length === 0) container.style.display = 'none';
+                    }
                     return;
                 }
             });
@@ -1093,39 +1116,6 @@
                     }, 350);
                 });
             }
-
-            // Handle active chip dismissals via AJAX
-            function bindChipDismissHandlers() {
-                document.querySelectorAll('.clear-chip-btn').forEach(btn => {
-                    btn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        // Immediately hide the chip for instant visual feedback
-                        const chip = this.closest('.filter-chip');
-                        if (chip) chip.style.display = 'none';
-
-                        const filterName = this.getAttribute('data-filter-name');
-                        if (form) {
-                            const targetElem = form.querySelector(`[name="${filterName}"]`);
-                            if (targetElem) {
-                                targetElem.value = '';
-                                const formData = new FormData(form);
-                                const params = new URLSearchParams(formData);
-                                const url = window.location.pathname + '?' + params.toString();
-                                updateRecordsTableAJAX(url);
-                            }
-                        }
-
-                        // If no chips left visible, hide the entire chips container
-                        const container = document.querySelector('.active-filter-chips');
-                        if (container) {
-                            const visibleChips = container.querySelectorAll('.filter-chip:not([style*="display: none"])');
-                            // Only the "Reset All" link remains, no visible chips
-                            if (visibleChips.length === 0) container.style.display = 'none';
-                        }
-                    });
-                });
-            }
-            bindChipDismissHandlers();
         });
 
         function confirmArchiveRecord(archiveUrl, recordTitle) {

@@ -181,9 +181,6 @@
 <!-- ══ PAGE HEADER ═════════════════════════════════════════════════════════ -->
 <div class="etala-page-header">
     <div>
-        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-            <span class="tag tag-workspace">Barangay Workspace</span>
-        </div>
         <h1 class="etala-page-title" style="word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
             Brgy. {{ barangay.barangay_name }}
         </h1>
@@ -203,25 +200,15 @@
         </div>
     </div>
     <div class="etala-header-actions">
-        {% if total_documents > 0 %}
         <a href="{% url 'download_barangay_zip' barangay.barangay_id %}"
-            class="premium-btn btn-export"
-            download
+            class="premium-btn btn-export text-decoration-none zip-export-btn"
+            data-file-count="{{ total_documents|default:0 }}"
+            onclick="if (parseInt(this.dataset.fileCount || '0', 10) === 0) { event.preventDefault(); event.stopPropagation(); if (window.showToast) window.showToast('warning', 'No Uploaded Documents', 'This barangay has no uploaded documents or files to export.'); return false; }"
             title="Download all documents for this barangay in a structured ZIP archive">
             <span class="btn-icon"><i class="fa-solid fa-file-zipper"></i></span>
             <span class="btn-divider"></span>
             <span>Export ZIP</span>
         </a>
-        {% else %}
-        <button type="button"
-            class="premium-btn btn-export"
-            onclick="showToast('warning', 'No Documents to Export', 'This barangay currently has no uploaded documents to export.');"
-            title="No documents uploaded yet">
-            <span class="btn-icon"><i class="fa-solid fa-file-zipper"></i></span>
-            <span class="btn-divider"></span>
-            <span>Export ZIP</span>
-        </button>
-        {% endif %}
         {% if request.user.role == 'staff' or request.user.role == 'admin' %}
         <a href="{% url 'create_step1' %}?barangay={{ barangay.barangay_id }}"
             class="premium-btn btn-add"
@@ -649,13 +636,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 350);
         });
 
-        wsSearchInput.form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            clearTimeout(wsSearchTimer);
-            const formData = new FormData(wsSearchInput.form);
-            const params = new URLSearchParams(formData);
-            updateWorkspaceTableAJAX(window.location.pathname + '?' + params.toString());
-        });
+        if (wsSearchInput.form) {
+            wsSearchInput.form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                clearTimeout(wsSearchTimer);
+                const formData = new FormData(wsSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateWorkspaceTableAJAX(window.location.pathname + '?' + params.toString());
+            });
+        }
     }
 
     if (wsClearBtn && wsSearchInput) {

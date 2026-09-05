@@ -25,10 +25,11 @@ TABLE OF CONTENTS
    • 3.1 Authentication & Password Security
    • 3.2 5-Attempt Lockout & 15-Minute Automatic Cool-Off Process
    • 3.3 Multi-Session & Device Security Verification
-   • 3.4 Role-Based Access Control (RBAC) & View Protection
+   • 3.4 Role-Based Access Control (RBAC), Permission Matrix & Collaboration Architecture
    • 3.5 CSRF, XSS Sanitization & Input Defense
    • 3.6 Time-Limited Signed Token Document Security
    • 3.7 IP Firewall & Automated Blocking Mechanism
+   • 3.8 Work Email Change 6-Digit OTP Security Authorization
 4. DEEP OPERATIONAL PROCESS FLOWS (STEP-BY-STEP)
    • Process 1: User Sign-In, Session Management & Password Recovery
    • Process 2: Executive Dashboard & Live Visual Intelligence
@@ -57,8 +58,7 @@ Municipal Engineering Office of the Local Government Unit (LGU) of Carigara, Ley
 
 It eliminates manual, paper-heavy physical filing and centralizes all engineering data:
   1. Infrastructure Projects: Municipal-funded and Barangay-level public civil works.
-  2. Official Engineering Permits: Building, Electrical, Mechanical, Occupancy, Fencing,
-     Demolition, Renovation, and Sanitary permits.
+  2. Official Engineering Permits: Building, Electrical, Occupancy, and Fencing permits.
   3. Digital Compliance Checklists: Document requirements loaded automatically per permit type.
   4. Geospatial Intelligence: Interactive GIS map locating projects across all 49 barangays.
   5. Executive Reporting: Instant, print-ready PDF and Excel reports for the Mayor, Sangguniang
@@ -156,7 +156,7 @@ document attachments, and audit logs.
 
 4. `PermitDetail` (Specialized Permit Attributes - 1:1 with EngineeringRecord)
    • `engineering_record_id`: Foreign Key (One-to-One) to `EngineeringRecord`.
-   • `permit_type`: `Building`, `Electrical`, `Mechanical`, `Occupancy`, `Fencing`, `Demolition`.
+   • `permit_type`: `Building`, `Electrical`, `Occupancy`, `Fencing`.
    • `permit_number`: Official issued permit serial number (e.g. `2026-06-00001`).
    • `applicant_name`: Full legal name of property owner / applicant.
    • `building_type`: `Residential`, `Commercial`, `Industrial`, `Institutional`, `Agricultural`.
@@ -298,14 +298,64 @@ High-speed database indexes are configured on frequently queried columns:
   alert to the user to confirm the login was authentic.
 
 ----------------------------------------------------------------------------------------------------
-3.4 ROLE-BASED ACCESS CONTROL (RBAC) & VIEW PROTECTION
+3.4 ROLE-BASED ACCESS CONTROL (RBAC), PERMISSION MATRIX & COLLABORATION ARCHITECTURE
 ----------------------------------------------------------------------------------------------------
-• Server-Side Authorization: Every web route is strictly decorated with `@login_required`,
-  `@admin_required`, or `@staff_or_admin_required`.
-• Non-Admin Lockdown: Engineering Staff who attempt to access `/users/`, `/settings/`, or system backup
-  endpoints are immediately blocked with an `HTTP 403 Forbidden` response.
-• Financial Masking: Engineering Staff see masked project costs (e.g. `₱ ••••••••`) for records
-  belonging to other departments to preserve municipal financial privacy.
+The eTala system enforces a hybrid Collaborative Records & Strict Administrative Control model.
+All system capabilities and user actions are classified into Shared Operational Privileges
+(accessible to both Engineering Staff and Office Administrators) and Restricted Administrative
+Powers (quarantined strictly to Office Administrators).
+
+A. SHARED OPERATIONAL PRIVILEGES (SIMILARITIES / COLLABORATIVE POWERS):
+   1. Digital Record Encoding: Both roles can encode new Building Permits, Fencing, Electrical,
+      Demolition, Occupancy, Certificate of Completion, and Government Infrastructure Projects.
+   2. Universal Record Search & Viewing: Both roles have complete, unrestricted read access to browse
+      and search records across all 49 official Barangays of Carigara, Leyte.
+   3. Cross-Editing Collaboration: Any authenticated staff member can update and edit existing
+      records even if originally encoded by another employee (e.g. updating permit approval status,
+      correcting contractor details, or modifying inspection notes).
+   4. Document & Attachment Management: Both roles can upload, replace, or download attached PDF
+      drawings, tax declarations, barangay clearances, and structural plans for any record.
+   5. Interactive Barangay GIS Map: Both roles can navigate the Leaflet-based municipal map of
+      Carigara to explore spatial project distributions and open barangay workspaces.
+   6. Illegal Construction Logging: Both roles can flag unpermitted structures, upload inspection
+      evidence photos, track violation notices, and record regularization compliances.
+   7. Official Summary Reports: Both roles can generate, filter, and export printable official PDF
+      accomplishment reports for monthly municipal auditing and executive reviews.
+   8. Soft-Delete (Move to Trash): Both roles can move inaccurate or obsolete records to the Trash.
+   9. Restoring Trashed Records ("My Trash"): Both roles can review their own trashed items in the
+      "My Trash" tab and restore them back to the active records list at any time.
+   10. Personal Profile Management: Both roles can manage their own full name, contact information,
+       update their own password, and manage their registered multi-session devices.
+   11. Confidential System Feedback: Both roles can trigger the developer feedback modal to report
+       system glitches, feature requests, or performance observations to the MERGJ Index team.
+
+B. RESTRICTED ADMINISTRATIVE POWERS (DIFFERENCES / EXCLUSIVE ADMIN CONTROLS):
+   1. User Account Management (`/users/`):
+      • Staff: BLOCKED (`HTTP 403 Forbidden`).
+      • Admin: Full authority to provision new staff accounts, modify designations, assign roles,
+        deactivate retired/transferred staff, and execute administrative password resets.
+   2. Disaster Recovery & System Backup (`/settings/`):
+      • Staff: BLOCKED (`HTTP 403 Forbidden`).
+      • Admin: Full authority to generate offline `.json` database snapshots and restore system records.
+   3. Global Trash Oversight & Immediate Permanent Purge:
+      • Staff: Restricted to viewing and restoring only their own deleted items ("My Trash").
+      • Admin: Can inspect all deleted records across the entire municipal engineering office ("All Trash")
+        and has exclusive permission to execute immediate Permanent Deletion before the 30-day auto-purge.
+   4. Security Activity Logs & IP Firewall Management (`/activity-logs/`):
+      • Staff: BLOCKED from viewing login history and system security controls.
+      • Admin: Can inspect the full office-wide Audit Trail, analyze login history and failed attempts,
+        and manually Block or Unblock suspicious IP addresses and unauthorized devices.
+   5. Public Registration Lockdown:
+      • Public self-registration is permanently disabled system-wide. Accounts can only be provisioned
+        internally by an authorized Office Administrator.
+
+C. STRATEGIC DESIGN RATIONALE:
+   • Why Collaborative Editing is Enabled: In local government operations, permit processing must
+     never halt if the original encoder is on leave, in the field, or unavailable. Any authorized
+     engineering staff member can continue the workflow without bureaucratic bottlenecks.
+   • Why Administrative Controls are Quarantined: Isolating user provisioning, database backups,
+     and permanent deletion ensures strict institutional accountability, prevents data loss,
+     preserves legal record integrity, and complies with Republic Act 10173 (Data Privacy Act).
 
 ----------------------------------------------------------------------------------------------------
 3.5 CSRF, XSS SANITIZATION & INPUT DEFENSE
@@ -331,6 +381,30 @@ High-speed database indexes are configured on frequently queried columns:
 • `IPBlockMiddleware`: Inspects the client IP address on every incoming web request.
 • Instant 403 Blocking: If an IP address matches an entry in `BlockedIP`, the request is immediately
   terminated with an access-denied screen before reaching the database or application logic.
+
+----------------------------------------------------------------------------------------------------
+3.8 WORK EMAIL CHANGE 6-DIGIT OTP SECURITY AUTHORIZATION
+----------------------------------------------------------------------------------------------------
+• Session Hijack & Unattended Terminal Defense: In municipal office environments, workstations may
+  occasionally be left unattended with active user sessions. To prevent malicious actors from
+  silently hijacking accounts by modifying the account email on `/profile/`, eTala requires an
+  explicit 6-digit One-Time Password (OTP) authorization workflow.
+• Authorization Dispatch to CURRENT Email:
+  1. When a user submits a new Work Email on their Profile page, the system does NOT immediately
+     commit the change.
+  2. The backend generates a cryptographically secure 6-digit numeric OTP and immediately dispatches
+     it to the user's CURRENT registered email address (e.g. `admin@gmail.com`).
+  3. The legitimate account owner is instantly notified with full details of the requested new email
+     and an immediate security warning if the request was unauthorized.
+• 10-Minute Ephemeral Lifecycle & 5-Attempt Limit:
+  • The verification code expires in exactly 10 minutes.
+  • A maximum of 5 invalid code attempts is permitted; exceeding 5 attempts auto-cancels the request.
+• 60-Second Resend Cooldown: Rate limiting prevents spamming email dispatches.
+• Dual Confirmation Notification: Once the 6-digit OTP is verified, the database updates `user.email`,
+  logs an audit entry, and dispatches a security confirmation notice to BOTH the old and new email addresses.
+• Administrator Exemption: When an Office Administrator updates a staff member's email in the User
+  Management console (`/users/`), the change applies directly without OTP verification to preserve
+  administrative provisioning authority.
 
 
 ====================================================================================================
@@ -377,16 +451,24 @@ PROCESS 3: THE 3-STEP GUIDED RECORD ENCODING WIZARD
   3. Record is saved with status `active` and assigned a permanent unique `record_id`.
 
 ----------------------------------------------------------------------------------------------------
-PROCESS 4: AUTOMATED DOCUMENT CHECKLISTS, VERSIONING & IN-BROWSER PREVIEW
+PROCESS 4: AUTOMATED DOCUMENT CHECKLISTS, VERSIONING, MULTI-FILE ATTACHMENTS & STORAGE CONTROL
 ----------------------------------------------------------------------------------------------------
-1. Dedicated Slots: Each requirement (e.g. Structural Analysis, FSIC) displays as an upload slot.
-2. Direct Upload: Drag and drop or browse files up to 10 MB.
-3. Progress Percentage: A completion pill dynamically computes:
+1. Dedicated Slots: Each requirement (e.g. Structural Analysis, FSIC, Building Plans) displays as an upload slot.
+2. File Format Specifications:
+   • Regular Engineering Records: Strictly PDF-Only (`.pdf`) to enforce official document archival standards.
+   • Illegal Construction Records: Accepts both PDF documents (`.pdf`) and site inspection photos (`.jpg`, `.jpeg`, `.png`, `.webp`).
+3. 50 MB Per-File Threshold & Architectural Rationale:
+   • Purpose: Balances high-fidelity engineering document preservation with server storage optimization.
+   • Blueprint Quality Preservation: Large multi-page architectural, structural, and CAD blueprint exports (A0/A1 sheets) typically range between 15 MB and 45 MB. A 50 MB ceiling prevents lossy compression that could blur critical measurements and engineer seals.
+   • Server & Bandwidth Protection: Prevents server memory exhaustion (DoS), stream buffer overflows, and network timeouts (HTTP 504) over local municipal government broadband.
+   • Storage Control & Digital Hygiene: Protects database and disk space from uncompressed bloat while accommodating 99.9% of legitimate CAD drawings.
+4. Multi-File & Batch Upload Support:
+   • The 50 MB limit applies *per individual file*, not per container/requirement slot.
+   • Staff can attach multiple 50 MB files under a single requirement folder (e.g., Sheet 1, Sheet 2, Sheet 3) via individual add-ons or Batch Upload.
+5. Progress Percentage: A completion pill dynamically computes:
      Completion Rate = (Fulfilled Required Documents / Total Required Documents) * 100%
-4. Document Replacement (Versioning): Uploading a new scan over an existing slot replaces the active
-   file, increments `version` (e.g. v1 -> v2), and updates the fulfillment timestamp.
-5. In-Browser Viewer: Clicking "Preview" opens an inline modal displaying the PDF or image with
-   pan, zoom, and rotate controls without downloading to local disk.
+6. Document Replacement (Versioning): Uploading a replacement file updates the active file, increments `version` (e.g. v1 -> v2), and updates the fulfillment timestamp.
+7. In-Browser Viewer: Clicking "Preview" opens an inline modal displaying the PDF or image with pan, zoom, and rotate controls without downloading to local disk.
 
 ----------------------------------------------------------------------------------------------------
 PROCESS 5: DOCUMENT EXPIRY TRACKING & PROACTIVE NOTIFICATIONS
@@ -506,7 +588,14 @@ PROCESS 13: AUTOMATED DAILY BACKUPS, 14-DAY RETENTION & DISASTER RECOVERY
 7. COMPREHENSIVE ZIP & EXPORT ARCHIVAL DATA STRUCTURES
 ====================================================================================================
 
-eTala provides four (4) standardized ZIP export hierarchies designed for municipal engineering recordkeeping, COA audit compliance, offline document archiving, and disaster recovery:
+eTala provides standardized single-file and ZIP export hierarchies designed for municipal engineering recordkeeping, COA audit compliance, offline document archiving, and disaster recovery:
+
+----------------------------------------------------------------------------------------------------
+0. STANDARDIZED SINGLE DOCUMENT DOWNLOAD NAMING CONVENTION
+----------------------------------------------------------------------------------------------------
+• Format       : `<Applicant_or_Owner>_<Clean_Requirement_Name>.<ext>`
+• Example      : `Juan_Dela_Cruz_Barangay_Clearance.pdf`
+• Rules        : Strips parenthetical instructions (e.g. `(5 sets)`, `(Unified Form)`) and raw checklist numbers to produce professional, concise, audit-ready filenames.
 
 ----------------------------------------------------------------------------------------------------
 1. SINGLE RECORD ZIP ARCHIVE (Export Record ZIP)
@@ -521,9 +610,12 @@ eTala provides four (4) standardized ZIP export hierarchies designed for municip
   ├── 02_Program_of_Works.pdf           <-- Direct root file for standalone single leaf requirements
   ├── 03_Detailed_Estimates.pdf
   ├── 04_Specifications.pdf
-  └── Additional_Attachments/           <-- Site inspection photos, incident notes & auxiliary files
-      ├── Site_Inspection_Photo_1.jpg
-      └── Topographic_Map.pdf
+  ├── Supporting_Documents/             <-- Auxiliary supporting plans, affidavits, and letters
+  │   ├── Supplemental_Affidavit.pdf
+  │   └── Special_Power_of_Attorney.pdf
+  └── Incident_Evidence/                <-- Preserved historical NOV and site inspection photos (for regularized cases)
+      ├── Violation_Site_Photo_1.jpg
+      └── Notice_of_Violation.pdf
 
 ----------------------------------------------------------------------------------------------------
 2. REQUIREMENT CATEGORY / SLOT ZIP ARCHIVE (Export Category ZIP)
@@ -545,7 +637,9 @@ eTala provides four (4) standardized ZIP export hierarchies designed for municip
     │       ├── 00_RECORD_SUMMARY.txt
     │       ├── 01_Building_Plans/
     │       │   └── Plan_and_Profiles.pdf
-    │       └── 02_Program_of_Works.pdf
+    │       ├── 02_Program_of_Works.pdf
+    │       └── Supporting_Documents/
+    │           └── Supplementary_Site_Photo.jpg
     ├── 02_Barangay_Projects/           <-- Barangay local-funded infrastructure projects
     │   └── <Year>_<Project_Title>/
     │       ├── 00_RECORD_SUMMARY.txt
@@ -553,12 +647,15 @@ eTala provides four (4) standardized ZIP export hierarchies designed for municip
     ├── 03_Building_Permits/            <-- Official permits issued within the barangay
     │   └── <Year>_<Permit_Number>_<Applicant_Name>/
     │       ├── 00_RECORD_SUMMARY.txt
-    │       └── 01_Building_Plans/
+    │       ├── 01_Building_Plans/
+    │       └── Supporting_Documents/
+    │           └── Affidavit_of_Ownership.pdf
     └── 04_Illegal_Constructions/       <-- Recorded structure violations and compliance trackers
         └── <Structure_Name>_Case-<ID>/
             ├── 00_RECORD_SUMMARY.txt
-            └── Additional_Attachments/
-                └── Violation_Site_Photo.jpg
+            └── Incident_Evidence/
+                ├── Violation_Site_Photo.jpg
+                └── Notice_of_Violation.pdf
 
 ----------------------------------------------------------------------------------------------------
 4. FULL MUNICIPAL MASTER ARCHIVE (Export All 49 Barangays)
@@ -691,26 +788,27 @@ Q24: What happens if I upload the wrong document or need to replace a blurry sca
 A24: Click the "Replace" button on that document slot and choose the new file. The system automatically
      updates the slot to the new file and increments the version counter (e.g. v1 -> v2).
 
-Q25: What does the checklist percentage badge (e.g. 80%) mean?
-A25: It indicates the proportion of mandatory required documents that have been uploaded. When all required
-     documents are attached, the badge turns bright green (100% Complete).
+Q25: How does Smart Priority Sorting organize the document checklist?
+A25: eTala automatically sorts checklist requirements by priority:
+     • Priority 0 (Top): Pending / Missing requirements (so staff instantly see what is still needed).
+     • Priority 1 (Middle): Waived requirements.
+     • Priority 2 (Bottom): Completed / Fulfilled requirements with uploaded attachments.
 
-Q26: Can a required document be "Waived" if not applicable to a specific applicant?
-A26: Yes. Authorized staff can click "Waive" on a requirement slot for legally exempt cases, satisfying the slot.
+Q26: How does Batch Document Upload work in eTala?
+A26: Click "Batch Upload" at the top of the checklist. You can drag and drop multiple files at once. Each file card allows you to manually select its destination checklist slot or choose "Additional / Supporting Document". Files are uploaded sequentially with real-time progress bars.
 
-Q27: How does Document Expiry Tracking work?
-A27: When uploading time-sensitive documents (e.g. Fire Safety Inspection Certificates or Contractor Licenses),
+Q27: Can I attach the same file to multiple different requirement slots?
+A27: Yes. In standard LGU MEO and Building Official auditing, applicants often submit composite files (e.g. combined Barangay Clearance and Zoning Clearance). eTala allows tagging the file across distinct checklist slots so each requirement line item has its verified attachment for COA compliance.
+
+Q28: What happens if I upload an exact duplicate file into the SAME requirement slot?
+A28: eTala has built-in smart deduplication. If a file with the identical name and file size is already attached to that specific slot, the system skips re-uploading and alerts you, protecting database integrity and server storage.
+
+Q29: What happens after completing a Batch Document Upload?
+A29: If all files upload successfully, the modal automatically closes and returns you directly to the record with an instant success toast and updated checklist. If any file encounters an error, the modal remains open with clear red highlights and a "Retry Failed" option so you can resolve the issue immediately.
+
+Q30: How does Document Expiry Tracking work?
+A30: When uploading time-sensitive documents (e.g. Fire Safety Inspection Certificates or Contractor Licenses),
      you can set an Expiry Date. The system monitors this date and alerts you 30 days before it expires.
-
-Q28: Are uploaded municipal documents accessible to the public on the internet?
-A28: No. Documents are stored in secure cloud storage and can ONLY be viewed through time-limited signed
-     tokens (10-minute expiry) accessible strictly to logged-in authorized staff.
-
-Q29: What happens if our office internet is slow during an upload?
-A29: eTala uses asynchronous streaming uploads with progress indicators so you can see the upload progress.
-
-Q30: Can we upload multiple building plan pages as one file?
-A30: Yes! We recommend scanning multi-page architectural, structural, or sanitary plans into a single multi-page PDF.
 
 
 PART IV: SEARCH, FILTERING & RECORDS NAVIGATION

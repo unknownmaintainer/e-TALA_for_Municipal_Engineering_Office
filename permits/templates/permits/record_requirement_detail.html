@@ -354,7 +354,7 @@
                 <form method="POST" action="{% url 'upload_document' record.record_id %}" enctype="multipart/form-data" id="checklistUploadForm" onsubmit="event.preventDefault(); startSingleUpload();">
                     {% csrf_token %}
                     <input type="hidden" name="requirement_item_id" id="uploadItemId">
-                    <input type="file" name="document_file" id="modalFileInput" multiple accept=".pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp,.doc,.docx" class="d-none" onchange="showSelectedFiles(this)">
+                    <input type="file" name="document_file" id="modalFileInput" multiple accept="{% if record.is_illegal_construction %}.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp{% else %}.pdf,application/pdf{% endif %}" class="d-none" onchange="showSelectedFiles(this)">
                     
                     <!-- Compact Essential-Only Dropzone -->
                     <div class="compact-essential-dropzone" id="dropZone" 
@@ -364,7 +364,11 @@
                         </div>
                         <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 0.92rem;">Click to browse or drag file(s) here</div>
                         <div class="text-muted small" style="font-size: 0.75rem;">
-                            Supports PDF Documents, Pictures/Photos (JPG, PNG, WEBP) &bull; Select 1 or Multiple Files &bull; Max 50 MB
+                            {% if record.is_illegal_construction %}
+                            Supports PDF Documents & Images (JPG, PNG, WEBP) &bull; Select 1 or Multiple Files &bull; Max 50 MB
+                            {% else %}
+                            Supports PDF Documents Only (.pdf) &bull; Select 1 or Multiple Files &bull; Max 50 MB
+                            {% endif %}
                         </div>
                     </div>
 
@@ -404,10 +408,20 @@
                     </div>
 
                     <!-- Progress / Uploading State -->
-                    <div id="selectedFileInfo" class="d-none p-3 rounded-3 text-center border mt-3" style="background: #f0fdf4; border-color: #bbf7d0 !important;">
-                        <div class="fw-bold text-dark mb-1 text-truncate" id="selectedFileName" style="font-size: 0.88rem;"></div>
-                        <div class="spinner-border text-success spinner-border-sm me-1" id="uploadSpinner" role="status"></div>
-                        <span class="text-muted" style="font-size: 0.76rem;">Uploading document(s)...</span>
+                    <div id="selectedFileInfo" class="d-none p-3 rounded-3 text-center border shadow-sm mt-3"
+                        style="background: #f0fdf4; border-color: #bbf7d0 !important;">
+                        <div class="d-flex justify-content-center mb-1.5">
+                            <div class="spinner-border text-success" id="uploadSpinner" role="status"
+                                style="width: 26px; height: 26px; border-width: 2.5px;">
+                                <span class="visually-hidden">Uploading...</span>
+                            </div>
+                        </div>
+                        <div class="fw-bold text-dark mb-0.5 text-truncate" id="selectedFileName" style="font-size: 0.86rem;"></div>
+                        <div id="selectedFileSize" class="text-muted mb-2" style="font-size: 0.75rem;">Uploading document(s)...</div>
+                        <div class="progress" style="height: 5px; border-radius: 3px; background: #dcfce7; overflow: hidden;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                                id="uploadProgressBar" role="progressbar" style="width: 0%; transition: width 0.15s ease;"></div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -445,7 +459,7 @@
                 <div class="modal-body p-3 px-4">
                     <div class="alert alert-warning d-flex align-items-center gap-2 py-2 px-3 mb-3" style="border-radius: 10px; font-size: 0.78rem;">
                         <i class="fa-solid fa-triangle-exclamation text-warning flex-shrink-0"></i>
-                        <span>This will swap the mistaken file with your newly selected document or image.</span>
+                        <span>This will swap the mistaken file with your newly selected document.</span>
                     </div>
 
                     <div class="compact-essential-dropzone position-relative" id="replaceDropZone" style="cursor: pointer;" onclick="document.getElementById('replaceFileInput').click()">
@@ -456,10 +470,14 @@
                             Click to select replacement file
                         </div>
                         <div class="text-muted small" style="font-size: 0.74rem;">
-                            Supports PDF Documents, Pictures/Photos (JPG, PNG, WEBP) &bull; Max 50 MB
+                            {% if record.is_illegal_construction %}
+                            Supports PDF Documents & Images (JPG, PNG, WEBP) &bull; Max 50 MB
+                            {% else %}
+                            Supports PDF Documents Only (.pdf) &bull; Max 50 MB
+                            {% endif %}
                         </div>
                         <input type="file" name="replacement_file" id="replaceFileInput"
-                            accept=".pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp,.doc,.docx" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" style="cursor: pointer; z-index: 5;" onchange="handleReplaceFileSelect(this)" required>
+                            accept="{% if record.is_illegal_construction %}.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp{% else %}.pdf,application/pdf{% endif %}" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" style="cursor: pointer; z-index: 5;" onchange="handleReplaceFileSelect(this)" required>
                     </div>
 
                     <div id="replaceSelectedPreview" class="d-none mt-2.5 p-2.5 px-3 border rounded-3 d-flex align-items-center justify-content-between gap-2" style="background: #f8fafc;">
@@ -533,9 +551,13 @@
                         </div>
                         <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 0.92rem;">Click to browse or drag multiple files here</div>
                         <div class="text-muted small" style="font-size: 0.75rem;">
-                            Supports PDF Documents, Pictures/Photos (JPG, PNG, WEBP) &bull; Max 50 MB each
+                            {% if record.is_illegal_construction %}
+                            Supports PDF Documents & Images (JPG, PNG, WEBP) &bull; Max 50 MB each
+                            {% else %}
+                            Supports PDF Documents Only (.pdf) &bull; Max 50 MB each
+                            {% endif %}
                         </div>
-                        <input type="file" name="files" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple accept=".pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp,.doc,.docx" required style="cursor: pointer; z-index: 5;">
+                        <input type="file" name="files" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple accept="{% if record.is_illegal_construction %}.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp{% else %}.pdf,application/pdf{% endif %}" required style="cursor: pointer; z-index: 5;">
                     </div>
                 </div>
                 <div class="modal-footer border-top p-3 px-4 bg-white">
@@ -711,11 +733,21 @@ function showSelectedFiles(input) {
                 }
                 continue;
             }
-            if (!/\.(pdf|jpg|jpeg|png|webp|gif|bmp|doc|docx)$/i.test(file.name)) {
-                if (window.showToast) {
-                    showToast('warning', 'Invalid Format', `File '${file.name}' rejected. Supported formats: PDF, Images (JPG, PNG, WEBP), and DOC/DOCX.`);
+            const isIllegalReport = {{ record.is_illegal_construction|yesno:"true,false" }};
+            if (isIllegalReport) {
+                if (!/\.(pdf|jpg|jpeg|png|webp)$/i.test(file.name)) {
+                    if (window.showToast) {
+                        showToast('warning', 'Invalid Format', `File '${file.name}' rejected. Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).`);
+                    }
+                    continue;
                 }
-                continue;
+            } else {
+                if (!/\.pdf$/i.test(file.name)) {
+                    if (window.showToast) {
+                        showToast('warning', 'Invalid Format', `File '${file.name}' rejected. Regular engineering records accept PDF documents (.pdf) only.`);
+                    }
+                    continue;
+                }
             }
             const isDuplicate = selectedSingleFilesQueue.some(f => f.name === file.name && f.size === file.size) || newFiles.some(f => f.name === file.name && f.size === file.size);
             if (isDuplicate) {
@@ -736,6 +768,43 @@ function showSelectedFiles(input) {
 function removeSingleFileFromQueue(index) {
     selectedSingleFilesQueue.splice(index, 1);
     renderSingleFilesQueue();
+}
+
+function clearSingleSelectedFile() {
+    selectedSingleFilesQueue = [];
+    const input = document.getElementById('modalFileInput');
+    if (input) input.value = '';
+
+    const container = document.getElementById('singleFileSelectedContainer');
+    if (container) container.classList.add('d-none');
+
+    const fileInfo = document.getElementById('selectedFileInfo');
+    if (fileInfo) fileInfo.classList.add('d-none');
+
+    const bar = document.getElementById('uploadProgressBar');
+    if (bar) {
+        bar.style.width = '0%';
+        bar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+    }
+
+    const dropzone = document.getElementById('dropZone');
+    if (dropzone) {
+        dropzone.classList.remove('d-none');
+        dropzone.style.display = '';
+    }
+
+    const submitBtn = document.getElementById('singleUploadSubmitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.55';
+        submitBtn.style.cursor = 'not-allowed';
+    }
+
+    const btnText = document.getElementById('singleUploadBtnText');
+    if (btnText) btnText.textContent = 'Upload Document';
+
+    const statusLabel = document.getElementById('selectedFileSize');
+    if (statusLabel) statusLabel.textContent = 'Uploading document(s)...';
 }
 
 function renderSingleFilesQueue() {
@@ -811,7 +880,10 @@ function renderSingleFilesQueue() {
 function startSingleUpload() {
     if (selectedSingleFilesQueue.length === 0) return;
     
-    var formData = new FormData(document.getElementById('checklistUploadForm'));
+    var form = document.getElementById('checklistUploadForm');
+    if (!form) return;
+
+    var formData = new FormData(form);
     formData.delete('document_file');
     selectedSingleFilesQueue.forEach(f => {
         formData.append('document_file', f, f.name);
@@ -821,17 +893,53 @@ function startSingleUpload() {
     document.getElementById('dropZone').classList.add('d-none');
     document.getElementById('selectedFileName').textContent = selectedSingleFilesQueue.length === 1 ? selectedSingleFilesQueue[0].name : `${selectedSingleFilesQueue.length} Documents`;
     document.getElementById('selectedFileInfo').classList.remove('d-none');
-    
-    fetch("{% url 'upload_document' record.record_id %}", {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+
+    const submitBtn = document.getElementById('singleUploadSubmitBtn');
+    if (submitBtn) submitBtn.disabled = true;
+
+    const xhr = new XMLHttpRequest();
+    const bar = document.getElementById('uploadProgressBar');
+    const statusLabel = document.getElementById('selectedFileSize');
+
+    xhr.upload.addEventListener('progress', function (e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            if (percent >= 100) {
+                if (bar) {
+                    bar.style.width = '100%';
+                    bar.classList.add('progress-bar-striped', 'progress-bar-animated');
+                }
+                if (statusLabel) {
+                    statusLabel.innerHTML = '<span class="text-primary fw-medium d-inline-flex align-items-center gap-1.5"><i class="fa-solid fa-gear fa-spin" style="font-size: 11px;"></i> Processing & saving to storage...</span>';
+                }
+            } else {
+                if (bar) {
+                    bar.style.width = Math.min(percent, 99) + '%';
+                    bar.classList.add('progress-bar-striped', 'progress-bar-animated');
+                }
+                if (statusLabel) {
+                    const formatBytesFn = window.formatBytes || (bytes => (bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB'));
+                    statusLabel.textContent = `Uploading: ${formatBytesFn(e.loaded)} of ${formatBytesFn(e.total)} (${percent}%)`;
+                }
+            }
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
+    });
+
+    xhr.addEventListener('load', function () {
+        let resData = null;
+        try {
+            resData = JSON.parse(xhr.responseText);
+        } catch (e) { }
+
+        if (xhr.status >= 200 && xhr.status < 300 && (!resData || resData.success !== false)) {
+            if (bar) {
+                bar.style.width = '100%';
+                bar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+            }
+            if (statusLabel) {
+                statusLabel.innerHTML = '<strong class="text-success d-inline-flex align-items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> Upload complete! Finalizing...</strong>';
+            }
+            
             const fileCount = selectedSingleFilesQueue.length;
             let toastMsg = '';
             if (fileCount > 1) {
@@ -852,19 +960,49 @@ function startSingleUpload() {
                 window.location.reload();
             }, 300);
         } else {
+            const isDup = resData && (resData.is_duplicate || (resData.error && resData.error.toLowerCase().includes('already uploaded')));
+            const toastTitle = isDup ? 'Already Uploaded' : 'Upload Failed';
+            const toastType = isDup ? 'warning' : 'error';
+            const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format or size (max 50MB).';
+            
+            clearSingleSelectedFile();
+
+            try {
+                const modalEl = document.getElementById('singleUploadModal');
+                if (modalEl) {
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                }
+            } catch (mErr) { }
+
             if (window.showToast) {
-                showToast('error', 'Upload Failed', data.error || 'Could not upload document.');
+                showToast(toastType, toastTitle, errorMsg);
             } else {
-                alert('Upload failed: ' + (data.error || 'Unknown error'));
+                alert(errorMsg);
             }
-            window.location.reload();
         }
-    })
-    .catch(err => {
-        console.error(err);
-        alert('Upload failed due to network error.');
-        window.location.reload();
     });
+
+    xhr.addEventListener('error', function () {
+        clearSingleSelectedFile();
+        try {
+            const modalEl = document.getElementById('singleUploadModal');
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+            }
+        } catch (mErr) { }
+
+        if (window.showToast) {
+            showToast('error', 'Network Error', 'An error occurred during upload. Please check your network connection.');
+        } else {
+            alert('Network error during upload.');
+        }
+    });
+
+    xhr.open('POST', "{% url 'upload_document' record.record_id %}", true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.send(formData);
 }
 
 function openReplaceDocModal(replaceUrl, currentDocName) {
@@ -905,15 +1043,29 @@ function handleReplaceFileSelect(input) {
         return;
     }
 
-    if (!/\.(pdf|jpg|jpeg|png|webp|gif|bmp|doc|docx)$/i.test(file.name)) {
-        if (window.showToast) {
-            showToast('warning', 'Invalid Format', 'Supported formats: PDF, Images (JPG, PNG, WEBP), and DOC/DOCX.');
-        } else {
-            alert('Supported formats: PDF, Images (JPG, PNG, WEBP), and DOC/DOCX.');
+    const isIllegalReport = {{ record.is_illegal_construction|yesno:"true,false" }};
+    if (isIllegalReport) {
+        if (!/\.(pdf|jpg|jpeg|png|webp)$/i.test(file.name)) {
+            if (window.showToast) {
+                showToast('warning', 'Invalid Format', 'Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).');
+            } else {
+                alert('Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).');
+            }
+            input.value = '';
+            if (preview) preview.classList.add('d-none');
+            return;
         }
-        input.value = '';
-        if (preview) preview.classList.add('d-none');
-        return;
+    } else {
+        if (!/\.pdf$/i.test(file.name)) {
+            if (window.showToast) {
+                showToast('warning', 'Invalid Format', 'Regular engineering records accept PDF documents (.pdf) only.');
+            } else {
+                alert('Regular engineering records accept PDF documents (.pdf) only.');
+            }
+            input.value = '';
+            if (preview) preview.classList.add('d-none');
+            return;
+        }
     }
 
     const ext = file.name.split('.').pop().toLowerCase();

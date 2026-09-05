@@ -63,7 +63,7 @@
             </div>
 
             <a href="{% url 'records_browse' %}" id="spotlightBrowseLink" class="spotlight-browse-action-btn" onclick="handleSpotlightBrowseClick(event)">
-                <span>Browse All Records</span>
+                <span id="spotlightBrowseText">Browse All Records</span>
                 <i class="fa-solid fa-arrow-right-long ms-1"></i>
             </a>
         </div>
@@ -859,11 +859,20 @@ function toggleClearButton(show) {
 
 function updateBrowseLink(q) {
     const link = document.getElementById('spotlightBrowseLink');
+    const textSpan = document.getElementById('spotlightBrowseText');
     if (link) {
         if (q && q.trim().length > 0) {
-            link.href = `{% url 'records_browse' %}?q=${encodeURIComponent(q.trim())}`;
+            const trimmed = q.trim();
+            link.href = `{% url 'records_browse' %}?q=${encodeURIComponent(trimmed)}`;
+            if (textSpan) {
+                const displayQuery = trimmed.length > 22 ? trimmed.substring(0, 20) + '…' : trimmed;
+                textSpan.textContent = `View results for "${displayQuery}"`;
+            }
         } else {
             link.href = "{% url 'records_browse' %}";
+            if (textSpan) {
+                textSpan.textContent = 'Browse All Records';
+            }
         }
     }
 }

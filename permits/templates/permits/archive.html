@@ -1,10 +1,10 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters %}
 
-{% block title %}Trash & Archive | eTala{% endblock %}
+{% block title %}{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %} | eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item active">Trash &amp; Archive</span>
+<span class="breadcrumb-item active">{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}</span>
 {% endblock %}
 
 {% block content %}
@@ -12,31 +12,24 @@
 <!-- Page Header -->
 <div class="etala-page-header mb-3">
     <div>
-        <h1 class="etala-page-title mb-0">{% if request.user.role == 'staff' %}My Trash{% else %}Trash &amp; Archive{% endif %}</h1>
-    </div>
-    <div class="etala-header-actions d-flex align-items-center gap-2">
-        {% if expiring_soon_count > 0 %}
-        <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1.5 px-2.5 py-1.5 rounded-pill" style="border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.78rem; font-weight: 600;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
-            <span>{{ expiring_soon_count }} Expiring Soon</span>
-        </span>
-        {% endif %}
-        <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-size: 0.78rem; font-weight: 600;">
-            <i class="fa-solid fa-trash-can" style="font-size: 11px;"></i>
-            <span>{{ page_obj.paginator.count|default:0 }} Archived Records</span>
-        </span>
+        <h1 class="etala-page-title mb-0">{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}</h1>
     </div>
 </div>
 
 <!-- Search + Actions Toolbar (Balanced Pill Design) -->
-<div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3">
-    <!-- Left: Quick Back Link -->
-    <div class="d-flex align-items-center gap-2">
-        <a href="{% url 'records_browse' %}" class="premium-btn btn-edit text-decoration-none" title="Return to Records Archive">
-            <span class="btn-icon"><i class="fa-solid fa-folder-open"></i></span>
-            <span class="btn-divider"></span>
-            <span>All Records</span>
-        </a>
+<div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
+    <!-- Left: Status & Count Badges -->
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="background: rgba(220, 38, 38, 0.08); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.22); font-size: 0.78rem; font-weight: 600;">
+            <i class="fa-solid fa-trash-can" style="font-size: 11px;"></i>
+            <span>{{ page_obj.paginator.count|default:0 }} Record{{ page_obj.paginator.count|pluralize }} in Trash</span>
+        </span>
+        {% if expiring_soon_count > 0 %}
+        <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1.5 px-3 py-1.5 rounded-pill" style="border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.78rem; font-weight: 600;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
+            <span>{{ expiring_soon_count }} Expiring Soon</span>
+        </span>
+        {% endif %}
     </div>
 
     <!-- Right: Compact Search Pill Input (Standard 250px) -->
@@ -284,9 +277,9 @@
                 <thead>
                     <tr>
                         <th class="text-center cell-row-num" style="width: 44px; min-width: 44px; max-width: 44px;">#</th>
-                        <th style="width: 48%; min-width: 220px;">Record Title</th>
+                        <th style="width: 44%; min-width: 220px;">Record Title</th>
                         <th style="width: 28%; min-width: 170px;">Type</th>
-                        <th style="width: 20%; min-width: 120px;">Retention</th>
+                        <th style="width: 24%; min-width: 130px;">Retention</th>
                         <th class="text-end" style="width: 48px; min-width: 48px; max-width: 48px; padding-right: 16px;"></th>
                     </tr>
                 </thead>
@@ -345,7 +338,7 @@
                         </td>
                         <td class="cell-muted cell-date" data-label="Retention" style="overflow: hidden;">
                             <div class="fw-semibold title-text-adaptive text-truncate" style="font-size: 0.81rem;">
-                                {{ record.deleted_at|default:record.updated_at|date:"M d, Y" }}
+                                {% if record.deleted_at %}{{ record.deleted_at|date:"M d, Y" }}{% else %}{{ record.updated_at|date:"M d, Y" }}{% endif %}
                             </div>
                             <div class="mt-0.5">
                                 {% if record.is_trash_expiring_soon %}
@@ -476,7 +469,7 @@
              style="width:64px;height:64px;background:rgba(100, 116, 139, 0.12); color:#64748b;">
             <i class="fa-solid {% if q %}fa-magnifying-glass{% else %}fa-trash-can{% endif %}" style="font-size:26px;"></i>
         </div>
-        <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size:1.05rem;">{% if q %}No matching archived records{% else %}Trash is empty{% endif %}</h5>
+        <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size:1.05rem;">{% if q %}No matching records in trash{% else %}Trash is empty{% endif %}</h5>
         <p class="text-muted small mb-4" style="font-size:0.84rem; max-width:420px; line-height:1.5;">{% if q %}Try searching with a different keyword or clear the search filter.{% else %}No deleted records found in trash.{% endif %}</p>
         {% if q %}
         <a href="{% url 'archive' %}" class="premium-btn btn-view text-decoration-none" style="border-radius:8px;">

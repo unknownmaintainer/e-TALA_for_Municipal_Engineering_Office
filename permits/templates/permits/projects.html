@@ -113,7 +113,7 @@
 
             <div class="project-card-meta-item m-0">
                 <i class="fa-solid fa-user text-muted me-1.5" style="font-size: 13px;"></i>
-                <span class="text-truncate">{{ r.created_by.full_name|default:r.created_by.username }}</span>
+                <span class="text-truncate">{% if r.created_by %}{{ r.created_by.full_name|default:r.created_by.username }}{% else %}Staff / System{% endif %}</span>
             </div>
 
             <div class="project-card-meta-item m-0">
@@ -226,13 +226,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 350);
         });
 
-        projectSearchInput.form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            clearTimeout(projectSearchTimer);
-            const formData = new FormData(projectSearchInput.form);
-            const params = new URLSearchParams(formData);
-            updateProjectsAJAX(window.location.pathname + '?' + params.toString());
-        });
+        if (projectSearchInput.form) {
+            projectSearchInput.form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                clearTimeout(projectSearchTimer);
+                const formData = new FormData(projectSearchInput.form);
+                const params = new URLSearchParams(formData);
+                updateProjectsAJAX(window.location.pathname + '?' + params.toString());
+            });
+        }
     }
 
     const clearBtn = document.getElementById('projectClearBtn');

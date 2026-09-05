@@ -23,7 +23,7 @@
 {% elif origin == 'search' %}
 <a href="{% url 'search' %}" class="breadcrumb-item">Search</a>
 {% elif origin == 'archive' %}
-<a href="{% url 'archive' %}" class="breadcrumb-item">Archive</a>
+<a href="{% url 'archive' %}" class="breadcrumb-item">Trash</a>
 {% else %}
 <a href="{% url 'records_browse' %}" class="breadcrumb-item">Records</a>
 {% endif %}
@@ -45,6 +45,39 @@
 }
 .violation-card-unresolved > .card-header {
     background: rgba(220, 38, 38, 0.04) !important;
+}
+
+/* ── Interactive Violation Map Location Pill ── */
+.violation-map-pill {
+    padding: 2px 8px !important;
+    font-size: 0.70rem !important;
+    font-weight: 600 !important;
+    color: #0284c7 !important;
+    background: #f0f9ff !important;
+    border: 1px solid #bae6fd !important;
+    border-radius: 6px !important;
+    box-shadow: 0 1px 2px rgba(2, 132, 199, 0.05) !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    cursor: pointer !important;
+}
+.violation-map-pill:hover {
+    background: #e0f2fe !important;
+    border-color: #0284c7 !important;
+    color: #0369a1 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.15) !important;
+}
+.dark-mode .violation-map-pill,
+[data-bs-theme="dark"] .violation-map-pill {
+    background: rgba(2, 132, 199, 0.15) !important;
+    border-color: rgba(56, 189, 248, 0.3) !important;
+    color: #38bdf8 !important;
+}
+.dark-mode .violation-map-pill:hover,
+[data-bs-theme="dark"] .violation-map-pill:hover {
+    background: rgba(2, 132, 199, 0.25) !important;
+    border-color: #38bdf8 !important;
+    color: #7dd3fc !important;
 }
 
 /* ── Checklist Items & Badges Color System ── */
@@ -1464,7 +1497,9 @@ button.premium-btn .btn-divider {
 }
 #batchUploadModal .modal-body {
     max-height: calc(88vh - 135px);
-    overflow-y: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     padding: 1.15rem 1.45rem !important;
 }
 #batchUploadModal .modal-footer {
@@ -1495,8 +1530,9 @@ button.premium-btn .btn-divider {
     background: #f0fdf4;
 }
 .batch-file-card.is-error {
-    border-color: #fca5a5 !important;
-    background: #fef2f2;
+    border: 1.5px solid #ef4444 !important;
+    background: #fff5f5 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
 }
 .batch-file-icon {
     width: 28px;
@@ -1597,13 +1633,17 @@ button.premium-btn .btn-divider {
     outline: none;
 }
 .batch-files-scroll-container {
-    max-height: 330px;
+    max-height: calc(88vh - 215px);
+    min-height: 140px;
     overflow-y: auto;
-    padding-right: 4px;
+    overflow-x: hidden;
+    padding-right: 6px;
     margin-top: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
 }
 .batch-files-scroll-container::-webkit-scrollbar {
-    width: 5px;
+    width: 6px;
 }
 .batch-files-scroll-container::-webkit-scrollbar-track {
     background: transparent;
@@ -1611,6 +1651,9 @@ button.premium-btn .btn-divider {
 .batch-files-scroll-container::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 10px;
+}
+.batch-files-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 @media (max-width: 480px) {
     .batch-card-controls-row {
@@ -2217,6 +2260,18 @@ button.premium-btn .btn-divider {
                 <span>Reported {{ record.date_started|date:"M d, Y" }}</span>
             </span>
             {% endif %}
+
+            {% if record.latitude and record.longitude %}
+            <span class="text-muted">&bull;</span>
+            <a href="https://www.google.com/maps/dir/?api=1&destination={{ record.latitude }},{{ record.longitude }}"
+                target="_blank" rel="noopener"
+                class="violation-map-pill d-inline-flex align-items-center gap-1 text-decoration-none"
+                title="Open GPS location in Google Maps ({{ record.latitude|floatformat:4 }}, {{ record.longitude|floatformat:4 }})">
+                <i class="fa-solid fa-location-dot" style="font-size: 10px;"></i>
+                <span class="fw-semibold">View on Map</span>
+                <i class="fa-solid fa-arrow-up-right-from-square opacity-75" style="font-size: 8px;"></i>
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -2286,22 +2341,11 @@ button.premium-btn .btn-divider {
                     </span>
                     {% endif %}
                 </div>
-                <div class="d-flex align-items-center gap-2 flex-wrap text-muted" style="font-size: 0.78rem; margin-top: 3px;">
-                    <span>
+                <div class="text-muted" style="font-size: 0.78rem; margin-top: 3px;">
                     {% if record.illegal_compliance_status == 'resolved' %}
-                        Compliance met{% if record.date_started %} (Reported {{ record.date_started|date:"M d, Y" }}){% endif %}{% if permit_detail and permit_detail.date_issued %} • Official Permit Issued {{ permit_detail.date_issued|date:"M d, Y" }}{% endif %}.
+                        Compliance met and regularized{% if permit_detail and permit_detail.date_issued %} • Official Permit Issued {{ permit_detail.date_issued|date:"M d, Y" }}{% endif %}.
                     {% else %}
-                        Recorded construction without permit{% if record.date_started %} on {{ record.date_started|date:"M d, Y" }}{% endif %}.
-                    {% endif %}
-                    </span>
-                    {% if record.latitude and record.longitude %}
-                    <span class="d-inline-flex align-items-center gap-1.5 badge bg-light text-dark border px-2 py-0.5" style="font-size: 0.70rem; font-weight: 500; border-radius: 6px;">
-                        <i class="fa-solid fa-location-dot text-danger" style="font-size: 9.5px;"></i>
-                        <span>GPS: {{ record.latitude|floatformat:4 }}, {{ record.longitude|floatformat:4 }}</span>
-                        <a href="https://www.google.com/maps/dir/?api=1&destination={{ record.latitude }},{{ record.longitude }}" target="_blank" rel="noopener" class="ms-1 text-primary text-decoration-none d-inline-flex align-items-center" title="Open in Google Maps">
-                            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 8.5px;"></i>
-                        </a>
-                    </span>
+                        Recorded construction activity without an approved building permit.
                     {% endif %}
                 </div>
             </div>
@@ -2485,7 +2529,7 @@ button.premium-btn .btn-divider {
                                     {% endif %}
                                 </div>
                                 <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">
-                                    <i class="fa-regular fa-user me-1" style="font-size: 9.5px;"></i>Uploaded by <strong class="text-dark">{{ doc.uploaded_by.full_name|default:doc.uploaded_by.username|default:"Staff" }}</strong> &bull; {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
+                                    <i class="fa-regular fa-user me-1" style="font-size: 9.5px;"></i>Uploaded by <strong class="text-dark">{% if doc.uploaded_by %}{{ doc.uploaded_by.full_name|default:doc.uploaded_by.username }}{% else %}Staff{% endif %}</strong> &bull; {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
                                 </div>
                             </div>
                         </div>
@@ -2696,7 +2740,7 @@ button.premium-btn .btn-divider {
                                                 <a href="javascript:void(0)"
                                                     onclick="openDocPreview('{{ doc_url_map|dict_get:sub_req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:sub_req.document.document_id|default:sub_req.document.file_name|escapejs }}', '{{ sub_req.requirement_item.name|escapejs }}', '{{ sub_req.requirement_item.item_id }}', 0)"
                                                     class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5 text-truncate"
-                                                    title="Uploaded by {{ sub_req.document.uploaded_by.full_name|default:sub_req.document.uploaded_by.username|default:'Staff' }} ({{ sub_req.document.uploaded_at|date:'M d, Y • h:i A' }})" data-bs-toggle="tooltip">
+                                                    title="Uploaded by {% if sub_req.document.uploaded_by %}{{ sub_req.document.uploaded_by.full_name|default:sub_req.document.uploaded_by.username }}{% else %}Staff{% endif %} ({{ sub_req.document.uploaded_at|date:'M d, Y • h:i A' }})" data-bs-toggle="tooltip">
                                                     <i class="{{ sub_req.document.file_name|file_icon_class }}" style="font-size: 11px;"></i>
                                                     <span class="text-truncate doc-filename-link" style="max-width: 240px;">{{ sub_req.document.file_name }}</span>
                                                 </a>
@@ -2747,8 +2791,8 @@ button.premium-btn .btn-divider {
                                                 <li>
                                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                                         href="{% url 'download_slot_zip' record.record_id sub_req.requirement_item.item_id %}">
-                                                        <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
-                                                        <span>Download All Files</span>
+                                                        <i class="fa-solid fa-file-zipper text-secondary" style="font-size: 12px; width: 16px;"></i>
+                                                        <span>Download All ({{ attached_docs|length }} Files ZIP)</span>
                                                     </a>
                                                 </li>
                                                 {% else %}
@@ -2756,7 +2800,7 @@ button.premium-btn .btn-divider {
                                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                                         href="{{ doc_url_map|dict_get:sub_req.document.document_id }}" download>
                                                         <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
-                                                        <span>Download File</span>
+                                                        <span>Download Document</span>
                                                     </a>
                                                 </li>
                                                 {% endif %}
@@ -2871,7 +2915,7 @@ button.premium-btn .btn-divider {
                                     <a href="javascript:void(0)"
                                         onclick="openDocPreview('{{ doc_url_map|dict_get:req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:req.document.document_id|default:req.document.file_name|escapejs }}', '{{ req.requirement_item.name|escapejs }}', '{{ req.requirement_item.item_id }}', 0)"
                                         class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5 text-truncate"
-                                        title="Uploaded by {{ req.document.uploaded_by.full_name|default:req.document.uploaded_by.username|default:'Staff' }} ({{ req.document.uploaded_at|date:'M d, Y • h:i A' }})" data-bs-toggle="tooltip">
+                                        title="Uploaded by {% if req.document.uploaded_by %}{% if req.document.uploaded_by.full_name %}{{ req.document.uploaded_by.full_name }}{% else %}{{ req.document.uploaded_by.username }}{% endif %}{% else %}Staff{% endif %} ({{ req.document.uploaded_at|date:'M d, Y • h:i A' }})" data-bs-toggle="tooltip">
                                         <i class="{{ req.document.file_name|file_icon_class }}" style="font-size: 11px;"></i>
                                         <span class="text-truncate doc-filename-link" style="max-width: 240px;">{{ req.document.file_name }}</span>
                                     </a>
@@ -2921,8 +2965,8 @@ button.premium-btn .btn-divider {
                                     <li>
                                         <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                             href="{% url 'download_slot_zip' record.record_id req.requirement_item.item_id %}">
-                                            <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
-                                            <span>Download All Files</span>
+                                            <i class="fa-solid fa-file-zipper text-secondary" style="font-size: 12px; width: 16px;"></i>
+                                            <span>Download All ({{ attached_docs|length }} Files ZIP)</span>
                                         </a>
                                     </li>
                                     {% else %}
@@ -2930,7 +2974,7 @@ button.premium-btn .btn-divider {
                                         <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                             href="{{ doc_url_map|dict_get:req.document.document_id }}" download>
                                             <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
-                                            <span>Download File</span>
+                                            <span>Download Document</span>
                                         </a>
                                     </li>
                                     {% endif %}
@@ -3038,42 +3082,40 @@ button.premium-btn .btn-divider {
         </div>
         {% endif %}
 
-        {% if record.illegal_compliance_status != 'unresolved' and attachments %}
-        <!-- 📜 INCIDENT EVIDENCE & VIOLATION NOTICES (Preserved History after Permit Filing / Regularization) -->
+        {% if supporting_docs %}
+        <!-- 📁 SUPPORTING & ADDITIONAL DOCUMENTS (Auxiliary Attachments, Letters, Plans) -->
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
             <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-2" style="padding: 14px 18px !important; min-height: 56px !important;">
                 <div class="d-flex align-items-center flex-shrink-0 flex-nowrap me-auto">
-                    {% if record.is_illegal_construction %}
-                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2);">
-                        <i class="fa-solid fa-file-shield" style="font-size: 15px;"></i>
-                    </div>
-                    {% else %}
                     <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
                         style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(37, 99, 235, 0.12); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2);">
                         <i class="fa-solid fa-paperclip" style="font-size: 15px;"></i>
                     </div>
-                    {% endif %}
-                    <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em; white-space: nowrap !important; overflow: visible !important;">
-                        {% if record.is_illegal_construction %}Incident &amp; Violation Evidence History{% else %}Supporting &amp; Additional Documents{% endif %}
-                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em; white-space: nowrap !important; overflow: visible !important;">
+                            Supporting &amp; Additional Documents
+                        </h5>
+                        <span class="badge bg-secondary-subtle text-secondary border px-2 py-0.5 rounded-pill" style="font-size: 0.72rem; font-weight: 600;">
+                            {{ supporting_docs|length }} file{{ supporting_docs|length|pluralize }}
+                        </span>
+                    </div>
                 </div>
 
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
                     {% if can_edit and record.status != 'archived' %}
                     <button type="button"
-                        class="btn btn-sm btn-primary fw-semibold px-2.5 py-1 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        class="btn btn-sm btn-outline-primary fw-semibold px-2.5 py-1 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
                         style="border-radius: 7px; font-size: 0.75rem; height: 28px; white-space: nowrap;"
-                        onclick="openUploadModal('', '{% if record.is_illegal_construction %}Incident Evidence{% else %}Supporting Document{% endif %}')">
+                        onclick="openUploadModal('', 'Supporting Document')">
                         <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
-                        <span>Upload Files</span>
+                        <span>Upload Additional</span>
                     </button>
                     {% endif %}
                 </div>
             </div>
 
             <div class="content-card-body p-3.5 d-flex flex-column gap-2">
-                {% for doc in attachments %}
+                {% for doc in supporting_docs %}
                 <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
                     <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                         <div class="rounded-2 checklist-icon-box flex-shrink-0 checklist-icon-fulfilled"
@@ -3090,7 +3132,7 @@ button.premium-btn .btn-divider {
                                 </a>
                             </div>
                             <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">
-                                <i class="fa-regular fa-user me-1" style="font-size: 9.5px;"></i>Uploaded by <strong class="text-dark">{{ doc.uploaded_by.full_name|default:doc.uploaded_by.username|default:"Staff" }}</strong> &bull; {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
+                                <i class="fa-regular fa-user me-1" style="font-size: 9.5px;"></i>Uploaded by <strong class="text-dark">{% if doc.uploaded_by %}{{ doc.uploaded_by.full_name|default:doc.uploaded_by.username }}{% else %}Staff{% endif %}</strong> &bull; {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
                             </div>
                         </div>
                     </div>
@@ -3108,6 +3150,107 @@ button.premium-btn .btn-divider {
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                         href="javascript:void(0)"
                                         onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Supporting Document')">
+                                        <i class="fa-solid fa-eye text-primary" style="font-size: 12px; width: 16px;"></i>
+                                        <span>Preview Document</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                        href="{{ doc_url_map|dict_get:doc.document_id }}" download>
+                                        <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
+                                        <span>Download File</span>
+                                    </a>
+                                </li>
+                                {% if can_edit and record.status != 'archived' %}
+                                <li><hr class="dropdown-divider my-1"></li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap"
+                                        href="javascript:void(0)"
+                                        data-url="{% url 'delete_document' record.record_id doc.document_id %}"
+                                        data-name="{{ doc.file_name }}"
+                                        onclick="openDeleteDocModal(this.dataset.url, this.dataset.name)">
+                                        <i class="fa-solid fa-trash-can" style="font-size: 12px; width: 16px;"></i>
+                                        <span>Delete File</span>
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if incident_evidence_docs %}
+        <!-- 🛡️ HISTORICAL INCIDENT EVIDENCE & VIOLATION NOTICES -->
+        <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
+            <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-2" style="padding: 14px 18px !important; min-height: 56px !important;">
+                <div class="d-flex align-items-center flex-shrink-0 flex-nowrap me-auto">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style="width: 36px; height: 36px; min-width: 36px; margin-right: 12px !important; background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2);">
+                        <i class="fa-solid fa-file-shield" style="font-size: 15px;"></i>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="fw-bold mb-0 title-text-adaptive text-nowrap" style="font-size: 0.95rem; letter-spacing: -0.01em; white-space: nowrap !important; overflow: visible !important;">
+                            Incident &amp; Violation Evidence History
+                        </h5>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5 rounded-pill" style="font-size: 0.72rem; font-weight: 600;">
+                            {{ incident_evidence_docs|length }} file{{ incident_evidence_docs|length|pluralize }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap">
+                    {% if can_edit and record.status != 'archived' %}
+                    <button type="button"
+                        class="btn btn-sm btn-outline-danger fw-semibold px-2.5 py-1 d-inline-flex align-items-center gap-1.5 shadow-2xs text-nowrap"
+                        style="border-radius: 7px; font-size: 0.75rem; height: 28px; white-space: nowrap;"
+                        onclick="openUploadModal('', 'Incident Evidence')">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px;"></i>
+                        <span>Upload Evidence</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="content-card-body p-3.5 d-flex flex-column gap-2">
+                {% for doc in incident_evidence_docs %}
+                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                    <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
+                        <div class="rounded-2 checklist-icon-box flex-shrink-0 checklist-icon-fulfilled"
+                            style="width: 28px; height: 28px; min-width: 28px; margin-right: 12px !important; font-size: 11.5px; background: rgba(220, 38, 38, 0.1); color: #dc2626;">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <div class="min-w-0 flex-grow-1">
+                            <div class="fw-semibold title-text-adaptive text-break" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
+                                <a href="javascript:void(0)"
+                                    onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Incident Evidence')"
+                                    class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5" title="{{ doc.file_name }}" data-bs-toggle="tooltip">
+                                    <i class="{{ doc.file_name|file_icon_class }}" style="font-size: 11px;"></i>
+                                    <span class="text-truncate doc-filename-link">{{ doc.file_name }}</span>
+                                </a>
+                            </div>
+                            <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">
+                                <i class="fa-regular fa-user me-1" style="font-size: 9.5px;"></i>Uploaded by <strong class="text-dark">{% if doc.uploaded_by %}{{ doc.uploaded_by.full_name|default:doc.uploaded_by.username }}{% else %}Staff{% endif %}</strong> &bull; {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
+                        <div class="dropdown" onclick="event.stopPropagation();">
+                            <button type="button" class="checklist-kebab-btn" data-bs-toggle="dropdown"
+                                data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
+                                onclick="event.stopPropagation();" title="Document Actions">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
+                                style="min-width: 185px; font-size: 0.81rem; border-radius: 12px; padding: 6px; z-index: 99999;"
+                                onclick="event.stopPropagation();">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
+                                        href="javascript:void(0)"
+                                        onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Incident Evidence')">
                                         <i class="fa-solid fa-eye text-primary" style="font-size: 12px; width: 16px;"></i>
                                         <span>Preview Document</span>
                                     </a>
@@ -3177,7 +3320,7 @@ button.premium-btn .btn-divider {
                     <input type="hidden" name="requirement_item_id" id="uploadItemId">
                     <input type="hidden" name="document_type" id="uploadDocType" value="">
                     <input type="file" name="document_file" id="modalFileInput" multiple
-                        accept=".pdf,application/pdf" class="d-none" onchange="showSelectedFiles(this)">
+                        accept="{% if record.is_illegal_construction %}.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp{% else %}.pdf,application/pdf{% endif %}" class="d-none" onchange="showSelectedFiles(this)">
 
                     <!-- Compact Essential-Only Dropzone -->
                     <div class="compact-essential-dropzone position-relative" id="dropZone"
@@ -3190,10 +3333,14 @@ button.premium-btn .btn-divider {
                         </div>
 
                         <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 0.92rem;">
-                            Click to browse or drag PDF file(s) here
+                            Click to browse or drag file(s) here
                         </div>
                         <div class="text-muted small" style="font-size: 0.75rem;">
-                            Supports Verified PDF Documents Only &bull; Select 1 or Multiple Files &bull; Max 50 MB
+                            {% if record.is_illegal_construction %}
+                            Supports PDF Documents & Images (JPG, PNG, WEBP) &bull; Select 1 or Multiple Files &bull; Max 50 MB
+                            {% else %}
+                            Supports PDF Documents Only (.pdf) &bull; Select 1 or Multiple Files &bull; Max 50 MB
+                            {% endif %}
                         </div>
                     </div>
 
@@ -3286,7 +3433,7 @@ button.premium-btn .btn-divider {
                 <div class="modal-body p-3 px-4">
                     <div class="alert alert-warning d-flex align-items-center gap-2 py-2 px-3 mb-3" style="border-radius: 10px; font-size: 0.78rem;">
                         <i class="fa-solid fa-triangle-exclamation text-warning flex-shrink-0"></i>
-                        <span>This will swap the mistaken file with your newly selected PDF document.</span>
+                        <span>This will swap the mistaken file with your newly selected document.</span>
                     </div>
 
                     <div class="compact-essential-dropzone position-relative" id="replaceDropZone" style="cursor: pointer;" onclick="document.getElementById('replaceFileInput').click()">
@@ -3294,13 +3441,17 @@ button.premium-btn .btn-divider {
                             <i class="fa-solid fa-arrows-rotate text-success"></i>
                         </div>
                         <div class="fw-bold mb-1 text-dark title-text-adaptive" style="font-size: 0.90rem;">
-                            Click to select replacement PDF file
+                            Click to select replacement file
                         </div>
                         <div class="text-muted small" style="font-size: 0.74rem;">
-                            Supports Verified PDF Documents Only &bull; Max 50 MB
+                            {% if record.is_illegal_construction %}
+                            Supports PDF Documents & Images (JPG, PNG, WEBP) &bull; Max 50 MB
+                            {% else %}
+                            Supports PDF Documents Only (.pdf) &bull; Max 50 MB
+                            {% endif %}
                         </div>
                         <input type="file" name="replacement_file" id="replaceFileInput"
-                            accept=".pdf,application/pdf" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" style="cursor: pointer; z-index: 5;" onchange="handleReplaceFileSelect(this)" required>
+                            accept="{% if record.is_illegal_construction %}.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp{% else %}.pdf,application/pdf{% endif %}" class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" style="cursor: pointer; z-index: 5;" onchange="handleReplaceFileSelect(this)" required>
                     </div>
 
                     <div id="replaceSelectedPreview" class="d-none mt-2.5 p-2.5 px-3 border rounded-3 d-flex align-items-center justify-content-between gap-2" style="background: #f8fafc;">
@@ -3391,12 +3542,16 @@ button.premium-btn .btn-divider {
                             Click to browse or drag multiple files here
                         </div>
                         <div class="text-muted small" style="font-size: 0.75rem;">
-                            Supports Verified PDF Documents Only &bull; Max 50 MB each
+                            {% if record.is_illegal_construction %}
+                            Supports PDF Documents & Images (JPG, PNG, WEBP) &bull; Max 50 MB each
+                            {% else %}
+                            Supports PDF Documents Only (.pdf) &bull; Max 50 MB each
+                            {% endif %}
                         </div>
 
                         <input type="file" name="files" id="batchFileInput"
                             class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                            accept=".pdf,application/pdf" style="cursor: pointer; z-index: 5;" onchange="handleBatchFileSelect(this)">
+                            accept="{% if record.is_illegal_construction %}.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp{% else %}.pdf,application/pdf{% endif %}" style="cursor: pointer; z-index: 5;" onchange="handleBatchFileSelect(this)">
                     </div>
 
                     <!-- Selected Files List Container -->
@@ -3409,7 +3564,7 @@ button.premium-btn .btn-divider {
                                 <label for="batchFileInputExtra" class="btn btn-outline-primary batch-header-action-btn mb-0">
                                     <i class="fa-solid fa-plus"></i> Add More
                                 </label>
-                                <input type="file" id="batchFileInputExtra" class="d-none" multiple accept=".pdf,application/pdf" onchange="handleBatchFileSelect(this)">
+                                <input type="file" id="batchFileInputExtra" class="d-none" multiple accept="{% if record.is_illegal_construction %}.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp{% else %}.pdf,application/pdf{% endif %}" onchange="handleBatchFileSelect(this)">
                                 
                                 <button type="button" class="btn btn-outline-danger batch-header-action-btn" onclick="clearBatchFiles()" title="Clear all selected files">
                                     <i class="fa-solid fa-rotate-left"></i> Clear all
@@ -3426,7 +3581,7 @@ button.premium-btn .btn-divider {
                 <!-- Footer -->
                 <div class="modal-footer border-top p-3 px-4 bg-white">
                     <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <button type="button" class="btn btn-light border py-2 fw-semibold text-secondary w-100" style="border-radius: 9px; font-size: 0.85rem; height: 42px; background: #f1f5f9; border-color: #e2e8f0 !important;" data-bs-dismiss="modal" onclick="clearBatchFiles()">Cancel</button>
+                        <button type="button" id="batchCancelBtn" class="btn btn-light border py-2 fw-semibold text-secondary w-100" style="border-radius: 9px; font-size: 0.85rem; height: 42px; background: #f1f5f9; border-color: #e2e8f0 !important;" data-bs-dismiss="modal" onclick="clearBatchFiles()">Cancel</button>
                         <button type="submit" id="batchUploadSubmitBtn" class="btn btn-primary py-2 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 shadow-sm w-100" style="border-radius: 9px; font-size: 0.85rem; height: 42px; background: linear-gradient(135deg, #0284c7, #0369a1); border: none; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
                             <i class="fa-solid fa-cloud-arrow-up" style="font-size: 13px;"></i>
                             <span id="batchSubmitBtnText">Upload Files</span>
@@ -3507,9 +3662,6 @@ button.premium-btn .btn-divider {
                                 Attached Documents
                             </h5>
                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 rounded-pill fw-semibold" id="slotAttachmentsModalCount" style="font-size: 0.72rem;"></span>
-                        </div>
-                        <div class="text-muted text-truncate" style="font-size: 0.76rem; margin-top: 2px;">
-                            Manage individual verified files uploaded to this requirement slot
                         </div>
                     </div>
                 </div>
@@ -3637,7 +3789,7 @@ button.premium-btn .btn-divider {
             "id": {{ d.document_id }},
             "name": "{{ d.file_name|escapejs }}",
             "size": "{{ d.file_size|filesizeformat }}",
-            "uploaded_by": "{{ d.uploaded_by.full_name|default:d.uploaded_by.username|default:'Staff'|escapejs }}",
+            "uploaded_by": "{% if d.uploaded_by %}{{ d.uploaded_by.full_name|default:d.uploaded_by.username|escapejs }}{% else %}Staff{% endif %}",
             "uploaded_at": "{{ d.uploaded_at|date:'M d, Y • h:i A' }}",
             "url": "{{ doc_url_map|dict_get:d.document_id }}",
             "lgu_name": "{{ doc_lgu_name_map|dict_get:d.document_id|default:d.file_name|escapejs }}",
@@ -3962,11 +4114,20 @@ button.premium-btn .btn-divider {
                 continue;
             }
 
-            if (!file.name.toLowerCase().endsWith('.pdf')) {
-                if (window.showToast) {
-                    showToast('warning', 'Invalid Format', `File '${file.name}' rejected. Only verified PDF documents (.pdf) are supported.`);
+            if (isIllegalReport) {
+                if (!/\.(pdf|jpg|jpeg|png|webp)$/i.test(file.name)) {
+                    if (window.showToast) {
+                        showToast('warning', 'Invalid Format', `File '${file.name}' rejected. Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).`);
+                    }
+                    continue;
                 }
-                continue;
+            } else {
+                if (!/\.pdf$/i.test(file.name)) {
+                    if (window.showToast) {
+                        showToast('warning', 'Invalid Format', `File '${file.name}' rejected. Regular engineering records accept PDF documents (.pdf) only.`);
+                    }
+                    continue;
+                }
             }
 
             // 1. Check if already uploaded previously to this specific slot
@@ -4005,6 +4166,15 @@ button.premium-btn .btn-divider {
         const container = document.getElementById('singleFileSelectedContainer');
         if (container) container.classList.add('d-none');
 
+        const fileInfo = document.getElementById('selectedFileInfo');
+        if (fileInfo) fileInfo.classList.add('d-none');
+
+        const bar = document.getElementById('uploadProgressBar');
+        if (bar) {
+            bar.style.width = '0%';
+            bar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+        }
+
         const dropzone = document.getElementById('dropZone');
         if (dropzone) {
             dropzone.classList.remove('d-none');
@@ -4020,6 +4190,9 @@ button.premium-btn .btn-divider {
 
         const btnText = document.getElementById('singleUploadBtnText');
         if (btnText) btnText.textContent = 'Upload Document';
+
+        const statusLabel = document.getElementById('selectedFileSize');
+        if (statusLabel) statusLabel.textContent = 'Uploading document(s)...';
     }
 
     function renderSingleFilesQueue() {
@@ -4046,12 +4219,16 @@ button.premium-btn .btn-divider {
 
         listEl.innerHTML = '';
         selectedSingleFilesQueue.forEach((file, idx) => {
+            const isImg = /\.(jpg|jpeg|png|webp)$/i.test(file.name);
+            const iconHtml = isImg 
+                ? '<i class="fa-solid fa-file-image text-primary" style="font-size: 14px;"></i>' 
+                : '<i class="fa-solid fa-file-pdf text-danger" style="font-size: 14px;"></i>';
             const card = document.createElement('div');
             card.className = 'selected-file-preview-card mb-2 shadow-2xs';
             card.innerHTML = `
                 <div class="file-info-group">
                     <div class="file-icon-box">
-                        <i class="fa-solid fa-file-pdf" style="font-size: 14px;"></i>
+                        ${iconHtml}
                     </div>
                     <div class="file-text-box">
                         <div class="file-name-text" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
@@ -4104,13 +4281,27 @@ button.premium-btn .btn-divider {
 
         const bar = document.getElementById('uploadProgressBar');
         const statusLabel = document.getElementById('selectedFileSize');
+        const spinner = document.getElementById('uploadSpinner');
 
         xhr.upload.addEventListener('progress', function (e) {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
-                if (bar) bar.style.width = percent + '%';
-                if (statusLabel) {
-                    statusLabel.textContent = `Uploading: ${formatBytes(e.loaded)} of ${formatBytes(e.total)} (${percent}%)`;
+                if (percent >= 100) {
+                    if (bar) {
+                        bar.style.width = '100%';
+                        bar.classList.add('progress-bar-striped', 'progress-bar-animated');
+                    }
+                    if (statusLabel) {
+                        statusLabel.innerHTML = '<span class="text-primary fw-medium d-inline-flex align-items-center gap-1.5"><i class="fa-solid fa-gear fa-spin" style="font-size: 11px;"></i> Processing & saving to storage...</span>';
+                    }
+                } else {
+                    if (bar) {
+                        bar.style.width = Math.min(percent, 99) + '%';
+                        bar.classList.add('progress-bar-striped', 'progress-bar-animated');
+                    }
+                    if (statusLabel) {
+                        statusLabel.textContent = `Uploading: ${formatBytes(e.loaded)} of ${formatBytes(e.total)} (${percent}%)`;
+                    }
                 }
             }
         });
@@ -4122,7 +4313,13 @@ button.premium-btn .btn-divider {
             } catch (e) { }
 
             if (xhr.status >= 200 && xhr.status < 300 && (!resData || resData.success !== false)) {
-                if (statusLabel) statusLabel.innerHTML = '<strong class="text-success"><i class="fa-solid fa-check me-1"></i> Upload complete! Finalizing...</strong>';
+                if (bar) {
+                    bar.style.width = '100%';
+                    bar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                }
+                if (statusLabel) {
+                    statusLabel.innerHTML = '<strong class="text-success d-inline-flex align-items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> Upload complete! Finalizing...</strong>';
+                }
                 
                 const fileCount = selectedSingleFilesQueue.length;
                 let toastMsg = '';
@@ -4149,22 +4346,40 @@ button.premium-btn .btn-divider {
                 const toastType = isDup ? 'warning' : 'error';
                 const errorMsg = (resData && resData.error) ? resData.error : 'Upload failed. Please check file format or size (max 50MB).';
                 
+                clearSingleSelectedFile();
+
+                // Close upload modal so user is not left viewing an in-progress modal behind the toast
+                try {
+                    const modalEl = document.getElementById('singleUploadModal');
+                    if (modalEl) {
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+                    }
+                } catch (mErr) { }
+
                 if (window.showToast) {
                     showToast(toastType, toastTitle, errorMsg);
                 } else {
                     alert(errorMsg);
                 }
-                clearSingleSelectedFile();
             }
         });
 
         xhr.addEventListener('error', function () {
+            clearSingleSelectedFile();
+            try {
+                const modalEl = document.getElementById('singleUploadModal');
+                if (modalEl) {
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                }
+            } catch (mErr) { }
+
             if (window.showToast) {
                 showToast('error', 'Network Error', 'An error occurred during upload. Please check your network connection.');
             } else {
                 alert('Network error during upload.');
             }
-            clearSingleSelectedFile();
         });
 
         xhr.open('POST', form.action, true);
@@ -4211,13 +4426,24 @@ button.premium-btn .btn-divider {
             return;
         }
 
-        if (!file.name.toLowerCase().endsWith('.pdf')) {
-            if (window.showToast) {
-                showToast('warning', 'Invalid Format', 'Only verified PDF document files (.pdf) are accepted.');
+        if (isIllegalReport) {
+            if (!/\.(pdf|jpg|jpeg|png|webp)$/i.test(file.name)) {
+                if (window.showToast) {
+                    showToast('warning', 'Invalid Format', 'Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).');
+                }
+                input.value = '';
+                if (preview) preview.classList.add('d-none');
+                return;
             }
-            input.value = '';
-            if (preview) preview.classList.add('d-none');
-            return;
+        } else {
+            if (!/\.pdf$/i.test(file.name)) {
+                if (window.showToast) {
+                    showToast('warning', 'Invalid Format', 'Regular engineering records accept PDF documents (.pdf) only.');
+                }
+                input.value = '';
+                if (preview) preview.classList.add('d-none');
+                return;
+            }
         }
 
         const ext = file.name.split('.').pop().toLowerCase();
@@ -4360,6 +4586,10 @@ button.premium-btn .btn-divider {
         const subTitle = document.getElementById('batchUploadSubTitle');
         const iconWrap = document.querySelector('#batchUploadModal .modal-header .rounded-3');
 
+        const groupPendingCount = activeBatchGroupId 
+            ? availableSlots.filter(s => String(s.groupId) === String(activeBatchGroupId) && !s.is_fulfilled).length
+            : availableSlots.filter(s => !s.is_fulfilled).length;
+
         if (titleEl) {
             if (isIllegalReport || activeBatchGroupName.includes('Evidence')) {
                 titleEl.textContent = 'Upload Incident Evidence Documents';
@@ -4374,8 +4604,10 @@ button.premium-btn .btn-divider {
                 subTitle.textContent = 'Attach field inspection photos, Notice of Violation (NOV), or Work Stoppage Orders.';
             } else if (activeBatchGroupName.includes('Additional')) {
                 subTitle.textContent = 'Upload supplemental files, site photos, or additional plans.';
+            } else if (groupPendingCount > 0) {
+                subTitle.textContent = `Upload files for ${groupPendingCount} pending requirement${groupPendingCount > 1 ? 's' : ''}.`;
             } else {
-                subTitle.textContent = groupName ? `Upload documents for ${groupName}` : 'Upload multiple documents and assign each file to its requirement.';
+                subTitle.textContent = 'All requirements are fulfilled. Upload additional or supporting documents.';
             }
         }
         if (iconWrap) {
@@ -4459,9 +4691,12 @@ button.premium-btn .btn-divider {
 
         const isAdditionalMode = (activeBatchGroupId === '__additional__' || activeBatchGroupName.includes('Evidence') || activeBatchGroupName.includes('Additional'));
 
-        const targetSlots = isAdditionalMode ? [] : (activeBatchGroupId 
+        const allGroupSlots = isAdditionalMode ? [] : (activeBatchGroupId 
             ? availableSlots.filter(s => String(s.groupId) === String(activeBatchGroupId))
             : availableSlots);
+
+        // Filter: Show pending/unfulfilled requirements only in Batch Upload
+        const targetSlots = allGroupSlots.filter(s => !s.is_fulfilled);
 
         if (selectedBatchFilesStore.length > 0) {
             if (container) container.style.display = 'block';
@@ -4488,13 +4723,46 @@ button.premium-btn .btn-divider {
                 console.warn("DataTransfer sync warning:", err);
             }
 
+            // Prominent Error Awareness Banner if any files failed
+            const errorItems = selectedBatchFilesStore.filter(it => it.status === 'error' || it.validationError);
+            if (errorItems.length > 0 && !isBatchUploading) {
+                const errorBanner = document.createElement('div');
+                errorBanner.className = 'd-flex align-items-center justify-content-between gap-2 p-2.5 px-3 mb-2.5 rounded-3 shadow-xs';
+                errorBanner.style.cssText = 'background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 0.78rem; animation: fadeIn 0.2s ease;';
+                errorBanner.innerHTML = `
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <i class="fa-solid fa-circle-exclamation flex-shrink-0" style="font-size: 14px; color: #dc2626;"></i>
+                        <span class="text-truncate"><strong>${errorItems.length} file${errorItems.length > 1 ? 's' : ''} failed</strong> — Please check error details on card below.</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 flex-shrink-0" style="font-size: 0.72rem; height: 24px; border-radius: 6px; white-space: nowrap;" onclick="scrollToFirstBatchError()">
+                        <i class="fa-solid fa-arrow-down me-1"></i>View Failed File
+                    </button>
+                `;
+                list.appendChild(errorBanner);
+            }
+
+            // Prominent Success Awareness Banner when all uploaded successfully
+            const allSucceeded = selectedBatchFilesStore.length > 0 && selectedBatchFilesStore.every(it => it.status === 'success');
+            if (allSucceeded && !isBatchUploading) {
+                const successBanner = document.createElement('div');
+                successBanner.className = 'd-flex align-items-center justify-content-between gap-2 p-2.5 px-3 mb-2.5 rounded-3 shadow-xs';
+                successBanner.style.cssText = 'background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; font-size: 0.78rem; animation: fadeIn 0.2s ease;';
+                successBanner.innerHTML = `
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <i class="fa-solid fa-circle-check flex-shrink-0" style="font-size: 14px; color: #16a34a;"></i>
+                        <span class="text-truncate"><strong>All ${selectedBatchFilesStore.length} document${selectedBatchFilesStore.length > 1 ? 's' : ''} uploaded successfully!</strong> You can review the files below.</span>
+                    </div>
+                `;
+                list.appendChild(successBanner);
+            }
+
             selectedBatchFilesStore.forEach((itemObj, index) => {
                 const f = itemObj.file;
                 const fileMeta = getFileMeta(f.name);
                 const wrapper = document.createElement('div');
                 
                 let stateClass = '';
-                if (itemObj.status === 'uploading') stateClass = 'is-uploading';
+                if (itemObj.status === 'uploading' || itemObj.status === 'processing') stateClass = 'is-uploading';
                 else if (itemObj.status === 'success') stateClass = 'is-success';
                 else if (itemObj.status === 'error' || itemObj.validationError) stateClass = 'is-error';
                 
@@ -4506,6 +4774,12 @@ button.premium-btn .btn-divider {
                     actionBtnHTML = `
                         <span class="text-primary d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 26px; height: 26px;">
                             <span class="spinner-border spinner-border-sm" style="width: 13px; height: 13px; border-width: 1.75px;" role="status"></span>
+                        </span>
+                    `;
+                } else if (itemObj.status === 'processing') {
+                    actionBtnHTML = `
+                        <span class="text-info d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 26px; height: 26px;">
+                            <i class="fa-solid fa-gear fa-spin" style="font-size: 13px;"></i>
                         </span>
                     `;
                 } else if (itemObj.status === 'success') {
@@ -4526,12 +4800,12 @@ button.premium-btn .btn-divider {
                     let badgeHTML = '';
                     if (itemObj.status === 'uploading') {
                         badgeHTML = `<span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><span class="spinner-border spinner-border-sm" style="width: 9px; height: 9px; border-width: 1.5px;" role="status"></span> Uploading...</span>`;
+                    } else if (itemObj.status === 'processing') {
+                        badgeHTML = `<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-gear fa-spin" style="font-size: 10px;"></i> Saving...</span>`;
                     } else if (itemObj.status === 'success') {
                         badgeHTML = `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-check"></i> Uploaded</span>`;
                     } else if (itemObj.status === 'error' || itemObj.validationError) {
                         badgeHTML = `<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-xmark"></i> Failed</span>`;
-                    } else {
-                        badgeHTML = `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-check"></i> Ready to attach</span>`;
                     }
 
                     let errorBoxHTML = '';
@@ -4552,10 +4826,13 @@ button.premium-btn .btn-divider {
                     }
 
                     let progressHTML = '';
-                    if (itemObj.status === 'uploading') {
+                    if (itemObj.status === 'uploading' || itemObj.status === 'processing') {
+                        const isProc = itemObj.status === 'processing';
+                        const progWidth = isProc ? '100%' : (Math.min(itemObj.uploadProgress || 10, 99) + '%');
+                        const progBg = isProc ? 'bg-info' : 'bg-primary';
                         progressHTML = `
                             <div class="progress mt-2" style="height: 4px; border-radius: 4px; overflow: hidden; background: #e2e8f0;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%;"></div>
+                                <div class="progress-bar progress-bar-striped progress-bar-animated ${progBg}" style="width: ${progWidth};"></div>
                             </div>
                         `;
                     }
@@ -4563,11 +4840,12 @@ button.premium-btn .btn-divider {
                     wrapper.innerHTML = `
                         <!-- Top Row: File Meta, Size, Status & Remove -->
                         <div class="d-flex align-items-center justify-content-between gap-2" style="flex-wrap: nowrap; min-width: 0;">
-                            <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1" style="overflow: hidden; min-width: 0;">
+                            <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1" style="overflow: hidden; min-width: 0;">
+                                <span class="badge bg-light text-secondary border px-1.5 py-0.5 rounded-1 flex-shrink-0" style="font-size: 0.68rem; font-weight: 700; letter-spacing: -0.02em;">#${index + 1}</span>
                                 <div class="batch-file-icon ${fileMeta.typeClass} flex-shrink-0">
                                     <i class="fa-solid ${fileMeta.icon}"></i>
                                 </div>
-                                <span class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.82rem; min-width: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;" title="${escapeHtml(f.name)}" data-bs-toggle="tooltip" data-bs-placement="top">
+                                <span class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.82rem; min-width: 0; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;" title="${escapeHtml(f.name)}" data-bs-toggle="tooltip" data-bs-placement="top">
                                     ${escapeHtml(f.name)}
                                 </span>
                                 <span class="text-muted flex-shrink-0" style="font-size: 0.72rem; font-weight: 500;">
@@ -4601,107 +4879,40 @@ button.premium-btn .btn-divider {
                     let badgeHTML = '';
                     if (itemObj.status === 'uploading') {
                         badgeHTML = `<span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><span class="spinner-border spinner-border-sm" style="width: 9px; height: 9px; border-width: 1.5px;" role="status"></span> Uploading...</span>`;
+                    } else if (itemObj.status === 'processing') {
+                        badgeHTML = `<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-gear fa-spin" style="font-size: 10px;"></i> Saving...</span>`;
                     } else if (itemObj.status === 'success') {
                         badgeHTML = `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-check"></i> Uploaded</span>`;
                     } else if (itemObj.status === 'error' || itemObj.validationError) {
                         badgeHTML = `<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-xmark"></i> Failed</span>`;
-                    } else if (assignedSlot) {
-                        const count = slotUsageCounts[String(assignedSlot.id)] || 1;
-                        if (count > 1) {
-                            if (assignedSlot.is_fulfilled) {
-                                badgeHTML = `<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;" title="${count} files in this batch are assigned to this slot (Replaces existing document)"><i class="fa-solid fa-layer-group"></i> ${count} files in slot</span>`;
-                            } else {
-                                badgeHTML = `<span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;" title="${count} files in this batch are assigned to this slot"><i class="fa-solid fa-layer-group"></i> ${count} files in slot</span>`;
-                            }
-                        } else {
-                            if (assignedSlot.is_fulfilled) {
-                                badgeHTML = `<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;" title="This slot already has a file and will be updated upon upload"><i class="fa-solid fa-arrows-rotate"></i> Replaces file</span>`;
-                            } else {
-                                badgeHTML = `<span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-circle-check"></i> Assigned</span>`;
-                            }
-                        }
-                    } else if (itemObj.selectedSlotId === '__additional__') {
-                        const addCount = slotUsageCounts['__additional__'] || 1;
-                        if (addCount > 1) {
-                            badgeHTML = `<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;" title="${addCount} files will be uploaded as additional documents"><i class="fa-solid fa-paperclip"></i> Additional (${addCount} files)</span>`;
-                        } else {
-                            badgeHTML = `<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style="font-size: 0.72rem;"><i class="fa-solid fa-paperclip"></i> Additional</span>`;
-                        }
                     }
 
-                    // Helper to generate clean, uncluttered option labels
-                    function getSlotOptionLabel(slot) {
-                        let suffix = slot.is_fulfilled ? ' (Already has file)' : '';
-                        return `${escapeHtml(slot.name)}${suffix}`;
+                    // Clean, unambiguous slot option label with simple selection indicator
+                    function getSlotOptionLabel(slot, currentItemIndex) {
+                        const isAdditional = (slot.id === '__additional__');
+                        if (isAdditional) {
+                            return escapeHtml(slot.name);
+                        }
+                        
+                        const isSelectedByOther = selectedBatchFilesStore.some((it, idx) => idx !== currentItemIndex && String(it.selectedSlotId) === String(slot.id));
+                        if (isSelectedByOther) {
+                            return `${escapeHtml(slot.name)} (Already Selected)`;
+                        }
+                        return escapeHtml(slot.name);
                     }
 
                     let slotOptionsHTML = `<option value="">-- Select requirement slot --</option>`;
                     
-                    // Separate genuine multi-item groups vs standalone flat items
-                    const realGroups = {};
-                    const standaloneSlots = [];
-
+                    // Render all checklist slots in a clean flat list with equal alignment
                     targetSlots.forEach(slot => {
-                        const gName = (slot.groupName && slot.groupName.trim()) ? slot.groupName.trim() : '';
-                        if (gName && gName !== slot.name) {
-                            if (!realGroups[gName]) realGroups[gName] = [];
-                            realGroups[gName].push(slot);
-                        } else {
-                            standaloneSlots.push(slot);
-                        }
+                        const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
+                        slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${getSlotOptionLabel(slot, index)}</option>`;
                     });
 
-                    const realGroupKeys = Object.keys(realGroups);
-
-                    if (realGroupKeys.length === 0 || activeBatchGroupId) {
-                        // Render flat clean list without redundant headers
-                        targetSlots.forEach(slot => {
-                            const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
-                            slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${getSlotOptionLabel(slot)}</option>`;
-                        });
-                    } else {
-                        // Render genuine multi-item groups
-                        realGroupKeys.forEach(gName => {
-                            const groupSlots = realGroups[gName];
-                            if (groupSlots.length > 0) {
-                                slotOptionsHTML += `<optgroup label="${escapeHtml(gName)}">`;
-                                groupSlots.forEach(slot => {
-                                    const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
-                                    slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${getSlotOptionLabel(slot)}</option>`;
-                                });
-                                slotOptionsHTML += `</optgroup>`;
-                            }
-                        });
-
-                        // Render standalone requirements
-                        if (standaloneSlots.length > 0) {
-                            if (realGroupKeys.length > 0) {
-                                slotOptionsHTML += `<optgroup label="General Requirements">`;
-                            }
-                            standaloneSlots.forEach(slot => {
-                                const isSelected = String(slot.id) === String(itemObj.selectedSlotId);
-                                slotOptionsHTML += `<option value="${slot.id}" ${isSelected ? 'selected' : ''}>${getSlotOptionLabel(slot)}</option>`;
-                            });
-                            if (realGroupKeys.length > 0) {
-                                slotOptionsHTML += `</optgroup>`;
-                            }
-                        }
-                    }
-
-                    // Always provide Additional / Supporting Document option
+                    // Additional / Supporting Document option (perfectly aligned)
                     const isAdditionalSelected = (String(itemObj.selectedSlotId) === '__additional__');
-                    const additionalLabel = isIllegalReport ? '🛡️ Additional Incident Evidence / Photos' : '📎 Additional / Supporting Document';
+                    const additionalLabel = isIllegalReport ? 'Additional Incident Evidence / Photos' : 'Additional / Supporting Document';
                     slotOptionsHTML += `<option value="__additional__" ${isAdditionalSelected ? 'selected' : ''}>${additionalLabel}</option>`;
-
-                    let replaceWarningHTML = '';
-                    if (assignedSlot && assignedSlot.is_fulfilled && itemObj.status === 'idle') {
-                        replaceWarningHTML = `
-                            <div class="d-flex align-items-center gap-1.5 mt-2 py-1 px-2.5 rounded-2" style="font-size: 0.72rem; font-weight: 500; background: rgba(245, 158, 11, 0.08); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.2);">
-                                <i class="fa-solid fa-triangle-exclamation flex-shrink-0" style="font-size: 11px;"></i>
-                                <span>Current document in this slot will be archived and updated with this file.</span>
-                            </div>
-                        `;
-                    }
 
                     let errorBoxHTML = '';
                     if (itemObj.status === 'error' && itemObj.errorMessage) {
@@ -4721,10 +4932,13 @@ button.premium-btn .btn-divider {
                     }
 
                     let progressHTML = '';
-                    if (itemObj.status === 'uploading') {
+                    if (itemObj.status === 'uploading' || itemObj.status === 'processing') {
+                        const isProc = itemObj.status === 'processing';
+                        const progWidth = isProc ? '100%' : (Math.min(itemObj.uploadProgress || 10, 99) + '%');
+                        const progBg = isProc ? 'bg-info' : 'bg-primary';
                         progressHTML = `
                             <div class="progress mt-2" style="height: 4px; border-radius: 4px; overflow: hidden; background: #e2e8f0;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%;"></div>
+                                <div class="progress-bar progress-bar-striped progress-bar-animated ${progBg}" style="width: ${progWidth};"></div>
                             </div>
                         `;
                     }
@@ -4734,11 +4948,12 @@ button.premium-btn .btn-divider {
                     wrapper.innerHTML = `
                         <!-- Top Row: File Meta, Size, Status & Remove -->
                         <div class="d-flex align-items-center justify-content-between gap-2" style="flex-wrap: nowrap; min-width: 0;">
-                            <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1" style="overflow: hidden; min-width: 0;">
+                            <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1" style="overflow: hidden; min-width: 0;">
+                                <span class="badge bg-light text-secondary border px-1.5 py-0.5 rounded-1 flex-shrink-0" style="font-size: 0.68rem; font-weight: 700; letter-spacing: -0.02em;">#${index + 1}</span>
                                 <div class="batch-file-icon ${fileMeta.typeClass} flex-shrink-0">
                                     <i class="fa-solid ${fileMeta.icon}"></i>
                                 </div>
-                                <span class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.82rem; min-width: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;" title="${escapeHtml(f.name)}" data-bs-toggle="tooltip" data-bs-placement="top">
+                                <span class="fw-bold text-dark text-truncate title-text-adaptive" style="font-size: 0.82rem; min-width: 0; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;" title="${escapeHtml(f.name)}" data-bs-toggle="tooltip" data-bs-placement="top">
                                     ${escapeHtml(f.name)}
                                 </span>
                                 <span class="text-muted flex-shrink-0" style="font-size: 0.72rem; font-weight: 500;">
@@ -4775,7 +4990,6 @@ button.premium-btn .btn-divider {
                             </div>
                             ` : `<input type="hidden" name="expiry_dates" value="">`}
                         </div>
-                        ${replaceWarningHTML}
                         ${errorBoxHTML}
                         ${progressHTML}
                     `;
@@ -4807,11 +5021,11 @@ button.premium-btn .btn-divider {
                         Click to browse or drag multiple files here
                     </div>
                     <div class="text-muted small" style="font-size: 0.75rem;">
-                        Supports Verified PDF Documents Only &bull; Max 50 MB each
+                        ${isIllegalReport ? 'Supports PDF Documents & Images (JPG, PNG, WEBP) &bull; Max 50 MB each' : 'Supports PDF Documents Only (.pdf) &bull; Max 50 MB each'}
                     </div>
                     <input type="file" name="files" id="batchFileInput"
                         class="form-control position-absolute top-0 start-0 w-100 h-100 opacity-0" multiple
-                        accept=".pdf,application/pdf" style="cursor: pointer; z-index: 5;">
+                        accept="${isIllegalReport ? '.pdf,application/pdf,image/*,.jpg,.jpeg,.png,.webp' : '.pdf,application/pdf'}" style="cursor: pointer; z-index: 5;">
                 `;
             }
             if (fileInput) fileInput.value = '';
@@ -4854,11 +5068,39 @@ button.premium-btn .btn-divider {
     function removeBatchFile(index) {
         if (selectedBatchFilesStore[index]) {
             selectedBatchFilesStore.splice(index, 1);
+            
+            const finalSuccess = selectedBatchFilesStore.filter(it => it.status === 'success').length;
+            const finalErrors = selectedBatchFilesStore.filter(it => it.status === 'error').length;
+            const submitBtn = document.getElementById('batchUploadSubmitBtn');
+            const submitBtnText = document.getElementById('batchSubmitBtnText');
+            const batchCancelBtn = document.getElementById('batchCancelBtn');
+            
+            if (finalErrors === 0 && finalSuccess > 0) {
+                if (batchCancelBtn) {
+                    batchCancelBtn.innerHTML = `<i class="fa-solid fa-check me-1.5"></i> Done (${finalSuccess} Saved)`;
+                }
+                if (submitBtnText) {
+                    submitBtnText.innerHTML = `<i class="fa-solid fa-circle-check me-1.5"></i> Done (${finalSuccess} Uploaded)`;
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 350);
+                return;
+            } else if (finalErrors > 0 && submitBtnText) {
+                submitBtnText.innerHTML = `<i class="fa-solid fa-rotate-right me-1.5"></i> Retry Failed (${finalErrors})`;
+            }
+            
             renderBatchFileList();
         }
     }
 
     function clearBatchFiles() {
+        const hasAnySuccess = selectedBatchFilesStore && selectedBatchFilesStore.some(it => it.status === 'success');
+        if (hasAnySuccess) {
+            window.location.reload();
+            return;
+        }
+
         selectedBatchFilesStore = [];
         const fileInput = document.getElementById('batchFileInput');
         const fileInputExtra = document.getElementById('batchFileInputExtra');
@@ -4867,8 +5109,9 @@ button.premium-btn .btn-divider {
         
         const container = document.getElementById('fileListContainer');
         const dropZone = document.getElementById('batchDropZone');
-        const submitBtn = document.getElementById('batchSubmitBtn');
+        const submitBtn = document.getElementById('batchUploadSubmitBtn');
         const submitBtnText = document.getElementById('batchSubmitBtnText');
+        const batchCancelBtn = document.getElementById('batchCancelBtn');
         
         if (container) container.style.display = 'none';
         if (dropZone) {
@@ -4880,8 +5123,14 @@ button.premium-btn .btn-divider {
             submitBtn.disabled = true;
             submitBtn.style.opacity = '0.55';
             submitBtn.style.cursor = 'not-allowed';
+            submitBtn.style.background = '';
+            submitBtn.style.borderColor = '';
         }
         if (submitBtnText) submitBtnText.textContent = 'Upload Files';
+        if (batchCancelBtn) {
+            batchCancelBtn.innerHTML = 'Cancel';
+            batchCancelBtn.className = 'btn btn-light border py-2 fw-semibold text-secondary w-100';
+        }
         
         isBatchUploading = false;
         renderBatchFileList();
@@ -4898,6 +5147,14 @@ button.premium-btn .btn-divider {
             return;
         }
         
+        const finalSuccess = selectedBatchFilesStore.filter(item => item.status === 'success').length;
+        if (finalSuccess > 0 && finalSuccess === selectedBatchFilesStore.length) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+            return;
+        }
+        
         const isAdditionalMode = (activeBatchGroupId === '__additional__' || activeBatchGroupName.includes('Evidence') || activeBatchGroupName.includes('Additional'));
         
         let allValid = selectedBatchFilesStore.length > 0;
@@ -4908,12 +5165,6 @@ button.premium-btn .btn-divider {
 
         if (!isAdditionalMode) {
             allValid = allValid && selectedBatchFilesStore.every(item => item.selectedSlotId && String(item.selectedSlotId).trim() !== '');
-        }
-
-        // Also valid if there are pending failed items to retry
-        const unuploadedCount = selectedBatchFilesStore.filter(item => item.status !== 'success').length;
-        if (unuploadedCount === 0 && selectedBatchFilesStore.length > 0) {
-            allValid = false; // Everything already uploaded
         }
 
         submitBtn.disabled = !allValid;
@@ -4929,35 +5180,37 @@ button.premium-btn .btn-divider {
     function addFilesToBatchStore(fileList) {
         if (!fileList || fileList.length === 0 || isBatchUploading) return;
         const isAdditionalMode = (activeBatchGroupId === '__additional__' || activeBatchGroupName.includes('Evidence') || activeBatchGroupName.includes('Additional'));
-        const targetSlots = isAdditionalMode ? [] : (activeBatchGroupId 
+        const allGroupSlots = isAdditionalMode ? [] : (activeBatchGroupId 
             ? availableSlots.filter(s => String(s.groupId) === String(activeBatchGroupId))
             : availableSlots);
+        const targetSlots = isAdditionalMode ? [] : allGroupSlots.filter(s => !s.is_fulfilled);
 
         const newItems = [];
+        let duplicateCount = 0;
+        const duplicateNames = [];
+
         Array.from(fileList).forEach(f => {
             const exists = selectedBatchFilesStore.some(item => item.file.name === f.name && item.file.size === f.size);
-            if (!exists) {
-                let initialSlotId = '';
-                if (targetSlots.length === 1 && selectedBatchFilesStore.length === 0 && newItems.length === 0) {
-                    initialSlotId = targetSlots[0].id;
-                } else if (targetSlots.length > 1) {
-                    const cleanFileName = f.name.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-                    const match = targetSlots.find(slot => {
-                        const sWords = slot.name.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-                        return sWords.some(w => cleanFileName.includes(w));
-                    });
-                    if (match) {
-                        initialSlotId = match.id;
-                    } else if (/(additional|supporting|extra|attachment|photo|annex|misc|other|receipt|affidavit|endorsement)/i.test(f.name)) {
-                        initialSlotId = '__additional__';
-                    }
+            if (exists) {
+                duplicateCount++;
+                if (duplicateNames.length < 2) {
+                    duplicateNames.push(f.name);
                 }
+            } else {
+                // Keep initial slot blank so user explicitly selects the proper requirement slot
+                let initialSlotId = isAdditionalMode ? '__additional__' : '';
                 
                 let valErr = '';
                 if (f.size > 50 * 1024 * 1024) {
                     valErr = 'File exceeds 50MB limit. Please compress before uploading.';
-                } else if (!f.name.toLowerCase().endsWith('.pdf')) {
-                    valErr = 'Unsupported file format. Only PDF files are supported.';
+                } else if (isIllegalReport) {
+                    if (!/\.(pdf|jpg|jpeg|png|webp)$/i.test(f.name)) {
+                        valErr = 'Unsupported format. Only PDF and images (JPG, PNG, WEBP) are supported.';
+                    }
+                } else {
+                    if (!/\.pdf$/i.test(f.name)) {
+                        valErr = 'Unsupported file format. Regular engineering records accept PDF documents (.pdf) only.';
+                    }
                 }
 
                 newItems.push({
@@ -4975,12 +5228,22 @@ button.premium-btn .btn-divider {
         if (newItems.length > 0) {
             selectedBatchFilesStore.unshift(...newItems);
         }
+
+        if (duplicateCount > 0 && window.showToast) {
+            const title = duplicateCount === 1 ? 'Duplicate File' : 'Duplicate Files Skipped';
+            const msg = duplicateCount === 1 
+                ? `"${duplicateNames[0]}" is already in your upload queue.` 
+                : `${duplicateCount} selected files are already in your upload queue.`;
+            window.showToast('warning', title, msg);
+        }
+
         renderBatchFileList();
     }
 
     function handleBatchFileSelect(input) {
         if (input && input.files && input.files.length > 0) {
             addFilesToBatchStore(input.files);
+            input.value = '';
         }
     }
 
@@ -4998,6 +5261,7 @@ button.premium-btn .btn-divider {
         if (e.target && e.target.id === 'batchFileInput') {
             if (e.target.files && e.target.files.length > 0) {
                 addFilesToBatchStore(e.target.files);
+                e.target.value = '';
             }
         }
     });
@@ -5029,10 +5293,66 @@ button.premium-btn .btn-divider {
         }
     });
 
+    function uploadBatchItemWithProgress(itemObj, endpoint, csrfToken, isAdditionalMode, activeBatchGroupName, isIllegalReport, onProgress) {
+        return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', csrfToken);
+            formData.append('document_file', itemObj.file, itemObj.file.name);
+            
+            const isAdditional = (isAdditionalMode || itemObj.selectedSlotId === '__additional__' || !itemObj.selectedSlotId);
+            if (isAdditional) {
+                formData.append('requirement_item_id', '');
+                formData.append('document_type', (isIllegalReport || activeBatchGroupName.includes('Evidence')) ? 'Incident Evidence' : 'Supporting Document');
+            } else {
+                formData.append('requirement_item_id', itemObj.selectedSlotId);
+            }
+            formData.append('expiry_date', itemObj.expiryDate || '');
+
+            xhr.upload.addEventListener('progress', function (e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    onProgress(percent, e.loaded, e.total);
+                }
+            });
+
+            xhr.addEventListener('load', function () {
+                let resData = null;
+                try {
+                    resData = JSON.parse(xhr.responseText);
+                } catch (e) { }
+
+                if (xhr.status >= 200 && xhr.status < 300 && (!resData || resData.success !== false)) {
+                    resolve({ success: true, resData: resData });
+                } else {
+                    const errMsg = (resData && resData.error) ? resData.error : (xhr.status === 413 ? 'File exceeds maximum 50MB upload limit.' : 'Upload failed. Please try again.');
+                    resolve({ success: false, error: errMsg });
+                }
+            });
+
+            xhr.addEventListener('error', function () {
+                resolve({ success: false, error: 'Network connection error during file upload.' });
+            });
+
+            xhr.open('POST', endpoint, true);
+            xhr.setRequestHeader('X-CSRFToken', csrfToken);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.send(formData);
+        });
+    }
+
     // Sequential, Smooth Per-File Batch Upload Engine with Live Feedback
     document.getElementById('batchUploadForm')?.addEventListener('submit', async function (e) {
         e.preventDefault();
         if (isBatchUploading) return;
+
+        // If all files were already uploaded successfully, clicking Done reloads immediately
+        const allAlreadySuccess = selectedBatchFilesStore.length > 0 && selectedBatchFilesStore.every(it => it.status === 'success');
+        if (allAlreadySuccess) {
+            window.location.reload();
+            return;
+        }
 
         if (!selectedBatchFilesStore || selectedBatchFilesStore.length === 0) {
             if (window.showToast) {
@@ -5085,107 +5405,164 @@ button.premium-btn .btn-divider {
         const totalFiles = selectedBatchFilesStore.length;
         let successfulCount = selectedBatchFilesStore.filter(it => it.status === 'success').length;
 
-        for (let i = 0; i < selectedBatchFilesStore.length; i++) {
-            const itemObj = selectedBatchFilesStore[i];
-            if (itemObj.status === 'success') continue;
+        try {
+            for (let i = 0; i < selectedBatchFilesStore.length; i++) {
+                const itemObj = selectedBatchFilesStore[i];
+                if (itemObj.status === 'success') continue;
 
-            itemObj.status = 'uploading';
-            itemObj.errorMessage = '';
-            
-            const currentItemNum = successfulCount + 1;
-            if (submitBtnText) {
-                submitBtnText.innerHTML = `<span class="spinner-border spinner-border-sm me-1.5" style="width: 13px; height: 13px; border-width: 1.75px;" role="status"></span> Uploading (${currentItemNum} of ${totalFiles})...`;
-            }
-            renderBatchFileList();
-
-            try {
-                const formData = new FormData();
-                formData.append('csrfmiddlewaretoken', csrfToken);
-                formData.append('document_file', itemObj.file, itemObj.file.name);
-                formData.append('requirement_item_id', itemObj.selectedSlotId || '');
-                formData.append('expiry_date', itemObj.expiryDate || '');
-                if (isAdditionalMode) {
-                    formData.append('document_type', (isIllegalReport || activeBatchGroupName.includes('Evidence')) ? 'Incident Evidence' : 'Supporting Document');
+                itemObj.status = 'uploading';
+                itemObj.uploadProgress = 0;
+                itemObj.stageText = 'Uploading...';
+                itemObj.errorMessage = '';
+                
+                const currentItemNum = successfulCount + 1;
+                if (submitBtnText) {
+                    submitBtnText.innerHTML = `<span class="spinner-border spinner-border-sm me-1.5" style="width: 13px; height: 13px; border-width: 1.75px;" role="status"></span> Uploading (${currentItemNum} of ${totalFiles})...`;
                 }
+                renderBatchFileList();
 
-                const response = await fetch(singleUploadEndpoint, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    },
-                    body: formData
-                });
+                const uploadResult = await uploadBatchItemWithProgress(
+                    itemObj,
+                    singleUploadEndpoint,
+                    csrfToken,
+                    isAdditionalMode,
+                    activeBatchGroupName,
+                    isIllegalReport,
+                    (percent, loaded, total) => {
+                        itemObj.uploadProgress = percent;
+                        if (percent >= 100) {
+                            itemObj.status = 'processing';
+                            itemObj.stageText = 'Processing...';
+                        } else {
+                            itemObj.status = 'uploading';
+                            itemObj.stageText = `Uploading (${percent}%)`;
+                        }
+                        renderBatchFileList();
+                    }
+                );
 
-                let resData = null;
-                try {
-                    resData = await response.json();
-                } catch (parseErr) { }
-
-                if (response.ok && (!resData || resData.success !== false)) {
+                if (uploadResult.success) {
                     itemObj.status = 'success';
+                    itemObj.uploadProgress = 100;
                     itemObj.errorMessage = '';
                     successfulCount++;
                 } else {
                     itemObj.status = 'error';
-                    itemObj.errorMessage = (resData && resData.error) ? resData.error : (response.status === 413 ? 'File exceeds maximum 50MB upload limit.' : 'Upload failed. Please try again.');
+                    itemObj.errorMessage = uploadResult.error;
                 }
-            } catch (netErr) {
-                console.error("Single item upload error:", netErr);
-                itemObj.status = 'error';
-                itemObj.errorMessage = 'Network connection error during file upload.';
+
+                renderBatchFileList();
+                // Tiny smooth pacing between sequential files
+                await new Promise(resolve => setTimeout(resolve, 140));
             }
-
-            renderBatchFileList();
-            // Tiny smooth pacing between sequential files
-            await new Promise(resolve => setTimeout(resolve, 140));
-        }
-
-        isBatchUploading = false;
-        if (cancelBtn) cancelBtn.disabled = false;
-        if (closeBtn) closeBtn.disabled = false;
-
-        const finalSuccess = selectedBatchFilesStore.filter(it => it.status === 'success').length;
-        const finalErrors = selectedBatchFilesStore.filter(it => it.status === 'error').length;
-
-        if (finalErrors === 0 && finalSuccess > 0) {
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.style.background = '#16a34a';
-                submitBtn.style.borderColor = '#16a34a';
-                submitBtn.style.opacity = '1';
-                submitBtn.style.cursor = 'default';
+        } catch (uploadErr) {
+            console.error("Batch upload loop exception:", uploadErr);
+        } finally {
+            isBatchUploading = false;
+            
+            const batchCancelBtn = document.getElementById('batchCancelBtn');
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.removeAttribute('disabled');
+                cancelBtn.style.pointerEvents = 'auto';
+                cancelBtn.style.cursor = 'pointer';
             }
-            if (submitBtnText) {
-                submitBtnText.innerHTML = `<i class="fa-solid fa-circle-check me-1.5"></i> All ${finalSuccess} Documents Uploaded!`;
+            if (batchCancelBtn) {
+                batchCancelBtn.disabled = false;
+                batchCancelBtn.removeAttribute('disabled');
+                batchCancelBtn.style.pointerEvents = 'auto';
+                batchCancelBtn.style.cursor = 'pointer';
             }
-
-            setTimeout(() => {
-                window.location.reload();
-            }, 450);
-        } else {
+            if (closeBtn) {
+                closeBtn.disabled = false;
+                closeBtn.removeAttribute('disabled');
+                closeBtn.style.pointerEvents = 'auto';
+                closeBtn.style.cursor = 'pointer';
+            }
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.style.background = '';
-                submitBtn.style.borderColor = '';
-                submitBtn.style.opacity = '1';
+                submitBtn.removeAttribute('disabled');
+                submitBtn.style.pointerEvents = 'auto';
                 submitBtn.style.cursor = 'pointer';
             }
-            if (submitBtnText) {
-                submitBtnText.innerHTML = `<i class="fa-solid fa-rotate-right me-1.5"></i> Retry Failed (${finalErrors})`;
-            }
 
-            if (window.showToast) {
-                if (finalSuccess > 0) {
-                    window.showToast('warning', 'Upload Incomplete', `${finalSuccess} uploaded, but ${finalErrors} failed. Check error details below.`);
-                } else {
-                    window.showToast('error', 'Upload Failed', 'Files could not be uploaded. Please review the errors below.');
+            const finalSuccess = selectedBatchFilesStore.filter(it => it.status === 'success').length;
+            const finalErrors = selectedBatchFilesStore.filter(it => it.status === 'error').length;
+
+            if (finalErrors === 0 && finalSuccess > 0) {
+                // Save toast notification for instant display after page reload
+                sessionStorage.setItem('etala_post_reload_toast', JSON.stringify({
+                    type: 'success',
+                    title: 'Batch Upload Completed',
+                    message: `All ${finalSuccess} document${finalSuccess > 1 ? 's were' : ' was'} successfully uploaded and attached.`
+                }));
+
+                // Auto-close modal immediately so user returns straight to updated record
+                try {
+                    const batchModalEl = document.getElementById('batchUploadModal');
+                    if (batchModalEl) {
+                        const modalInstance = bootstrap.Modal.getInstance(batchModalEl);
+                        if (modalInstance) modalInstance.hide();
+                    }
+                } catch (e) { }
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 180);
+            } else {
+                if (batchCancelBtn && finalSuccess > 0) {
+                    batchCancelBtn.innerHTML = `<i class="fa-solid fa-check me-1.5"></i> Done (${finalSuccess} Saved)`;
+                    batchCancelBtn.className = 'btn btn-outline-primary py-2 fw-semibold w-100';
+                    batchCancelBtn.onclick = function () {
+                        window.location.reload();
+                    };
                 }
+
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.background = '';
+                    submitBtn.style.borderColor = '';
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                }
+                if (submitBtnText) {
+                    submitBtnText.innerHTML = `<i class="fa-solid fa-rotate-right me-1.5"></i> Retry Failed (${finalErrors})`;
+                }
+
+                if (window.showToast) {
+                    if (finalSuccess > 0) {
+                        window.showToast('warning', 'Upload Incomplete', `${finalSuccess} uploaded successfully, ${finalErrors} failed`);
+                    } else {
+                        window.showToast('error', 'Upload Failed', 'All files failed to upload. Please review errors below.');
+                    }
+                }
+                validateBatchUploadForm();
+
+                setTimeout(() => {
+                    scrollToFirstBatchError();
+                }, 180);
             }
-            validateBatchUploadForm();
         }
     });
+
+    function scrollToFirstBatchError() {
+        const firstErrCard = document.querySelector('#selectedFilesList .batch-file-card.is-error');
+        if (firstErrCard) {
+            firstErrCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    window.scrollToFirstBatchError = scrollToFirstBatchError;
+
+    // Auto-reload on modal close if any documents were saved
+    const batchModalEl = document.getElementById('batchUploadModal');
+    if (batchModalEl) {
+        batchModalEl.addEventListener('hidden.bs.modal', function () {
+            const hasAnySuccess = selectedBatchFilesStore && selectedBatchFilesStore.some(it => it.status === 'success');
+            if (hasAnySuccess) {
+                window.location.reload();
+            }
+        });
+    }
 
     // Helper function to get CSRF token
     function getCsrfToken() {

@@ -220,7 +220,7 @@ class EngineeringRecord(models.Model):
                     return pt if pt.lower().endswith('permit') else f"{pt} Permit"
             # Fallback based on title keyword analysis if available
             t_lower = (self.title or '').lower()
-            for known in ['building', 'occupancy', 'fencing', 'electrical', 'mechanical', 'sanitary', 'demolition', 'excavation']:
+            for known in ['building', 'occupancy', 'fencing', 'electrical']:
                 if known in t_lower:
                     return f"{known.capitalize()} Permit"
             if self.title and self.title.lower().endswith('permit') and self.title.strip().lower() != 'permit':
@@ -366,10 +366,8 @@ class PermitDetail(models.Model):
     PERMIT_TYPE_CHOICES = (
         ('Building', 'Building'),
         ('Electrical', 'Electrical'),
-        ('Mechanical', 'Mechanical'),
         ('Occupancy', 'Occupancy'),
         ('Fencing', 'Fencing'),
-        ('Demolition', 'Demolition'),
     )
     BUILDING_TYPE_CHOICES = (
         ('Residential', 'Residential'),

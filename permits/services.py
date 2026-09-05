@@ -700,18 +700,19 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
 
                     req_item = doc.requirement_item
                     if req_item:
-                        clean_item_name = re.sub(r'\s*\([a-z]\.\d+\)', '', req_item.name).strip()
+                        clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
                         clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                        item_file_name = sanitize_zip_name(clean_item_name, max_len=80).replace(" ", "_") + clean_ext
+                        item_file_name = sanitize_zip_name(clean_item_name, max_len=40).replace(" ", "_") + clean_ext
 
                         if req_item.parent_id and req_item.parent_id in group_folder_map:
                             folder_prefix = group_folder_map[req_item.parent_id]
                             file_path = f"{folder_prefix}/{item_file_name}"
-                        else:
-                            file_path = item_file_name
                     else:
-                        clean_extra = sanitize_file_name(raw_fname, max_name_len=80).replace(" ", "_")
-                        file_path = f"Additional_Attachments/{clean_extra}"
+                        clean_extra = sanitize_file_name(raw_fname, max_name_len=40).replace(" ", "_")
+                        if doc.document_type == "Incident Evidence" or (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'):
+                            file_path = f"Incident_Evidence/{clean_extra}"
+                        else:
+                            file_path = f"Supporting_Documents/{clean_extra}"
 
                     # Prevent duplicate zip path collisions & handle multi-file numbering cleanly
                     orig_path = file_path
@@ -766,8 +767,9 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                         raw_fname = req.document.file_name or (req.document.file.name if req.document.file else 'document')
                         _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
                         clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
-                        clean_item_name = re.sub(r'\s*\([a-z]\.\d+\)', '', req.requirement_item.name).strip()
-                        item_file_name = sanitize_zip_name(clean_item_name, max_len=80).replace(" ", "_") + clean_ext
+                        clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req.requirement_item.name).strip()
+                        clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
+                        item_file_name = sanitize_zip_name(clean_item_name, max_len=40).replace(" ", "_") + clean_ext
                         file_path = item_file_name
 
                         orig_path = file_path
@@ -925,9 +927,9 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
 
                         req_item = doc.requirement_item
                         if req_item:
-                            clean_item_name = re.sub(r'\s*\([a-z]\.\d+\)', '', req_item.name).strip()
+                            clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
                             clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                            item_file_name = sanitize_zip_name(clean_item_name, max_len=60).replace(" ", "_") + clean_ext
+                            item_file_name = sanitize_zip_name(clean_item_name, max_len=40).replace(" ", "_") + clean_ext
 
                             if req_item.parent_id and req_item.parent_id in group_folder_map:
                                 folder_prefix = group_folder_map[req_item.parent_id]
@@ -936,7 +938,10 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
                                 folder_path = f"{rec_prefix}/{item_file_name}"
                         else:
                             clean_extra = sanitize_file_name(raw_fname, max_name_len=50).replace(" ", "_")
-                            folder_path = f"{rec_prefix}/Additional_Attachments/{clean_extra}"
+                            if doc.document_type == "Incident Evidence" or (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'):
+                                folder_path = f"{rec_prefix}/Incident_Evidence/{clean_extra}"
+                            else:
+                                folder_path = f"{rec_prefix}/Supporting_Documents/{clean_extra}"
 
                         orig_path = folder_path
                         counter = 2
@@ -1175,20 +1180,29 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
         # Build composite multi-term AND query for maximum search accuracy
         for token in tokens:
             token_lower = token.lower()
-            token_filter = (
+            
+            # Primary visible fields
+            primary_token_q = (
                 Q(title__icontains=token) |
-                Q(description__icontains=token) |
                 Q(barangay__barangay_name__icontains=token) |
                 Q(permit_detail__permit_number__icontains=token) |
                 Q(permit_detail__applicant_name__icontains=token) |
-                Q(permit_detail__building_type__icontains=token) |
-                Q(permit_detail__remarks__icontains=token) |
                 Q(project_detail__contractor__icontains=token) |
                 Q(permit_detail__permit_type__icontains=token) |
                 Q(project_detail__project_type__icontains=token) |
-                Q(project_detail__funding_source__icontains=token) |
-                Q(project_detail__funding_source_other__icontains=token)
+                Q(permit_detail__building_type__icontains=token)
             )
+
+            # For tokens with 4 or more chars, also search secondary body/hidden fields
+            if len(token) >= 4:
+                token_filter = primary_token_q | (
+                    Q(description__icontains=token) |
+                    Q(permit_detail__remarks__icontains=token) |
+                    Q(project_detail__funding_source__icontains=token) |
+                    Q(project_detail__funding_source_other__icontains=token)
+                )
+            else:
+                token_filter = primary_token_q
             
             # High-Accuracy Status Keyword Matching (Matches true database status)
             if token_lower == 'issued':

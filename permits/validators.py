@@ -37,26 +37,42 @@ def validate_backlog_year(year_or_date):
         )
     return True
 
-def validate_document_file(file):
+def validate_document_file(file, is_illegal_construction=False):
     """
-    Validate that the uploaded attachment is strictly a PDF document (.pdf),
-    does not exceed 50MB, and is free of malware.
-    Only verified, non-editable PDF files are accepted for archival storage.
+    Validate that the uploaded attachment:
+    - For Illegal Construction records (is_illegal_construction=True):
+      Accepts PDF documents (.pdf) and images (.jpg, .jpeg, .png, .webp).
+    - For regular Engineering Records (Building Permits, Municipal Projects, Barangay Projects, Regularized records):
+      Strictly PDF-only (.pdf).
+    Does not exceed 50MB, and is free of malware.
     """
-    # Extension validation - strictly PDF only
     ext = os.path.splitext(file.name)[1].lower()
-    if ext != '.pdf':
-        raise ValidationError("Only verified PDF documents (.pdf) are accepted for archival in eTala.")
 
-    # MIME type validation
-    allowed_mime_types = [
-        'application/pdf', 'application/x-pdf', 'application/acrobat', 
-        'applications/vnd.pdf', 'text/pdf', 'text/x-pdf'
-    ]
-    if hasattr(file, 'content_type') and file.content_type:
-        ct = file.content_type.lower()
-        if ct not in allowed_mime_types:
-            raise ValidationError("Invalid file content type. Only PDF documents (.pdf) are accepted.")
+    if is_illegal_construction:
+        allowed_exts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp']
+        allowed_mime_types = [
+            'application/pdf', 'application/x-pdf', 'application/acrobat', 
+            'applications/vnd.pdf', 'text/pdf', 'text/x-pdf',
+            'image/jpeg', 'image/pjpeg', 'image/png', 'image/webp', 'image/x-png'
+        ]
+        if ext not in allowed_exts:
+            raise ValidationError("Invalid file format. Only PDF documents (.pdf) and images (JPG, PNG, WEBP) are accepted for illegal construction records.")
+        if hasattr(file, 'content_type') and file.content_type:
+            ct = file.content_type.lower()
+            if ct not in allowed_mime_types:
+                raise ValidationError("Invalid file content type. Only PDF documents (.pdf) and images (JPG, PNG, WEBP) are accepted for illegal construction records.")
+    else:
+        allowed_exts = ['.pdf']
+        allowed_mime_types = [
+            'application/pdf', 'application/x-pdf', 'application/acrobat', 
+            'applications/vnd.pdf', 'text/pdf', 'text/x-pdf'
+        ]
+        if ext not in allowed_exts:
+            raise ValidationError("Only verified PDF documents (.pdf) are accepted for engineering records.")
+        if hasattr(file, 'content_type') and file.content_type:
+            ct = file.content_type.lower()
+            if ct not in allowed_mime_types:
+                raise ValidationError("Invalid file content type. Only PDF documents (.pdf) are accepted for engineering records.")
 
     # Size validation (50MB limit)
     max_size = 50 * 1024 * 1024  # 50MB in bytes

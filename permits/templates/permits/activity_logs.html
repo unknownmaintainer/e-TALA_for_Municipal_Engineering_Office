@@ -11,33 +11,6 @@
 
 {% block content %}
 
-<!-- ══ HEADING ══════════════════════════════════════════════════════════ -->
-<div class="etala-page-header d-print-none">
-    <div>
-        <h1 class="etala-page-title">
-            {% if request.user.role == 'admin' %}
-            Activity Logs &amp; Audit Trail
-            {% else %}
-            My Activity Logs
-            {% endif %}
-        </h1>
-        <p class="etala-page-subtitle">
-            {% if request.user.role == 'admin' %}
-            Immutable audit log of all authentications, record modifications, and system events.
-            {% else %}
-            Activity trail of records encoded, modified, and actions performed within your account.
-            {% endif %}
-        </p>
-    </div>
-    <div class="etala-header-actions">
-        <button type="button" onclick="exportActivityLogsPdf(this)" id="exportPdfHeaderBtn" class="premium-btn btn-export text-nowrap d-flex align-items-center" title="Download Official Activity Logs (PDF)">
-            <span class="btn-icon"><i class="fa-solid fa-file-pdf text-danger"></i></span>
-            <span class="btn-divider"></span>
-            <span>Export PDF</span>
-        </button>
-    </div>
-</div>
-
 <!-- ══ ACTIVITY LOGS PANEL ═════════════════════════════════════════════ -->
 <div class="content-card">
     <div class="content-card-body" style="padding: 24px;">
@@ -49,7 +22,7 @@
             <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
                 style="border-bottom: 1px solid var(--border-default, rgba(255,255,255,0.08)); max-width: 100%; box-sizing: border-box;">
                 <!-- Left: Category Tabs (Clean Records Style) -->
-                <div class="filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
+                <div class="filter-tabs activity-filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
                     style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 1 1 auto; min-width: 0; overflow-x: auto;">
                     
                     {% if request.user.role == 'admin' %}
@@ -57,14 +30,14 @@
                         class="filter-tab {% if active_log_tab != 'login' %}active{% endif %}"
                         id="log-tab-btn-audit"
                         onclick="switchLogTab('audit')"
-                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        style="white-space: nowrap;">
                         <i class="fa-solid fa-list-check me-1.5"></i>Audit Trail
                     </button>
                     <button type="button"
                         class="filter-tab {% if active_log_tab == 'login' %}active{% endif %}"
                         id="log-tab-btn-login"
                         onclick="switchLogTab('login')"
-                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+                        style="white-space: nowrap;">
                         <i class="fa-solid fa-shield-halved me-1.5"></i>Login History
                     </button>
                     {% else %}
@@ -239,6 +212,7 @@
                                 {% if request.user.role == 'admin' or record_id %}
                                 <td data-label="Staff Member" style="vertical-align: middle;">
                                     <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                                        {% if log.user %}
                                         <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: rgba(2, 132, 199, 0.12); color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(2, 132, 199, 0.25); flex-shrink: 0; overflow: hidden;">
                                             {% if log.user.profile_picture_url %}
                                             <img src="{{ log.user.profile_picture_url }}" alt="" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
@@ -254,13 +228,26 @@
                                                 {{ log.user.designation|default:log.user.get_role_display }}
                                             </div>
                                         </div>
+                                        {% else %}
+                                        <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: rgba(100, 116, 139, 0.12); color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(100, 116, 139, 0.25); flex-shrink: 0;">
+                                            <i class="fa-solid fa-server" style="font-size: 11px;"></i>
+                                        </div>
+                                        <div style="min-width: 0; flex: 1;">
+                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.84rem; line-height: 1.25;">
+                                                System / Automated
+                                            </div>
+                                            <div class="text-muted text-truncate" style="font-size: 0.71rem; margin-top: 2px;">
+                                                System Task
+                                            </div>
+                                        </div>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 {% endif %}
 
                                 <td data-label="Action Performed" style="vertical-align: middle; white-space: normal !important;">
-                                    <div style="display: flex; align-items: flex-start; gap: 11px; min-width: 0; width: 100%;">
-                                        <div class="activity-action-icon d-flex align-items-center justify-content-center flex-shrink-0 mt-0.5 {% if 'Created' in log.action or 'Added' in log.action %}icon-created{% elif 'Updated' in log.action or 'Modified' in log.action %}icon-updated{% elif 'Uploaded' in log.action %}icon-uploaded{% elif 'Deleted' in log.action or 'Trash' in log.action or 'Removed' in log.action %}icon-deleted{% elif 'Alerts' in log.action or 'Email' in log.action %}icon-alert{% else %}icon-default{% endif %}">
+                                    <div style="display: flex; align-items: center; gap: 11px; min-width: 0; width: 100%;">
+                                        <div class="activity-action-icon d-flex align-items-center justify-content-center flex-shrink-0 {% if 'Created' in log.action or 'Added' in log.action %}icon-created{% elif 'Updated' in log.action or 'Modified' in log.action %}icon-updated{% elif 'Uploaded' in log.action %}icon-uploaded{% elif 'Deleted' in log.action or 'Trash' in log.action or 'Removed' in log.action %}icon-deleted{% elif 'Alerts' in log.action or 'Email' in log.action %}icon-alert{% else %}icon-default{% endif %}">
                                             <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square{% elif 'Uploaded' in log.action %}fa-cloud-arrow-up{% elif 'Trash' in log.action %}fa-box-archive{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash{% elif 'Alerts' in log.action or 'Email' in log.action %}fa-bell{% elif 'ZIP' in log.action or 'Download' in log.action %}fa-file-zipper{% elif 'Blocked' in log.action %}fa-shield-halved{% else %}fa-clock-rotate-left{% endif %}" style="font-size: 13px;"></i>
                                         </div>
                                         <div style="min-width: 0; flex: 1;">
@@ -426,7 +413,7 @@
                                             </div>
                                             <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
                                                 {% if attempt.is_registered_staff %}
-                                                <span>{{ attempt.display_email }}</span> &bull; <span>{{ attempt.display_role }}</span>
+                                                <span>{{ attempt.display_email }}</span>
                                                 {% else %}
                                                 <span class="text-danger-emphasis">Unregistered / External Attempt</span>
                                                 {% endif %}
@@ -627,7 +614,7 @@
             {% else %}
                 <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 280px;">
                     <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle {% if status_filter == 'blocked' %}is-blocked{% endif %}">
-                        <i class="fa-solid {% if status_filter == 'blocked' %}fa-shield-check{% else %}fa-shield-halved{% endif %}" style="font-size: 22px;"></i>
+                        <i class="fa-solid {% if status_filter == 'blocked' %}fa-user-shield{% else %}fa-shield-halved{% endif %}" style="font-size: 22px;"></i>
                     </div>
                     <h6 class="fw-bold title-text-adaptive mb-1" style="font-size: 0.95rem;">
                         {% if status_filter == 'blocked' %}
@@ -867,7 +854,10 @@
     .activity-action-icon {
         width: 26px;
         height: 26px;
+        min-width: 26px;
         border-radius: 7px;
+        align-self: center !important;
+        flex-shrink: 0;
     }
     .activity-action-icon.icon-created {
         background: rgba(34, 197, 94, 0.12);
@@ -894,15 +884,74 @@
         color: #64748b;
     }
 
+    /* Activity Logs Category Tabs (Audit Trail vs Login History) */
+    .activity-filter-tabs {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        border-bottom: none !important;
+    }
+    .activity-filter-tabs .filter-tab {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        padding: 8px 16px !important;
+        font-size: 0.84rem !important;
+        font-weight: 600 !important;
+        color: #64748b !important;
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 2.5px solid transparent !important;
+        border-radius: 6px 6px 0 0 !important;
+        cursor: pointer !important;
+        transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease !important;
+        white-space: nowrap !important;
+        text-decoration: none !important;
+        user-select: none !important;
+    }
+    .activity-filter-tabs .filter-tab:hover {
+        color: #0f172a !important;
+        background: rgba(0, 0, 0, 0.05) !important;
+    }
+    .activity-filter-tabs .filter-tab.active {
+        color: #2563eb !important;
+        border-bottom-color: #2563eb !important;
+        background: transparent !important;
+        font-weight: 700 !important;
+    }
+    .dark-mode .activity-filter-tabs .filter-tab {
+        color: #94a3b8 !important;
+    }
+    .dark-mode .activity-filter-tabs .filter-tab:hover {
+        color: #f8fafc !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+    }
+    .dark-mode .activity-filter-tabs .filter-tab.active {
+        color: #38bdf8 !important;
+        border-bottom-color: #38bdf8 !important;
+        background: transparent !important;
+        font-weight: 700 !important;
+    }
+
     .empty-state-icon-circle {
         width: 56px;
         height: 56px;
-        background: rgba(2, 132, 199, 0.12);
-        color: #0284c7;
+        background: rgba(2, 132, 199, 0.12) !important;
+        color: #0284c7 !important;
+    }
+    .dark-mode .empty-state-icon-circle,
+    [data-bs-theme="dark"] .empty-state-icon-circle {
+        background: rgba(56, 189, 248, 0.15) !important;
+        color: #38bdf8 !important;
     }
     .empty-state-icon-circle.is-blocked {
-        background: rgba(34, 197, 94, 0.12);
-        color: #16a34a;
+        background: rgba(34, 197, 94, 0.12) !important;
+        color: #16a34a !important;
+    }
+    .dark-mode .empty-state-icon-circle.is-blocked,
+    [data-bs-theme="dark"] .empty-state-icon-circle.is-blocked {
+        background: rgba(74, 222, 128, 0.15) !important;
+        color: #4ade80 !important;
     }
 
     /* Inner Logs Tab Navigation Styling */
@@ -1228,9 +1277,12 @@
             if (form) {
                 const formData = new FormData(form);
                 formData.set('tab', tabName);
+                formData.delete('log_page');
+                formData.delete('login_page');
                 const params = new URLSearchParams(formData);
+                const newUrl = window.location.pathname + '?' + params.toString();
                 if (window.updateLogsTableAJAX) {
-                    window.updateLogsTableAJAX(window.location.pathname + '?' + params.toString());
+                    window.updateLogsTableAJAX(newUrl);
                 } else {
                     window.location.search = params.toString();
                 }
@@ -1333,13 +1385,26 @@
                     }
                 }
 
-                // Sync filter tabs active state
+                // Sync filter tabs active state accurately
                 try {
                     const urlObj = new URL(url, window.location.origin);
+                    const currentTab = urlObj.searchParams.get('tab') || document.getElementById('activeLogTabInput')?.value || 'audit';
+                    const btnAudit = document.getElementById('log-tab-btn-audit');
+                    const btnLogin = document.getElementById('log-tab-btn-login');
+                    if (btnAudit && btnLogin) {
+                        if (currentTab === 'login') {
+                            btnAudit.classList.remove('active');
+                            btnLogin.classList.add('active');
+                        } else {
+                            btnAudit.classList.add('active');
+                            btnLogin.classList.remove('active');
+                        }
+                    }
+
                     const currentAction = urlObj.searchParams.get('action_type') || 'all';
-                    document.querySelectorAll('.filter-tabs .filter-tab').forEach(tab => {
+                    document.querySelectorAll('.filter-tabs .filter-tab:not(#log-tab-btn-audit):not(#log-tab-btn-login)').forEach(tab => {
                         const tabText = tab.textContent.trim().toLowerCase();
-                        if (currentAction === 'all' && (tabText.includes('all') || tabText.includes('audit'))) {
+                        if (currentAction === 'all' && tabText.includes('all')) {
                             tab.classList.add('active');
                         } else if (currentAction !== 'all' && tabText.includes(currentAction)) {
                             tab.classList.add('active');

@@ -349,10 +349,8 @@ dev_feedback_env = os.getenv('DEVELOPER_FEEDBACK_EMAILS', '').strip()
 if dev_feedback_env:
     DEVELOPER_FEEDBACK_EMAILS = [e.strip() for e in dev_feedback_env.split(',') if e.strip()]
 else:
-    DEVELOPER_FEEDBACK_EMAILS = [
-        'mardionjrcordetafuerte@gmail.com',
-        'mardionjrcordetafuerte2@gmail.com',
-    ]
+    fallback_dev_email = os.getenv('DEFAULT_FROM_EMAIL') or os.getenv('EMAIL_HOST_USER')
+    DEVELOPER_FEEDBACK_EMAILS = [fallback_dev_email] if fallback_dev_email else []
 
 
 
