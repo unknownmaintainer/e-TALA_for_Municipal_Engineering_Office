@@ -571,9 +571,11 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.client.login(username='adminuser', password='Password123')
 
         # Create template, parent group and child item
-        tmpl = RequirementTemplate.objects.create(name='Standard Building Permit', record_type='Permit')
-        parent_item = RequirementItem.objects.create(template=tmpl, name='Architectural Plans', is_parent_group=True, order=1)
-        child_item = RequirementItem.objects.create(template=tmpl, parent=parent_item, name='Floor Plan', is_parent_group=False, order=1)
+        tmpl, _ = RequirementTemplate.objects.get_or_create(subtype='Building', record_type='Permit')
+        parent_item, _ = RequirementItem.objects.get_or_create(template=tmpl, name='Architectural Plans', defaults={'is_group': True, 'order': 1})
+        child_item, _ = RequirementItem.objects.get_or_create(template=tmpl, parent=parent_item, name='Floor Plan', defaults={'is_group': False, 'order': 1})
+
+
 
         # Upload a dummy file attached to child_item
         dummy_file = SimpleUploadedFile("floor_plan.pdf", b"%PDF-1.4 sample blueprint data", content_type="application/pdf")
@@ -632,6 +634,59 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
             namelist = zf.namelist()
             self.assertTrue(any('00_MUNICIPAL_SUMMARY.txt' in name for name in namelist))
+
+    def test_delete_user_safely_reassigns_records_and_documents(self):
+        from permits.models import EngineeringRecord, Document, Barangay
+        
+        # 1. Create a dummy user
+        dummy_user = CustomUser.objects.create_user(
+            username='dummy_engineer',
+            email='dummy_engineer@gmail.com',
+            password='Password123',
+            role='staff',
+            full_name='Dummy Engineer'
+        )
+        
+        # 2. Create a test barangay, engineering record, and document created by this dummy user
+        brgy, _ = Barangay.objects.get_or_create(barangay_name='Ponong Test Barangay')
+        record = EngineeringRecord.objects.create(
+            record_type='Permit',
+            barangay=brgy,
+            title='Test Commercial Building Permit',
+            year=2026,
+            status='active',
+            created_by=dummy_user
+        )
+        doc = Document.objects.create(
+            engineering_record=record,
+            file_name='Building_Plan_Blueprint.pdf',
+            file='documents/sample_test_blueprint.pdf',
+            uploaded_by=dummy_user
+        )
+
+        # Confirm initial state
+        self.assertEqual(record.created_by, dummy_user)
+        self.assertEqual(doc.uploaded_by, dummy_user)
+
+        # 3. Admin deletes the dummy user via User Management action
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse('users'), {
+            'action': 'delete_user',
+            'user_id': dummy_user.id
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+
+        # 4. Verify user is permanently DELETED from user accounts
+        self.assertFalse(CustomUser.objects.filter(id=dummy_user.id).exists())
+
+        # 5. Verify official records and documents are PRESERVED and REASSIGNED to the admin
+        record.refresh_from_db()
+        doc.refresh_from_db()
+        self.assertEqual(record.created_by, self.admin)
+        self.assertEqual(doc.uploaded_by, self.admin)
+        self.assertEqual(record.title, 'Test Commercial Building Permit')
+        self.assertEqual(doc.file_name, 'Building_Plan_Blueprint.pdf')
+
 
 
 
