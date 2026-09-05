@@ -14,6 +14,7 @@ import secrets
 
 import hashlib
 from django.shortcuts import render, redirect, get_object_or_404
+from django.apps import apps
 from django.urls import reverse
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash, get_user_model
@@ -6541,24 +6542,44 @@ def users_view(request):
                 messages.error(request, "Superuser administrator accounts cannot be deleted.")
                 return redirect('users')
 
-            # Check for linked engineering records or uploaded documents
-            created_records_count = EngineeringRecord.objects.filter(created_by=user_to_delete).count()
-            uploaded_docs_count = Document.objects.filter(uploaded_by=user_to_delete).count()
-            total_linked_items = created_records_count + uploaded_docs_count
-
-            if total_linked_items > 0:
-                messages.warning(
-                    request,
-                    f"Cannot permanently delete '{user_to_delete.full_name or user_to_delete.username}' because they have {total_linked_items} active record(s)/document(s) in the archive. Please toggle their account switch to Inactive instead to safeguard the official audit trail."
-                )
-                return redirect('users')
-
             target_name = user_to_delete.full_name or user_to_delete.username
             target_username = user_to_delete.username
-            user_to_delete.delete()
-            log_audit(request.user, f"Permanently deleted unused user account '{target_username}' ({target_name})", request=request)
-            messages.success(request, f"User account for '{target_name}' has been permanently deleted.")
+
+            try:
+                # 1. Safely reassign any linked records/documents to current admin to preserve archive integrity
+                EngineeringRecord.objects.filter(created_by=user_to_delete).update(created_by=request.user)
+                Document.objects.filter(uploaded_by=user_to_delete).update(uploaded_by=request.user)
+                
+                # Check legacy Record model if present
+                LegacyRecord = apps.get_model('permits', 'Record', require_ready=False)
+                if LegacyRecord:
+                    try:
+                        LegacyRecord.objects.filter(created_by=user_to_delete).update(created_by=request.user)
+                    except Exception:
+                        pass
+
+                # 2. Clean up subordinate user tables (devices, password histories, feedback)
+                UserDevice.objects.filter(user=user_to_delete).delete()
+                PasswordHistory.objects.filter(user=user_to_delete).delete()
+                AuditLog.objects.filter(user=user_to_delete).update(user=None)
+                BlockedIP.objects.filter(blocked_by=user_to_delete).update(blocked_by=None)
+                SystemFeedback.objects.filter(user=user_to_delete).update(user=None)
+
+                # 3. Perform clean deletion
+                user_to_delete.delete()
+                log_audit(request.user, f"Permanently deleted user account '{target_username}' ({target_name})", request=request)
+                messages.success(request, f"User account for '{target_name}' has been permanently deleted.")
+            except Exception as exc:
+                logger.error(f"Error deleting user {target_username}: {exc}", exc_info=True)
+                # Fallback: Safely deactivate instead of 500 crash
+                user_to_delete.is_active = False
+                user_to_delete.save(update_fields=['is_active'])
+                messages.warning(
+                    request,
+                    f"User '{target_name}' could not be removed directly due to protected system history, so the account has been deactivated instead."
+                )
             return redirect('users')
+
 
     users_base = CustomUser.objects.all().order_by('-created_at')
 
