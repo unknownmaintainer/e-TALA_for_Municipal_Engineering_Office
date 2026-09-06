@@ -1645,9 +1645,9 @@ def get_latest_backup_info(target_dir=None):
     db_dir = base_backup_dir / 'database'
     media_dir = base_backup_dir / 'media'
 
-    # Check latest audit log for backup
+    # Check latest audit log for any backup activity (automated midnight or manual download/export)
     latest_log = AuditLog.objects.filter(
-        Q(action__icontains='Automated System Backup') | Q(action__icontains='Exported full database backup')
+        Q(action__icontains='backup') | Q(action__icontains='Backup')
     ).order_by('-performed_at').first()
 
     last_time = latest_log.performed_at if latest_log else None
