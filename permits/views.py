@@ -1832,7 +1832,7 @@ def record_create_step3_view(request):
                     if parsed_d.year < 1995:
                         record.delete()
                         return return_error_with_data("Invalid Date: Records prior to 1995 cannot be accepted.")
-                    if parsed_d > timezone.now().date():
+                    if parsed_d > timezone.localdate():
                         record.delete()
                         return return_error_with_data("Date Issued cannot be in the future.")
                     record.year = parsed_d.year
@@ -1864,7 +1864,7 @@ def record_create_step3_view(request):
                     if parsed_dc.year < 1995:
                         messages.error(request, "Invalid Date: Records prior to 1995 cannot be accepted.")
                         return redirect(request.path)
-                    if parsed_dc > timezone.now().date():
+                    if parsed_dc > timezone.localdate():
                         messages.error(request, "Date Completed cannot be in the future.")
                         return redirect(request.path)
                 except (ValueError, TypeError):
@@ -2014,7 +2014,7 @@ def record_create_view(request):
                             'current_year': current_year,
                             'active_tab': 'records',
                         })
-                    if parsed_di > timezone.now().date():
+                    if parsed_di > timezone.localdate():
                         messages.error(request, "Date Issued cannot be in the future.")
                         return render(request, 'permits/create_record.html', {
                             'barangays': barangays,
@@ -2054,7 +2054,7 @@ def record_create_view(request):
                             'current_year': current_year,
                             'active_tab': 'records',
                         })
-                    if parsed_dc > timezone.now().date():
+                    if parsed_dc > timezone.localdate():
                         messages.error(request, "Date Completed cannot be in the future.")
                         return render(request, 'permits/create_record.html', {
                             'barangays': barangays,
@@ -2719,13 +2719,13 @@ def flag_illegal_construction_view(request):
             try:
                 from datetime import datetime
                 date_discovered = datetime.strptime(date_discovered_str, '%Y-%m-%d').date()
-                if date_discovered > timezone.now().date():
+                if date_discovered > timezone.localdate():
                     messages.error(request, "Date Inspected cannot be in the future.")
                     return redirect(request.META.get('HTTP_REFERER', 'illegal_constructions'))
             except ValueError:
-                date_discovered = timezone.now().date()
+                date_discovered = timezone.localdate()
         else:
-            date_discovered = timezone.now().date()
+            date_discovered = timezone.localdate()
 
         # Remarks / Notes entered by user (cleanly store user's notes without auto-prefixing)
         user_notes = description or remarks or ''
@@ -3117,7 +3117,7 @@ def record_edit_view(request, record_id):
                             if parsed_d.year < 1995:
                                 messages.error(request, "Invalid Date: Records prior to 1995 cannot be accepted.")
                                 return redirect('edit_record', record_id=record.record_id)
-                            if parsed_d > timezone.now().date():
+                            if parsed_d > timezone.localdate():
                                 messages.error(request, "Date Issued cannot be in the future.")
                                 return redirect('edit_record', record_id=record.record_id)
                             record.year = parsed_d.year
@@ -3181,7 +3181,7 @@ def record_edit_view(request, record_id):
                     if parsed_dc.year < 1995:
                         messages.error(request, "Invalid Date: Records prior to 1995 cannot be accepted.")
                         return redirect('edit_record', record_id=record.record_id)
-                    if parsed_dc > timezone.now().date():
+                    if parsed_dc > timezone.localdate():
                         messages.error(request, "Date Completed cannot be in the future.")
                         return redirect('edit_record', record_id=record.record_id)
                     record.year = parsed_dc.year
