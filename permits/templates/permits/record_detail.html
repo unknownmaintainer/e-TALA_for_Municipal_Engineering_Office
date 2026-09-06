@@ -2154,15 +2154,19 @@ button.premium-btn .btn-divider {
     <div class="min-w-0 flex-grow-1">
         <h1 class="etala-page-title mb-1.5" style="font-size: 1.35rem; font-weight: 750; letter-spacing: -0.015em; color: var(--gray-900); word-break: break-word; overflow-wrap: anywhere; max-width: 100%;">
             {% if record.is_illegal_construction %}
-                {% if record.illegal_compliance_status == 'resolved' %}
-                    {% if permit_detail.applicant_name|is_valid_applicant %}
-                        {{ permit_detail.applicant_name }}
+                {% if record.illegal_compliance_status == 'resolved' and permit_detail.date_issued or record.illegal_compliance_status == 'resolved' and record.permit_detail.date_issued or record.illegal_compliance_status == 'resolved' and record.permit_detail.permit_number or record.illegal_compliance_status == 'resolved' and permit_detail.permit_number %}
+                    {% if permit_detail.permit_number and permit_detail.applicant_name|is_valid_applicant %}
+                        {{ permit_detail.applicant_name }} <span class="text-muted fw-normal ms-1" style="font-size: 1.05rem;">(#{{ permit_detail.permit_number }})</span>
+                    {% elif record.permit_detail and record.permit_detail.permit_number and record.permit_detail.applicant_name|is_valid_applicant %}
+                        {{ record.permit_detail.applicant_name }} <span class="text-muted fw-normal ms-1" style="font-size: 1.05rem;">(#{{ record.permit_detail.permit_number }})</span>
+                    {% elif permit_detail.applicant_name|is_valid_applicant %}
+                        {{ permit_detail.applicant_name }}{% if permit_detail.permit_number or record.permit_detail.permit_number %} <span class="text-muted fw-normal ms-1" style="font-size: 1.05rem;">(#{{ permit_detail.permit_number|default:record.permit_detail.permit_number }})</span>{% endif %}
                     {% elif record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                        {{ record.permit_detail.applicant_name }}
+                        {{ record.permit_detail.applicant_name }}{% if permit_detail.permit_number or record.permit_detail.permit_number %} <span class="text-muted fw-normal ms-1" style="font-size: 1.05rem;">(#{{ permit_detail.permit_number|default:record.permit_detail.permit_number }})</span>{% endif %}
                     {% elif record.title and record.title != 'Permit' and record.title != record.specific_type_label %}
-                        {{ record.title }}
+                        {{ record.title }}{% if permit_detail.permit_number or record.permit_detail.permit_number %} <span class="text-muted fw-normal ms-1" style="font-size: 1.05rem;">(#{{ permit_detail.permit_number|default:record.permit_detail.permit_number }})</span>{% endif %}
                     {% else %}
-                        {{ record.specific_type_label }}
+                        {{ record.specific_type_label }}{% if permit_detail.permit_number or record.permit_detail.permit_number %} <span class="text-muted fw-normal ms-1" style="font-size: 1.05rem;">(#{{ permit_detail.permit_number|default:record.permit_detail.permit_number }})</span>{% endif %}
                     {% endif %}
                 {% elif record.title and record.title|cut:"─"|cut:","|cut:" "|cut:"."|length > 1 %}
                     {{ record.title }}
@@ -2337,11 +2341,6 @@ button.premium-btn .btn-divider {
                         Unpermitted Construction Notice
                         {% endif %}
                     </h6>
-                    {% if record.illegal_compliance_status == 'resolved' and record.permit_detail.permit_number %}
-                    <span class="badge bg-success-subtle text-success border border-success-subtle font-monospace fw-bold px-2 py-0.5" style="font-size: 0.76rem;">
-                        Permit #{{ record.permit_detail.permit_number }}
-                    </span>
-                    {% endif %}
                 </div>
                 <div class="text-muted d-flex align-items-center gap-2 flex-wrap" style="font-size: 0.78rem; margin-top: 3px;">
                     {% if record.illegal_compliance_status == 'resolved' %}
