@@ -1345,7 +1345,7 @@ def dispatch_new_device_login_alert(user, device, request):
         return
 
     user_full_name = user.full_name or user.get_full_name() or user.username
-    subject = f'🛡️ eTala Security Notice — New Device Login Detected'
+    subject = f'eTala Security Notice — New Device Login Detected'
     confirm_url = request.build_absolute_uri(reverse('profile')) if request else '#'
     timestamp_str = timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p')
     

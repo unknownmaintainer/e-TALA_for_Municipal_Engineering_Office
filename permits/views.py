@@ -246,7 +246,7 @@ def generate_and_dispatch_2fa_otp(user, request, device_name, ip_address):
     request.session['2fa_sent_at'] = timezone.now().isoformat()
 
     user_full_name = user.full_name or user.get_full_name() or user.username
-    subject = f'🛡️ eTala Verification Code: {otp_code}'
+    subject = f'eTala Verification Code: {otp_code}'
     timestamp_str = timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p')
 
     html_content = render_to_string('emails/email_otp_verification.html', {
@@ -292,7 +292,7 @@ def generate_and_dispatch_email_change_otp(user, request, new_email):
     request.session['email_change_sent_at'] = timezone.now().isoformat()
 
     user_full_name = user.full_name or user.get_full_name() or user.username
-    subject = f'🛡️ Authorize Email Address Change: {otp_code} — eTala'
+    subject = f'Authorize Email Address Change: {otp_code} — eTala'
     timestamp_str = timezone.localtime(timezone.now()).strftime('%b %d, %Y • %I:%M %p')
 
     html_content = render_to_string('emails/email_change_otp.html', {
@@ -326,7 +326,7 @@ def generate_and_dispatch_email_change_otp(user, request, new_email):
 def dispatch_email_change_confirmation(user, old_email, new_email):
     """Sends confirmation notice to both old and new emails."""
     user_full_name = user.full_name or user.get_full_name() or user.username
-    subject = '✅ Work Email Address Updated — eTala'
+    subject = 'Work Email Address Updated — eTala'
     html_content = render_to_string('emails/email_change_confirmation.html', {
         'user_full_name': user_full_name,
         'new_email': new_email,
