@@ -30,6 +30,7 @@ The system is built with a clean, accessible, and government-standard design phi
 - **Official Reports & Dual Exports**: Generates dynamic accomplishment summaries across 49 barangays with synchronized PDF and Excel (.xlsx) exports.
 - **Violations & Enforcement**: Dedicated case management for unpermitted structures with a clean `Complied` resolution flow.
 - **Audit & Activity Logs**: Comprehensive logging of user actions for transparency and accountability. Logs can be exported to CSV.
+- **Automated & On-Demand Data Backup**: Unified disaster recovery engine supporting scheduled daily midnight backups and instant one-click full ZIP archives (database JSON + all uploaded media files). All backup activities (manual and automated) are dynamically recorded in real-time under a single unified `Last Backup` timestamp.
 - **Search & Filtering**: Advanced real-time search and multi-period filtering across all records, projects, and permits.
 
 ### UI/UX Enhancements
@@ -145,12 +146,17 @@ python manage.py runserver
 
 Open `http://127.0.0.1:8000`.
 
-## Useful Commands
+## Useful Management Commands
 
 ```bash
 python manage.py check
 python manage.py test
 python manage.py collectstatic --no-input
+
+# Backup & Maintenance Commands
+python manage.py auto_backup                # Executes automated full DB snapshot and media synchronization
+python manage.py purge_expired_trash        # Purges soft-deleted records older than 30 days from Trash
+python manage.py send_expiry_notifications  # Scans and alerts expiring/expired engineering documents
 ```
 
 ## Deployment Notes
