@@ -3063,27 +3063,9 @@
                 border-color: #334155 !important;
             }
 
-            /* ── Page Fade-In Transition on Every Navigation ── */
             .etala-content {
-                animation: etalaPageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            }
-
-            @keyframes etalaPageFadeIn {
-                from {
-                    opacity: 0;
-                    transform: translateY(4px);
-                }
-
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            .page-exit {
-                opacity: 0 !important;
-                transform: translateY(-4px) !important;
-                transition: opacity 0.16s ease, transform 0.16s ease !important;
+                opacity: 1 !important;
+                transform: none !important;
             }
 
             .etala-main {
@@ -11046,8 +11028,110 @@
             }
         });
 
-        // ⚡ INSTANT SIDEBAR PREFETCHING (Zero-Latency Browser Caching)
+        // ⚡ INSTANT PERSISTENT SPA PAGE TRANSITION ENGINE (ZERO WHITE FLASH, PERMANENT SIDEBAR)
         (function() {
+            const bar = document.getElementById('etalaTopProgressBar');
+            let isNavigating = false;
+
+            function showBar() {
+                if (bar) {
+                    bar.classList.remove('is-finished');
+                    bar.style.width = '0%';
+                    bar.classList.add('is-loading');
+                }
+            }
+
+            function hideBar() {
+                if (bar) {
+                    bar.classList.add('is-finished');
+                    setTimeout(() => {
+                        bar.classList.remove('is-loading', 'is-finished');
+                        bar.style.width = '0%';
+                    }, 350);
+                }
+            }
+
+            async function navigateTo(url, pushState = true) {
+                if (isNavigating) return;
+                isNavigating = true;
+                showBar();
+
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    if (!response.ok || (response.redirected && response.url.includes('/login'))) {
+                        window.location.href = response.url || url;
+                        return;
+                    }
+
+                    const htmlText = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+
+                    const newContent = doc.querySelector('main.etala-content');
+                    const currentContent = document.querySelector('main.etala-content');
+                    const newHeader = doc.querySelector('header.etala-header');
+                    const currentHeader = document.querySelector('header.etala-header');
+                    const newSidebar = doc.querySelector('.sidebar-nav');
+                    const currentSidebar = document.querySelector('.sidebar-nav');
+
+                    if (!newContent || !currentContent) {
+                        window.location.href = url;
+                        return;
+                    }
+
+                    // Update page title
+                    document.title = doc.title || document.title;
+
+                    // Update active sidebar links
+                    if (newSidebar && currentSidebar) {
+                        currentSidebar.innerHTML = newSidebar.innerHTML;
+                    }
+
+                    // Update header
+                    if (newHeader && currentHeader) {
+                        currentHeader.innerHTML = newHeader.innerHTML;
+                    }
+
+                    // Smooth DOM swap of main content
+                    currentContent.innerHTML = newContent.innerHTML;
+
+                    // Execute any dynamic script blocks inside newContent
+                    const scripts = currentContent.querySelectorAll('script');
+                    scripts.forEach(oldScript => {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                    });
+
+                    // Re-init global date pickers & lucide icons
+                    if (window.initPremiumDatePickers) window.initPremiumDatePickers(currentContent);
+                    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+
+                    if (pushState) {
+                        window.history.pushState({ path: url }, '', url);
+                    }
+
+                    window.scrollTo({ top: 0, behavior: 'instant' });
+                    hideBar();
+                } catch (err) {
+                    console.warn('Fast transition fallback:', err);
+                    window.location.href = url;
+                } finally {
+                    isNavigating = false;
+                }
+            }
+
+            window.addEventListener('popstate', function() {
+                navigateTo(window.location.href, false);
+            });
+
+            // ⚡ Instant Sidebar Hover Prefetching (Eliminates perceived load latency)
             const prefetchedUrls = new Set();
             function prefetchUrl(url) {
                 if (!url || prefetchedUrls.has(url)) return;
@@ -11084,15 +11168,49 @@
                 }
             }, { passive: true });
 
-            // Ensure mobile drawer closes gracefully on link click
             document.addEventListener('click', function(e) {
-                const link = e.target.closest('.sidebar-nav a, a.nav-item');
-                if (link) {
-                    const sidebar = document.getElementById('sidebar');
-                    if (sidebar && sidebar.classList.contains('mobile-open') && typeof window.closeMobileSidebar === 'function') {
-                        window.closeMobileSidebar();
-                    }
+                const link = e.target.closest('a');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                const target = link.getAttribute('target');
+                const download = link.hasAttribute('download');
+
+                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:') || target === '_blank' || download) {
+                    return;
                 }
+
+                // Check same-origin
+                try {
+                    const urlObj = new URL(href, window.location.origin);
+                    if (urlObj.origin !== window.location.origin) return;
+                } catch(err) {
+                    return;
+                }
+
+                if (link.hasAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle') || link.classList.contains('zip-download-btn') || link.closest('.dropdown-menu') || link.hasAttribute('data-no-transition') || link.classList.contains('no-transition') || href.includes('/logout/')) {
+                    return;
+                }
+
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+                    return;
+                }
+
+                // Instant visual selection for sidebar links
+                const navItem = link.closest('.nav-item');
+                if (navItem) {
+                    document.querySelectorAll('.sidebar-nav .nav-item.active').forEach(item => item.classList.remove('active'));
+                    navItem.classList.add('active');
+                }
+
+                // If mobile drawer was open, close it instantly so user sees destination immediately
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar && sidebar.classList.contains('mobile-open') && typeof window.closeMobileSidebar === 'function') {
+                    window.closeMobileSidebar();
+                }
+
+                e.preventDefault();
+                navigateTo(href, true);
             });
         })();
 
