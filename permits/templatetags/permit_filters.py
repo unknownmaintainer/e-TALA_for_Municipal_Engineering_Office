@@ -89,9 +89,19 @@ def clean_audit_action(action):
     # 6. Clean Trash & Restores
     if s.startswith("Moved to Trash:"):
         inner = s.replace("Moved to Trash:", "").strip().strip("'\"")
+        if (inner.startswith('[') and inner.endswith(']')) or (inner.startswith('"') and inner.endswith('"')) or (inner.startswith("'") and inner.endswith("'")):
+            inner = inner[1:-1].strip()
+        if inner.lower().startswith('violation:'):
+            v_desc = inner[10:].strip()
+            inner = f"Violation: {v_desc}" if v_desc else "Violation"
         return f"Moved to Trash: {inner}"
     if s.startswith("Restored:"):
         inner = s.replace("Restored:", "").strip().strip("'\"")
+        if (inner.startswith('[') and inner.endswith(']')) or (inner.startswith('"') and inner.endswith('"')) or (inner.startswith("'") and inner.endswith("'")):
+            inner = inner[1:-1].strip()
+        if inner.lower().startswith('violation:'):
+            v_desc = inner[10:].strip()
+            inner = f"Violation: {v_desc}" if v_desc else "Violation"
         return f"Restored from Trash: {inner}"
 
     # 7. Clean Violations & Illegal Constructions (Legacy and Modern)

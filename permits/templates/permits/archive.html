@@ -9,52 +9,83 @@
 
 {% block content %}
 
-<!-- Page Header -->
+<!-- ══ PAGE HEADING ════════════════════════════════════════════════════ -->
 <div class="etala-page-header mb-3">
     <div>
         <h1 class="etala-page-title mb-0">{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}</h1>
     </div>
 </div>
 
-<!-- Search + Actions Toolbar (Balanced Pill Design) -->
-<div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
-    <!-- Left: Status & Count Badges -->
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <span class="badge rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5" style="background: rgba(220, 38, 38, 0.08); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.22); font-size: 0.78rem; font-weight: 600;">
-            <i class="fa-solid fa-trash-can" style="font-size: 11px;"></i>
-            <span>{{ page_obj.paginator.count|default:0 }} Record{{ page_obj.paginator.count|pluralize }} in Trash</span>
-        </span>
-        {% if expiring_soon_count > 0 %}
-        <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1.5 px-3 py-1.5 rounded-pill" style="border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.78rem; font-weight: 600;">
-            <i class="fa-solid fa-triangle-exclamation" style="font-size: 11px;"></i>
-            <span>{{ expiring_soon_count }} Expiring Soon</span>
-        </span>
-        {% endif %}
-    </div>
-
-    <!-- Right: Compact Search Pill Input (Standard 250px) -->
-    <form method="GET" action="{% url 'archive' %}" id="archiveFilterForm" class="d-flex align-items-center ms-auto" style="width: 250px; max-width: 250px;">
-        <div class="etala-search-pill-wrapper w-100">
-            <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search trash">
-                <i class="fa-solid fa-magnifying-glass"></i>
-            </button>
-            <input type="text" name="q" id="archiveSearchInput" value="{{ q|default:'' }}" class="etala-search-pill-input search-text-input"
-                   placeholder="Search trash..." maxlength="80" autocomplete="off" spellcheck="false"
-                   title="Search by title, contractor, applicant, permit no., barangay, or type">
-
-            <div id="archiveSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
-                <span class="visually-hidden">Searching...</span>
-            </div>
-
-            <a href="{% url 'archive' %}" id="archiveClearBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background: transparent;" title="Clear search">
-                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
-            </a>
+<!-- ══ DIRECTORY / ARCHIVE TOOLBAR (Badges Left, Compact Search Right) ══ -->
+<form method="GET" action="{% url 'archive' %}" id="archiveFilterForm" class="mb-3">
+    <div class="records-filter-toolbar gap-3 mb-0 w-100 d-flex align-items-center justify-content-between flex-wrap"
+        style="border-bottom: none !important; max-width: 100%; box-sizing: border-box;">
+        
+        <!-- Left: Trash Count Badges -->
+        <div class="d-flex align-items-center gap-2 flex-wrap min-w-0">
+            <span class="badge rounded-pill px-2.5 py-1.5 d-inline-flex align-items-center gap-1.5 flex-shrink-0" style="background: rgba(220, 38, 38, 0.08); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.22); font-size: 0.74rem; font-weight: 600;">
+                <i class="fa-solid fa-trash-can" style="font-size: 10px;"></i>
+                <span>{{ page_obj.paginator.count|default:0 }} Record{{ page_obj.paginator.count|pluralize }} in Trash</span>
+            </span>
+            {% if expiring_soon_count > 0 %}
+            <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1 px-2.5 py-1.5 rounded-pill flex-shrink-0" style="border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.74rem; font-weight: 600;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 9px;"></i>
+                <span>{{ expiring_soon_count }} Expiring Soon</span>
+            </span>
+            {% endif %}
         </div>
-    </form>
-</div>
+
+        <!-- Right: Compact Search Pill (Contained, no overflow) -->
+        <div class="d-flex align-items-center ms-auto records-search-wrapper">
+            <div class="etala-search-pill-wrapper">
+                <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search trash">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <input type="text" name="q" id="archiveSearchInput" value="{{ q|default:'' }}" class="etala-search-pill-input search-text-input"
+                       placeholder="Search trash..." maxlength="80" autocomplete="off" spellcheck="false"
+                       title="Search by title, contractor, applicant, permit no., barangay, or type">
+
+                <div id="archiveSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                    style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
+                    <span class="visually-hidden">Searching...</span>
+                </div>
+
+                <a href="{% url 'archive' %}" id="archiveClearBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background: transparent;" title="Clear search">
+                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</form>
 
 <style>
+    .records-search-wrapper {
+        flex: 0 0 260px !important;
+        width: 260px !important;
+        max-width: 260px !important;
+        margin-bottom: 0 !important;
+    }
+
+    @media (max-width: 767.98px) {
+        .records-filter-toolbar {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            margin-bottom: 8px !important;
+        }
+
+        .records-search-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+            margin-left: 0 !important;
+        }
+    }
+
     #archiveTableContainer {
         width: 100% !important;
         max-width: 100% !important;
@@ -114,13 +145,11 @@
         min-width: 0 !important;
     }
 
-    /* Light mode specific rules - strictly scoped so they NEVER run in dark mode */
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .table-card-responsive tbody tr,
+    /* Light mode specific rules */
     html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr {
         background-color: #ffffff !important;
         border-color: #e2e8f0 !important;
     }
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .table-card-responsive tbody tr:hover,
     html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr:hover {
         background-color: #f8fafc !important;
     }
@@ -141,23 +170,17 @@
         color: #475569 !important;
     }
 
-    /* Dark Mode Overrides - Bulletproof Crisp White Text */
-    .dark-mode .table-card-responsive tbody tr,
+    /* Dark Mode Overrides */
     .dark-mode .data-table tbody tr,
-    [data-bs-theme="dark"] .table-card-responsive tbody tr,
     [data-bs-theme="dark"] .data-table tbody tr {
         background-color: #1e293b !important;
         border-color: #334155 !important;
     }
-    .dark-mode .table-card-responsive tbody tr:hover,
     .dark-mode .data-table tbody tr:hover,
-    [data-bs-theme="dark"] .table-card-responsive tbody tr:hover,
     [data-bs-theme="dark"] .data-table tbody tr:hover {
         background-color: #26354a !important;
     }
-    .dark-mode .table-card-responsive tbody td,
     .dark-mode .data-table tbody td,
-    [data-bs-theme="dark"] .table-card-responsive tbody td,
     [data-bs-theme="dark"] .data-table tbody td {
         background-color: transparent !important;
         border-color: #334155 !important;
@@ -218,56 +241,187 @@
         color: #e2e8f0 !important;
     }
 
-    /* ── Mobile Responsive Card Reflow for Trash & Archive ── */
+    /* ── Mobile Dedicated Card List Styles ── */
+    .mobile-archive-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        width: 100%;
+        overflow: visible !important;
+    }
+    .mobile-archive-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 12px;
+        min-height: 56px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        background: #ffffff;
+        text-align: left !important;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+        overflow: visible !important;
+        position: relative !important;
+    }
+    .mobile-archive-item:first-child {
+        border-top-left-radius: 14px;
+        border-top-right-radius: 14px;
+    }
+    .mobile-archive-item:last-child {
+        border-bottom: none;
+        border-bottom-left-radius: 14px;
+        border-bottom-right-radius: 14px;
+    }
+    .mobile-archive-item:hover {
+        background: #f8fafc;
+    }
+    .mobile-archive-item:active {
+        background: rgba(148, 163, 184, 0.12);
+    }
+    .dark-mode .mobile-archive-item,
+    [data-bs-theme="dark"] .mobile-archive-item {
+        background: #1e293b !important;
+        border-bottom-color: rgba(51, 65, 85, 0.6) !important;
+        color: #f8fafc !important;
+    }
+    .dark-mode .mobile-archive-item:hover,
+    .dark-mode .mobile-archive-item:active,
+    [data-bs-theme="dark"] .mobile-archive-item:hover,
+    [data-bs-theme="dark"] .mobile-archive-item:active {
+        background: #26354a !important;
+    }
+    .mobile-record-icon.trash {
+        background: rgba(220, 38, 38, 0.08);
+        color: #dc2626;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .dark-mode .mobile-record-icon.trash,
+    [data-bs-theme="dark"] .mobile-record-icon.trash {
+        background: rgba(239, 68, 68, 0.16) !important;
+        color: #f87171 !important;
+    }
+    .mobile-archive-content {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+        overflow: hidden !important;
+    }
+    .mobile-archive-title {
+        font-size: 0.88rem !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        line-height: 1.3 !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 100% !important;
+    }
+    .dark-mode .mobile-archive-title,
+    [data-bs-theme="dark"] .mobile-archive-title {
+        color: #f8fafc !important;
+    }
+    .mobile-archive-meta {
+        display: flex !important;
+        align-items: center !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        width: 100% !important;
+        overflow: hidden !important;
+        min-width: 0 !important;
+    }
+    .mobile-archive-meta .tag {
+        max-width: 135px !important;
+        flex-shrink: 1 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        display: inline-block !important;
+        vertical-align: middle !important;
+    }
+    .mobile-archive-meta .badge {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+    }
+
+    /* ── Dropdown Menu & Action Button Enhancements ── */
+    .mobile-archive-item .dropdown,
+    .data-table .dropdown {
+        position: relative !important;
+    }
+    .mobile-archive-item .dropdown-menu,
+    .data-table .dropdown-menu {
+        z-index: 1060 !important;
+    }
+    .mobile-archive-item .dropdown.dropup .dropdown-menu,
+    .data-table .dropdown.dropup .dropdown-menu {
+        top: auto !important;
+        bottom: 100% !important;
+        margin-top: 0 !important;
+        margin-bottom: 4px !important;
+    }
+
+    .dark-mode .dropdown-menu,
+    [data-bs-theme="dark"] .dropdown-menu {
+        background-color: #1e293b !important;
+        border: 1px solid #334155 !important;
+        color: #f8fafc !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
+    }
+    .dark-mode .dropdown-menu .dropdown-item,
+    [data-bs-theme="dark"] .dropdown-menu .dropdown-item {
+        color: #e2e8f0 !important;
+    }
+    .dark-mode .dropdown-menu .dropdown-item:hover,
+    [data-bs-theme="dark"] .dropdown-menu .dropdown-item:hover {
+        background-color: rgba(255, 255, 255, 0.08) !important;
+        color: #ffffff !important;
+    }
+    .dark-mode .dropdown-menu .dropdown-divider,
+    [data-bs-theme="dark"] .dropdown-menu .dropdown-divider {
+        border-top-color: rgba(51, 65, 85, 0.7) !important;
+    }
+
+    /* ── Mobile Responsive Overrides ── */
     @media (max-width: 767.98px) {
-        #archiveTableContainer thead {
-            display: none !important;
+        .etala-page-title {
+            font-size: 1.25rem !important;
+            font-weight: 750 !important;
+            letter-spacing: -0.015em !important;
         }
-        #archiveTableContainer table,
-        #archiveTableContainer tbody,
-        #archiveTableContainer tr,
-        #archiveTableContainer td {
-            display: block !important;
+        #archiveFilterForm {
             width: 100% !important;
             max-width: 100% !important;
+            margin-left: 0 !important;
         }
-        #archiveTableContainer tbody tr {
-            padding: 12px 14px !important;
-            border-bottom: 1px solid #e2e8f0 !important;
-            position: relative !important;
-            background: #ffffff;
-        }
-        .dark-mode #archiveTableContainer tbody tr,
-        [data-bs-theme="dark"] #archiveTableContainer tbody tr {
-            background: #1e293b !important;
-            border-bottom-color: #334155 !important;
-        }
-        #archiveTableContainer tbody td {
-            padding: 2px 0 !important;
-            border: none !important;
-        }
-        #archiveTableContainer tbody td[data-label="Record Title"] {
-            padding-right: 36px !important;
-            margin-bottom: 4px !important;
-        }
-        #archiveTableContainer tbody td.cell-barangay,
-        #archiveTableContainer tbody td.cell-date,
-        #archiveTableContainer tbody td[data-label="Type"] {
-            display: inline-block !important;
-            width: auto !important;
-            vertical-align: middle !important;
-            margin-right: 8px !important;
-            font-size: 0.74rem !important;
-        }
-        #archiveTableContainer tbody td.cell-row-num {
-            display: none !important;
-        }
-        #archiveTableContainer tbody td.action-menu-cell {
-            position: absolute !important;
-            top: 12px !important;
-            right: 12px !important;
-            width: auto !important;
+        #archiveTableContainer .content-card {
+            min-height: auto !important;
+            border-radius: 14px !important;
             padding: 0 !important;
+            overflow: visible !important;
+        }
+        #archiveTableContainer .row-action-btn {
+            width: 34px !important;
+            height: 34px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: rgba(148, 163, 184, 0.08) !important;
+            border: 1px solid rgba(226, 232, 240, 0.6) !important;
+            border-radius: 8px !important;
+            color: #64748b !important;
+        }
+        .dark-mode #archiveTableContainer .row-action-btn,
+        [data-bs-theme="dark"] #archiveTableContainer .row-action-btn {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-color: rgba(255, 255, 255, 0.10) !important;
+            color: #94a3b8 !important;
         }
     }
 </style>
@@ -276,15 +430,16 @@
 <div id="archiveTableContainer">
     {% if page_obj.object_list %}
     <div class="content-card">
-        <div class="table-responsive">
-            <table class="data-table table-card-responsive">
+        <!-- Desktop Table View -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="data-table">
                 <thead>
                     <tr>
                         <th class="text-center cell-row-num" style="width: 44px; min-width: 44px; max-width: 44px;">#</th>
                         <th style="width: 44%; min-width: 220px;">Record Title</th>
-                        <th style="width: 28%; min-width: 170px;">Type</th>
-                        <th style="width: 24%; min-width: 130px;">Retention</th>
-                        <th class="text-end" style="width: 48px; min-width: 48px; max-width: 48px; padding-right: 16px;"></th>
+                        <th style="width: 26%; min-width: 160px;">Type</th>
+                        <th style="width: 22%; min-width: 120px;">Retention</th>
+                        <th class="text-end" style="width: 68px; min-width: 68px; padding-right: 16px;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -294,8 +449,8 @@
                             {% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}
                         </td>
                         <td data-label="Record Title">
-                            <div class="cell-title text-truncate" style="font-weight: 700; font-size: 0.88rem;">
-                                <span>
+                            <div class="cell-title text-truncate" style="font-weight: 700; font-size: 0.88rem; text-align: left;">
+                                <span class="text-truncate">
                                     {% if record.record_type == 'Permit' %}
                                         {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
                                              {{ record.permit_detail.applicant_name }}
@@ -309,31 +464,31 @@
                                     {% endif %}
                                 </span>
                             </div>
-                            <div class="cell-subtitle text-truncate mt-0.5" style="font-size: 0.74rem;">
+                            <div class="cell-subtitle text-truncate mt-0.5" style="font-size: 0.74rem; text-align: left;">
                                 {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
                                     {% if record.permit_detail and record.permit_detail.permit_number %}
-                                    <div class="subtitle-row" title="Permit No: #{{ record.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ record.permit_detail.permit_number }}</strong></div>
+                                    <div class="subtitle-row text-truncate" title="Permit No: #{{ record.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ record.permit_detail.permit_number }}</strong></div>
                                     {% else %}
                                     <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Complied Record</div>
                                     {% endif %}
                                 {% elif record.is_illegal_construction %}
                                     {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                    <div class="subtitle-row" title="Property Owner: {{ record.permit_detail.applicant_name }}"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.permit_detail.applicant_name }}</strong></div>
+                                    <div class="subtitle-row text-truncate" title="Property Owner: {{ record.permit_detail.applicant_name }}"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.permit_detail.applicant_name }}</strong></div>
                                     {% else %}
                                     <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
                                     {% endif %}
                                 {% elif record.record_type == 'Permit' %}
                                     {% if record.permit_detail and record.permit_detail.permit_number and record.permit_detail.date_issued %}
-                                    <div class="subtitle-row" title="Permit No: #{{ record.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ record.permit_detail.permit_number }}</strong></div>
+                                    <div class="subtitle-row text-truncate" title="Permit No: #{{ record.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ record.permit_detail.permit_number }}</strong></div>
                                     {% else %}
                                     <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1 text-muted" style="font-size: 11px;"></i>Pending Issuance</div>
                                     {% endif %}
                                 {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
-                                    <div class="subtitle-row" title="Contractor: {{ record.project_detail.contractor }}"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.project_detail.contractor }}</strong></div>
+                                    <div class="subtitle-row text-truncate" title="Contractor: {{ record.project_detail.contractor }}"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.project_detail.contractor }}</strong></div>
                                 {% endif %}
                             </div>
                         </td>
-                        <td data-label="Type" style="white-space: nowrap;">
+                        <td data-label="Type" style="white-space: nowrap; text-align: left;">
                             {% if record.record_type == 'Permit' %}
                             <span class="tag tag-permit">{{ record.specific_type_label }}</span>
                             {% else %}
@@ -344,15 +499,16 @@
                             <div class="fw-semibold title-text-adaptive text-truncate" style="font-size: 0.81rem;">
                                 {% if record.deleted_at %}{{ record.deleted_at|date:"M d, Y" }}{% else %}{{ record.updated_at|date:"M d, Y" }}{% endif %}
                             </div>
-                            <div class="mt-0.5">
+                            <div>
                                 {% if record.is_trash_expiring_soon %}
-                                <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1" style="font-size: 0.69rem; padding: 2px 6px; border: 1px solid rgba(245, 158, 11, 0.35); white-space: nowrap;">
+                                <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1" style="font-size: 0.70rem; padding: 2.5px 7px; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; white-space: nowrap;">
                                     <i class="fa-solid fa-triangle-exclamation" style="font-size: 8.5px;"></i>
                                     <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
                                 </span>
                                 {% else %}
-                                <span class="text-muted" style="font-size: 0.71rem; white-space: nowrap;">
-                                    {{ record.trash_days_remaining }} days left
+                                <span class="badge d-inline-flex align-items-center gap-1" style="font-size: 0.70rem; padding: 2.5px 7px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); border-radius: 6px; white-space: nowrap;">
+                                    <i class="fa-regular fa-clock" style="font-size: 8.5px;"></i>
+                                    <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
                                 </span>
                                 {% endif %}
                             </div>
@@ -362,7 +518,7 @@
                                 <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
                                     <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999; background: #ffffff;" onclick="event.stopPropagation();">
+                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999;" onclick="event.stopPropagation();">
                                     <li>
                                         <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap" href="{% url 'record_detail' record.record_id %}">
                                             <i class="fa-solid fa-eye text-primary" style="font-size: 13px; flex-shrink: 0;"></i>
@@ -394,8 +550,78 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Mobile Card List View -->
+        <div class="mobile-archive-list d-block d-md-none">
+            {% for record in page_obj %}
+            <div class="mobile-archive-item" data-href="{% url 'record_detail' record.record_id %}">
+                <div class="mobile-record-icon trash flex-shrink-0">
+                    <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
+                </div>
+                <div class="mobile-archive-content flex-grow-1 min-w-0">
+                    <div class="mobile-archive-title text-truncate">
+                        {% if record.record_type == 'Permit' %}
+                            {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                 {{ record.permit_detail.applicant_name }}
+                            {% elif record.title and record.title != 'Permit' %}
+                                 {{ record.title }}
+                            {% else %}
+                                 {{ record.specific_type_label }}
+                            {% endif %}
+                        {% else %}
+                            {{ record.title }}
+                        {% endif %}
+                    </div>
+                    <div class="mobile-archive-meta mt-1">
+                        <span class="tag {% if record.record_type == 'Permit' %}tag-permit{% else %}tag-project{% endif %} text-truncate" style="font-size: 0.70rem; padding: 1px 6px;" title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
+                        {% if record.is_trash_expiring_soon %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; white-space: nowrap;">
+                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 8px;"></i>
+                            <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
+                        </span>
+                        {% else %}
+                        <span class="badge d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); border-radius: 6px; white-space: nowrap;">
+                            <i class="fa-regular fa-clock" style="font-size: 8px;"></i>
+                            <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="dropdown flex-shrink-0 ms-1" onclick="event.stopPropagation();">
+                    <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
+                        <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999;" onclick="event.stopPropagation();">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap" href="{% url 'record_detail' record.record_id %}">
+                                <i class="fa-solid fa-eye text-primary" style="font-size: 13px; flex-shrink: 0;"></i>
+                                <span>Inspect</span>
+                            </a>
+                        </li>
+                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" data-url="{% url 'restore_record' record.record_id %}" data-title="{% if record.record_type == 'Permit' %}{% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% elif record.title and record.title != 'Permit' %}{{ record.title }}{% else %}{{ record.specific_type_label }}{% endif %}{% else %}{{ record.title }}{% endif %}" onclick="confirmRestoreRecord(this.dataset.url, this.dataset.title)">
+                                <i class="fa-solid fa-rotate-left" style="font-size: 13px; color:#10b981; flex-shrink:0;"></i>
+                                <span>Restore</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if request.user.role == 'admin' %}
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" data-url="{% url 'permanent_delete_record' record.record_id %}" data-title="{% if record.record_type == 'Permit' %}{% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% elif record.title and record.title != 'Permit' %}{{ record.title }}{% else %}{{ record.specific_type_label }}{% endif %}{% else %}{{ record.title }}{% endif %}" onclick="confirmPermanentDelete(this.dataset.url, this.dataset.title)">
+                                <i class="fa-solid fa-trash-can" style="font-size: 13px; color:#ef4444; flex-shrink:0;"></i>
+                                <span>Permanent Delete</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
         <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center justify-content-between w-100 flex-nowrap gap-2">
                 <span class="pagination-info m-0">
                     {% if page_obj.paginator.count > 0 %}
                     Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong> of <strong>{{ page_obj.paginator.count }}</strong> records in trash
@@ -539,7 +765,7 @@ function changePerPage(val) {
 
 // Delegated Row Click Navigation
 document.addEventListener('click', function(e) {
-    const row = e.target.closest('tr[data-href]');
+    const row = e.target.closest('tr[data-href], .mobile-archive-item[data-href]');
     if (row && !e.target.closest('.action-menu-cell') && !e.target.closest('.dropdown') && !e.target.closest('button') && !e.target.closest('a')) {
         window.location.href = row.dataset.href;
     }

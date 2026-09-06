@@ -51,11 +51,11 @@
         {% elif record.is_illegal_construction %}
         <div class="py-1 border-bottom d-flex flex-column gap-0.5">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                <i class="fa-solid fa-triangle-exclamation text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                <span>Record Type</span>
+                <i class="fa-solid fa-triangle-exclamation text-danger opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                <span>Violation Type</span>
             </div>
             <div class="fw-bold title-text-adaptive text-break ps-4 d-inline-flex align-items-center gap-1.5" style="font-size: 0.88rem; line-height: 1.35;">
-                <span>Building Violation</span>
+                <span>{% if record.permit_detail and record.permit_detail.permit_type and record.permit_detail.permit_type != 'Violation Report' %}{{ record.permit_detail.permit_type }}{% else %}No Building Permit{% endif %}</span>
             </div>
         </div>
         {% elif record.record_type == 'Project' %}
@@ -272,26 +272,14 @@
 
         <!-- Remarks / Notes -->
         {% with cleaned_desc=record.description|clean_resolved_description:record %}
-        {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
-            {% if cleaned_desc %}
-            <div class="py-1 d-flex flex-column gap-0.5">
-                <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                    <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                    <span>Remarks / Notes</span>
-                </div>
-                <div class="title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.4; font-weight: 500;">
-                    {{ cleaned_desc|linebreaksbr }}
-                </div>
-            </div>
-            {% endif %}
-        {% elif record.description %}
+        {% if cleaned_desc %}
         <div class="py-1 d-flex flex-column gap-0.5">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Remarks / Notes</span>
             </div>
             <div class="title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.4; font-weight: 500;">
-                {{ record.description|linebreaksbr }}
+                {{ cleaned_desc|linebreaksbr }}
             </div>
         </div>
         {% endif %}

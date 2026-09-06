@@ -60,12 +60,12 @@
 
                 <div class="content-card-body d-flex flex-column justify-content-between flex-grow-1" style="padding: 24px 24px !important;">
                     <div>
-                        <div class="row g-3.5">
+                        <div class="row g-3">
 
                             <!-- ── 1. ILLEGAL CONSTRUCTION FIELDS ───────── -->
                             {% if record.is_illegal_construction %}
-                            <!-- 1. Structure Name (Full Width / No Partner) -->
-                            <div class="col-12">
+                            <!-- 1. Structure Name & Barangay (Paired 2-Column Row) -->
+                            <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Structure Name</label>
                                 </div>
@@ -73,7 +73,6 @@
                                     placeholder="e.g. Commercial Building" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
-                            <!-- 2. Barangay & Property Owner (Paired 2-Column Row) -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay</label>
@@ -89,6 +88,8 @@
 
                             <input type="hidden" name="illegal_compliance_status" id="complianceStatusHidden" value="{{ record.illegal_compliance_status|default:'unresolved' }}">
 
+                            {% if record.illegal_compliance_status != 'resolved' %}
+                            <!-- 2. Property Owner & Violation Type (Paired 2-Column Row) -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
@@ -101,24 +102,37 @@
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
-                            <!-- 3. Building Type & Date Inspected (Paired 2-Column Row) -->
-                            <div class="col-md-6" id="violationBuildingTypeWrapper">
+                            <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
-                                        Building Type
-                                    </label>
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Violation Type</label>
                                 </div>
-                                <select name="building_type" id="violationBuildingTypeSelect" class="form-select rounded-3"
-                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
+                                <select name="violation_type" id="editViolationTypeSelect" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
-                                    <option value="" disabled {% if not permit_detail or not permit_detail.building_type %}selected{% endif %}>— Select Building Type —</option>
-                                    {% for val, label in building_types %}
-                                    <option value="{{ val }}" {% if permit_detail and permit_detail.building_type == val %}selected{% endif %}>{{ label }}</option>
+                                    <option value="" disabled {% if not selected_violation_type %}selected{% endif %}>— Select Violation Type —</option>
+                                    {% for vt in standard_violation_types %}
+                                    <option value="{{ vt }}" {% if selected_violation_type == vt %}selected{% endif %}>{{ vt }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
 
-                            {% if record.illegal_compliance_status != 'resolved' %}
+                            <!-- Dynamic Specific Violation Field (Visible only when 'Other Violation' is selected) -->
+                            <div class="col-12 {% if selected_violation_type != 'Other Violation' %}d-none{% endif %}" id="editOtherViolationContainer">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0 d-flex align-items-center gap-1.5" style="font-size:0.83rem; color: #334155;">
+                                        <i class="fa-solid fa-pen-to-square text-danger" style="font-size: 11px;"></i>
+                                        <span>Specify Violation Type</span>
+                                    </label>
+                                    <span class="text-muted fw-normal" style="font-size: 0.68rem;">Custom violation description</span>
+                                </div>
+                                <input type="text" name="other_violation_type" id="editOtherViolationInput" class="form-control rounded-3"
+                                    placeholder="Please specify what type of violation..." maxlength="80"
+                                    value="{{ other_violation_type_val|default:'' }}"
+                                    {% if selected_violation_type == 'Other Violation' %}required{% endif %}
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <div class="invalid-feedback">Please specify what type of violation.</div>
+                            </div>
+
+                            <!-- 3. Date Inspected & Building Type (Paired 2-Column Row) -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Inspected</label>
@@ -130,17 +144,58 @@
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                 <div class="invalid-feedback">Date Inspected cannot be in the future.</div>
                             </div>
-                            {% else %}
-                            <input type="hidden" name="date_started" value="{{ record.date_started|date:'Y-m-d'|default:'' }}">
-                            {% endif %}
 
-                            <!-- (When Resolved: Permit Type, Permit Number, Date Issued) -->
-                            <div class="col-md-6" id="violationPermitTypeWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
+                            <div class="col-md-6" id="violationBuildingTypeWrapper">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                        Building Type <span class="text-muted fw-normal">(Optional)</span>
+                                    </label>
+                                </div>
+                                <select name="building_type" id="violationBuildingTypeSelect" class="form-select rounded-3"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    <option value="" {% if not permit_detail or not permit_detail.building_type %}selected{% endif %}>— Select Building Type —</option>
+                                    {% for val, label in building_types %}
+                                    <option value="{{ val }}" {% if permit_detail and permit_detail.building_type == val %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            {% else %}
+                            <!-- When Resolved / Complied -->
+                            <input type="hidden" name="date_started" value="{{ record.date_started|date:'Y-m-d'|default:'' }}">
+
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                        Property Owner <span class="text-muted fw-normal">(Optional)</span>
+                                    </label>
+                                </div>
+                                <input type="text" name="applicant_name" class="form-control rounded-3"
+                                    value="{% if permit_detail.applicant_name and permit_detail.applicant_name != 'Under Investigation' %}{{ permit_detail.applicant_name }}{% endif %}"
+                                    placeholder="e.g. Juan Dela Cruz" maxlength="60"
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                            </div>
+
+                            <div class="col-md-6" id="violationBuildingTypeWrapper">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
+                                        Building Type
+                                    </label>
+                                </div>
+                                <select name="building_type" id="violationBuildingTypeSelect" class="form-select rounded-3" required
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    <option value="" disabled {% if not permit_detail or not permit_detail.building_type %}selected{% endif %}>— Select Building Type —</option>
+                                    {% for val, label in building_types %}
+                                    <option value="{{ val }}" {% if permit_detail and permit_detail.building_type == val %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6" id="violationPermitTypeWrapper">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Type</label>
                                 </div>
-                                <select name="permit_type" id="violationPermitTypeSelect" class="form-select rounded-3"
-                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
+                                <select name="permit_type" id="violationPermitTypeSelect" class="form-select rounded-3" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled>— Select Permit Type —</option>
                                     {% for val, label in permit_types %}
@@ -149,7 +204,7 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-6" id="violationPermitNumWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
+                            <div class="col-md-6" id="violationPermitNumWrapper">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number</label>
                                     <button type="button" class="btn btn-link p-0 text-decoration-none fw-semibold suggest-no-btn"
@@ -159,23 +214,22 @@
                                     </button>
                                 </div>
                                 <input type="text" name="permit_number" id="violationPermitNumInput" class="form-control rounded-3"
-                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. 2026-08-001" maxlength="30"
-                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
+                                    value="{{ permit_detail.permit_number|default:'' }}" placeholder="e.g. 2026-08-001" maxlength="30" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
-                            <div class="col-md-6" id="violationDateIssuedWrapper" {% if record.illegal_compliance_status != 'resolved' %}style="display: none;"{% endif %}>
+                            <div class="col-md-6" id="violationDateIssuedWrapper">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Date Issued</label>
                                 </div>
                                 <input type="date" name="date_issued" id="violationDateIssuedInput" class="form-control rounded-3"
                                     placeholder="Select date issued..."
                                     max="today"
-                                    value="{{ permit_detail.date_issued|date:'Y-m-d'|default:'' }}"
-                                    {% if record.illegal_compliance_status == 'resolved' %}required{% endif %}
+                                    value="{{ permit_detail.date_issued|date:'Y-m-d'|default:'' }}" required
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                 <div class="invalid-feedback">Date Issued cannot be in the future.</div>
                             </div>
+                            {% endif %}
 
                             <!-- 4. Remarks / Notes (Full Width / No Partner) -->
                             <div class="col-12">
@@ -185,7 +239,7 @@
                                 </div>
                                 <input type="text" name="description" class="form-control rounded-3 char-counted" maxlength="250"
                                     placeholder="Enter notes or observations..."
-                                    value="{{ record.description|default:'' }}"
+                                    value="{{ clean_description }}"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
@@ -600,6 +654,35 @@
             setTimeout(() => handleEditPermitIssuanceSync(), 80);
         }
 
+        // Dynamic "Other Violation" specify input toggle for edit record
+        const editViolationTypeSelect = document.getElementById('editViolationTypeSelect');
+        const editOtherViolationContainer = document.getElementById('editOtherViolationContainer');
+        const editOtherViolationInput = document.getElementById('editOtherViolationInput');
+
+        function toggleEditOtherViolation(focusInput = true) {
+            if (!editViolationTypeSelect || !editOtherViolationContainer || !editOtherViolationInput) return;
+            if (editViolationTypeSelect.value === 'Other Violation') {
+                editOtherViolationContainer.classList.remove('d-none');
+                editOtherViolationInput.setAttribute('required', 'true');
+                if (focusInput) {
+                    setTimeout(() => {
+                        editOtherViolationInput.focus();
+                    }, 50);
+                }
+            } else {
+                editOtherViolationContainer.classList.add('d-none');
+                editOtherViolationInput.removeAttribute('required');
+                editOtherViolationInput.value = '';
+                editOtherViolationInput.classList.remove('is-invalid');
+            }
+        }
+
+        if (editViolationTypeSelect) {
+            editViolationTypeSelect.addEventListener('change', function () {
+                toggleEditOtherViolation(true);
+            });
+        }
+
         const editSuggestBtn = document.getElementById('suggestEditPermitNumBtn');
         if (editSuggestBtn) {
             editSuggestBtn.addEventListener('click', function(e) {
@@ -989,6 +1072,76 @@
 
 .dark-mode .invalid-feedback {
     color: #fca5a5 !important;
+}
+
+/* ══ MOBILE RESPONSIVE OPTIMIZATIONS (< 768px) ══ */
+@media (max-width: 767px) {
+    .etala-page-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .etala-header-actions {
+        width: 100% !important;
+    }
+
+    .etala-header-actions .premium-btn {
+        width: 100% !important;
+        justify-content: center !important;
+        height: 44px !important;
+    }
+
+    .content-card-body {
+        padding: 16px 14px !important;
+    }
+
+    .form-control,
+    .form-select,
+    textarea.form-control,
+    .flatpickr-custom-input {
+        font-size: 16px !important; /* Prevents unwanted iOS Safari viewport zoom */
+        height: 44px !important;
+    }
+
+    textarea.form-control {
+        height: auto !important;
+        min-height: 60px !important;
+    }
+
+    .form-label-row {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        white-space: normal !important;
+    }
+
+    .form-label-row label {
+        white-space: normal !important;
+    }
+
+    /* Full-width accessible action buttons on mobile */
+    .content-card-body .mt-4.pt-3.border-top {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    .content-card-body .mt-4.pt-3.border-top .action-btn {
+        width: 100% !important;
+        height: 44px !important;
+        font-size: 0.88rem !important;
+        justify-content: center !important;
+        display: inline-flex !important;
+        align-items: center !important;
+    }
+
+    .edit-map-wrapper {
+        height: 180px !important;
+    }
 }
 </style>
 

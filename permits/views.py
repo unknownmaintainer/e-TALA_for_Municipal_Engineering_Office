@@ -91,7 +91,6 @@ def log_audit(user, action, target_record_id=None, request=None):
         "Downloaded ",
         "Exported PDF",
         "Exported Activity Logs",
-        "Requirement ",
         "Triggered Document Expiry Email Alerts",
         "Logged in from",
         "2FA OTP verified",
@@ -409,6 +408,7 @@ def login_view(request):
                     last_seen_at=timezone.now(),
                     ip_address=ip_address
                 )
+                LoginAttempt.objects.create(email_attempted=user.email or user.username or login_input, success=True, ip_address=ip_address)
                 login(request, user)
                 remember_me = request.POST.get('remember_me')
                 request.session.set_expiry(1209600 if remember_me else 0)
@@ -426,6 +426,7 @@ def login_view(request):
 
             # Fallback if no email is set on user
             user.backend = 'permits.auth_backends.EmailBackend'
+            LoginAttempt.objects.create(email_attempted=user.email or user.username or login_input, success=True, ip_address=ip_address)
             login(request, user, backend='permits.auth_backends.EmailBackend')
             messages.success(request, "Welcome back to eTala.")
             response = redirect('dashboard')
@@ -434,10 +435,10 @@ def login_view(request):
         else:
             # Check if account is locked due to consecutive failures
             is_locked, lockout_msg = check_lockout(login_input, ip_address)
+            LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
             if is_locked:
                 messages.error(request, lockout_msg)
             else:
-                LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
                 messages.error(request, "Invalid email, username, or password.")
 
     return render(request, 'permits/login.html')
@@ -469,6 +470,7 @@ def verify_otp_view(request):
 
         # Check maximum retry attempts (5 max)
         if attempts >= 5:
+            LoginAttempt.objects.create(email_attempted=user.email or user.username, success=False, ip_address=get_client_ip(request))
             for k in ['2fa_user_id', '2fa_otp', '2fa_expiry', '2fa_attempts', '2fa_device_name', '2fa_ip', '2fa_remember_me', '2fa_login_input', '2fa_sent_at']:
                 request.session.pop(k, None)
             messages.error(request, "Too many failed attempts. Please sign in again.")
@@ -510,6 +512,9 @@ def verify_otp_view(request):
                 ip_address=ip_address
             )
 
+            # Record successful login attempt
+            LoginAttempt.objects.create(email_attempted=user.email or user.username, success=True, ip_address=ip_address)
+
             # Explicitly set backend for multi-backend compatibility
             user.backend = 'permits.auth_backends.EmailBackend'
             login(request, user, backend='permits.auth_backends.EmailBackend')
@@ -523,10 +528,11 @@ def verify_otp_view(request):
             dispatch_new_device_login_alert(user, device, request)
             messages.success(request, "Device verified successfully.")
             response = redirect('dashboard')
-            if remember_device:
-                response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
+            response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
             return response
         else:
+            ip_address = request.session.get('2fa_ip', get_client_ip(request))
+            LoginAttempt.objects.create(email_attempted=user.email or user.username, success=False, ip_address=ip_address)
             request.session['2fa_attempts'] = attempts + 1
             remaining = 5 - (attempts + 1)
             messages.error(request, f"Invalid 6-digit verification code. {remaining} attempt(s) remaining.")
@@ -948,6 +954,8 @@ def dashboard_view(request):
     
     alert_docs = Document.objects.filter(
         expiry_date__isnull=False
+    ).filter(
+        Q(record_requirement__isnull=False, record_requirement__is_fulfilled=True) | Q(requirement_item__isnull=True)
     ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item')
     
     expired_docs_qs = alert_docs.filter(expiry_date__range=(thirty_days_ago, today_date))
@@ -2433,6 +2441,21 @@ def record_detail_view(request, record_id):
     today = timezone.now().date()
     thirty_days_later = today + datetime.timedelta(days=30)
 
+    trashed_by_user = None
+    if record.status == 'archived':
+        trash_log = AuditLog.objects.filter(
+            target_record_id=record.record_id,
+            action__icontains='Trash'
+        ).select_related('user').order_by('-performed_at').first()
+        if not trash_log:
+            trash_log = AuditLog.objects.filter(
+                target_record_id=record.record_id,
+                action__icontains='Archive'
+            ).select_related('user').order_by('-performed_at').first()
+            
+        if trash_log and trash_log.user:
+            trashed_by_user = trash_log.user.get_full_name() or trash_log.user.username
+
     context = {
         'record': record,
         'requirements': requirements,
@@ -2450,8 +2473,9 @@ def record_detail_view(request, record_id):
         'timeline': timeline,
         'latest_log': timeline.first(),
         'related_records': related_records,
-        'can_edit': (request.user.role in ['admin', 'staff']),
-        'can_archive': (request.user.role in ['admin', 'staff']),
+        'can_edit': (request.user.role in ['admin', 'staff']) and (record.status != 'archived'),
+        'can_archive': (request.user.role in ['admin', 'staff']) and (record.status != 'archived'),
+        'trashed_by_user': trashed_by_user,
         'active_tab': active_tab,
         'origin': origin,
         'back_fallback_url': back_fallback_url,
@@ -2522,7 +2546,7 @@ def record_requirement_detail_view(request, record_id, req_id):
             docs_by_item_id.setdefault(doc.requirement_item_id, []).append(doc)
             docs_by_item_id.setdefault(str(doc.requirement_item_id), []).append(doc)
 
-    can_edit = (request.user.role in ['admin', 'staff'])
+    can_edit = (request.user.role in ['admin', 'staff']) and (record.status != 'archived')
 
     # Stats
     total_sub = len(sub_reqs) if sub_reqs else 1
@@ -2661,6 +2685,9 @@ def flag_illegal_construction_view(request):
         barangay_id = request.POST.get('barangay', '')
         location_address = sanitize_input(request.POST.get('location_address', '')).strip()
         violation_type = sanitize_input(request.POST.get('violation_type', 'Unpermitted Construction')).strip()
+        other_violation_type = sanitize_input(request.POST.get('other_violation_type', '')).strip()
+        if violation_type == 'Other Violation' and other_violation_type:
+            violation_type = other_violation_type
         structure_type = sanitize_input(request.POST.get('structure_type', '')).strip()
         action_taken = sanitize_input(request.POST.get('action_taken', 'Notice of Violation / Stop Order Issued')).strip()
         description = sanitize_input(request.POST.get('description', '')).strip()
@@ -2700,18 +2727,9 @@ def flag_illegal_construction_view(request):
         else:
             date_discovered = timezone.now().date()
 
-        desc_parts = []
-        if violation_type:
-            desc_parts.append(f"Violation: {violation_type}")
-        if structure_type:
-            desc_parts.append(f"Building Type: {structure_type}")
-        if location_address:
-            desc_parts.append(f"Location: {location_address}")
-        if description:
-            desc_parts.append(description)
-        if remarks:
-            desc_parts.append(remarks)
-        full_description = " • ".join(desc_parts) if desc_parts else "Unpermitted Construction Incident Report"
+        # Remarks / Notes entered by user (cleanly store user's notes without auto-prefixing)
+        user_notes = description or remarks or ''
+        full_description = user_notes
 
         # Parse latitude and longitude coordinates if pinpointed on map
         lat_val = request.POST.get('latitude', '').strip()
@@ -2801,6 +2819,10 @@ def regularize_record_view(request, record_id):
         raise PermissionDenied("You do not have permission to issue permits.")
 
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if record.status == 'archived':
+        messages.error(request, "This record is currently in the Trash Bin and cannot be modified. Please restore it first.")
+        return redirect('record_detail', record_id=record.record_id)
+
     if request.method == 'POST':
         permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
         permit_type = sanitize_input(request.POST.get('permit_type', 'Building Permit')).strip()
@@ -2884,6 +2906,11 @@ def toggle_requirement_waived_view(request, req_id):
         return HttpResponseForbidden("Unauthorized")
         
     req = get_object_or_404(RecordRequirement, req_id=req_id)
+    if req.record.status == 'archived':
+        return JsonResponse({
+            'success': False,
+            'error': 'This record is currently in the Trash Bin and cannot be modified. Please restore it first.'
+        }, status=400)
     
     if request.method == 'POST':
         if req.is_fulfilled and req.document:
@@ -2939,6 +2966,9 @@ def toggle_requirement_waived_view(request, req_id):
 @login_required
 def record_edit_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if record.status == 'archived':
+        messages.error(request, "This record is currently in the Trash Bin and cannot be edited. Please restore it first.")
+        return redirect('record_detail', record_id=record.record_id)
 
     # Permission check: All active staff and admins can edit
     if request.user.role not in ['staff', 'admin']:
@@ -2961,6 +2991,10 @@ def record_edit_view(request, record_id):
             if dup_proj:
                 messages.error(request, f"Project '{new_title}' already exists in this Barangay for {record.year}.")
                 return redirect('edit_record', record_id=record.record_id)
+
+        if new_title:
+            record.title = new_title
+        record.description = sanitize_input(request.POST.get('description', '')).strip()
 
         if record.status != 'archived':
             record.status = request.POST.get('status', record.status)
@@ -3045,6 +3079,14 @@ def record_edit_view(request, record_id):
                         # Clear issued permit data if violation is not yet regularized
                         new_permit_num = ''
                         detail.date_issued = None
+                        viol_type = sanitize_input(request.POST.get('violation_type', '')).strip()
+                        other_viol = sanitize_input(request.POST.get('other_violation_type', '')).strip()
+                        if viol_type == 'Other Violation' and other_viol:
+                            viol_type = other_viol
+                        if viol_type:
+                            detail.permit_type = viol_type
+                        new_bldg_type = sanitize_input(request.POST.get('building_type', '')).strip()
+                        detail.building_type = new_bldg_type
 
                 if new_permit_num:
                     dup_permit = PermitDetail.objects.filter(
@@ -3179,6 +3221,46 @@ def record_edit_view(request, record_id):
         except ProjectDetail.DoesNotExist:
             pass
 
+    standard_violation_types = [
+        'No Building Permit',
+        'Illegal Renovation or Demolition',
+        'Plan Deviation',
+        'Road or Boundary Encroachment',
+        'No Occupancy Permit',
+        'Dangerous or Damaged Structure',
+        'Safety & Hazard Violation',
+        'Other Violation',
+    ]
+
+    selected_violation_type = ''
+    other_violation_type_val = ''
+    clean_description = record.description or ''
+
+    # Clean legacy auto-generated prefix: "Violation: <type> • Building Type: <type>"
+    if clean_description.startswith('Violation:'):
+        parts = [p.strip() for p in clean_description.split('•')]
+        for part in parts:
+            if part.startswith('Violation:'):
+                v_text = part.replace('Violation:', '').strip()
+                if not selected_violation_type:
+                    selected_violation_type = v_text
+            elif part.startswith('Building Type:'):
+                b_text = part.replace('Building Type:', '').strip()
+                if permit_detail and not permit_detail.building_type:
+                    permit_detail.building_type = b_text
+        clean_description = ''
+
+    if record.is_illegal_construction and permit_detail:
+        pt = permit_detail.permit_type or ''
+        if pt and pt != 'Violation Report':
+            if pt in standard_violation_types:
+                selected_violation_type = pt
+            else:
+                selected_violation_type = 'Other Violation'
+                other_violation_type_val = pt
+        elif not selected_violation_type:
+            selected_violation_type = 'No Building Permit'
+
     context = {
         'record': record,
         'permit_detail': permit_detail,
@@ -3188,6 +3270,10 @@ def record_edit_view(request, record_id):
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
         'project_types': ProjectDetail.PROJECT_TYPE_CHOICES,
         'funding_sources': ProjectDetail.FUNDING_SOURCE_CHOICES,
+        'standard_violation_types': standard_violation_types,
+        'selected_violation_type': selected_violation_type,
+        'other_violation_type_val': other_violation_type_val,
+        'clean_description': clean_description,
         'active_tab': 'illegal_constructions' if record.is_illegal_construction else 'records',
     }
     return render(request, 'permits/edit_record.html', context)
@@ -3513,6 +3599,13 @@ def document_upload_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower()
 
+    if record.status == 'archived':
+        err_msg = "This record is currently in the Trash Bin and cannot be modified. Please restore it first."
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect('record_detail', record_id=record.record_id)
+
     if request.user.role not in ['staff', 'admin']:
         if is_ajax:
             return JsonResponse({'success': False, 'error': 'You do not have permission to upload documents.'}, status=403)
@@ -3627,11 +3720,21 @@ def document_upload_view(request, record_id):
             )
 
         new_uploads_count = len(created_docs) - skipped_duplicates
-        log_audit(
-            request.user,
-            f"Uploaded {new_uploads_count} new file(s) ({skipped_duplicates} duplicate(s) kept) for {req_item.name if req_item else 'general'} in '{record.title}'",
-            record.record_id, request
-        )
+        if new_uploads_count > 0:
+            target_slot = req_item.name if req_item else 'checklist'
+            if new_uploads_count == 1 and created_docs:
+                uploaded_doc = created_docs[-1]
+                log_audit(
+                    request.user,
+                    f"Uploaded document '{uploaded_doc.file_name}' for '{target_slot}' in '{record.title}'",
+                    record.record_id, request
+                )
+            else:
+                log_audit(
+                    request.user,
+                    f"Uploaded {new_uploads_count} new file(s) for '{target_slot}' in '{record.title}'",
+                    record.record_id, request
+                )
 
         if new_uploads_count == 0:
             err_msg = f"The selected document is already uploaded to this requirement slot." if skipped_duplicates == 1 else f"All {skipped_duplicates} selected files are already uploaded to this requirement slot."
@@ -3667,6 +3770,13 @@ def document_replace_view(request, record_id, document_id):
     doc = get_object_or_404(Document, document_id=document_id, engineering_record=record)
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower()
 
+    if record.status == 'archived':
+        err_msg = "This record is currently in the Trash Bin and cannot be modified. Please restore it first."
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect('record_detail', record_id=record.record_id)
+
     if request.user.role not in ['staff', 'admin']:
         if is_ajax:
             return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
@@ -3699,13 +3809,21 @@ def document_replace_view(request, record_id, document_id):
     doc.uploaded_by = request.user
     doc.uploaded_at = timezone.now()
 
-    expiry_date = request.POST.get('expiry_date', '').strip()
-    if expiry_date:
-        try:
-            import datetime
-            doc.expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
-        except ValueError:
-            pass
+    expiry_date = request.POST.get('expiry_date')
+    if expiry_date is not None:
+        expiry_date = expiry_date.strip()
+        if expiry_date:
+            try:
+                import datetime
+                doc.expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
+            except ValueError:
+                doc.expiry_date = None
+        else:
+            doc.expiry_date = None
+    else:
+        # If no explicit new expiry date is provided upon file replacement, clear any expired past date
+        if doc.expiry_date and doc.expiry_date < timezone.localdate():
+            doc.expiry_date = None
 
     doc.save()
 
@@ -3742,6 +3860,14 @@ def document_delete_view(request, record_id, document_id):
 
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     doc = get_object_or_404(Document, document_id=document_id, engineering_record=record)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower()
+
+    if record.status == 'archived':
+        err_msg = "This record is currently in the Trash Bin and cannot be modified. Please restore it first."
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect('record_detail', record_id=record.record_id)
 
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("You do not have permission to delete documents.")
@@ -3782,7 +3908,7 @@ def document_delete_view(request, record_id, document_id):
     log_audit(request.user, f"Deleted: {doc_label} from '{record.title}'", record.record_id, request)
     messages.success(request, f"Deleted: '{doc_label}' successfully.")
 
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower():
+    if is_ajax:
         return JsonResponse({'success': True, 'message': f"Deleted '{doc_label}'."})
 
     return redirect(request.META.get('HTTP_REFERER', 'record_detail'), record_id=record.record_id)
@@ -3794,6 +3920,15 @@ def delete_requirement_documents_view(request, record_id, item_id):
         return HttpResponseNotAllowed(['POST'])
 
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower()
+
+    if record.status == 'archived':
+        err_msg = "This record is currently in the Trash Bin and cannot be modified. Please restore it first."
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect('record_detail', record_id=record.record_id)
+
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("You do not have permission to delete documents.")
 
@@ -3843,7 +3978,7 @@ def record_archive_view(request, record_id):
     record.deleted_at = timezone.now()
     record.save()
     log_audit(request.user, f"Moved to Trash: '{record.title}'", record.record_id, request)
-    messages.success(request, f"Record '{record.title}' moved to Trash. It will be retained for 30 days before permanent deletion.")
+    messages.success(request, f"Record '{record.title}' moved to Trash (Sidebar > Trash). It is safely preserved and can be restored anytime within 30 days.")
     referer = request.META.get('HTTP_REFERER')
     if referer and f"/records/{record.record_id}/" not in referer and f"/records/{record.record_id}" not in referer:
         return redirect(referer)
@@ -4980,6 +5115,7 @@ def reports_view(request):
 
 @login_required
 def activity_logs_view(request):
+    from django.core.cache import cache
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("You do not have permission to view activity logs.")
 
@@ -4991,6 +5127,7 @@ def activity_logs_view(request):
             ip = request.POST.get('ip_address')
             if ip:
                 BlockedIP.objects.get_or_create(ip_address=ip, blocked_by=request.user)
+                cache.delete('system_blocked_ips_set')
                 log_audit(request.user, "Blocked device access for suspicious login attempts", request=request)
                 messages.success(request, "Successfully restricted device access.")
             return redirect(f"{reverse('activity_logs')}?tab=login")
@@ -4998,6 +5135,7 @@ def activity_logs_view(request):
             ip = request.POST.get('ip_address')
             if ip:
                 BlockedIP.objects.filter(ip_address=ip).delete()
+                cache.delete('system_blocked_ips_set')
                 log_audit(request.user, "Restored device access", request=request)
                 messages.success(request, "Successfully restored device access.")
             return redirect(f"{reverse('activity_logs')}?tab=login")
@@ -5016,6 +5154,7 @@ def activity_logs_view(request):
                     display_acc = email
                 if ip:
                     BlockedIP.objects.get_or_create(ip_address=ip, blocked_by=request.user)
+                    cache.delete('system_blocked_ips_set')
                 log_audit(request.user, f"Blocked login access for account: {display_acc}", request=request)
                 messages.success(request, f"Successfully blocked access for account: {display_acc}")
             return redirect(f"{reverse('activity_logs')}?tab=login")
@@ -5034,6 +5173,7 @@ def activity_logs_view(request):
                     display_acc = email
                 if ip:
                     BlockedIP.objects.filter(ip_address=ip).delete()
+                    cache.delete('system_blocked_ips_set')
                 log_audit(request.user, f"Restored login access for account: {display_acc}", request=request)
                 messages.success(request, f"Successfully restored access for account: {display_acc}")
             return redirect(f"{reverse('activity_logs')}?tab=login")
@@ -5132,7 +5272,8 @@ def activity_logs_view(request):
 
     if request.user.role == 'admin' and active_log_tab == 'login':
         user_map = {}
-        for u in CustomUser.objects.all():
+        all_users = list(CustomUser.objects.all())
+        for u in all_users:
             if u.email:
                 user_map[u.email.lower().strip()] = u
             if u.username:
@@ -5140,8 +5281,6 @@ def activity_logs_view(request):
             if u.full_name:
                 user_map[u.full_name.lower().strip()] = u
 
-        blocked_ips = list(BlockedIP.objects.values_list('ip_address', flat=True))
-        for u in CustomUser.objects.all():
             if u.is_active:
                 if u.email:
                     active_user_identifiers.append(u.email.lower().strip())
@@ -5152,6 +5291,8 @@ def activity_logs_view(request):
                     inactive_user_identifiers.append(u.email.lower().strip())
                 if u.username:
                     inactive_user_identifiers.append(u.username.lower().strip())
+
+        blocked_ips = list(BlockedIP.objects.values_list('ip_address', flat=True))
 
         login_attempts = LoginAttempt.objects.all().order_by('-timestamp')
         if query:
@@ -6656,6 +6797,8 @@ def alerts_list_json_view(request):
     
     alert_docs = Document.objects.filter(
         expiry_date__isnull=False
+    ).filter(
+        Q(record_requirement__isnull=False, record_requirement__is_fulfilled=True) | Q(requirement_item__isnull=True)
     ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item')
     
     data = []
@@ -6865,6 +7008,9 @@ def batch_upload_documents_view(request, record_id):
     if request.user.role not in ['staff', 'admin']:
         return HttpResponseForbidden("Unauthorized")
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if record.status == 'archived':
+        messages.error(request, "This record is currently in the Trash Bin and cannot be modified. Please restore it first.")
+        return redirect('record_detail', record_id=record.record_id)
     
     if request.method == 'POST':
         files = request.FILES.getlist('files')

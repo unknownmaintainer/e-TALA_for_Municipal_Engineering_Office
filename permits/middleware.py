@@ -28,6 +28,8 @@ class SingleSessionMiddleware:
         return response
 
 
+from django.core.cache import cache
+
 class IPBlockMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -39,11 +41,17 @@ class IPBlockMiddleware:
 
         try:
             ip = get_client_ip(request)
-            if ip and BlockedIP.objects.filter(ip_address=ip).exists():
-                return render(request, 'permits/access_denied.html', {
-                    'is_blocked_ip': True,
-                    'blocked_ip': ip,
-                }, status=403)
+            if ip:
+                blocked_ips = cache.get('system_blocked_ips_set')
+                if blocked_ips is None:
+                    blocked_ips = set(BlockedIP.objects.values_list('ip_address', flat=True))
+                    cache.set('system_blocked_ips_set', blocked_ips, timeout=60)
+
+                if ip in blocked_ips:
+                    return render(request, 'permits/access_denied.html', {
+                        'is_blocked_ip': True,
+                        'blocked_ip': ip,
+                    }, status=403)
         except Exception as exc:
             logger.debug(f"IPBlockMiddleware check skipped during startup: {exc}")
 

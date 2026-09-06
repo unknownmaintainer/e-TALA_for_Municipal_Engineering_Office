@@ -835,29 +835,150 @@
     [data-bs-theme="dark"] #barangaysLoadingOverlay {
         background: rgba(15, 23, 42, 0.72) !important;
     }
+
+    /* ── BARANGAY DIRECTORY TOOLBAR & CONTROLS ── */
+    .barangays-filter-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+        width: 100%;
+    }
+
+    .barangays-sort-wrap {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    #barangaySortControl {
+        height: 36px;
+    }
+
+    .barangays-search-wrap {
+        flex: 0 0 290px;
+        width: 290px;
+        max-width: 100%;
+        margin-left: auto;
+    }
+
+    /* ── Mobile Responsive Optimization for Barangays (< 768px) ── */
+    @media (max-width: 768px) {
+        .etala-page-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0 !important;
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 8px !important;
+            padding-bottom: 0 !important;
+        }
+
+        .etala-page-header .etala-header-actions {
+            width: 100% !important;
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 6px !important;
+            margin-top: 0 !important;
+        }
+
+        .etala-page-header .etala-header-actions:has(> :only-child),
+        .etala-page-header .etala-header-actions > *:only-child {
+            grid-column: span 2 !important;
+        }
+
+        .etala-page-header .etala-header-actions .premium-btn {
+            width: 100% !important;
+            justify-content: center !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            max-height: 34px !important;
+            font-size: 0.78rem !important;
+            font-weight: 600 !important;
+            padding: 0 8px !important;
+            border-radius: 8px !important;
+            gap: 5px !important;
+        }
+
+        .etala-page-header .etala-header-actions .premium-btn .btn-divider {
+            display: none !important;
+        }
+
+        .etala-page-header .etala-header-actions .premium-btn .btn-icon i {
+            font-size: 12px !important;
+        }
+
+        .barangays-filter-toolbar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 10px !important;
+            padding-bottom: 4px !important;
+            width: 100% !important;
+        }
+
+        .barangays-sort-wrap {
+            width: 100% !important;
+        }
+
+        #barangaySortControl {
+            width: 100% !important;
+            display: flex !important;
+            height: 36px !important;
+        }
+
+        #barangaySortControl .scope-pill-btn {
+            flex: 1 1 50% !important;
+            justify-content: center !important;
+            font-size: 0.80rem !important;
+            gap: 6px !important;
+        }
+
+        .barangays-search-wrap {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+            margin-left: 0 !important;
+        }
+
+        .barangays-search-wrap .etala-search-pill-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 38px !important;
+        }
+    }
 </style>
 
 <!-- ══ PAGE HEADER (COMPACT & CLEAN) ═════════════════════════════════════ -->
-<div class="etala-page-header mb-2 py-0.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <div>
+<div class="etala-page-header">
+    <div class="d-none d-md-block">
         <h1 class="etala-page-title mb-0" style="font-size: 1.35rem; line-height: 1.2;">Barangay Workspaces</h1>
     </div>
-    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-    <div class="d-flex align-items-center gap-2">
+    <div class="etala-header-actions">
+        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
         <button type="button" class="premium-btn btn-add text-nowrap" data-bs-toggle="modal" data-bs-target="#addBarangayModal" title="Register a new barangay">
             <span class="btn-icon"><i class="fa-solid fa-plus"></i></span>
             <span class="btn-divider"></span>
             <span>Add Barangay</span>
         </button>
+        {% endif %}
+        <!-- Show Map Toggle Button -->
+        <button type="button" id="toggleMapBtn" class="premium-btn btn-view text-nowrap" title="Toggle GIS Map View">
+            <span class="btn-icon"><i class="fa-solid fa-map-location-dot" id="toggleMapIcon" style="font-size: 12px;"></i></span>
+            <span class="btn-divider"></span>
+            <span id="toggleMapLabel">Show Map</span>
+        </button>
     </div>
-    {% endif %}
 </div>
 
-<!-- ══ ULTRA-CLEAN & INTUITIVE DIRECTORY TOOLBAR (TIGHT & SPACE-EFFICIENT) ═══ -->
-<div class="d-flex align-items-center justify-content-between gap-2.5 mb-2 flex-wrap">
-    <!-- Left: 2 Intuitive View Tabs -->
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <div class="scope-segmented-control flex-shrink-0" id="barangaySortControl" data-sort="{% if sort == 'most_records' %}most_records{% else %}a-z{% endif %}" style="height: 34px;">
+<!-- ══ DIRECTORY TOOLBAR (SORT & SEARCH) ══════════════════════════════════ -->
+<div class="barangays-filter-toolbar">
+    <!-- Left: Segmented Sort Tabs -->
+    <div class="barangays-sort-wrap">
+        <div class="scope-segmented-control" id="barangaySortControl" data-sort="{% if sort == 'most_records' %}most_records{% else %}a-z{% endif %}">
             <span class="scope-glider" aria-hidden="true"></span>
             <a href="javascript:void(0)" onclick="selectSortOption('a-z')"
                 class="scope-pill-btn {% if sort != 'most_records' %}active{% endif %}"
@@ -876,35 +997,25 @@
         </div>
     </div>
 
-    <!-- Right: Compact Instant Search + Show Map Button -->
-    <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
-        <div class="position-relative" style="flex: 0 0 280px; width: 280px; max-width: 100%;">
-            <div class="etala-search-pill-wrapper" id="searchBoxWrapper">
-                <button type="button" class="etala-search-pill-icon search-btn-icon" id="searchIcon" title="Search barangays">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                </button>
-                <input type="text" id="barangaySearchInput" value="{{ q|default:'' }}"
-                    class="etala-search-pill-input search-text-input" placeholder="Search {{ total_barangays_count|default:49 }} Carigara barangays..."
-                    autocomplete="off">
-                <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                    style="width: 12px; height: 12px; border-width: 2px;">
-                    <span class="visually-hidden">Searching...</span>
-                </div>
-                <button type="button" id="clearSearchBtn"
-                    class="clear-search-icon d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %}"
-                    style="background: transparent;" title="Clear search">
-                    <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
-                </button>
+    <!-- Right: Search Pill -->
+    <div class="barangays-search-wrap">
+        <div class="etala-search-pill-wrapper" id="searchBoxWrapper">
+            <button type="button" class="etala-search-pill-icon search-btn-icon" id="searchIcon" title="Search barangays">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            <input type="text" id="barangaySearchInput" value="{{ q|default:'' }}"
+                class="etala-search-pill-input search-text-input" placeholder="Search {{ total_barangays_count|default:49 }} Carigara barangays..."
+                autocomplete="off">
+            <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                style="width: 12px; height: 12px; border-width: 2px;">
+                <span class="visually-hidden">Searching...</span>
             </div>
+            <button type="button" id="clearSearchBtn"
+                class="clear-search-icon d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %}"
+                style="background: transparent;" title="Clear search">
+                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+            </button>
         </div>
-
-        <!-- Show Map Toggle Button -->
-        <button type="button" id="toggleMapBtn" class="premium-btn btn-view text-nowrap" title="Toggle GIS Map View"
-            style="height: 34px; border-radius: 10px; font-size: 0.78rem; padding: 0 12px;">
-            <span class="btn-icon"><i class="fa-solid fa-map-location-dot" id="toggleMapIcon" style="font-size: 12px;"></i></span>
-            <span class="btn-divider"></span>
-            <span id="toggleMapLabel">Show Map</span>
-        </button>
     </div>
 </div>
 

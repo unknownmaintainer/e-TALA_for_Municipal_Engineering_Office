@@ -19,8 +19,8 @@
         <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
             <input type="hidden" name="tab" id="activeLogTabInput" value="{{ active_log_tab|default:'audit' }}">
             {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
-            <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 pb-2 w-100"
-                style="border-bottom: 1px solid var(--border-default, rgba(255,255,255,0.08)); max-width: 100%; box-sizing: border-box;">
+            <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 w-100"
+                style="border-bottom: none !important; max-width: 100%; box-sizing: border-box;">
                 <!-- Left: Category Tabs (Clean Records Style) -->
                 <div class="filter-tabs activity-filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
                     style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;">
@@ -75,7 +75,7 @@
                 </div>
 
                 <!-- Right: Compact Search & Filter Pill -->
-                <div class="d-flex align-items-center flex-shrink-0 ms-auto" style="flex: 0 0 250px; width: 250px; max-width: 100%;">
+                <div class="d-flex align-items-center flex-shrink-0 ms-auto records-search-wrapper">
                     <div class="etala-search-pill-wrapper w-100">
                         <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search logs">
                             <i class="fa-solid fa-magnifying-glass"></i>
@@ -151,7 +151,7 @@
             {% endif %}
 
             <!-- Collapsible Filters Panel (Matching Records Design — Auto-applies on change) -->
-            <div class="collapse {% if date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}show{% endif %} mb-3" id="advancedFiltersCollapse">
+            <div class="collapse {% if date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}show{% endif %}" id="advancedFiltersCollapse">
                 <div class="filter-panel-unified py-2.5 px-3 rounded-3 border">
                     <div class="row g-2.5 align-items-end">
                         <div class="col-12 col-sm-6">
@@ -211,32 +211,32 @@
                             <tr id="log-{{ log.log_id }}" data-log-id="{{ log.log_id }}">
                                 {% if request.user.role == 'admin' or record_id %}
                                 <td data-label="Staff Member" style="vertical-align: middle;">
-                                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                                    <div style="display: flex; align-items: center; gap: 11px; min-width: 0;">
                                         {% if log.user %}
-                                        <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: rgba(2, 132, 199, 0.12); color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(2, 132, 199, 0.25); flex-shrink: 0; overflow: hidden;">
+                                        <div class="log-avatar log-avatar-info flex-shrink-0">
                                             {% if log.user.profile_picture_url %}
                                             <img src="{{ log.user.profile_picture_url }}" alt="" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
                                             {% else %}
                                             {{ log.user.full_name|default:log.user.username|slice:":1"|upper }}
                                             {% endif %}
                                         </div>
-                                        <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.84rem; line-height: 1.25;">
+                                        <div class="log-card-info" style="min-width: 0; flex: 1;">
+                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem; line-height: 1.25;">
                                                 {{ log.user.full_name|default:log.user.username }}
                                             </div>
-                                            <div class="text-muted text-truncate" style="font-size: 0.71rem; margin-top: 2px;">
+                                            <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
                                                 {{ log.user.designation|default:log.user.get_role_display }}
                                             </div>
                                         </div>
                                         {% else %}
-                                        <div style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; background: rgba(100, 116, 139, 0.12); color: #64748b; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.78rem; border: 1px solid rgba(100, 116, 139, 0.25); flex-shrink: 0;">
+                                        <div class="log-avatar log-avatar-muted flex-shrink-0">
                                             <i class="fa-solid fa-server" style="font-size: 11px;"></i>
                                         </div>
-                                        <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.84rem; line-height: 1.25;">
+                                        <div class="log-card-info" style="min-width: 0; flex: 1;">
+                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem; line-height: 1.25;">
                                                 System / Automated
                                             </div>
-                                            <div class="text-muted text-truncate" style="font-size: 0.71rem; margin-top: 2px;">
+                                            <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
                                                 System Task
                                             </div>
                                         </div>
@@ -246,9 +246,9 @@
                                 {% endif %}
 
                                 <td data-label="Action Performed" style="vertical-align: middle; white-space: normal !important;">
-                                    <div style="display: flex; align-items: center; gap: 11px; min-width: 0; width: 100%;">
-                                        <div class="activity-action-icon d-flex align-items-center justify-content-center flex-shrink-0 {% if 'Created' in log.action or 'Added' in log.action %}icon-created{% elif 'Updated' in log.action or 'Modified' in log.action %}icon-updated{% elif 'Uploaded' in log.action %}icon-uploaded{% elif 'Deleted' in log.action or 'Trash' in log.action or 'Removed' in log.action %}icon-deleted{% elif 'Alerts' in log.action or 'Email' in log.action %}icon-alert{% else %}icon-default{% endif %}">
-                                            <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square{% elif 'Uploaded' in log.action %}fa-cloud-arrow-up{% elif 'Trash' in log.action %}fa-box-archive{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash{% elif 'Alerts' in log.action or 'Email' in log.action %}fa-bell{% elif 'ZIP' in log.action or 'Download' in log.action %}fa-file-zipper{% elif 'Blocked' in log.action %}fa-shield-halved{% else %}fa-clock-rotate-left{% endif %}" style="font-size: 13px;"></i>
+                                    <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; width: 100%;">
+                                        <div class="activity-action-icon d-flex align-items-center justify-content-center flex-shrink-0 {% if 'Created' in log.action or 'Added' in log.action %}icon-created{% elif 'Updated' in log.action or 'Modified' in log.action %}icon-updated{% elif 'Uploaded' in log.action %}icon-uploaded{% elif 'Deleted' in log.action or 'Trash' in log.action or 'Removed' in log.action %}icon-deleted{% elif 'Alerts' in log.action or 'Email' in log.action %}icon-alert{% else %}icon-default{% endif %}" style="margin-top: 1px;">
+                                            <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square{% elif 'Uploaded' in log.action %}fa-cloud-arrow-up{% elif 'Trash' in log.action %}fa-box-archive{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash{% elif 'Alerts' in log.action or 'Email' in log.action %}fa-bell{% elif 'ZIP' in log.action or 'Download' in log.action %}fa-file-zipper{% elif 'Blocked' in log.action %}fa-shield-halved{% else %}fa-clock-rotate-left{% endif %}" style="font-size: 12px;"></i>
                                         </div>
                                         <div style="min-width: 0; flex: 1;">
                                             <div class="fw-semibold title-text-adaptive" style="font-size: 0.84rem; line-height: 1.4; word-break: break-word;">
@@ -268,12 +268,24 @@
                                     </div>
                                 </td>
 
-                                <td class="text-end" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
-                                    <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
-                                        {{ log.performed_at|date:"h:i A" }}
+                                <td class="text-end log-timestamp-cell" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
+                                    <div class="d-none d-md-block">
+                                        <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
+                                            {{ log.performed_at|date:"h:i A" }}
+                                        </div>
+                                        <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                            {{ log.performed_at|date:"M d, Y" }}
+                                        </div>
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
-                                        {{ log.performed_at|date:"M d, Y" }}
+                                    <div class="d-flex d-md-none align-items-center justify-content-between w-100 text-muted" style="font-size: 0.74rem;">
+                                        <span class="d-inline-flex align-items-center gap-1.5 font-monospace fw-semibold title-text-adaptive">
+                                            <i class="fa-regular fa-clock text-muted" style="font-size: 11px;"></i>
+                                            {{ log.performed_at|date:"h:i A" }}
+                                        </span>
+                                        <span class="d-inline-flex align-items-center gap-1 text-muted">
+                                            <i class="fa-regular fa-calendar text-muted" style="font-size: 11px;"></i>
+                                            {{ log.performed_at|date:"M d, Y" }}
+                                        </span>
                                     </div>
                                 </td>
                             </tr>
@@ -305,8 +317,8 @@
 
                     <div class="d-flex align-items-center gap-2 pagination-controls">
                         {% if log_page_obj.paginator.num_pages > 5 %}
-                        <!-- Page Jump Input -->
-                        <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                        <!-- Page Jump Input (Desktop Only) -->
+                        <div class="page-jump d-none d-md-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                             <span>Page:</span>
                             <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
                             <span>/ {{ log_page_obj.paginator.num_pages }}</span>
@@ -387,72 +399,90 @@
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="width: 48%;">STAFF / ACCOUNT ATTEMPTED</th>
-                                <th style="width: 26%;">LOGIN STATUS</th>
-                                <th style="width: 21%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
-                                <th class="text-end" style="width: 5%; padding-right: 14px;"></th>
+                                <th style="width: 42%;">STAFF / ACCOUNT ATTEMPTED</th>
+                                <th style="width: 24%;">LOGIN STATUS</th>
+                                <th style="width: 24%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th class="text-end" style="width: 10%; min-width: 80px; padding-right: 18px; white-space: nowrap;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for attempt in login_page_obj %}
-                            <tr>
+                            <tr id="login-{{ attempt.id }}">
                                 <td data-label="Staff / Account" style="vertical-align: middle;">
-                                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
-                                        {% if attempt.success %}
-                                        <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.25); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; gap: 11px; min-width: 0;">
+                                        {% if attempt.matched_user and attempt.matched_user.profile_picture_url %}
+                                        <div class="log-avatar-img-wrap {% if attempt.success %}log-avatar-img-success{% else %}log-avatar-img-danger{% endif %}">
+                                            <img src="{{ attempt.matched_user.profile_picture_url }}" alt="" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
+                                        </div>
+                                        {% elif attempt.success %}
+                                        <div class="log-avatar log-avatar-success flex-shrink-0">
                                             {{ attempt.display_name|slice:":1"|upper }}
                                         </div>
                                         {% else %}
-                                        <div style="width: 34px; height: 34px; min-width: 34px; border-radius: 50%; background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">
+                                        <div class="log-avatar log-avatar-danger flex-shrink-0">
                                             {{ attempt.display_name|slice:":1"|upper }}
                                         </div>
                                         {% endif %}
-                                        <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.85rem; line-height: 1.25;">
+                                        <div class="log-card-info" style="min-width: 0; flex: 1;">
+                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem; line-height: 1.25;">
                                                 {{ attempt.display_name }}
                                             </div>
-                                            <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
+                                            <div class="text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
                                                 {% if attempt.is_registered_staff %}
-                                                <span>{{ attempt.display_email }}</span>
+                                                <span class="text-muted">{{ attempt.display_email }}</span>
                                                 {% else %}
-                                                <span class="text-danger-emphasis">Unregistered / External Attempt</span>
+                                                <span class="text-danger-emphasis fw-medium">Unregistered / External Attempt</span>
                                                 {% endif %}
                                             </div>
                                         </div>
                                     </div>
                                 </td>
                                 <td data-label="Status" style="vertical-align: middle;">
-                                    {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
-                                        <span class="text-danger fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
-                                            <i class="fa-solid fa-shield-halved" style="font-size: 13px;"></i>
-                                            <span>Blocked Device</span>
-                                        </span>
-                                    {% elif not attempt.is_active_staff and attempt.is_registered_staff %}
-                                        <span class="text-warning-emphasis fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
-                                            <i class="fa-solid fa-user-lock" style="font-size: 13px;"></i>
-                                            <span>Account Locked</span>
-                                        </span>
-                                    {% elif attempt.success %}
-                                        <span class="text-success fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
-                                            <i class="fa-solid fa-circle-check" style="font-size: 13px;"></i>
-                                            <span>Successful Login</span>
-                                        </span>
-                                    {% else %}
-                                        <span class="text-danger fw-bold d-inline-flex align-items-center gap-1.5" style="font-size: 0.8rem;">
-                                            <i class="fa-solid fa-circle-xmark" style="font-size: 13px;"></i>
-                                            <span>Failed Attempt</span>
-                                        </span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
-                                    <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
-                                        {{ attempt.timestamp|date:"h:i A" }}
-                                    </div>
-                                    <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
-                                        {{ attempt.timestamp|date:"M d, Y" }}
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
+                                        {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
+                                            <span class="badge-status-pill badge-status-danger">
+                                                <i class="fa-solid fa-shield-halved" style="font-size: 11px;"></i>
+                                                <span>Blocked Device</span>
+                                            </span>
+                                        {% elif not attempt.is_active_staff and attempt.is_registered_staff %}
+                                            <span class="badge-status-pill badge-status-warning">
+                                                <i class="fa-solid fa-user-lock" style="font-size: 11px;"></i>
+                                                <span>Account Locked</span>
+                                            </span>
+                                        {% elif attempt.success %}
+                                            <span class="badge-status-pill badge-status-success">
+                                                <i class="fa-solid fa-circle-check" style="font-size: 11px;"></i>
+                                                <span>Successful Login</span>
+                                            </span>
+                                        {% else %}
+                                            <span class="badge-status-pill badge-status-danger">
+                                                <i class="fa-solid fa-circle-xmark" style="font-size: 11px;"></i>
+                                                <span>Failed Attempt</span>
+                                            </span>
+                                        {% endif %}
                                     </div>
                                 </td>
-                                <td class="text-end pe-3 action-menu-cell" style="width: 55px; vertical-align: middle;" onclick="event.stopPropagation();">
+                                <td class="text-end log-timestamp-cell" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
+                                    <div class="d-none d-md-block">
+                                        <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
+                                            {{ attempt.timestamp|date:"h:i A" }}
+                                        </div>
+                                        <div class="text-muted" style="font-size: 0.72rem; margin-top: 2px;">
+                                            {{ attempt.timestamp|date:"M d, Y" }}
+                                        </div>
+                                    </div>
+                                    <div class="d-flex d-md-none align-items-center justify-content-between w-100 text-muted" style="font-size: 0.74rem;">
+                                        <span class="d-inline-flex align-items-center gap-1.5 font-monospace fw-semibold title-text-adaptive">
+                                            <i class="fa-regular fa-clock text-muted" style="font-size: 11px;"></i>
+                                            {{ attempt.timestamp|date:"h:i A" }}
+                                        </span>
+                                        <span class="d-inline-flex align-items-center gap-1 text-muted">
+                                            <i class="fa-regular fa-calendar text-muted" style="font-size: 11px;"></i>
+                                            {{ attempt.timestamp|date:"M d, Y" }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="text-end action-menu-cell" style="vertical-align: middle; padding-right: 18px !important;" onclick="event.stopPropagation();">
                                     <div class="dropdown position-relative" onclick="event.stopPropagation();">
                                         <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
                                             data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
@@ -460,7 +490,7 @@
                                             <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
-                                            style="min-width: 200px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 1060; background: #ffffff; margin-top: 4px;"
+                                            style="min-width: 200px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 1060; margin-top: 4px;"
                                             onclick="event.stopPropagation();">
                                             {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
                                             <li>
@@ -560,8 +590,8 @@
 
                     <div class="d-flex align-items-center gap-2 pagination-controls">
                         {% if login_page_obj.paginator.num_pages > 5 %}
-                        <!-- Page Jump Input -->
-                        <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                        <!-- Page Jump Input (Desktop Only) -->
+                        <div class="page-jump d-none d-md-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
                             <span>Page:</span>
                             <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
                             <span>/ {{ login_page_obj.paginator.num_pages }}</span>
@@ -884,27 +914,30 @@
         color: #64748b;
     }
 
-    /* Activity Logs Category Tabs (Audit Trail vs Login History) */
+    /* Activity Logs Category Tabs (Audit Trail vs Login History) - Symmetrical & Clean */
     .activity-filter-tabs {
         display: inline-flex !important;
         align-items: center !important;
         gap: 6px !important;
-        border-bottom: none !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 2px 0 !important;
     }
     .activity-filter-tabs .filter-tab {
         display: inline-flex !important;
         align-items: center !important;
-        gap: 6px !important;
-        padding: 8px 16px !important;
-        font-size: 0.84rem !important;
+        justify-content: center !important;
+        gap: 7px !important;
+        padding: 6px 14px !important;
+        height: 34px !important;
+        font-size: 0.82rem !important;
         font-weight: 600 !important;
         color: #64748b !important;
         background: transparent !important;
-        border: none !important;
-        border-bottom: 2.5px solid transparent !important;
-        border-radius: 6px 6px 0 0 !important;
+        border: 1px solid transparent !important;
+        border-radius: 8px !important;
         cursor: pointer !important;
-        transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease !important;
+        transition: all 0.16s ease !important;
         white-space: nowrap !important;
         text-decoration: none !important;
         user-select: none !important;
@@ -912,25 +945,34 @@
     .activity-filter-tabs .filter-tab:hover {
         color: #0f172a !important;
         background: rgba(0, 0, 0, 0.05) !important;
+        border-color: rgba(226, 232, 240, 0.8) !important;
     }
     .activity-filter-tabs .filter-tab.active {
         color: #2563eb !important;
-        border-bottom-color: #2563eb !important;
-        background: transparent !important;
+        background: rgba(37, 99, 235, 0.08) !important;
+        border: 1px solid rgba(37, 99, 235, 0.25) !important;
         font-weight: 700 !important;
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1) !important;
     }
-    .dark-mode .activity-filter-tabs .filter-tab {
+    .dark-mode .activity-filter-tabs .filter-tab,
+    [data-bs-theme="dark"] .activity-filter-tabs .filter-tab {
         color: #94a3b8 !important;
-    }
-    .dark-mode .activity-filter-tabs .filter-tab:hover {
-        color: #f8fafc !important;
-        background: rgba(255, 255, 255, 0.08) !important;
-    }
-    .dark-mode .activity-filter-tabs .filter-tab.active {
-        color: #38bdf8 !important;
-        border-bottom-color: #38bdf8 !important;
         background: transparent !important;
+        border-color: transparent !important;
+    }
+    .dark-mode .activity-filter-tabs .filter-tab:hover,
+    [data-bs-theme="dark"] .activity-filter-tabs .filter-tab:hover {
+        color: #f8fafc !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    .dark-mode .activity-filter-tabs .filter-tab.active,
+    [data-bs-theme="dark"] .activity-filter-tabs .filter-tab.active {
+        color: #38bdf8 !important;
+        background: rgba(56, 189, 248, 0.15) !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
         font-weight: 700 !important;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
     }
 
     .empty-state-icon-circle {
@@ -1083,16 +1125,210 @@
         white-space: nowrap !important;
     }
 
-    .table-responsive-cards .data-table tbody tr:hover {
-        background-color: rgba(248, 250, 252, 0.8) !important;
+    /* Status Badges & Text Styling */
+    .badge-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0;
+        background: transparent !important;
+        border: none !important;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+    .badge-status-success {
+        background: transparent;
+        color: #16a34a;
+        border: none;
+    }
+    .badge-status-danger {
+        background: transparent;
+        color: #dc2626;
+        border: none;
+    }
+    .badge-status-warning {
+        background: transparent;
+        color: #d97706;
+        border: none;
     }
 
-    .dark-mode .table-responsive-cards .data-table tbody tr:hover {
-        background-color: rgba(30, 41, 59, 0.5) !important;
+    .dark-mode .badge-status-success,
+    [data-bs-theme="dark"] .badge-status-success {
+        background: transparent !important;
+        color: #4ade80 !important;
+        border: none !important;
+    }
+    .dark-mode .badge-status-danger,
+    [data-bs-theme="dark"] .badge-status-danger {
+        background: transparent !important;
+        color: #f87171 !important;
+        border: none !important;
+    }
+    .dark-mode .badge-status-warning,
+    [data-bs-theme="dark"] .badge-status-warning {
+        background: transparent !important;
+        color: #fbbf24 !important;
+        border: none !important;
+    }
+
+    .log-ip-badge {
+        font-size: 0.72rem;
+        font-family: var(--font-monospace, monospace);
+        background: rgba(100, 116, 139, 0.08);
+        border: 1px solid rgba(100, 116, 139, 0.15);
+        color: #64748b;
+        padding: 2px 7px;
+        border-radius: 5px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .dark-mode .log-ip-badge,
+    [data-bs-theme="dark"] .log-ip-badge {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.10);
+        color: #94a3b8 !important;
+    }
+
+    .log-avatar-img-wrap {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border: 1.5px solid;
+        flex-shrink: 0;
+    }
+    .log-avatar-img-success {
+        border-color: rgba(34, 197, 94, 0.4);
+    }
+    .log-avatar-img-danger {
+        border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .log-avatar {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.82rem;
+    }
+    .log-avatar-success {
+        background: rgba(34, 197, 94, 0.12);
+        color: #16a34a;
+        border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+    .log-avatar-danger {
+        background: rgba(239, 68, 68, 0.12);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .log-avatar-info {
+        background: rgba(2, 132, 199, 0.12);
+        color: #0284c7;
+        border: 1px solid rgba(2, 132, 199, 0.25);
+    }
+    .log-avatar-muted {
+        background: rgba(100, 116, 139, 0.12);
+        color: #64748b;
+        border: 1px solid rgba(100, 116, 139, 0.25);
+    }
+    .dark-mode .log-avatar-success, [data-bs-theme="dark"] .log-avatar-success {
+        background: rgba(34, 197, 94, 0.18);
+        color: #4ade80;
+    }
+    .dark-mode .log-avatar-danger, [data-bs-theme="dark"] .log-avatar-danger {
+        background: rgba(239, 68, 68, 0.18);
+        color: #f87171;
+    }
+    .dark-mode .log-avatar-info, [data-bs-theme="dark"] .log-avatar-info {
+        background: rgba(2, 132, 199, 0.18);
+        color: #38bdf8;
+    }
+    .dark-mode .log-avatar-muted, [data-bs-theme="dark"] .log-avatar-muted {
+        background: rgba(100, 116, 139, 0.18);
+        color: #94a3b8;
+    }
+
+    .row-action-btn {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .row-action-btn:hover {
+        background: rgba(0, 0, 0, 0.05);
+        color: #0f172a;
+    }
+    .dark-mode .row-action-btn:hover,
+    [data-bs-theme="dark"] .row-action-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #f8fafc;
+    }
+
+    #advancedFiltersCollapse {
+        width: 100%;
+        max-width: 100%;
+        margin-top: 6px;
+        margin-bottom: 12px;
+        clear: both;
+        position: relative;
+        overflow: visible;
+    }
+    #advancedFiltersCollapse.show {
+        display: block !important;
+        height: auto !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    #advancedFiltersCollapse .filter-panel-unified {
+        padding: 10px 14px;
+        border-radius: 12px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Desktop Only Row Hover (Disabled on Mobile) */
+    @media (min-width: 768px) {
+        .table-responsive-cards .data-table tbody tr:hover {
+            background-color: rgba(248, 250, 252, 0.8) !important;
+        }
+
+        .dark-mode .table-responsive-cards .data-table tbody tr:hover {
+            background-color: rgba(30, 41, 59, 0.5) !important;
+        }
+    }
+
+    .records-search-wrapper {
+        flex: 0 0 250px;
+        width: 250px;
+        max-width: 250px;
     }
 
     /* Mobile Responsive Card Transformation (<768px) */
     @media (max-width: 767.98px) {
+        .records-search-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            flex: 1 1 100% !important;
+            margin-left: 0 !important;
+        }
+
         .etala-page-subtitle {
             display: none !important;
         }
@@ -1112,16 +1348,38 @@
             justify-content: center !important;
         }
 
-        /* Filter Row 100% on Mobile */
-        .filter-col-half {
+        /* Seamless Mobile Card Container */
+        .content-card:has(#activityLogsTablesWrapper),
+        .content-card:has(.table-responsive-cards) {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .content-card:has(#activityLogsTablesWrapper) > .content-card-body,
+        .content-card:has(.table-responsive-cards) > .content-card-body {
+            padding: 0 !important;
+        }
+
+        #advancedFiltersCollapse .row {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            margin: 0 !important;
             width: 100% !important;
-            min-width: 100% !important;
+        }
+
+        #advancedFiltersCollapse .col-12,
+        #advancedFiltersCollapse .col-sm-6 {
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
         .table-responsive-cards table.data-table,
-        .table-responsive-cards table.data-table tbody,
-        .table-responsive-cards table.data-table tr,
-        .table-responsive-cards table.data-table td {
+        .table-responsive-cards table.data-table tbody {
             display: block !important;
             width: 100% !important;
         }
@@ -1130,48 +1388,121 @@
             display: none !important;
         }
 
-        .table-responsive-cards table.data-table tr {
-            background: #ffffff;
+        .table-responsive-cards table.data-table tbody tr {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 9px !important;
+            background: #ffffff !important;
             border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
+            border-radius: 14px !important;
             padding: 12px 14px !important;
             margin-bottom: 10px !important;
             box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
             position: relative !important;
+            -webkit-tap-highlight-color: transparent !important;
         }
 
-        .dark-mode .table-responsive-cards table.data-table tr,
-        [data-bs-theme="dark"] .table-responsive-cards table.data-table tr {
-            background: #0f172a !important;
-            border-color: #1e293b !important;
+        /* Prevent individual cell or row hover color change on touch */
+        .table-responsive-cards table.data-table tbody tr:hover,
+        .table-responsive-cards table.data-table tbody tr:hover > td,
+        .table-responsive-cards table.data-table tbody tr td:hover,
+        .table-responsive-cards table.data-table tbody tr:active,
+        .table-responsive-cards table.data-table tbody tr:active > td,
+        .table-responsive-cards table.data-table tbody tr td:active {
+            background-color: transparent !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+
+        .dark-mode .table-responsive-cards table.data-table tbody tr,
+        [data-bs-theme="dark"] .table-responsive-cards table.data-table tbody tr {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+        }
+
+        .dark-mode .table-responsive-cards table.data-table tbody tr:hover,
+        .dark-mode .table-responsive-cards table.data-table tbody tr:hover > td,
+        .dark-mode .table-responsive-cards table.data-table tbody tr td:hover,
+        [data-bs-theme="dark"] .table-responsive-cards table.data-table tbody tr:hover,
+        [data-bs-theme="dark"] .table-responsive-cards table.data-table tbody tr:hover > td,
+        [data-bs-theme="dark"] .table-responsive-cards table.data-table tbody tr td:hover {
+            background-color: transparent !important;
+            background: transparent !important;
         }
 
         .table-responsive-cards table.data-table td {
+            display: block !important;
+            width: 100% !important;
+            padding: 0 !important;
             border: none !important;
-            padding: 3px 0 !important;
+            background: transparent !important;
+            background-color: transparent !important;
             text-align: left !important;
             max-width: 100% !important;
+            -webkit-tap-highlight-color: transparent !important;
         }
 
-        .table-responsive-cards table.data-table td[data-label="Staff / Account"],
-        .table-responsive-cards table.data-table td[data-label="Staff / User"] {
+        .table-responsive-cards table.data-table td[data-label="Staff Member"],
+        .table-responsive-cards table.data-table td[data-label="Staff / Account"] {
+            padding-bottom: 0 !important;
+            border-bottom: none !important;
+            margin-bottom: 0 !important;
+        }
+
+        .log-card-info {
             padding-right: 36px !important;
-            margin-bottom: 4px !important;
+        }
+
+        .table-responsive-cards table.data-table td[data-label="Action Performed"],
+        .table-responsive-cards table.data-table td[data-label="Status"] {
+            padding: 0 !important;
+        }
+
+        .table-responsive-cards table.data-table td.log-timestamp-cell,
+        .table-responsive-cards table.data-table td[data-label="Date & Time"] {
+            display: block !important;
+            width: 100% !important;
+            padding-top: 7px !important;
+            margin-top: 1px !important;
+            border-top: 1px dashed rgba(226, 232, 240, 0.7) !important;
+            text-align: left !important;
+        }
+
+        .dark-mode .table-responsive-cards table.data-table td.log-timestamp-cell,
+        .dark-mode .table-responsive-cards table.data-table td[data-label="Date & Time"],
+        [data-bs-theme="dark"] .table-responsive-cards table.data-table td.log-timestamp-cell,
+        [data-bs-theme="dark"] .table-responsive-cards table.data-table td[data-label="Date & Time"] {
+            border-top-color: rgba(51, 65, 85, 0.6) !important;
         }
 
         .table-responsive-cards table.data-table td.action-menu-cell {
             position: absolute !important;
-            top: 12px !important;
+            top: 11px !important;
             right: 12px !important;
             width: auto !important;
             padding: 0 !important;
+            z-index: 5 !important;
         }
 
-        .table-responsive-cards table.data-table td.text-end:not(.action-menu-cell) {
-            text-align: left !important;
-            margin-top: 4px !important;
-            font-size: 0.74rem !important;
+        .table-responsive-cards .row-action-btn {
+            width: 32px !important;
+            height: 32px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: rgba(148, 163, 184, 0.08) !important;
+            border: 1px solid rgba(226, 232, 240, 0.6) !important;
+            border-radius: 8px !important;
             color: #64748b !important;
+            transition: all 0.15s ease !important;
+        }
+        .dark-mode .table-responsive-cards .row-action-btn,
+        [data-bs-theme="dark"] .table-responsive-cards .row-action-btn {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border-color: rgba(255, 255, 255, 0.10) !important;
+            color: #94a3b8 !important;
         }
     }
 
@@ -1277,7 +1608,7 @@
             if (btnLogin) btnLogin.classList.add('active');
             if (colAction) colAction.classList.add('d-none');
             if (colLogin) colLogin.classList.remove('d-none');
-            if (searchInput) searchInput.placeholder = 'Search email, IP address...';
+            if (searchInput) searchInput.placeholder = 'Search email or account...';
         }
 
         const scopeControl = document.querySelector('.scope-segmented-control');
@@ -1365,8 +1696,9 @@
             if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
             if (logClearBtn) logClearBtn.classList.add('d-none');
             if (tablesWrapper) {
-                tablesWrapper.style.transition = 'opacity 0.08s ease';
-                tablesWrapper.style.opacity = '0.5';
+                tablesWrapper.style.transition = 'opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1)';
+                tablesWrapper.style.opacity = '0.35';
+                tablesWrapper.style.transform = 'translateY(2px)';
             }
 
             try {
@@ -1433,7 +1765,11 @@
             } catch (err) {
                 console.error("AJAX refresh error:", err);
             } finally {
-                if (tablesWrapper) tablesWrapper.style.opacity = '1';
+                if (tablesWrapper) {
+                    tablesWrapper.style.transition = 'opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+                    tablesWrapper.style.opacity = '1';
+                    tablesWrapper.style.transform = 'translateY(0)';
+                }
                 if (logSearchSpinner) logSearchSpinner.classList.add('d-none');
                 if (logClearBtn) {
                     if (logSearchInput && logSearchInput.value.trim().length > 0) logClearBtn.classList.remove('d-none');

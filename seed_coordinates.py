@@ -62,25 +62,34 @@ OFFICIAL_49_CARIGARA_BARANGAYS = [
 
 print("Syncing Official 49 PSA Barangays of Carigara, Leyte...")
 
+from django.core.cache import cache
+
 valid_names = set()
+valid_psgcs = {item["psgc"] for item in OFFICIAL_49_CARIGARA_BARANGAYS}
+
 for item in OFFICIAL_49_CARIGARA_BARANGAYS:
     name = item["name"]
     psgc = item["psgc"]
     lat = item["lat"]
     lng = item["lng"]
+    district = "Poblacion" if "(Poblacion)" in name else "Rural"
     valid_names.add(name.lower())
 
-    # Try matching existing DB entry by name or PSGC
-    b = Barangay.objects.filter(barangay_name__iexact=name).first()
+    # 1. Match by official PSGC Code first (highest precision)
+    b = Barangay.objects.filter(psgc_code=psgc).first()
+    
+    # 2. Fallback: Match by exact name or alias
     if not b:
-        # Check alias without poblacion suffix
+        b = Barangay.objects.filter(barangay_name__iexact=name).first()
+    if not b and "(Poblacion)" in name:
         short_name = name.replace(" (Poblacion)", "").strip()
         b = Barangay.objects.filter(barangay_name__iexact=short_name).first()
-        
+
     if not b:
         b = Barangay.objects.create(
             barangay_name=name,
             psgc_code=psgc,
+            district=district,
             latitude=lat,
             longitude=lng
         )
@@ -88,21 +97,25 @@ for item in OFFICIAL_49_CARIGARA_BARANGAYS:
     else:
         b.barangay_name = name
         b.psgc_code = psgc
+        b.district = district
         b.latitude = lat
         b.longitude = lng
         b.save()
         print(f"  [OK] Updated Barangay: {name} (PSGC: {psgc})")
 
-# Purge non-official or dummy barangays that are not in official 49 list (e.g. Wang, Barugo)
-valid_psgcs = {item["psgc"] for item in OFFICIAL_49_CARIGARA_BARANGAYS}
+# Safely purge any dummy or non-official barangays without attached records
 deleted_count = 0
 for b in Barangay.objects.all():
     name_clean = b.barangay_name.lower()
     is_valid = (name_clean in valid_names) or (bool(b.psgc_code) and b.psgc_code in valid_psgcs)
-    has_records = (hasattr(b, 'engineering_records') and b.engineering_records.exists()) or (hasattr(b, 'records') and b.records.exists())
+    has_records = b.engineering_records.exists() if hasattr(b, 'engineering_records') else False
     if not is_valid and not has_records:
         print(f"  [-] Removing non-official Barangay: {b.barangay_name}")
         b.delete()
         deleted_count += 1
+
+# Invalidate global cache count so templates reflect immediately
+cache.delete('global_total_barangays_count')
+cache.set('global_total_barangays_count', Barangay.objects.count(), timeout=60)
 
 print(f"\nSUCCESS: Master list synchronized. Total Barangays in DB: {Barangay.objects.count()}. (Purged: {deleted_count})")

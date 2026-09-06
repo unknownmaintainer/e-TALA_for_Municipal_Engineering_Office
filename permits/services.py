@@ -1412,12 +1412,14 @@ def purge_expired_trash_records(retention_days=30, dry_run=False):
     svc_logger = logging.getLogger(__name__)
     threshold_dt = timezone.now() - timedelta(days=retention_days)
     
-    # Query records archived at or before the threshold
-    # Fallback to updated_at for legacy records without deleted_at
+    # Query records archived at or before the threshold (strictly requires deleted_at <= threshold)
+    # Fix any legacy archived records without deleted_at so they get a valid 30-day grace period
+    EngineeringRecord.objects.filter(status='archived', deleted_at__isnull=True).update(deleted_at=timezone.now())
+
     expired_records = EngineeringRecord.objects.filter(
-        status='archived'
-    ).filter(
-        Q(deleted_at__lte=threshold_dt) | (Q(deleted_at__isnull=True) & Q(updated_at__lte=threshold_dt))
+        status='archived',
+        deleted_at__isnull=False,
+        deleted_at__lte=threshold_dt
     ).prefetch_related('documents')
 
     purged_records_count = 0

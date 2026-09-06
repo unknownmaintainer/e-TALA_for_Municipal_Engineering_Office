@@ -6,6 +6,67 @@ from django.core.cache import cache
 from django.db.models import Q
 from .models import AuditLog, Document, LoginAttempt, UserDevice, EngineeringRecord
 
+def format_notif_record_name(record):
+    """
+    Returns a clean, human-friendly display name for engineering records in notifications.
+    Strips raw database brackets like [Violation: ...], handles applicant names, and formats
+    violations/illegal constructions gracefully.
+    """
+    if not record:
+        return "Record"
+        
+    title = str(record.title or '').strip()
+    # Strip wrapping brackets or quotes if present (e.g. '[Violation: No Occupancy Permit]' -> 'Violation: No Occupancy Permit')
+    if (title.startswith('[') and title.endswith(']')) or (title.startswith('"') and title.endswith('"')) or (title.startswith("'") and title.endswith("'")):
+        title = title[1:-1].strip()
+
+    # If it has a raw 'Violation:' prefix, normalize it
+    if title.lower().startswith('violation:'):
+        raw_v = title[10:].strip()
+        title = f"Violation: {raw_v}" if raw_v else "Violation"
+    elif title.lower().startswith('unpermitted construction'):
+        title = f"Violation: {title}"
+
+    # If it is an illegal construction record
+    if getattr(record, 'is_illegal_construction', False):
+        applicant = ''
+        if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
+            applicant = record.permit_detail.applicant_name.strip()
+            # make sure applicant is not a placeholder/violation tag
+            if applicant.startswith('[') or 'violation' in applicant.lower():
+                applicant = ''
+
+        if not title or title.lower() in ['permit', 'violation', 'violation report', 'illegal construction']:
+            if applicant:
+                return f"Violation - {applicant}"
+            return "Violation Case"
+        
+        # If title doesn't already have 'Violation', add prefix for clarity
+        if not title.lower().startswith('violation'):
+            if applicant:
+                return f"Violation: {title} ({applicant})"
+            return f"Violation: {title}"
+        else:
+            if applicant and applicant not in title:
+                return f"{title} ({applicant})"
+            return title
+
+    # Normal Permit record
+    if record.record_type == 'Permit':
+        if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
+            applicant = record.permit_detail.applicant_name.strip()
+            if applicant and not applicant.startswith('[') and applicant.lower() not in ['n/a', 'none', 'null', 'under investigation']:
+                return applicant
+        if title and title.lower() != 'permit':
+            return title
+        return record.specific_type_label or "Permit"
+
+    # Project or other record
+    if title:
+        return title
+    return record.specific_type_label or "Project"
+
+
 def recent_notifications(request):
     if not request.user.is_authenticated:
         return {'recent_notifications': [], 'notifications_count': 0, 'has_urgent_alerts': False}
@@ -53,16 +114,19 @@ def recent_notifications(request):
         expiry_date__isnull=False,
         expiry_date__gte=thirty_days_ago,
         expiry_date__lte=thirty_days_later
+    ).filter(
+        Q(record_requirement__isnull=False, record_requirement__is_fulfilled=True) | Q(requirement_item__isnull=True)
     ).exclude(engineering_record__status='archived').select_related('engineering_record', 'requirement_item').order_by('-uploaded_at', '-document_id')[:12]
     
     for doc in alert_docs:
         doc_label = doc.requirement_item.name if doc.requirement_item else doc.document_type
         doc_id_slug = f"doc_{doc.document_id}"
+        doc_record_name = format_notif_record_name(doc.engineering_record)
         if doc.expiry_date < today_date:
             alerts.append({
                 'id': doc_id_slug,
                 'type': 'expired',
-                'action': f'Expired: {doc_label} for "{doc.engineering_record.title}"',
+                'action': f'Expired: {doc_label} for "{doc_record_name}"',
                 'url': f"{reverse('record_detail', args=[doc.engineering_record.record_id])}?highlight_doc={doc.document_id}&item_id={doc.requirement_item_id or ''}#doc-{doc.document_id}",
                 'badge': 'expired',
                 'time': f'Expired last {doc.expiry_date.strftime("%b %d, %Y")}',
@@ -74,7 +138,7 @@ def recent_notifications(request):
             alerts.append({
                 'id': doc_id_slug,
                 'type': 'expiring',
-                'action': f'Expiring: {doc_label} for "{doc.engineering_record.title}"',
+                'action': f'Expiring: {doc_label} for "{doc_record_name}"',
                 'url': f"{reverse('record_detail', args=[doc.engineering_record.record_id])}?highlight_doc={doc.document_id}&item_id={doc.requirement_item_id or ''}#doc-{doc.document_id}",
                 'badge': 'expiring',
                 'time': f'Expires on {doc.expiry_date.strftime("%b %d, %Y")}',
@@ -88,25 +152,27 @@ def recent_notifications(request):
     seven_days_warning_threshold = now_dt - datetime.timedelta(days=23)  # deleted between 23 and 30 days ago
     
     expiring_trash_records = EngineeringRecord.objects.filter(
-        status='archived'
-    ).filter(
-        Q(deleted_at__lte=seven_days_warning_threshold) | (Q(deleted_at__isnull=True) & Q(updated_at__lte=seven_days_warning_threshold))
-    ).order_by('deleted_at', 'updated_at')[:5]
+        status='archived',
+        deleted_at__isnull=False,
+        deleted_at__lte=seven_days_warning_threshold
+    ).order_by('deleted_at')[:5]
 
     for tr in expiring_trash_records:
         days_left = tr.trash_days_remaining
         if days_left <= 7:
             trash_notif_id = f"trash_exp_{tr.record_id}"
+            rec_display_name = format_notif_record_name(tr)
+
             alerts.append({
                 'id': trash_notif_id,
                 'type': 'trash_warning',
-                'action': f"Trash Warning: '{tr.title}' will be permanently deleted in {days_left} day{'s' if days_left != 1 else ''}.",
+                'action': f"Trash: {rec_display_name}",
                 'url': reverse('archive'),
-                'badge': 'Auto-Purge in 7d',
-                'time': f"{days_left} day{'s' if days_left != 1 else ''} left to restore",
+                'badge': 'Trash Expiring',
+                'time': f"{days_left} day{'s' if days_left != 1 else ''} before permanent deletion",
                 'user': None,
                 'username': None,
-                'performed_at': tr.deleted_at or tr.updated_at,
+                'performed_at': tr.deleted_at,
             })
 
     # Fetch read/deleted notification IDs from database for cross-device sync
