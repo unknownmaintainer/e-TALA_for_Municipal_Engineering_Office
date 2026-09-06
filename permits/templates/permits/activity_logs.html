@@ -1633,6 +1633,28 @@
             }
         }
     }
+    window.switchLogTab = switchLogTab;
+
+    function filterActionType(actionVal, event) {
+        if (event) event.preventDefault();
+        const actionSelect = document.querySelector('select[name="action_type"]');
+        if (actionSelect) actionSelect.value = actionVal;
+
+        const form = document.getElementById('activityLogsFilterForm');
+        if (form) {
+            const formData = new FormData(form);
+            formData.set('action_type', actionVal);
+            formData.set('log_page', '1');
+            const params = new URLSearchParams(formData);
+            const newUrl = window.location.pathname + '?' + params.toString();
+            if (window.updateLogsTableAJAX) {
+                window.updateLogsTableAJAX(newUrl);
+            } else {
+                window.location.search = params.toString();
+            }
+        }
+    }
+    window.filterActionType = filterActionType;
 
     function changePerPage(val) {
         const urlParams = new URLSearchParams(window.location.search);
@@ -1645,6 +1667,7 @@
             window.location.search = urlParams.toString();
         }
     }
+    window.changePerPage = changePerPage;
 
     function jumpToPage(pageVal, maxPage, pageParamName) {
         const pageNum = parseInt(pageVal);
@@ -1779,26 +1802,6 @@
         }
 
         window.updateLogsTableAJAX = updateLogsTableAJAX;
-
-        window.filterActionType = function (actionVal, event) {
-            if (event) event.preventDefault();
-            const actionSelect = document.querySelector('select[name="action_type"]');
-            if (actionSelect) actionSelect.value = actionVal;
-
-            const form = document.getElementById('activityLogsFilterForm');
-            if (form) {
-                const formData = new FormData(form);
-                formData.set('action_type', actionVal);
-                formData.set('log_page', '1');
-                const params = new URLSearchParams(formData);
-                const newUrl = window.location.pathname + '?' + params.toString();
-                if (window.updateLogsTableAJAX) {
-                    window.updateLogsTableAJAX(newUrl);
-                } else {
-                    window.location.search = params.toString();
-                }
-            }
-        };
 
         function triggerFormSearch() {
             if (filterForm) {
