@@ -7555,29 +7555,41 @@
             background-color: #0f172a !important;
         }
 
-        /* ══ GLOBAL FORM VALIDATION HIGHLIGHTS (RED BORDER & HALO, NO GREEN CHECKMARKS) ══ */
+        /* ══ GLOBAL FORM VALIDATION HIGHLIGHTS (RED BORDER, RED GLOW & SOFT RED TINT) ══ */
         .was-validated .form-control:invalid,
         .was-validated .form-select:invalid,
+        .was-validated select:invalid,
         .was-validated textarea.form-control:invalid,
+        .was-validated textarea:invalid,
         .was-validated .flatpickr-custom-input.is-invalid,
         .form-control.is-invalid,
         .form-select.is-invalid,
+        select.is-invalid,
+        input.is-invalid,
+        textarea.is-invalid,
         .flatpickr-custom-input.is-invalid {
             border-color: #ef4444 !important;
             border-width: 1.5px !important;
-            box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.15) !important;
+            box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.20) !important;
+            background-color: #fff5f5 !important;
         }
 
         .dark-mode .was-validated .form-control:invalid,
         .dark-mode .was-validated .form-select:invalid,
+        .dark-mode .was-validated select:invalid,
         .dark-mode .was-validated textarea.form-control:invalid,
+        .dark-mode .was-validated textarea:invalid,
         .dark-mode .was-validated .flatpickr-custom-input.is-invalid,
         .dark-mode .form-control.is-invalid,
         .dark-mode .form-select.is-invalid,
+        .dark-mode select.is-invalid,
+        .dark-mode input.is-invalid,
+        .dark-mode textarea.is-invalid,
         .dark-mode .flatpickr-custom-input.is-invalid {
             border-color: #ef4444 !important;
             border-width: 1.5px !important;
-            box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.25) !important;
+            box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.30) !important;
+            background-color: rgba(239, 68, 68, 0.12) !important;
         }
 
         .was-validated .form-control:valid,
@@ -11152,19 +11164,39 @@
                     event.stopPropagation();
                     form.classList.add('was-validated');
 
-                    // Synchronize all Flatpickr custom inputs with validation state
-                    form.querySelectorAll('input[type="date"], input.date-picker').forEach(function(dInp) {
-                        if (dInp._flatpickr && dInp._flatpickr.altInput) {
-                            if (!dInp.checkValidity()) {
-                                dInp._flatpickr.altInput.classList.add('is-invalid');
-                            } else {
-                                dInp._flatpickr.altInput.classList.remove('is-invalid');
+                    // Synchronize and explicitly mark all form elements with invalid state
+                    form.querySelectorAll('input, select, textarea').forEach(function(inp) {
+                        if (!inp.checkValidity()) {
+                            inp.classList.add('is-invalid');
+                            inp.classList.remove('is-valid');
+                            if (inp._flatpickr && inp._flatpickr.altInput) {
+                                inp._flatpickr.altInput.classList.add('is-invalid');
                             }
+                        } else {
+                            inp.classList.remove('is-invalid');
+                            if (inp._flatpickr && inp._flatpickr.altInput) {
+                                inp._flatpickr.altInput.classList.remove('is-invalid');
+                            }
+                        }
+
+                        // Attach live listener to clear invalid styling as soon as user types or selects
+                        if (!inp._hasValidationListener) {
+                            inp._hasValidationListener = true;
+                            ['input', 'change'].forEach(function(evt) {
+                                inp.addEventListener(evt, function() {
+                                    if (inp.checkValidity()) {
+                                        inp.classList.remove('is-invalid');
+                                        if (inp._flatpickr && inp._flatpickr.altInput) {
+                                            inp._flatpickr.altInput.classList.remove('is-invalid');
+                                        }
+                                    }
+                                });
+                            });
                         }
                     });
 
                     // Auto-scroll and smoothly focus the first invalid field
-                    const firstInvalid = form.querySelector(':invalid');
+                    const firstInvalid = form.querySelector(':invalid, .is-invalid');
                     if (firstInvalid) {
                         if (firstInvalid._flatpickr && firstInvalid._flatpickr.altInput) {
                             firstInvalid._flatpickr.altInput.focus();
