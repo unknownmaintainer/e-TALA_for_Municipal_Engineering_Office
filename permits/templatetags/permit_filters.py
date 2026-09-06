@@ -357,6 +357,29 @@ def is_valid_applicant(name):
     return True
 
 
+@register.filter(name='clean_resolved_description')
+def clean_resolved_description(description, record=None):
+    """
+    Cleans up auto-generated boilerplate violation text from remarks when a record is resolved.
+    If the description only contains boilerplate violation tags, returns an empty string.
+    """
+    if not description:
+        return ''
+    desc_str = str(description).strip()
+    if not desc_str:
+        return ''
+    
+    parts = [p.strip() for p in desc_str.split('•') if p.strip()]
+    cleaned_parts = []
+    for part in parts:
+        lower_p = part.lower()
+        if lower_p.startswith('violation:') or lower_p.startswith('building type:') or lower_p.startswith('unpermitted construction'):
+            continue
+        cleaned_parts.append(part)
+    
+    return ' • '.join(cleaned_parts)
+
+
 @register.filter(name='short_timesince')
 def short_timesince(value):
     """Formats a datetime into a clean, compact time ago string like '18m ago', '2h ago', '3d ago', or 'Just now'."""

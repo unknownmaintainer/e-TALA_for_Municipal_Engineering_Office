@@ -271,7 +271,20 @@
         {% endwith %}
 
         <!-- Remarks / Notes -->
-        {% if record.description %}
+        {% with cleaned_desc=record.description|clean_resolved_description:record %}
+        {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
+            {% if cleaned_desc %}
+            <div class="py-1 d-flex flex-column gap-0.5">
+                <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
+                    <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
+                    <span>Remarks / Notes</span>
+                </div>
+                <div class="title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.4; font-weight: 500;">
+                    {{ cleaned_desc|linebreaksbr }}
+                </div>
+            </div>
+            {% endif %}
+        {% elif record.description %}
         <div class="py-1 d-flex flex-column gap-0.5">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
@@ -282,6 +295,7 @@
             </div>
         </div>
         {% endif %}
+        {% endwith %}
     </div>
 
     {% if return_to_detail_link %}
