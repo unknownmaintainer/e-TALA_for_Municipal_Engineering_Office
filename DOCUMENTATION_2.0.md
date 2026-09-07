@@ -724,19 +724,80 @@ flowchart TD
 
 ## 19. 🎯 System Scope, Delimitations & Target Beneficiaries (Chapter 1)
 
-### 19.1 System Scope
-* **Functional Scope**: Covers digital encoding, categorization, blueprint PDF archiving, dynamic checklist compliance, GIS centroid mapping, in-browser CAD plan inspection, multi-level ZIP packaging, accomplishment report generation (PDF/Excel), and disaster recovery snapshots.
-* **Geographical Scope**: Exclusively mapped to all **49 barangays of the Municipality of Carigara, Leyte, Philippines**.
-* **Temporal Scope**: Supports archival backlogs from **1995 up to the present calendar year**.
-* **Target Beneficiaries**:
-  1. **Municipal Engineering Office (MEO)**: Encoders, inspectors, and evaluators who manage daily permits and public infrastructure projects.
-  2. **Municipal Engineer & Building Official**: Reviews compliance rates, approves permits, and signs official accomplishment reports.
-  3. **Municipal Mayor & Sangguniang Bayan**: Accesses accurate infrastructure statistics and accomplishment matrices for policy and budget allocations.
-  4. **Commission on Audit (COA)**: Conducts formal audits using tamper-proof audit trails and verifiable municipal project records.
+### 19.1 Comprehensive Scope of the System (Saklaw ng Sistema)
 
-### 19.2 Delimitations (What the System is NOT)
-* **Not an Online Citizen Payment Gateway**: eTala is an internal LGU engineering management and archiving platform; it does not process public credit card or digital wallet payments directly.
-* **Not a Full Architectural CAD Modeling Tool**: It views and pans high-resolution vector PDF CAD drawings but does not modify underlying DWG wireframes.
+Ang saklaw ng eTala ay nakapokus sa pagiging sentralisadong digital archiving, geospatial mapping, at compliance management platform para sa **Municipal Engineering Office (MEO) ng LGU Carigara, Leyte**:
+
+#### A. Functional Scope (Mga Saklaw na Modulo at Gamit)
+1. **Four (4) Official Engineering Permits (PD 1096)**:
+   * **Building Permits**: *Residential, Commercial, Industrial, Institutional, Agricultural*.
+   * **Electrical Permits**: *Wiring installations, temporary/permanent power connections, transformer setups*.
+   * **Occupancy Permits**: *Certificates of Occupancy, final structural completion inspections*.
+   * **Fencing Permits**: *Perimeter concrete walls, boundary enclosures*.
+2. **Public Infrastructure Civil Works Projects**:
+   * **Municipal Projects**: *Mga proyektong pinondohan ng Munisipyo (e.g., Public Market, Municipal Hall, Flood Control)*.
+   * **Barangay Projects**: *Mga proyektong pinondohan ng Barangay Development Fund (e.g., Barangay Pathways, Multi-Purpose Halls)*.
+   * **14 Funding Source Classifications**: *20% Development Fund, LGU General Fund, Barangay Fund, LDRRM Fund, DPWH, DILG, DOH, DepEd, atbp.*
+3. **Illegal Construction Monitoring & Regularization**:
+   * Pag-flag ng unpermitted structures sa GIS map, pagtala ng Notice of Violation (NOV), pagkakabit ng site inspection photos, at pag-convert (*Regularization*) patungo sa lehitimong Building Permit.
+4. **Dynamic Checklist & Document Archiving**:
+   * Awtomatikong paglalatag ng kailangang dokumento (*Tax Declarations, Structural Plans, Fire Safety Clearances*).
+   * Suporta hanggang **50.0 MB bawat file** para sa malalaking vector CAD blueprints.
+   * **In-Browser Blueprint Viewer**: Pan, zoom, at pagsusuri ng blueprints nang hindi kailangang i-download sa computer.
+   * **Document Versioning (v1 $\rightarrow$ v2)**: Pag-archive ng lumang bersyon ng plano sa kasaysayan ng record para sa legal audit.
+
+#### B. Geographical Scope (Heograpikal na Saklaw)
+* Sakop ang **lahat ng 49 Opisyal na Barangay ng Carigara, Leyte** batay sa Philippine Standard Geographic Code (PSGC 10-digit codes) ng Philippine Statistics Authority (PSA).
+* Nahahati sa dalawang (2) administrative districts: **Poblacion** (7 barangays) at **Rural** (42 barangays).
+* Bawat barangay ay may sariling **interactive GIS centroid map pin** at digital workspace na may persistent database coordinates.
+
+#### C. Temporal / Time Horizon Scope (Saklaw ng Taon)
+* Sumusuporta sa pag-encode ng mga historical paper backlogs mula **Taong 1995 hanggang sa Kasalukuyan (Present Year)**.
+
+#### D. User Roles & Security Scope (Saklaw ng Gumagamit at Seguridad)
+* **2-Tier Role-Based Access Control (RBAC)**:
+  * **Engineering Staff**: Encoders, inspectors, at clerks para sa daily encoding, uploading, at report generation.
+  * **System Administrator**: IT Officers at Municipal Engineer para sa account management, database backups, at trash purging.
+* **Security Subsystem**:
+  * 2-Tier brute-force lockout (5 failed tries $\rightarrow$ 15 min cool-off; 10 failed tries $\rightarrow$ permanent lock + IP blacklist).
+  * 2FA Email OTP sa mga bagong devices na may 365-day trusted device token.
+  * Multi-device concurrent login na may 14-day sliding session duration.
+  * 10-minute temporary signed HMAC URLs para sa ligtas na pagtingin ng dokumento.
+
+#### E. Reporting & Auditing Scope (Saklaw ng Ulat at Pag-audit)
+* **1-Click Official Accomplishment Reports**:
+  * **PDF Export**: Nakadisenyo para sa Legal (8.5" x 13") at A4 sheets na may LGU Carigara Seal at tripartite signature block (*Prepared by Encoder, Verified by Municipal Engineer, Approved by Mayor*).
+  * **Multi-Sheet Excel Export (`.xlsx`)**: Handa para sa pagsusuri ng Sangguniang Bayan at Commission on Audit (COA).
+* **Immutable Audit Trail (`AuditLog`)**: Tamper-proof logging ng lahat ng account actions na may clickable reference links.
+
+#### F. Disaster Recovery & Retention Scope (Saklaw ng Backup at Pagbura)
+* **30-Day Trash Grace Period**: Soft-deleted records ay may 30 calendar days recovery window bago awtomatikong i-purge.
+* **Automated Midnight Backups**: Araw-araw na `.json` snapshot na may **14-snapshot rolling retention window**.
+
+#### G. Target Beneficiaries
+1. **Municipal Engineering Office (MEO)**: Encoders, inspectors, at evaluators na nagpoproseso ng araw-araw na permits at infrastructure records.
+2. **Municipal Engineer & Building Official**: Sumusuri ng compliance rates, nag-aapruba ng permits, at lumalagda sa accomplishment reports.
+3. **Municipal Mayor & Sangguniang Bayan**: Tumatanggap ng accurate accomplishment matrices para sa municipal planning at budgeting.
+4. **Commission on Audit (COA)**: Nagsasagawa ng formal auditing gamit ang tamper-proof logs at kumpletong municipal project records.
+
+---
+
+### 19.2 Explicit Delimitations of the System (Mga Limitasyon at Labas sa Saklaw)
+
+Upang maiwasan ang maling ekspektasyon at maipagtanggol ang hangganan ng pag-aaral sa harap ng defense panel:
+
+1. **Hindi Online Public Citizen Payment Gateway**:
+   * Ang eTala ay isang **panloob (internal) na management at archiving platform** ng MEO. Hindi ito tumatanggap ng direktang bayad mula sa publiko gamit ang Credit Card, GCash, o Maya para sa regulatory permit fees (ang pagbabayad ng regulatory fees ay nananatili sa Municipal Treasurer's Office).
+2. **Hindi Public Open-Access Portal**:
+   * Ang system ay accessible lamang sa mga awtorisadong kawani ng munisipyo na may rehistradong account. Ang mga pribadong mamamayan ay hindi pwedeng mag-login o mag-browse ng blueprints ng ibang tao (alinsunod sa Data Privacy Act RA 10173).
+3. **Hindi 3D Architectural CAD Modeling Software**:
+   * Ang built-in viewer ay nagpapakita, nagzu-zoom, at sumusuri ng vector PDF CAD drawings. **Hindi ito nagmo-modify o nag-e-edit ng mismong DWG/CAD wireframe models**.
+4. **Delimited Lamang sa LGU Carigara, Leyte**:
+   * Ang geospatial map boundaries, barangay PSGC master list, at structural project workflows ay naka-calibrate eksklusibo para sa Munisipalidad ng Carigara lamang.
+5. **Hindi Awtomatikong Pumapalit sa Pirma ng Lisensyadong Inhinyero**:
+   * Ang eTala ay tagapagtala at tagasuri ng compliance checklists. Ang legal at propesyonal na pananagutan sa structural stability ng mga plano ay nananatili sa lisensyadong Civil/Structural Engineer na pumirma sa pisikal na plano.
+6. **100% On-Premise Local Intranet Hosting**:
+   * Idinisenyo ang system upang tumakbo sa sariling local server ng Munisipyo at ma-access sa pamamagitan ng LGU Local Area Network (LAN/Intranet). Hindi ito gumagamit ng third-party public cloud hosting (tulad ng AWS, Render, o Supabase) upang makatipid sa buwanang gastusin at mapanatili ang data sovereignty.
 
 ---
 
