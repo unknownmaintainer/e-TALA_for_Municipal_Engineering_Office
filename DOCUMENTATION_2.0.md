@@ -33,6 +33,12 @@
 * [16. ⚖️ Legal & Regulatory Compliance (RA 10173, PD 1096, COA)](#16-️-legal--regulatory-compliance-ra-10173-pd-1096-coa)
 * [17. 🧪 System Testing, Verification & Quality Assurance](#17--system-testing-verification--quality-assurance)
 * [18. 🗺️ Complete System Master Flowchart Architecture](#18-️-complete-system-master-flowchart-architecture)
+* [19. 🎯 System Scope, Delimitations & Target Beneficiaries (Chapter 1)](#19--system-scope-delimitations--target-beneficiaries-chapter-1)
+* [20. 📖 Operational Definition of Terms (Chapter 1)](#20--operational-definition-of-terms-chapter-1)
+* [21. 📊 ISO/IEC 25010 Software Quality Evaluation Framework (Chapter 4)](#21--isoiec-25010-software-quality-evaluation-framework-chapter-4)
+* [22. 🖥️ Minimum & Recommended Hardware/Software Specifications (Chapter 3)](#22-️-minimum--recommended-hardwaresoftware-specifications-chapter-3)
+* [23. 🗃️ Complete Data Dictionary & Database Table Specifications (Chapter 3)](#23-️-complete-data-dictionary--database-table-specifications-chapter-3)
+* [24. 🛡️ Risk Management, Threat Matrix & Contingency Plan (Chapter 3/5)](#24-️-risk-management-threat-matrix--contingency-plan-chapter-35)
 
 ---
 
@@ -65,6 +71,50 @@ Prior to eTala, the Carigara Municipal Engineering Office managed thousands of p
 4. 🔍 **Crystal-Clear In-Browser CAD Blueprint Viewer**: Pan, zoom, and inspect high-resolution CAD drawings directly in the web browser without downloading.
 5. 📊 **1-Click Print-Ready Reports**: Generates formal PDF and Excel accomplishment reports with official municipal letterheads and tripartite signature blocks.
 6. 🔒 **100% Data Sovereignty & Zero Recurring Cost**: Operates entirely on-premise on the LGU's local dedicated server with zero dependency on costly cloud subscriptions.
+
+---
+
+### 🌟 The 9 Standout Capabilities (Plain-Language Guide for Non-Tech Stakeholders & Panelists)
+
+Para sa mga **non-technical users, evaluators, panel members, at opisyal ng munisipyo (Mayor, Municipal Engineer, Encoders)**, narito ang 9 na pinakamahalagang katangian ng eTala sa simpleng salita:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│              🌟 9 SPECIAL HIGHLIGHT FEATURES (PLAIN LANGUAGE)                    │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│ 1. 🗺️ Interactive GIS Map       │ Parang "Google Maps" para sa 49 barangays ng   │
+│                                  │ Carigara; i-click ang barangay para lumabas    │
+│                                  │ lahat ng permits at kalsada doon.              │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 2. 🔍 3-Second Live Search       │ Parang Google sa loob ng opisina; mabilis na   │
+│                                  │ lumalabas ang resulta habang nagta-type.       │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 3. 📋 Automatic Checklist        │ Kusa nang naglalatag ng listahan ng kailangang │
+│                                  │ papeles (Plano, Fire Safety, Tax Dec).         │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 4. 🔍 In-Browser HD Blueprint    │ Pwedeng i-zoom at silipin ang CAD drawings sa  │
+│                                  │ screen nang hindi na kailangang i-download.    │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 5. 🔔 30-Day Expiry Reminder     │ 30 days bago mag-expire ang FSIC o insurance   │
+│                                  │ bond, tutunog ang bell icon bilang paalala.    │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 6. 🖨️ 1-Click Formal COA Reports │ Isang pindot lang, may print-ready PDF na may  │
+│                                  │ LGU Seal at linya para sa pirma ng Mayor.      │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 7. 🗑️ 30-Day Trash Safety        │ Pag may aksidenteng na-delete, may 30 araw     │
+│                                  │ para i-click ang "Restore" at maibalik agad.   │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 8. 📱 Multi-Device Work          │ Pwedeng gamitin nang sabay: Desktop sa opisina │
+│                                  │ at Tablet sa labas para sa site inspection.    │
+├──────────────────────────────────┼────────────────────────────────────────────────┤
+│ 9. 🔒 100% On-Premise LGU Server │ Walang buwanang bayad sa cloud at protektado   │
+│                                  │ ang pribadong impormasyon ng mga mamamayan.    │
+└──────────────────────────────────┴────────────────────────────────────────────────┘
+```
+
+> [!TIP]
+> ### 🎤 30-Second Oral Defense / Presentation Pitch Script:
+> *"Ang eTala ay binuo upang gawing mabilis, moderno, at ligtas sa baha o sunog ang libo-libong dokumento ng Municipal Engineering Office ng Carigara. Sa tulong ng interactive GIS map ng 49 barangays, automated checklists, at 1-click official reports, napabilis natin ang paghahanap ng records mula ilang araw patungo sa 3 segundo lamang — nang walang anumang buwanang bayarin sa cloud dahil 100% itong pinatatakbo sa sariling on-premise server ng LGU."*
 
 ---
 
@@ -671,5 +721,170 @@ flowchart TD
 ```
 
 ---
+
+## 19. 🎯 System Scope, Delimitations & Target Beneficiaries (Chapter 1)
+
+### 19.1 System Scope
+* **Functional Scope**: Covers digital encoding, categorization, blueprint PDF archiving, dynamic checklist compliance, GIS centroid mapping, in-browser CAD plan inspection, multi-level ZIP packaging, accomplishment report generation (PDF/Excel), and disaster recovery snapshots.
+* **Geographical Scope**: Exclusively mapped to all **49 barangays of the Municipality of Carigara, Leyte, Philippines**.
+* **Temporal Scope**: Supports archival backlogs from **1995 up to the present calendar year**.
+* **Target Beneficiaries**:
+  1. **Municipal Engineering Office (MEO)**: Encoders, inspectors, and evaluators who manage daily permits and public infrastructure projects.
+  2. **Municipal Engineer & Building Official**: Reviews compliance rates, approves permits, and signs official accomplishment reports.
+  3. **Municipal Mayor & Sangguniang Bayan**: Accesses accurate infrastructure statistics and accomplishment matrices for policy and budget allocations.
+  4. **Commission on Audit (COA)**: Conducts formal audits using tamper-proof audit trails and verifiable municipal project records.
+
+### 19.2 Delimitations (What the System is NOT)
+* **Not an Online Citizen Payment Gateway**: eTala is an internal LGU engineering management and archiving platform; it does not process public credit card or digital wallet payments directly.
+* **Not a Full Architectural CAD Modeling Tool**: It views and pans high-resolution vector PDF CAD drawings but does not modify underlying DWG wireframes.
+
+---
+
+## 20. 📖 Operational Definition of Terms (Chapter 1)
+
+* **ERARMS (Engineering Records Archiving and Retrieval Management System)**: The dedicated web platform engineered for digitizing, indexing, storing, and retrieving municipal civil works documents.
+* **National Building Code (PD 1096)**: The governing Philippine law setting structural, safety, and permit standards for all vertical and horizontal constructions.
+* **PSGC (Philippine Standard Geographic Code)**: The official 10-digit numerical coding system developed by the Philippine Statistics Authority (PSA) to uniquely identify barangays.
+* **2FA (Two-Factor Authentication)**: A secondary security layer requiring a 6-digit email OTP when signing in from an unrecognized computer or mobile browser.
+* **Soft-Delete**: An archiving mechanism where deleted records are stamped with a timestamp (`deleted_at`) and hidden from view while granting a 30-day grace period before permanent erasure.
+* **Regularization**: The administrative process of converting an unpermitted or illegal construction violation into an approved Building Permit upon fulfillment of technical requirements and penalty settlements.
+* **On-Premise Hosting**: The deployment of software and database infrastructure entirely on physical hardware servers physically located inside the LGU Carigara Municipal Hall.
+
+---
+
+## 21. 📊 ISO/IEC 25010 Software Quality Evaluation Framework (Chapter 4)
+
+To evaluate the system's software quality, eTala is measured against the **ISO/IEC 25010 Software Engineering Quality Model**:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                 ISO/IEC 25010 QUALITY EVALUATION CRITERIA                        │
+├──────────────────────────┬───────────────────────────────────────────────────────┤
+│ 1. Functional            │ • Completeness of all 4 permit workflows              │
+│    Suitability           │ • Accurate calculation of accomplishment totals       │
+│                          │ • Dynamic generation of requirement checklist slots   │
+├──────────────────────────┼───────────────────────────────────────────────────────┤
+│ 2. Performance           │ • Sub-second (≤ 300ms) live debounced search          │
+│    Efficiency            │ • Fast streaming of 50MB CAD blueprint files          │
+│                          │ • Zero memory leaks during multi-tab browsing         │
+├──────────────────────────┼───────────────────────────────────────────────────────┤
+│ 3. Usability             │ • Clean 3-Step guided encoding wizard for non-tech    │
+│                          │ • Dark/Light theme switching with zero page flicker   │
+│                          │ • Intuitive 49-barangay interactive GIS map pins      │
+├──────────────────────────┼───────────────────────────────────────────────────────┤
+│ 4. Reliability           │ • 30-day recovery grace window for deleted files      │
+│                          │ • Automated midnight database backup routine          │
+│                          │ • Zero data loss on abrupt browser closure            │
+├──────────────────────────┼───────────────────────────────────────────────────────┤
+│ 5. Security              │ • 2-tier brute-force lockout & IP blacklisting        │
+│                          │ • 2FA device approval OTP via encrypted SMTP relay    │
+│                          │ • 10-minute temporary signed URLs for file viewing    │
+├──────────────────────────┼───────────────────────────────────────────────────────┤
+│ 6. Maintainability       │ • Modular Django MTV code separation                  │
+│                          │ • Clean data dictionary & relational migrations       │
+│                          │ • Detailed operational documentation manual           │
+├──────────────────────────┼───────────────────────────────────────────────────────┤
+│ 7. Portability           │ • Responsive across Desktop, iPad/Tablet, and Mobile  │
+│                          │ • Cross-browser support (Chrome, Firefox, Edge, Safari)│
+│                          │ • Clean print media styling (@media print)            │
+└──────────────────────────┴───────────────────────────────────────────────────────┘
+```
+
+---
+
+## 22. 🖥️ Minimum & Recommended Hardware/Software Specifications (Chapter 3)
+
+### 22.1 On-Premise LGU Server Specifications
+| Component | Minimum Specification | Recommended Specification |
+| :--- | :--- | :--- |
+| **Processor (CPU)** | Intel Core i3 (8th Gen) / AMD Ryzen 3 | Intel Core i5/i7 (10th+ Gen) or AMD Ryzen 5/7 |
+| **Memory (RAM)** | 8.0 GB DDR4 | 16.0 GB – 32.0 GB DDR4 |
+| **Storage (Disk)** | 256 GB SSD (for OS + Database) | 1.0 TB NVMe SSD + 2.0 TB HDD (for CAD PDFs) |
+| **Operating System** | Ubuntu Linux 22.04 LTS / Windows 10/11 Pro | Ubuntu Server 24.04 LTS |
+| **Local Network** | 100 Mbps Local Intranet Router | 1.0 Gbps (Gigabit) Managed Municipal Switch |
+
+### 22.2 Client / Workstation Specifications (Office PCs & Tablets)
+| Component | Minimum Specification | Recommended Specification |
+| :--- | :--- | :--- |
+| **Client Devices** | Desktop PC, Laptop, or Android/iOS Tablet | Desktop PC (1080p Monitor) & 10" Android Tablet |
+| **Web Browser** | Google Chrome 100+, MS Edge 100+, Firefox | Google Chrome Latest (Stable) |
+| **Display Resolution** | 1366 x 768 pixels | 1920 x 1080 pixels (Full HD) |
+
+---
+
+## 23. 🗃️ Complete Data Dictionary & Database Table Specifications (Chapter 3)
+
+### Table 1: `permits_engineeringrecord`
+| Field Name | Data Type | Nullable | Description |
+| :--- | :--- | :---: | :--- |
+| `id` | BigAutoField (PK) | ❌ No | Unique internal numerical identifier. |
+| `record_type` | VarChar(50) | ❌ No | Category (`permit`, `municipal_project`, `barangay_project`, `illegal_construction`). |
+| `sub_type` | VarChar(100) | ❌ No | Sub-classification (e.g., `Building Permit`, `Roads and Bridges`). |
+| `permit_number` | VarChar(100) | ❌ No | Official serial identifier (e.g., `2026-06-00001`). |
+| `project_title` | VarChar(255) | ❌ No | Full name or descriptive title of project/structure. |
+| `applicant_name`| VarChar(255) | ❌ No | Property owner, applicant, or assigned contractor. |
+| `project_cost` | Decimal(15,2)| ❌ No | Budget or estimated cost in Philippine Pesos (₱). |
+| `funding_source`| VarChar(100) | ❌ No | Source of budget (e.g., `20% Development Fund`, `LGU General Fund`). |
+| `barangay_id` | Integer (FK) | ❌ No | Relational reference to `permits_barangay`. |
+| `year` | Integer | ❌ No | Archival year (between 1995 and Current Year). |
+| `date_issued` | Date | ❌ No | Formal grant or inspection date. |
+| `is_illegal` | Boolean | ❌ No | Flag indicating if record is an unpermitted violation. |
+| `is_regularized`| Boolean | ❌ No | Flag indicating if violation was converted to a permit. |
+| `deleted_at` | DateTime | ✔️ Yes | Timestamp for 30-day soft-delete trash recovery. |
+
+### Table 2: `permits_barangay`
+| Field Name | Data Type | Nullable | Description |
+| :--- | :--- | :---: | :--- |
+| `barangay_id` | AutoField (PK) | ❌ No | Unique barangay database identifier. |
+| `barangay_name`| VarChar(150) | ❌ No | Official Philippine PSA name of the barangay. |
+| `psgc_code` | VarChar(20) | ✔️ Yes | Official 10-digit PSA Geographic Code. |
+| `district` | VarChar(50) | ❌ No | `Poblacion` or `Rural` administrative cluster. |
+| `latitude` | Float | ✔️ Yes | GPS Centroid Latitude coordinate (persistent). |
+| `longitude` | Float | ✔️ Yes | GPS Centroid Longitude coordinate (persistent). |
+
+### Table 3: `permits_recorddocument`
+| Field Name | Data Type | Nullable | Description |
+| :--- | :--- | :---: | :--- |
+| `id` | BigAutoField (PK) | ❌ No | Unique document file identifier. |
+| `record_id` | Integer (FK) | ❌ No | Relational reference to parent `EngineeringRecord`. |
+| `requirement_id`| Integer (FK) | ✔️ Yes | Relational reference to `RequirementItem`. |
+| `file` | FileField | ❌ No | Local server file path (stored in `/media/`). |
+| `version` | Integer | ❌ No | Version counter (v1, v2, v3) for audit integrity. |
+| `expiration_date`| Date | ✔️ Yes | Expiry date for statutory clearances (FSIC, bonds). |
+| `uploaded_at` | DateTime | ❌ No | Exact upload timestamp. |
+
+---
+
+## 24. 🛡️ Risk Management, Threat Matrix & Contingency Plan (Chapter 3/5)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                     RISK ASSESSMENT & CONTINGENCY MATRIX                         │
+├────────────────────┬──────────┬──────────────────────────────────────────────────┤
+│ Identified Risk    │ Severity │ System Mitigation & Contingency Plan             │
+├────────────────────┼──────────┼──────────────────────────────────────────────────┤
+│ ⚡ Power Outage /   │ Moderate │ • Uninterruptible Power Supply (UPS) on server   │
+│    Brownout        │          │ • SQLite/PostgreSQL transactional write safety   │
+│                    │          │ • Browser auto-draft local recovery              │
+├────────────────────┼──────────┼──────────────────────────────────────────────────┤
+│ 🗑️ Accidental File │ High     │ • 30-day soft-delete recovery grace period       │
+│    Deletion        │          │ • Role-segregated Trash restoring                │
+│                    │          │ • Daily automated midnight JSON backups          │
+├────────────────────┼──────────┼──────────────────────────────────────────────────┤
+│ 🔐 Brute-Force     │ High     │ • 5-try / 15-minute Tier 1 temporary lockout     │
+│    Password Attack │          │ • 10-try / 24h Tier 2 account deactivation       │
+│                    │          │ • Automated client IP address blacklisting       │
+├────────────────────┼──────────┼──────────────────────────────────────────────────┤
+│ 🌊 Typhoon / Water │ Extreme  │ • Digital transition eliminates paper water loss │
+│    Damage (Calamity│          │ • 1-click external USB / NAS offsite backup      │
+│                    │          │ • Fast 2-minute disaster recovery restoration    │
+├────────────────────┼──────────┼──────────────────────────────────────────────────┤
+│ 📱 Hardware Loss / │ Moderate │ • Immediate remote revocation of UserDevice token│
+│    Stolen Tablet   │          │ • Mandatory 2FA OTP verification on new devices  │
+└────────────────────┴──────────┴──────────────────────────────────────────────────┘
+```
+
+---
 *End of Master System Documentation, Technical Mechanics Encyclopedia & Academic Manuscript Guide (Version 2.0)*  
 *🏛️ eTala (ERARMS) — Municipal Engineering Office, Local Government Unit (LGU) of Carigara, Leyte*
+
