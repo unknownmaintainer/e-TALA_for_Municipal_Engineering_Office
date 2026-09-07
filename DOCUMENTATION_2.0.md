@@ -20,6 +20,7 @@
   * [6.7 📊 Accomplishment Computation & COA Compliance Formulas](#67--accomplishment-computation--coa-compliance-formulas)
   * [6.8 📜 Tamper-Proof Audit Trail & Reference Linking Mechanics](#68--tamper-proof-audit-trail--reference-linking-mechanics)
   * [6.9 🗺️ 49-Barangay GIS Coordinates Persistence Mechanics](#69-️-49-barangay-gis-coordinates-persistence-mechanics)
+  * [6.10 📱 Multi-Device Session Concurrency, Sliding 14-Day Expiration & Device Tracking](#610--multi-device-session-concurrency-sliding-14-day-expiration--device-tracking)
 * [7. 👤 User Management, Safe Deactivation & Profile Workflows](#7--user-management-safe-deactivation--profile-workflows)
 * [8. 📊 Executive Dashboard, Visualizations & Topbar Search](#8--executive-dashboard-visualizations--topbar-search)
 * [9. 📝 Records Encoding, 3-Step Wizard & Bulk Ingestion](#9--records-encoding-3-step-wizard--bulk-ingestion)
@@ -465,6 +466,37 @@ $$\text{Checklist Completion Rate (\%)} = \left(\frac{\text{Fulfilled Required D
         b.longitude = lng
     ```
   * Any coordinates modified or adjusted by LGU staff in the Barangay Workspace or Admin Panel are **permanently preserved** in the database and will **never be overwritten** by git pushes, server updates, or redeployments.
+
+---
+
+### 6.10 📱 Multi-Device Session Concurrency, Sliding 14-Day Expiration & Device Tracking
+
+```mermaid
+flowchart TD
+    User[👤 Municipal Engineer / Staff] --> Dev1[🖥️ Office Desktop PC<br>Active Session • Trusted Token]
+    User --> Dev2[📱 Field Inspection Tablet<br>Active Session • Trusted Token]
+    User --> Dev3[💻 Office Laptop / Remote<br>Active Session • Trusted Token]
+
+    subgraph ServerAuth [🏛️ eTala Multi-Device Concurrency Engine]
+        Dev1 -.->|Simultaneous Work| Engine[(🗄️ Concurrent User Sessions & UserDevice Rows)]
+        Dev2 -.->|Simultaneous Work| Engine
+        Dev3 -.->|Simultaneous Work| Engine
+    end
+```
+
+#### 🔢 Session & Concurrency Parameters:
+1. **Multi-Device Concurrent Login Support**:
+   * eTala **does NOT restrict users to a single device session**.
+   * An engineer or inspector can be logged in simultaneously on their **Office Desktop PC**, their **Field Tablet** (during on-site ocular inspections in the barangays), and their **Laptop**.
+   * Logging in from a second or third device **will NOT terminate or kick out** active sessions on other workstations.
+2. **14-Day Sliding Session Lifetime (`SESSION_COOKIE_AGE = 1209600`)**:
+   * Authentication sessions remain active for **14 calendar days (336 hours)**.
+   * **Sliding Session Renewal (`SESSION_SAVE_EVERY_REQUEST = True`)**: Every time staff navigate, search, or encode a record, the 14-day expiration clock continuously slides forward. Staff will never experience frustrating mid-day session timeouts while actively working.
+3. **Independent Hardware Device Tracking (`UserDevice`)**:
+   * Each unique physical computer, tablet, or browser is registered as an independent `UserDevice` record in the database.
+   * When signing in from a new machine for the first time, the 2FA OTP email approval flow is triggered.
+   * Once approved, that specific hardware receives a **365-Day Trusted Device cryptographic cookie** (`etala_device_trust`), allowing future logins without repeating the OTP step.
+   * **Remote Device Revocation**: If a field tablet or laptop is lost or compromised, an Administrator or the user can revoke that specific device's approval in the database, immediately terminating its access without disrupting other office computers.
 
 ---
 
