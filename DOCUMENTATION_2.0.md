@@ -1,35 +1,37 @@
 # 🌟 eTala: Engineering Records Archiving & Retrieval Management System
 ### 🏛️ Municipal Engineering Office — Local Government Unit (LGU) of Carigara, Leyte
-**📘 Master System Documentation, Academic Manuscript Reference & Operational Manual (Version 2.0)**
+**📘 Master System Documentation, Technical Mechanics Encyclopedia & Academic Manuscript Guide (Version 2.0)**
 
 ---
 
 ## 📑 Table of Contents
 * [1. 🎯 Project Context, Problem Statement & Plain-Language Purpose](#1--project-context-problem-statement--plain-language-purpose)
-* [2. 🏛️ Academic / Thesis Manuscript Chapter Mapping](#2-️-academic--thesis-manuscript-chapter-mapping)
-* [3. 💻 System Architecture, Tech Stack & On-Premise Infrastructure](#3--system-architecture-tech-stack--on-premise-infrastructure)
+* [2. 🏛️ Academic / Thesis Manuscript Chapter Mapping (Chapters 1–5)](#2-️-academic--thesis-manuscript-chapter-mapping-chapters-15)
+* [3. 💻 System Architecture, Tech Stack & 100% On-Premise Topology](#3--system-architecture-tech-stack--100-on-premise-topology)
 * [4. 🗄️ Database Schema & Entity-Relationship Architecture (ERD)](#4-️-database-schema--entity-relationship-architecture-erd)
-* [5. 👥 User Roles & Permissions (Access Control Matrix)](#5--user-roles--permissions-access-control-matrix)
-* [6. 🔄 End-to-End System Workflow & Lifecycle](#6--end-to-end-system-workflow--lifecycle)
-* [7. 👤 User Accounts, Staff Provisioning & Safe Deactivation](#7--user-accounts-staff-provisioning--safe-deactivation)
-* [8. 🔐 Security, 2FA Device Approval, Lockout & Encryption Rules](#8--security-2fa-device-approval-lockout--encryption-rules)
-* [9. 📊 Executive Dashboard, Analytics & Visualizations](#9--executive-dashboard-analytics--visualizations)
-* [10. 📝 Records Encoding, 3-Step Wizard & Bulk Ingestion](#10--records-encoding-3-step-wizard--bulk-ingestion)
-* [11. 🏗️ Official Engineering Permits Management (PD 1096)](#11-️-official-engineering-permits-management-pd-1096)
-* [12. 🌉 Municipal & Barangay Infrastructure Projects](#12--municipal--barangay-infrastructure-projects)
-* [13. 🚨 Illegal Construction Monitoring & Regularization Process](#13--illegal-construction-monitoring--regularization-process)
-* [14. 📁 Document Archiving, CAD Blueprints & Versioning (v1 $\rightarrow$ v2)](#14--document-archiving-cad-blueprints--versioning-v1-rightarrow-v2)
-* [15. 🗺️ 49-Barangay GIS Interactive Map & Centroid Coordinates](#15-️-49-barangay-gis-interactive-map--centroid-coordinates)
-* [16. 🔍 Universal Multi-Token Live Search Engine](#16--universal-multi-token-live-search-engine)
-* [17. 🔔 Expiration Alerts, Notifications & Cross-Device Sync](#17--expiration-alerts-notifications--cross-device-sync)
-* [18. 🗑️ 30-Day Trash Recovery Window & Automated Purge Routine](#18-️-30-day-trash-recovery-window--automated-purge-routine)
-* [19. 📄 Official Accomplishment Reports & Legal Signatures (PDF / Excel)](#19--official-accomplishment-reports--legal-signatures-pdf--excel)
-* [20. 📜 Immutable Audit Trail & Accountability Logs](#20--immutable-audit-trail--accountability-logs)
-* [21. 📦 Automated Data Export & ZIP Archival Structures](#21--automated-data-export--zip-archival-structures)
-* [22. ⚙️ System Settings, Disaster Recovery & Database Backups](#22-️-system-settings-disaster-recovery--database-backups)
-* [23. ⚖️ Legal & Regulatory Compliance (RA 10173, PD 1096, COA)](#23-️-legal--regulatory-compliance-ra-10173-pd-1096-coa)
-* [24. 🧪 System Testing, Verification & Quality Assurance](#24--system-testing-verification--quality-assurance)
-* [25. 🗺️ Complete End-to-End System Master Flowchart](#25-️-complete-end-to-end-system-master-flowchart)
+* [5. 👥 2-Tier Role-Based Access Control (RBAC) & Permission Matrix](#5--2-tier-role-based-access-control-rbac--permission-matrix)
+* [6. ⚙️ IN-DEPTH SYSTEM MECHANICS & BUSINESS RULES (THE ENCYCLOPEDIA)](#6-️-in-depth-system-mechanics--business-rules-the-encyclopedia)
+  * [6.1 🔐 Login, Multi-Tier Lockout & IP Blacklist Mechanics](#61--login-multi-tier-lockout--ip-blacklist-mechanics)
+  * [6.2 📧 Email Relay, 2FA OTP & Device Approval Mechanics](#62--email-relay-2fa-otp--device-approval-mechanics)
+  * [6.3 🗑️ 30-Day Trash, Soft-Delete & Automated Midnight Purge Mechanics](#63-️-30-day-trash-soft-delete--automated-midnight-purge-mechanics)
+  * [6.4 📁 Document Archiving, 50MB Limits, Versioning (v1 $\rightarrow$ v2) & Signed URLs](#64--document-archiving-50mb-limits-versioning-v1-rightarrow-v2--signed-urls)
+  * [6.5 🔔 Expiration Alerts, 30-Day Threshold & Cross-Device Sync Mechanics](#65--expiration-alerts-30-day-threshold--cross-device-sync-mechanics)
+  * [6.6 💾 Disaster Recovery, Automated Midnight Backups & 14-Snapshot Rolling Retention](#66--disaster-recovery-automated-midnight-backups--14-snapshot-rolling-retention)
+  * [6.7 📊 Accomplishment Computation & COA Compliance Formulas](#67--accomplishment-computation--coa-compliance-formulas)
+  * [6.8 📜 Tamper-Proof Audit Trail & Reference Linking Mechanics](#68--tamper-proof-audit-trail--reference-linking-mechanics)
+  * [6.9 🗺️ 49-Barangay GIS Coordinates Persistence Mechanics](#69-️-49-barangay-gis-coordinates-persistence-mechanics)
+* [7. 👤 User Management, Safe Deactivation & Profile Workflows](#7--user-management-safe-deactivation--profile-workflows)
+* [8. 📊 Executive Dashboard, Visualizations & Topbar Search](#8--executive-dashboard-visualizations--topbar-search)
+* [9. 📝 Records Encoding, 3-Step Wizard & Bulk Ingestion](#9--records-encoding-3-step-wizard--bulk-ingestion)
+* [10. 🏗️ Official Engineering Permits Management (PD 1096)](#10-️-official-engineering-permits-management-pd-1096)
+* [11. 🌉 Municipal & Barangay Infrastructure Projects](#11--municipal--barangay-infrastructure-projects)
+* [12. 🚨 Illegal Construction Monitoring & Regularization Process](#12--illegal-construction-monitoring--regularization-process)
+* [13. 📄 Official Accomplishment Reports & Legal Signatures (PDF / Excel)](#13--official-accomplishment-reports--legal-signatures-pdf--excel)
+* [14. 📦 Data Export & Multi-Level ZIP Archival Structures](#14--data-export--multi-level-zip-archival-structures)
+* [15. 📱 Mobile, Tablet & Print Ergonomics Guidelines](#15--mobile-tablet--print-ergonomics-guidelines)
+* [16. ⚖️ Legal & Regulatory Compliance (RA 10173, PD 1096, COA)](#16-️-legal--regulatory-compliance-ra-10173-pd-1096-coa)
+* [17. 🧪 System Testing, Verification & Quality Assurance](#17--system-testing-verification--quality-assurance)
+* [18. 🗺️ Complete System Master Flowchart Architecture](#18-️-complete-system-master-flowchart-architecture)
 
 ---
 
@@ -65,9 +67,7 @@ Prior to eTala, the Carigara Municipal Engineering Office managed thousands of p
 
 ---
 
-## 2. 🏛️ Academic / Thesis Manuscript Chapter Mapping
-
-For students, researchers, and developers drafting their Capstone / Thesis Manuscript, eTala directly maps to the standard 5-Chapter IMRAD format:
+## 2. 🏛️ Academic / Thesis Manuscript Chapter Mapping (Chapters 1–5)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -87,16 +87,17 @@ For students, researchers, and developers drafting their Capstone / Thesis Manus
 ├─────────────────┼──────────────────────────────────────────────────────┤
 │ 💻 Chapter 4    │ • Results, Discussion & Feature Implementation       │
 │ (Results & UI)  │ • Module Walkthroughs, GIS Engine & Report Exports   │
+│                 │ • In-Depth System Mechanics & Business Logic Rules   │
 │                 │ • User Acceptance Testing (UAT) & Performance Stats │
 ├─────────────────┼──────────────────────────────────────────────────────┤
 │ 🎯 Chapter 5    │ • Summary of Findings, Conclusions & Recommendations │
-│ (Conclusion)    │ • Future Expansion (Barangay Portal Integration)     │
+│ (Conclusion)    │ • Future Expansion (Inter-Office LGU Integration)   │
 └─────────────────┴──────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. 💻 System Architecture, Tech Stack & On-Premise Infrastructure
+## 3. 💻 System Architecture, Tech Stack & 100% On-Premise Topology
 
 ### 3.1 Technology Stack Matrix
 
@@ -108,7 +109,7 @@ For students, researchers, and developers drafting their Capstone / Thesis Manus
 | **Mapping Engine** | **Leaflet.js + OpenStreetMap** | 1.9+ | Fast client-side GIS rendering for all 49 barangays |
 | **Visualizations** | **Chart.js** | 4.4+ | Interactive annual bar charts & permit distribution doughnuts |
 | **Document Engine** | **WeasyPrint / ReportLab & openpyxl** | Latest | Vector PDF rendering with letterheads & multi-sheet Excel |
-| **Email Relay** | **Brevo SMTP / Gmail Workspace** | TLS 587 | 2FA verification codes, password resets & error alerts |
+| **Email Relay** | **Brevo SMTP / Google Workspace** | TLS 587 | 2FA verification codes, password resets & error alerts |
 
 ### 3.2 Municipal On-Premise Network Topology
 
@@ -143,11 +144,6 @@ graph TD
         Switch <--> Field
     end
 ```
-
-### 3.3 Zero-Cloud Advantage
-* **Zero Recurring Cost**: No monthly cloud hosting fees (Render, AWS, Supabase).
-* **High-Speed Intranet Performance**: Loading large 50 MB CAD blueprints over local gigabit LAN occurs instantly without internet throttling.
-* **100% Data Sovereignty**: All engineering blueprints and applicant personal details never leave the physical custody of LGU Carigara, ensuring full compliance with the **Data Privacy Act of 2012 (RA 10173)**.
 
 ---
 
@@ -213,9 +209,7 @@ erDiagram
 
 ---
 
-## 5. 👥 User Roles & Permissions (Access Control Matrix)
-
-eTala enforces a strict **2-Tier Role-Based Access Control (RBAC)** architecture:
+## 5. 👥 2-Tier Role-Based Access Control (RBAC) & Permission Matrix
 
 ```mermaid
 graph TD
@@ -257,90 +251,249 @@ graph TD
 
 ---
 
-## 6. 🔄 End-to-End System Workflow & Lifecycle
+## 6. ⚙️ IN-DEPTH SYSTEM MECHANICS & BUSINESS RULES (THE ENCYCLOPEDIA)
+
+This section provides the rigorous technical mechanics, algorithms, triggers, formulas, and exact numbers governing eTala.
+
+---
+
+### 6.1 🔐 Login, Multi-Tier Lockout & IP Blacklist Mechanics
+
+eTala defends municipal records against brute-force attacks and credential stuffing using a **2-Tier Security Lockout Algorithm**:
+
+```mermaid
+flowchart TD
+    A[User Submits Credentials] --> B{Password Valid?}
+    B -->|YES| C[Reset Failed Attempts = 0<br>Proceed to 2FA Check]
+    B -->|NO| D[Log Failed Attempt in DB<br>Increment Failure Count]
+    D --> E{Failed Attempts Count?}
+    E -->|1 to 4 Tries| F[Display 'Invalid Credentials'<br>Remaining Tries Indicator]
+    E -->|5 Tries in 15 Mins| G[⛔ TIER 1 LOCKOUT<br>15-Minute Temporary Cool-Off]
+    E -->|10 Tries in 24 Hrs| H[🚫 TIER 2 LOCKOUT<br>Permanent Account Deactivation + IP Blacklisted]
+```
+
+#### 🔢 Exact Lockout Parameters & Auto-Unlock Rules:
+1. **Tier 1 (Temporary 15-Minute Lockout)**:
+   * **Trigger**: **5 consecutive failed password attempts** within a **15-minute rolling window**.
+   * **System Behavior**: The login form locks out the user and displays a countdown timer.
+   * **Unlock Methods**:
+     * **Auto-Unlock**: Automatically unlocks after **15 minutes** elapse.
+     * **Self-Service**: The user clicks *"Forgot Password"* and resets credentials via email.
+     * **Admin Intervention**: An Administrator resets the password in `/users/`.
+2. **Tier 2 (Permanent Deactivation & IP Blacklist)**:
+   * **Trigger**: **10 failed login attempts** within **24 hours**.
+   * **System Behavior**:
+     * Sets `is_active = False` on the targeted user account.
+     * Adds the client IP address to the `BlockedIP` table.
+     * Dispatches an urgent security alert to `DEVELOPER_FEEDBACK_EMAILS`.
+   * **Unlock Method**: Requires a System Administrator to unblock the IP and manually reactivate the account in the Admin Panel.
+
+---
+
+### 6.2 📧 Email Relay, 2FA OTP & Device Approval Mechanics
+
+All automated emails (2FA OTPs, password resets, security notifications) are dispatched via an encrypted **SMTP Relay (Brevo / Gmail Workspace)** on port `587 (TLS)`:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Staff as 👷 MEO Staff / Encoder
-    participant Auth as 🔐 Auth & 2FA Engine
-    participant App as 🏛️ eTala Core
-    participant Storage as 💾 Local Server Media
-    participant DB as 🗄️ PostgreSQL Database
-    actor Admin as 👑 Admin / Municipal Engineer
+    actor User as 👤 Staff User
+    participant System as 🏛️ eTala Security Engine
+    participant SMTP as 📨 Brevo / Gmail SMTP
+    participant Inbox as 📬 User Email Inbox
 
-    Staff->>Auth: Enter Email & Password
-    Note over Auth: Verifies Device / 2FA OTP
-    Auth-->>Staff: Access Granted (14-Day Session)
-    Staff->>App: 3-Step Guided Wizard (Category, Barangay, Details)
-    Staff->>Storage: Upload CAD Plans & Checklists (up to 50 MB)
-    App->>DB: Save Record & Update Completion %
-    App-->>Staff: Active Record + GIS Pinning Generated
-    Admin->>App: Generate Official Accomplishment Report (PDF/Excel)
-    App-->>Admin: Export Print-Ready Report with Signatures
+    User->>System: Sign in from Unrecognized Browser
+    System->>System: Generate 6-Digit Cryptographic OTP
+    System->>SMTP: Dispatch OTP Email Template
+    SMTP-->>Inbox: Deliver "Your eTala Verification Code"
+    User->>System: Enter 6-Digit Code on Screen
+    Note over System: Verifies Code (< 10 Mins, ≤ 5 Tries)
+    System->>System: Set HTTP-Only 365-Day Trusted Cookie
+    System-->>User: Grant Dashboard Access (Trusted for 1 Year)
 ```
 
+#### 🔢 Email & Verification Constants:
+* **2FA OTP Length**: **6 numeric digits** (e.g., `482910`).
+* **2FA OTP Lifetime**: **10 minutes** from dispatch.
+* **Maximum OTP Retries**: **5 failed attempts** before the OTP code is invalidated.
+* **Resend Cooldown Timer**: **60 seconds** to prevent email flooding/spam.
+* **Trusted Device Token Lifetime**: **365 Calendar Days (1 Year)** stored in an encrypted, HTTP-only, SameSite cookie.
+* **Password Reset Token Lifetime**: **15 minutes** (single-use cryptographic HMAC token).
+* **New Device Security Alert**: Instantly sends an email alert containing:
+  * Device Name & Browser User-Agent
+  * IP Address & Timestamp
+  * 1-Click *"Lock My Account"* emergency security link.
+
 ---
 
-## 7. 👤 User Accounts, Staff Provisioning & Safe Deactivation
+### 6.3 🗑️ 30-Day Trash, Soft-Delete & Automated Midnight Purge Mechanics
 
-* **Module**: `/users/` (System Administrators only).
-* **Safe Deactivation Rule (`on_delete=models.PROTECT`)**:
-  When an employee resigns or transfers, clicking **Deactivate** immediately revokes their login credentials. All historical records, blueprints, and audit trail entries created by that employee remain **100% intact and permanently preserved**.
-* **Self-Service Email Change Security**:
-  Updating a work email address requires completing a **6-digit verification code (OTP)** dispatched to the **CURRENT** registered email with a **10-minute validity** and a **60-second spam cooldown**.
-
----
-
-## 8. 🔐 Security, 2FA Device Approval, Lockout & Encryption Rules
+To eliminate the catastrophe of accidental file deletion, eTala implements an **Indestructible 30-Day Soft-Delete Architecture**:
 
 ```mermaid
-graph TD
-    Start[User Login Attempt] --> Check{Password Valid?}
-    Check -->|YES| ResetCount[Reset Failed Attempts to 0]
-    ResetCount --> DevCheck{Is Device Recognized?}
-    DevCheck -->|YES| Grant[Access Granted]
-    DevCheck -->|NO| SendOTP[Send 6-Digit OTP to Email]
-    SendOTP --> VerifyOTP{OTP Valid in 10 Mins?}
-    VerifyOTP -->|YES| Trust[Set 365-Day Trusted Cookie & Grant Access]
-    VerifyOTP -->|NO| Deny[Access Denied]
-
-    Check -->|NO| Inc[Increment Failure Count]
-    Inc --> LockCheck{How Many Failed Tries?}
-    LockCheck -->|1 to 4| Warn[Show Invalid Credentials Warning]
-    LockCheck -->|5th Try in 15 Mins| CoolOff[⛔ 15-Minute Temporary Cool-Off]
-    LockCheck -->|10 Tries in 24 Hrs| PermLock[🚫 Deactivate Account & Blacklist IP]
+flowchart TD
+    A[Staff Clicks Delete Record] --> B[Record Stamped with deleted_at = Now<br>Moved to /archive/ Trash]
+    B --> C{30-Day Recovery Timer}
+    C -->|Day 1 to 30| D[🟢 1-Click Instant Restore<br>Staff: 'My Trash' | Admin: 'All Trash']
+    C -->|Day 23 to 30| E[🔔 High-Visibility Bell Alert<br>'7 Days Left Before Deletion']
+    C -->|Day 0 Reached| F[⚙️ Automated Midnight Server Purge<br>Permanently Erased from Disk & DB]
 ```
 
-### 8.1 Security Constants & Numbers Cheat Sheet
+#### 📐 The 30-Day Recovery Formula:
+$$\text{Days Remaining} = \max\left(0, 30 - \left\lfloor\frac{\text{Current Timestamp} - \text{deleted\_at}}{86400}\right\rfloor\right)$$
 
-| Parameter | Value | Description |
-| :--- | :---: | :--- |
-| **Tier 1 Failed Login Lockout** | **5 Attempts** | Triggers temporary **15-minute cool-off**. |
-| **Tier 2 Failed Login Lockout** | **10 Attempts (24h)** | Deactivates account & blacklists client IP. |
-| **2FA Verification Code (OTP)** | **6 Digits** | **10-minute validity**, max **5 attempts**. |
-| **Trusted Device Duration** | **365 Days** | Bypasses OTP on recognized workstations for 1 year. |
-| **Active Session Lifetime** | **14 Days** | Sliding session renewal across workdays. |
-| **Document Secure Preview Link** | **10 Minutes** | Signed HMAC tokens prevent unauthorized URL sharing. |
+#### 🔢 Trash Lifecycle Rules:
+1. **Soft-Delete**: When deleted, the record is NOT erased. The field `deleted_at` is stamped with the current UTC timestamp, immediately hiding it from active modules, GIS maps, and accomplishment reports.
+2. **Access Separation**:
+   * **Staff ("My Trash")**: Encoders can view and restore only the records they personally soft-deleted.
+   * **Admin ("All Trash")**: Administrators can view and restore any deleted record in the entire municipality.
+3. **Automated Midnight Purge Command (`purge_expired_trash`)**:
+   * Executes every night at **12:00 AM (Midnight)**.
+   * Queries records where `deleted_at <= Now - 30 Days`.
+   * Permanently erases the database rows and removes attached PDF files from disk, maintaining server storage hygiene.
 
 ---
 
-## 9. 📊 Executive Dashboard, Analytics & Visualizations
+### 6.4 📁 Document Archiving, 50MB Limits, Versioning (v1 $\rightarrow$ v2) & Signed URLs
+
+```mermaid
+flowchart LR
+    Upload[PDF / Photo Upload] --> SizeCheck{File Size ≤ 50.0 MB?}
+    SizeCheck -->|NO| ErrSize[🔴 Reject: Exceeds 50MB]
+    SizeCheck -->|YES| TypeCheck{Valid MIME Type?<br>PDF for Permits / Photos for Illegal}
+    TypeCheck -->|NO| ErrType[🔴 Reject: Invalid Format]
+    TypeCheck -->|YES| SaveFile[💾 Save to Server /media/ Folder<br>Generate Dynamic Checklist Link]
+    SaveFile --> ReplaceCheck{Is this a replacement?}
+    ReplaceCheck -->|YES| IncVersion[Increment Version: v1 ➔ v2<br>Archive Old File in History]
+    ReplaceCheck -->|NO| Done[Mark Checklist Slot Satisfied]
+```
+
+#### 🔢 Document Specifications:
+* **Per-File Size Limit**: **50.0 MB** (accommodates high-resolution multi-page vector CAD drawings).
+* **Format Restrictions**:
+  * **Permits & Public Projects**: Strictly **PDF (`.pdf`)** to prevent document tampering.
+  * **Illegal Construction Violations**: **PDF + Images (`.jpg`, `.jpeg`, `.png`, `.webp`)** for field inspection evidence.
+* **Document Versioning (v1 $\rightarrow$ v2)**:
+  * Replacing a blueprint automatically increments the version counter (**v1 $\rightarrow$ v2 $\rightarrow$ v3**).
+  * The previous version is permanently archived in historical records for legal evidentiary audits.
+* **10-Minute Temporary Signed URLs**:
+  * In-browser document viewing generates a time-limited HMAC signed token (`/documents/serve/<token>/`).
+  * Links expire in **10 minutes**, preventing unauthorized link copying or public leakage.
+
+---
+
+### 6.5 🔔 Expiration Alerts, 30-Day Threshold & Cross-Device Sync Mechanics
+
+```mermaid
+graph LR
+    subgraph DocScanning [📄 STATUTORY DOCUMENT MONITORING]
+        D1[Document with Expiration Date<br>e.g., FSIC, Contractor Bond] -->|≤ 30 Days Remaining| D2[🟡 Amber Bell Notification]
+        D1 -->|Date Surpassed| D3[🔴 Red Expired Notification]
+    end
+    subgraph TrashScanning [🗑️ TRASH EXPIRATION MONITORING]
+        T1[Soft-Deleted Record] -->|≤ 7 Days Remaining| T2[🚨 High-Visibility Purge Warning]
+    end
+```
+
+#### 🔢 Notification Rules:
+1. **Document Expiration (30-Day Window)**:
+   * System continuously monitors documents with statutory expiration dates (e.g., Fire Safety Inspection Certificates, Contractor Licenses, Insurance Bonds).
+   * Generates notifications when **remaining days $\le$ 30 days**.
+   * Uploading an updated replacement document automatically satisfies the requirement and dismisses the alert.
+2. **Trash Purge Warning (7-Day Window)**:
+   * Generates an urgent warning when an archived record has **$\le$ 7 days** before permanent midnight deletion.
+3. **Database-Backed Cross-Device Sync**:
+   * Dismissing an alert on your desktop workstation updates your user notification state in the database.
+   * When you log in on a field tablet or laptop, dismissed alerts **remain dismissed**.
+
+---
+
+### 6.6 💾 Disaster Recovery, Automated Midnight Backups & 14-Snapshot Rolling Retention
+
+```mermaid
+flowchart TD
+    Midnight[🕛 Daily at 12:00 AM Midnight] --> CheckSameDay{Did Admin execute manual backup today?}
+    CheckSameDay -->|YES| Skip[Smart Same-Day Skip<br>Conserves Server Disk Space]
+    CheckSameDay -->|NO| RunBackup[Execute Automated JSON Snapshot Routine]
+    RunBackup --> Snapshot[Generate Encrypted .json Snapshot<br>Users, Permits, Checklists, Logs]
+    Snapshot --> Retention[Enforce 14-Snapshot Retention Window<br>Auto-Purge Backups Older than 14 Days]
+```
+
+#### 🔢 Backup & Recovery Rules:
+* **Automated Schedule**: **Daily at 12:00 AM (Midnight)**.
+* **Rolling Retention Window**: Retains the **14 most recent daily snapshots** (2 full weeks of rollback history); older snapshot files are automatically pruned to prevent server storage bloat.
+* **Smart Same-Day Skip**: If an Admin manually clicks *"Download Backup"* during the day, the automated midnight script detects the fresh backup and skips redundant execution.
+* **1-Click Emergency Disaster Recovery**: Uploading a valid `.json` backup file in `/settings/` restores all database tables, user accounts, records, checklists, and audit trails in under **2 minutes**.
+
+---
+
+### 6.7 📊 Accomplishment Computation & COA Compliance Formulas
+
+$$\text{Total Official Accomplishments} = \text{Total Infrastructure Projects} + \text{Total Official Permits Issued}$$
+
+$$\text{Checklist Completion Rate (\%)} = \left(\frac{\text{Fulfilled Required Documents}}{\text{Total Required Documents}}\right) \times 100$$
+
+> [!CAUTION]
+> ### ⚖️ Commission on Audit (COA) Compliance Rule
+> **Illegal Construction Violations are NEVER counted as positive municipal accomplishments** in official accomplishment reports. They are tracked strictly as administrative enforcement indicators.
+
+---
+
+### 6.8 📜 Tamper-Proof Audit Trail & Reference Linking Mechanics
+
+* **Module**: `/activity-logs/` (Administrators only).
+* **Immutable Storage**: Every critical action (login, record creation, modification, soft-deletion, restoration, requirement waiving, document replacement) creates a permanent `AuditLog` row.
+* **Exact Log Structure**:
+  * **Timestamp**: Exact date and time (`YYYY-MM-DD HH:MM:SS`).
+  * **User Account**: Full name and username of the acting employee.
+  * **Action**: Human-readable summary (e.g., `Created Building Permit: 2026-06-00001`).
+  * **Reference Link**: Direct clickable link (`Ref: Record #42`) navigating instantly to the affected record.
+  * **IP Address**: Client network IP address.
+* **Anti-Bloat Filter**: Routine background events (page views, thumbnail rendering, ping checks) are automatically excluded to preserve database query speed.
+
+---
+
+### 6.9 🗺️ 49-Barangay GIS Coordinates Persistence Mechanics
+
+* **Module**: `/barangays/`
+* Contains all **49 official barangays of Carigara, Leyte** with official Philippine Statistics Authority (PSA) PSGC 10-digit codes.
+* **Persistence Guarantee**:
+  * In `seed_coordinates.py` and `views.py`, the system checks:
+    ```python
+    if b.latitude is None or b.longitude is None:
+        b.latitude = lat
+        b.longitude = lng
+    ```
+  * Any coordinates modified or adjusted by LGU staff in the Barangay Workspace or Admin Panel are **permanently preserved** in the database and will **never be overwritten** by git pushes, server updates, or redeployments.
+
+---
+
+## 7. 👤 User Management, Safe Deactivation & Profile Workflows
+
+* **Module**: `/users/` (System Administrators only).
+* **Safe Employee Offboarding (`on_delete=models.PROTECT`)**:
+  When an employee resigns or transfers, clicking **Deactivate** immediately revokes login privileges while keeping all historical permits, projects, checklists, and audit trail entries created by that employee 100% intact.
+* **Self-Service Profile Updates (`/profile/`)**:
+  Staff can update their Name, Job Title, Avatar photo, and Password. Updating a work email requires 6-digit OTP verification sent to their current email inbox.
+
+---
+
+## 8. 📊 Executive Dashboard, Visualizations & Topbar Search
 
 * **Module**: `/dashboard/`
-* **6 High-Visibility KPI Cards**: Real-time counts of Total Records, Municipal Projects, Barangay Projects, Issued Permits, Incomplete Checklists, and Trash Items.
-* **Interactive Chart.js Visualizations**:
-  * **Annual Volume Bar Chart**: Tracks infrastructure growth and permit issuance volume across years (1995–Present).
-  * **Permit Distribution Doughnut**: Breaks down sub-types (Building, Electrical, Occupancy, Fencing).
-* **Universal Search Bar (250px)**: Debounced live searching across all records directly from the top navigation.
-* **Zero-Flicker Theme Switcher**: Toggle between Dark Navy and Clean White modes stored in `localStorage`.
+* **6 High-Visibility KPI Metric Cards**: Real-time totals of Total Records, Municipal Projects, Barangay Projects, Issued Permits, Incomplete Checklists, and Trash Items.
+* **Chart.js Dynamic Visualizations**:
+  * **Annual Volume Bar Chart**: Visualizes yearly infrastructure growth and permit issuance across years (1995–Present).
+  * **Permit Distribution Doughnut**: Visualizes the breakdown of Building, Electrical, Occupancy, and Fencing permits.
+* **Universal 250px Live Search**: Asynchronous multi-token searching debounced at 300ms.
+* **Zero-Flicker Theme Switcher**: Dark Navy and Clean White modes stored in `localStorage`.
 
 ---
 
-## 10. 📝 Records Encoding, 3-Step Wizard & Bulk Ingestion
+## 9. 📝 Records Encoding, 3-Step Wizard & Bulk Ingestion
 
 * **Method 1: 3-Step Guided Wizard (`/records/new/`)**:
-  * **Step 1: Scope & Categorization**: Select category, sub-type, 1 of 49 barangays, and year.
+  * **Step 1: Scope & Categorization**: Select category, sub-type, 1 of 49 barangays, and year (1995–Present).
   * **Step 2: Technical & Financial Details**: Permit number, applicant/contractor name, cost (₱), dates, and remarks.
   * **Step 3: Checklist Upload**: Dynamically generated slots for attaching required PDFs.
 * **Method 2: Single-Screen Form (`/records/create/`)**: Rapid encoding when all data and attachments are pre-gathered.
@@ -348,7 +501,7 @@ graph TD
 
 ---
 
-## 11. 🏗️ Official Engineering Permits Management (PD 1096)
+## 10. 🏗️ Official Engineering Permits Management (PD 1096)
 
 * **Module**: `/permits/`
 * Enforces standard requirements in full compliance with the **National Building Code of the Philippines (Presidential Decree No. 1096)**.
@@ -360,7 +513,7 @@ graph TD
 
 ---
 
-## 12. 🌉 Municipal & Barangay Infrastructure Projects
+## 11. 🌉 Municipal & Barangay Infrastructure Projects
 
 * **Modules**: `/municipal/` (Municipal Projects) & `/barangay/` (Barangay Projects).
 * **4 Primary Civil Works Types**:
@@ -372,66 +525,18 @@ graph TD
 
 ---
 
-## 13. 🚨 Illegal Construction Monitoring & Regularization Process
+## 12. 🚨 Illegal Construction Monitoring & Regularization Process
 
 * **Module**: `/illegal-constructions/`
 * **Flagging Violations (`/records/flag-illegal/`)**: Pin unpermitted structures on the GIS map, record inspection dates (cannot be in the future), and attach Notice of Violation (NOV) PDFs and field photos (`.jpg`, `.png`, `.webp`).
 * **Regularization (`/records/<id>/regularize/`)**: Converts settled violations into legitimate Building Permits upon compliance, while permanently archiving all historical inspection evidence for legal audit.
-* **COA Audit Protection**: Illegal construction violations are **never counted as positive municipal accomplishments** in official accomplishment reports.
 
 ---
 
-## 14. 📁 Document Archiving, CAD Blueprints & Versioning (v1 $\rightarrow$ v2)
-
-* **50.0 MB Per-File Limit**: Enables attaching full-scale, multi-page vector CAD architectural blueprints without quality loss.
-* **Strict PDF Enforcement**: Required for standard engineering documents to prevent unauthorized editing.
-* **Document Versioning (v1 $\rightarrow$ v2)**: Replacing an updated blueprint archives the previous version in historical storage and automatically dismisses prior expiration alerts.
-* **Requirement Waiving**: Clicking **Waive** marks non-applicable slots as legally satisfied with an audit trail note.
-
----
-
-## 15. 🗺️ 49-Barangay GIS Interactive Map & Centroid Coordinates
-
-* **Module**: `/barangays/`
-* **49 Official Barangays of Carigara, Leyte**:
-  * **Poblacion District**: Sawang, Baybay, Ponong, Jugaban, San Mateo, East Visoria, West Visoria.
-  * **Rural District**: Balilit, Barayong, Barugohay Central/Norte/Sur, Binibihan, Bislig, Caghalo, Camansi, Canal, Candigahub, Canlampay, Cogon, Cutay, Guindapunan East/West, Hiluctogan, Libo, Lower/Upper Hiraan, Lower/Upper Sogod, Macalpi, Manloy, Nauguisan, Paglaum, Pangna, Parag-um, Parena, Piloro, Rizal, Sagkahan, San Isidro, San Juan, Santa Fe, Tagak, Tangnan, Tigbao, Tinaguban, Uyawan, Bagong Lipunan, Canfabi.
-* **Deployment Safe Persistence**: Coordinates edited by LGU staff in the database are permanently preserved and **never overwritten** during server rebuilds or git pushes.
-
----
-
-## 16. 🔍 Universal Multi-Token Live Search Engine
-
-* **Module**: `/search/` & Topbar Search.
-* **300ms Live Debouncing**: Blazing fast search that does not lag the database.
-* **Multi-Token Query Parsing**: Typing `"2026 Canfabi Road"` parses tokens simultaneously across Year, Barangay, Title, and Category.
-* **Keyboard Shortcut (`Esc`)**: Clears search text immediately.
-
----
-
-## 17. 🔔 Expiration Alerts, Notifications & Cross-Device Sync
-
-* **Document Expiry Warnings (30-Day Window)**: Notifies staff 30 days before statutory clearances (e.g. FSIC, contractor bonds) expire.
-* **Trash Deletion Warnings (7-Day Window)**: Warns staff when archived items are 7 days away from permanent midnight purging.
-* **Cross-Device Dismissal**: Dismissing an alert on one PC updates the database state so it remains dismissed on tablets and mobile devices.
-
----
-
-## 18. 🗑️ 30-Day Trash Recovery Window & Automated Purge Routine
-
-* **Module**: `/archive/`
-* **Soft-Delete Architecture**: Deleting a record stamps `deleted_at=timezone.now()`.
-* **30-Day Countdown Formula**:
-  $$\text{Days Remaining} = \max\left(0, 30 - (\text{Current Time} - \text{Deleted Time})_{\text{in days}}\right)$$
-* **Role-Based Trash View**: Staff see *"My Trash"* (own deleted items); Admins see *"All Trash"*.
-* **Automated Midnight Purge (`purge_expired_trash`)**: Daily scheduled task that permanently removes items reaching Day 0 to maintain storage hygiene.
-
----
-
-## 19. 📄 Official Accomplishment Reports & Legal Signatures (PDF / Excel)
+## 13. 📄 Official Accomplishment Reports & Legal Signatures (PDF / Excel)
 
 * **Module**: `/reports/`
-* **Print-Ready PDF Reports**: Formatted for Legal (8.5" x 13") and A4 sheets with Republic of the Philippines letterhead, LGU Seal, and official signature blocks:
+* **Print-Ready PDF Reports**: Formatted for Legal (8.5" x 13") and A4 sheets with Republic of the Philippines letterhead, LGU Seal, and tripartite signature blocks:
   * **Prepared by**: Engineering Encoder / Inspector
   * **Verified & Recommending Approval**: Municipal Engineer
   * **Approved by**: Municipal Mayor
@@ -439,16 +544,7 @@ graph TD
 
 ---
 
-## 20. 📜 Immutable Audit Trail & Accountability Logs
-
-* **Module**: `/activity-logs/` (Administrators only).
-* **Tamper-Proof Audit Records**: Logs exact timestamp, user account, IP address, and human-readable action.
-* **1-Click Reference Links**: Direct clickable links (`Ref: Record #ID`) connecting logs directly to the target engineering record.
-* **Exportable**: Can be filtered by date range and exported to CSV or PDF for administrative investigations.
-
----
-
-## 21. 📦 Automated Data Export & ZIP Archival Structures
+## 14. 📦 Data Export & Multi-Level ZIP Archival Structures
 
 ```
 Sanitized_Record_Title_Documents.zip/
@@ -464,17 +560,19 @@ Sanitized_Record_Title_Documents.zip/
 
 ---
 
-## 22. ⚙️ System Settings, Disaster Recovery & Database Backups
+## 15. 📱 Mobile, Tablet & Print Ergonomics Guidelines
 
-* **Module**: `/settings/` (Administrators only).
-* **On-Demand 1-Click Database Backup**: Instantly downloads a complete database snapshot.
-* **Automated Nightly Backup (12:00 AM)**: Runs daily with a **14-snapshot rolling retention window** to prevent disk bloat.
-* **Smart Same-Day Skip**: Skips midnight backup if an Administrator already ran a manual backup on that calendar day.
-* **1-Click Emergency Restore**: Uploading a `.json` backup file restores all records, users, and audit logs.
+* **Mobile Breakpoints**:
+  * `320px – 480px`: Wide tables automatically reflow into stacked cards.
+  * `768px – 1024px`: Tablet split GIS map & list layout.
+  * `1281px – 1920px+`: Full desktop tabular dashboard.
+* **Touch Target Standard**: All interactive buttons, icon triggers, and dropdowns maintain a minimum **44px – 48px hitbox**.
+* **iOS Zoom Prevention**: Form inputs maintain a minimum `font-size: 16px` to prevent unwanted iOS Safari zooming.
+* **Ink-Saving Clean Print (`@media print`)**: Strips dark backgrounds and sidebars, producing clean white paper prints.
 
 ---
 
-## 23. ⚖️ Legal & Regulatory Compliance (RA 10173, PD 1096, COA)
+## 16. ⚖️ Legal & Regulatory Compliance (RA 10173, PD 1096, COA)
 
 | Legal Framework | How eTala Complies |
 | :--- | :--- |
@@ -485,18 +583,14 @@ Sanitized_Record_Title_Documents.zip/
 
 ---
 
-## 24. 🧪 System Testing, Verification & Quality Assurance
+## 17. 🧪 System Testing, Verification & Quality Assurance
 
 * **Unit & Integration Test Suite (`permits/tests.py`)**: Covers authentication, 2FA OTP flows, permit creation wizard, document uploads, and report generation.
-* **Responsive Breakpoints Verification**:
-  * `320px – 480px`: Mobile card reflow.
-  * `768px – 1024px`: Tablet split GIS map & list layout.
-  * `1281px – 1920px+`: Full desktop tabular dashboard.
-* **Ink-Saving Clean Print Mode (`@media print`)**: Automatically strips dark backgrounds and navigation sidebars for clean paper printing.
+* **Cross-Browser Testing**: Tested and verified on Google Chrome, Mozilla Firefox, Microsoft Edge, and Apple Safari.
 
 ---
 
-## 25. 🗺️ Complete End-to-End System Master Flowchart
+## 18. 🗺️ Complete System Master Flowchart Architecture
 
 ```mermaid
 flowchart TD
@@ -545,5 +639,5 @@ flowchart TD
 ```
 
 ---
-*End of Master System Documentation, Academic Manuscript Reference & Operational Manual (Version 2.0)*  
+*End of Master System Documentation, Technical Mechanics Encyclopedia & Academic Manuscript Guide (Version 2.0)*  
 *🏛️ eTala (ERARMS) — Municipal Engineering Office, Local Government Unit (LGU) of Carigara, Leyte*
