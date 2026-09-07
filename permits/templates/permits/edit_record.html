@@ -265,12 +265,6 @@
                                     style="height: 200px; background: #f1f5f9; border-color: #cbd5e1 !important;">
                                     <div id="editLocationMap" style="width: 100%; height: 100%;"></div>
 
-                                    <!-- Map Layer Switcher (Top Right Pill) -->
-                                    <div class="position-absolute top-0 end-0 m-2 rounded-2 shadow-xs border d-flex p-0.5 edit-layer-switcher" style="z-index: 999; font-size: 0.70rem; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(4px);">
-                                        <button type="button" class="btn btn-xs py-0.5 px-2 rounded-1 fw-semibold border-0" id="editLayerSatBtn" onclick="window.setEditMapLayer('satellite')" style="background: #0284c7; color: #ffffff; font-size: 0.70rem;">Satellite</button>
-                                        <button type="button" class="btn btn-xs py-0.5 px-2 rounded-1 fw-semibold border-0" id="editLayerStrBtn" onclick="window.setEditMapLayer('streets')" style="background: transparent; color: #64748b; font-size: 0.70rem;">Street</button>
-                                    </div>
-
                                     <!-- Guide Badge Overlay -->
                                     <div id="editMapGuideOverlay"
                                         class="position-absolute start-50 bottom-0 translate-middle-x mb-2 text-white px-3 py-1 rounded-pill shadow-sm pointer-events-none d-flex align-items-center gap-1.5"
@@ -647,7 +641,7 @@
     };
     window.suggestPermitNumber = window.suggestEditPermitNumber;
 
-    document.addEventListener('DOMContentLoaded', function() {
+    function initEditRecordPage() {
         const statusSelect = document.getElementById('editProjectStatusSelect');
         if (statusSelect && typeof handleEditProjectStatusChange === 'function') {
             handleEditProjectStatusChange(statusSelect.value);
@@ -700,8 +694,10 @@
                 }
             });
         }
+
         const form = document.getElementById('editRecordForm');
-        if (form) {
+        if (form && !form._hasValidationListener) {
+            form._hasValidationListener = true;
             form.addEventListener('submit', function(event) {
                 if (!form.checkValidity()) {
                     event.preventDefault();
@@ -750,10 +746,8 @@
         }
 
         // ── GIS Interactive Mini Map Pinpoint for Edit Record ──
-        (function() {
-            const mapContainer = document.getElementById('editLocationMap');
-            if (!mapContainer) return;
-
+        const mapContainer = document.getElementById('editLocationMap');
+        if (mapContainer) {
             function ensureLeaflet(callback) {
                 if (typeof L !== 'undefined') {
                     callback();
@@ -861,27 +855,6 @@
                 if (resetBtn) resetBtn.classList.add('d-none');
             };
 
-            window.setEditMapLayer = function(layerKey) {
-                if (!window.editMap || !window.editTileLayers || !window.editTileLayers[layerKey]) return;
-                if (window.editActiveLayer && window.editMap.hasLayer(window.editActiveLayer)) {
-                    window.editMap.removeLayer(window.editActiveLayer);
-                }
-                window.editActiveLayer = window.editTileLayers[layerKey];
-                window.editActiveLayer.addTo(window.editMap);
-                if (window.editActiveLayer.bringToBack) {
-                    window.editActiveLayer.bringToBack();
-                }
-                const satBtn = document.getElementById('editLayerSatBtn');
-                const strBtn = document.getElementById('editLayerStrBtn');
-                if (satBtn && strBtn) {
-                    const isSat = (layerKey === 'satellite');
-                    satBtn.style.background = isSat ? '#0284c7' : 'transparent';
-                    satBtn.style.color = isSat ? '#ffffff' : '#64748b';
-                    strBtn.style.background = !isSat ? '#0284c7' : 'transparent';
-                    strBtn.style.color = !isSat ? '#ffffff' : '#64748b';
-                }
-            };
-
             function initEditMap() {
                 const mapEl = document.getElementById('editLocationMap');
                 if (!mapEl) return;
@@ -934,24 +907,13 @@
                     preferCanvas: true
                 }).setView([initialLat, initialLng], initialZoom);
 
-                // High-Definition Tile Layers with fallback
-                window.editTileLayers = {
-                    satellite: L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
-                        maxZoom: 20,
-                        maxNativeZoom: 19,
-                        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                        attribution: '&copy; Google Satellite'
-                    }),
-                    streets: L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2', {
-                        maxZoom: 20,
-                        maxNativeZoom: 19,
-                        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                        attribution: '&copy; Google Maps'
-                    })
-                };
-
-                window.editActiveLayer = window.editTileLayers.satellite;
-                window.editActiveLayer.addTo(window.editMap);
+                // High-Definition Satellite Layer
+                L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
+                    maxZoom: 20,
+                    maxNativeZoom: 19,
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    attribution: '&copy; Google Satellite'
+                }).addTo(window.editMap);
 
                 // Place initial pin if record has coordinates
                 const rawLat = latInput ? parseFloat(latInput.value) : null;
@@ -967,7 +929,8 @@
 
                 // Auto-center map on barangay select change
                 const brgySelect = document.getElementById('editBarangaySelect');
-                if (brgySelect) {
+                if (brgySelect && !brgySelect._hasMapSyncListener) {
+                    brgySelect._hasMapSyncListener = true;
                     brgySelect.addEventListener('change', function() {
                         const opt = this.options[this.selectedIndex];
                         if (opt) {
@@ -988,7 +951,8 @@
 
                 // Reset / Clear Pin button
                 const resetBtn = document.getElementById('editResetPinBtn');
-                if (resetBtn) {
+                if (resetBtn && !resetBtn._hasClearListener) {
+                    resetBtn._hasClearListener = true;
                     resetBtn.addEventListener('click', function(e) {
                         e.preventDefault();
                         window.clearEditLocationPin();
@@ -1003,22 +967,24 @@
                     ro.observe(mapEl);
                 }
 
-                // Timed invalidation sequence to handle slow layout paints
-                [50, 150, 300, 600, 1000, 1500].forEach(d => setTimeout(() => {
+                // Timed invalidation sequence to handle slow layout paints and view transitions
+                [30, 100, 250, 500, 900].forEach(d => setTimeout(() => {
                     if (window.editMap) window.editMap.invalidateSize();
                 }, d));
             }
 
             ensureLeaflet(initEditMap);
+        }
+    }
 
-            window.addEventListener('pageshow', function() {
-                if (window.editMap) {
-                    window.editMap.invalidateSize();
-                } else {
-                    ensureLeaflet(initEditMap);
-                }
-            });
-        })();
+    // ⚡ Execute immediately for SPA dynamic transitions AND attach for direct hard refresh
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initEditRecordPage);
+    } else {
+        initEditRecordPage();
+    }
+    window.addEventListener('pageshow', function() {
+        initEditRecordPage();
     });
 </script>
 
@@ -1080,12 +1046,6 @@
 [data-bs-theme="dark"] .edit-map-wrapper .leaflet-control-zoom a:hover {
     background-color: #334155 !important;
     color: #f87171 !important;
-}
-
-.dark-mode .edit-layer-switcher,
-[data-bs-theme="dark"] .edit-layer-switcher {
-    background: rgba(15, 23, 42, 0.88) !important;
-    border-color: #334155 !important;
 }
 .form-label-row {
     height: 22px !important;
