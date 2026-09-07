@@ -96,12 +96,16 @@ for item in OFFICIAL_49_CARIGARA_BARANGAYS:
         print(f"  [+] Created Barangay: {name} (PSGC: {psgc})")
     else:
         b.barangay_name = name
-        b.psgc_code = psgc
-        b.district = district
-        b.latitude = lat
-        b.longitude = lng
+        if not b.psgc_code:
+            b.psgc_code = psgc
+        if not b.district:
+            b.district = district
+        # Only set initial coordinates if the barangay has no coordinates yet (preserve custom/edited coordinates)
+        if b.latitude is None or b.longitude is None:
+            b.latitude = lat
+            b.longitude = lng
         b.save()
-        print(f"  [OK] Updated Barangay: {name} (PSGC: {psgc})")
+        print(f"  [OK] Synchronized Barangay: {name} (Coordinates preserved)")
 
 # Safely purge any dummy or non-official barangays without attached records
 deleted_count = 0

@@ -1135,13 +1135,18 @@ def ensure_barangay_schema():
                 if not b:
                     Barangay.objects.create(barangay_name=name, psgc_code=psgc, latitude=lat, longitude=lng)
                 else:
-                    b.barangay_name = name
-                    b.psgc_code = psgc
-                    b.latitude = lat
-                    b.longitude = lng
-                    b.save()
+                    changed = False
+                    if not b.psgc_code:
+                        b.psgc_code = psgc
+                        changed = True
+                    # Only set default coordinates if the barangay has no coordinates at all (preserve user edits)
+                    if b.latitude is None or b.longitude is None:
+                        b.latitude = lat
+                        b.longitude = lng
+                        changed = True
+                    if changed:
+                        b.save()
             Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()
-            Barangay.objects.filter(barangay_name__iexact='Barayong').update(latitude=11.2608, longitude=124.6755)
     except Exception:
         pass
 
@@ -1151,7 +1156,6 @@ def ensure_barangay_schema():
 @login_required
 def barangays_view(request):
     ensure_barangay_schema()
-    Barangay.objects.filter(barangay_name__iexact='Barayong').update(latitude=11.2608, longitude=124.6755)
 
     # Clean up dummy test junk entries if present
     Barangay.objects.filter(Q(barangay_name__in=['1', '2333333333', 'test']) | Q(barangay_name__regex=r'^\d+$')).delete()

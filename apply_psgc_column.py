@@ -99,9 +99,11 @@ for item in OFFICIAL_49_CARIGARA_BARANGAYS:
         )
     else:
         b.barangay_name = name
-        b.psgc_code = psgc
-        b.latitude = lat
-        b.longitude = lng
+        if not b.psgc_code:
+            b.psgc_code = psgc
+        if b.latitude is None or b.longitude is None:
+            b.latitude = lat
+            b.longitude = lng
         b.save()
 
 print("ALL DONE SUCCESSFULLY!")
