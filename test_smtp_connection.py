@@ -21,10 +21,16 @@ try:
     server.ehlo()
     server.starttls(context=context)
     server.ehlo()
-    server.login(user, password)
-    message = f"From: {from_email}\r\nTo: {to_email}\r\nSubject: eTala SMTP Test Confirmation\r\n\r\nHello from eTala Engineering Office System! This confirms SMTP is active and working."
+    from email.mime.text import MIMEText
+    from email.header import Header
+
+    msg = MIMEText("Hello from eTala Engineering Office System! This confirms SMTP is active and working.", 'plain', 'utf-8')
+    msg['Subject'] = Header("eTala SMTP Test Confirmation", 'utf-8')
+    msg['From'] = from_email
+    msg['To'] = to_email
+
     sender_addr = user or from_email
-    server.sendmail(sender_addr, [to_email], message)
+    server.sendmail(sender_addr, [to_email], msg.as_string())
     server.quit()
     print(f"SUCCESS: Test email successfully sent to {to_email}!")
 except Exception as e:
