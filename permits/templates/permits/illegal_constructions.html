@@ -1071,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 4. Seamless Live AJAX Table Refresh with Micro-Fade Transition
-    async function updateIllegalTableAJAX(url) {
+    async function updateIllegalTableAJAX(url, pushHistory = true) {
         const tableCard = document.getElementById('recordsTableCard') || document.querySelector('.content-card');
         if (searchSpinner) searchSpinner.classList.remove('d-none');
         if (tableCard) {
@@ -1134,7 +1134,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Update browser history silently
-            window.history.pushState({}, '', url);
+            if (pushHistory) {
+                window.history.pushState({}, '', url);
+            }
 
         } catch (err) {
             console.error("AJAX refresh error:", err);
@@ -1149,6 +1151,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    window.addEventListener('popstate', function () {
+        updateIllegalTableAJAX(window.location.href, false);
+    });
 
     // 5. Intercept Click Events (Scope Buttons, Pagination, Clear Search, Reset All)
     document.addEventListener('click', function (e) {

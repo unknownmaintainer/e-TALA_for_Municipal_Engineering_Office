@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const projectSearchSpinner = document.getElementById('projectSearchSpinner');
     let projectSearchTimer;
 
-    async function updateProjectsAJAX(url) {
+    async function updateProjectsAJAX(url, pushHistory = true) {
         const container = document.querySelector('.row.g-4') || document.querySelector('.content-card');
         if (projectSearchSpinner) projectSearchSpinner.classList.remove('d-none');
         if (container) {
@@ -195,7 +195,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (container && newContainer) {
                 container.innerHTML = newContainer.innerHTML;
             }
-            window.history.pushState({}, '', url);
+            if (pushHistory) {
+                window.history.pushState({}, '', url);
+            }
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (projectSearchInput && projectSearchInput.form) projectSearchInput.form.submit();
@@ -204,6 +206,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (projectSearchSpinner) projectSearchSpinner.classList.add('d-none');
         }
     }
+
+    window.addEventListener('popstate', function () {
+        updateProjectsAJAX(window.location.href, false);
+    });
 
     if (projectSearchInput && projectSearchInput.form) {
         if (projectSearchInput.value) {

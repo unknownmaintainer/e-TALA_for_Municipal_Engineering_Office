@@ -782,7 +782,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const wsClearBtn = document.getElementById('wsClearSearchBtn');
     let wsSearchTimer;
 
-    async function updateWorkspaceTableAJAX(url) {
+    async function updateWorkspaceTableAJAX(url, pushHistory = true) {
         const mainContainer = document.querySelector('.row.g-4') || document.querySelector('.content-card');
         if (wsSearchSpinner) wsSearchSpinner.classList.remove('d-none');
         if (wsClearBtn) wsClearBtn.classList.add('d-none');
@@ -803,7 +803,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (mainContainer && newContainer) {
                 mainContainer.innerHTML = newContainer.innerHTML;
             }
-            window.history.pushState({}, '', url);
+            if (pushHistory) {
+                window.history.pushState({}, '', url);
+            }
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (wsSearchInput && wsSearchInput.form) wsSearchInput.form.submit();
@@ -816,6 +818,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    window.addEventListener('popstate', function () {
+        updateWorkspaceTableAJAX(window.location.href, false);
+    });
 
     if (wsSearchInput && wsSearchInput.form) {
         if (wsSearchInput.value) {

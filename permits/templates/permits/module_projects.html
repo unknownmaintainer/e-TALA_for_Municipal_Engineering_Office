@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const moduleProjClearBtn = document.getElementById('moduleProjClearBtn');
     let projectSearchTimer;
 
-    async function updateModuleProjTableAJAX(url) {
+    async function updateModuleProjTableAJAX(url, pushHistory = true) {
         const tableContainer = document.getElementById('moduleProjectsContainer');
         if (moduleProjSearchSpinner) moduleProjSearchSpinner.classList.remove('d-none');
         if (moduleProjClearBtn) moduleProjClearBtn.classList.add('d-none');
@@ -408,7 +408,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (window.lucide) {
                 lucide.createIcons();
             }
-            window.history.pushState({}, '', url);
+            if (pushHistory) {
+                window.history.pushState({}, '', url);
+            }
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (projectSearchInput && projectSearchInput.form) projectSearchInput.form.submit();
@@ -421,6 +423,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    window.addEventListener('popstate', function () {
+        updateModuleProjTableAJAX(window.location.href, false);
+    });
 
     if (projectSearchInput) {
         if (projectSearchInput.value) {

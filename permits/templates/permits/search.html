@@ -585,7 +585,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const filterForm = document.getElementById('filterForm');
     let mainSearchTimer;
 
-    async function updateSearchTableAJAX(url) {
+    async function updateSearchTableAJAX(url, pushHistory = true) {
         const tableCard = document.querySelector('.content-card.overflow-hidden') || document.querySelector('.content-card');
         if (searchSpinner) searchSpinner.classList.remove('d-none');
         if (searchClearBtn) searchClearBtn.classList.add('d-none');
@@ -606,7 +606,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (tableCard && newTableCard) {
                 tableCard.innerHTML = newTableCard.innerHTML;
             }
-            window.history.pushState({}, '', url);
+            if (pushHistory) {
+                window.history.pushState({}, '', url);
+            }
         } catch (err) {
             console.error("AJAX search error:", err);
             if (filterForm) filterForm.submit();
@@ -619,6 +621,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    window.addEventListener('popstate', function () {
+        updateSearchTableAJAX(window.location.href, false);
+    });
 
     if (mainSearchInput) {
         // Keep focus at end of input

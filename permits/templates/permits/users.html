@@ -1412,7 +1412,7 @@
         const userSearchForm = document.getElementById('userSearchForm');
         let userSearchTimer;
 
-        async function updateUsersTableAJAX(url) {
+        async function updateUsersTableAJAX(url, pushHistory = true) {
             const tableContainer = document.getElementById('usersTableContainer');
             const loadingOverlay = document.getElementById('usersLoadingOverlay');
             if (loadingOverlay) loadingOverlay.classList.add('show');
@@ -1440,7 +1440,9 @@
                     oldBadge.innerHTML = newBadge.innerHTML;
                 }
 
-                window.history.pushState({}, '', url);
+                if (pushHistory) {
+                    window.history.pushState({}, '', url);
+                }
             } catch (err) {
                 console.error("AJAX user search error:", err);
                 window.location.href = url;
@@ -1454,6 +1456,10 @@
                 }
             }
         }
+
+        window.addEventListener('popstate', function () {
+            updateUsersTableAJAX(window.location.href, false);
+        });
 
         // Intercept pagination clicks for instant AJAX table refresh without page reload
         document.addEventListener('click', function (e) {

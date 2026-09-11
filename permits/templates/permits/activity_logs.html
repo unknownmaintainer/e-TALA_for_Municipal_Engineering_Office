@@ -1814,7 +1814,7 @@
         const filterForm = document.getElementById('activityLogsFilterForm');
         let logSearchTimer;
 
-        async function updateLogsTableAJAX(url) {
+        async function updateLogsTableAJAX(url, pushHistory = true) {
             const tablesWrapper = document.getElementById('activityLogsTablesWrapper');
             if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
             if (logClearBtn) logClearBtn.classList.add('d-none');
@@ -1883,7 +1883,9 @@
                 } catch(e) {}
 
                 // Sync URL history
-                window.history.pushState({}, '', url);
+                if (pushHistory) {
+                    window.history.pushState({}, '', url);
+                }
                 updateSettingsExportUrl();
             } catch (err) {
                 console.error("AJAX refresh error:", err);
@@ -1900,6 +1902,10 @@
                 }
             }
         }
+
+        window.addEventListener('popstate', function () {
+            updateLogsTableAJAX(window.location.href, false);
+        });
 
         window.updateLogsTableAJAX = updateLogsTableAJAX;
 

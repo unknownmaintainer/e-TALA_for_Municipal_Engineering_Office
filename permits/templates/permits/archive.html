@@ -778,7 +778,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const archiveClearBtn = document.getElementById('archiveClearBtn');
     let archiveSearchTimer;
 
-    async function updateArchiveTableAJAX(url) {
+    async function updateArchiveTableAJAX(url, pushHistory = true) {
         const tableContainer = document.getElementById('archiveTableContainer');
         if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
         if (archiveClearBtn) archiveClearBtn.classList.add('d-none');
@@ -802,7 +802,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (window.lucide) {
                 lucide.createIcons();
             }
-            window.history.pushState({}, '', url);
+            if (pushHistory) {
+                window.history.pushState({}, '', url);
+            }
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (archiveSearchInput && archiveSearchInput.form) archiveSearchInput.form.submit();
@@ -815,6 +817,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    window.addEventListener('popstate', function () {
+        updateArchiveTableAJAX(window.location.href, false);
+    });
 
     if (archiveSearchInput) {
         if (archiveSearchInput.value) {

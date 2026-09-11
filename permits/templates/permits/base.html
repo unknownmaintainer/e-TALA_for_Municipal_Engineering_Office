@@ -8931,9 +8931,7 @@
             color: #f8fafc !important;
         }
     </style>
-    <div id="etala-page-extra-css" style="display:none !important;">
     {% block extra_css %}{% endblock %}
-    </div>
 </head>
 
 <body>
@@ -12346,10 +12344,9 @@
             }
         });
 
-        // ⚡ INSTANT PERSISTENT SPA PAGE TRANSITION ENGINE (ZERO WHITE FLASH, PERMANENT SIDEBAR)
+        // ⚡ INSTANT TOP PROGRESS BAR & NAVIGATION VISUAL FEEDBACK
         (function() {
             const bar = document.getElementById('etalaTopProgressBar');
-            let isNavigating = false;
 
             function showBar() {
                 if (bar) {
@@ -12382,130 +12379,7 @@
                 });
             };
 
-            async function navigateTo(url, pushState = true) {
-                if (isNavigating) return;
-                isNavigating = true;
-                showBar();
-                window.closeAllHeaderDropdowns();
-
-                try {
-                    const response = await fetch(url, {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-
-                    if (!response.ok || (response.redirected && response.url.includes('/login'))) {
-                        window.location.href = response.url || url;
-                        return;
-                    }
-
-                    const htmlText = await response.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlText, 'text/html');
-
-                    const newContent = doc.querySelector('main.etala-content');
-                    const currentContent = document.querySelector('main.etala-content');
-                    const newHeader = doc.querySelector('header.etala-header');
-                    const currentHeader = document.querySelector('header.etala-header');
-                    const newSidebar = doc.querySelector('.sidebar-nav');
-                    const currentSidebar = document.querySelector('.sidebar-nav');
-
-                    if (!newContent || !currentContent) {
-                        window.location.href = url;
-                        return;
-                    }
-
-                    // Update page title
-                    document.title = doc.title || document.title;
-
-                    // Update active sidebar links
-                    if (newSidebar && currentSidebar) {
-                        currentSidebar.innerHTML = newSidebar.innerHTML;
-                    }
-
-                    // Update header
-                    if (newHeader && currentHeader) {
-                        currentHeader.innerHTML = newHeader.innerHTML;
-                    }
-
-                    // Synchronize page-specific styles (<style> and <link> from extra_css)
-                    const newCss = doc.querySelector('#etala-page-extra-css');
-                    const curCss = document.querySelector('#etala-page-extra-css');
-                    if (newCss && curCss) {
-                        curCss.innerHTML = newCss.innerHTML;
-                    }
-
-                    // Smooth DOM swap of main content with silky fade transition
-                    currentContent.style.opacity = '0.7';
-                    currentContent.innerHTML = newContent.innerHTML;
-                    requestAnimationFrame(() => {
-                        currentContent.style.transition = 'opacity 0.22s ease';
-                        currentContent.style.opacity = '1';
-                    });
-
-                    // Update bottom mobile navigation active status
-                    try {
-                        const parsedUrl = new URL(url, window.location.origin);
-                        const path = parsedUrl.pathname;
-                        document.querySelectorAll('.mobile-bottom-nav .mobile-nav-item').forEach(item => {
-                            const href = item.getAttribute('href');
-                            if (href && (href === path || (href !== '/' && path.startsWith(href)))) {
-                                item.classList.add('active');
-                            } else if (path === '/' && href && href.includes('dashboard')) {
-                                item.classList.add('active');
-                            } else {
-                                item.classList.remove('active');
-                            }
-                        });
-                    } catch (e) {}
-
-                    // Synchronize and execute dynamic script blocks inside newContent and extra_js
-                    const newJs = doc.querySelector('#etala-page-extra-js');
-                    const curJs = document.querySelector('#etala-page-extra-js');
-                    if (curJs) {
-                        curJs.innerHTML = '';
-                    }
-
-                    const scriptsToRun = [
-                        ...currentContent.querySelectorAll('script'),
-                        ...(newJs ? Array.from(newJs.querySelectorAll('script')) : [])
-                    ];
-
-                    scriptsToRun.forEach(oldScript => {
-                        const newScript = document.createElement('script');
-                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-                        if (oldScript.parentNode && oldScript.parentNode.tagName !== 'HEAD') {
-                            oldScript.parentNode.replaceChild(newScript, oldScript);
-                        } else {
-                            document.body.appendChild(newScript);
-                        }
-                    });
-
-                    // Re-init global date pickers & lucide icons
-                    if (window.initPremiumDatePickers) window.initPremiumDatePickers(currentContent);
-                    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-
-                    if (pushState) {
-                        window.history.pushState({ path: url }, '', url);
-                    }
-
-                    window.scrollTo({ top: 0, behavior: 'instant' });
-                    hideBar();
-                } catch (err) {
-                    console.warn('Fast transition fallback:', err);
-                    window.location.href = url;
-                } finally {
-                    isNavigating = false;
-                }
-            }
-
-            window.addEventListener('popstate', function() {
-                navigateTo(window.location.href, false);
-            });
-
-            // ⚡ Instant Sidebar Hover & Touch Prefetching (Eliminates perceived load latency)
+            // Prefetch links on hover/touch for lightning-fast page transitions
             const prefetchedUrls = new Set();
             function prefetchUrl(url) {
                 if (!url || prefetchedUrls.has(url)) return;
@@ -12554,7 +12428,6 @@
                     return;
                 }
 
-                // Check same-origin
                 try {
                     const urlObj = new URL(href, window.location.origin);
                     if (urlObj.origin !== window.location.origin) return;
@@ -12562,7 +12435,7 @@
                     return;
                 }
 
-                if (link.hasAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle') || link.classList.contains('zip-download-btn') || link.closest('.dropdown-menu') || link.hasAttribute('data-no-transition') || link.classList.contains('no-transition') || href.includes('/logout/')) {
+                if (link.hasAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle') || link.classList.contains('zip-download-btn') || link.closest('.dropdown-menu')) {
                     return;
                 }
 
@@ -12570,21 +12443,18 @@
                     return;
                 }
 
-                // Instant visual selection for sidebar links
-                const navItem = link.closest('.nav-item');
-                if (navItem) {
-                    document.querySelectorAll('.sidebar-nav .nav-item.active').forEach(item => item.classList.remove('active'));
-                    navItem.classList.add('active');
-                }
-
-                // If mobile drawer was open, close it instantly so user sees destination immediately
+                // Close mobile drawer immediately on navigation click
                 const sidebar = document.getElementById('sidebar');
                 if (sidebar && sidebar.classList.contains('mobile-open') && typeof window.closeMobileSidebar === 'function') {
                     window.closeMobileSidebar();
                 }
 
-                e.preventDefault();
-                navigateTo(href, true);
+                // Show top progress loading bar
+                showBar();
+            });
+
+            window.addEventListener('pageshow', function() {
+                hideBar();
             });
         })();
 
@@ -12835,9 +12705,7 @@
         })();
     </script>
 
-    <div id="etala-page-extra-js" style="display:none !important;">
     {% block extra_js %}{% endblock %}
-    </div>
 </body>
 
 </html>

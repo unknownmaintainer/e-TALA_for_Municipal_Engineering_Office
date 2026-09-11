@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const modulePermitClearBtn = document.getElementById('modulePermitClearBtn');
     let permitSearchTimer;
 
-    async function updateModulePermitTableAJAX(url) {
+    async function updateModulePermitTableAJAX(url, pushHistory = true) {
         const tableContainer = document.getElementById('modulePermitsContainer');
         if (modulePermitSearchSpinner) modulePermitSearchSpinner.classList.remove('d-none');
         if (modulePermitClearBtn) modulePermitClearBtn.classList.add('d-none');
@@ -441,7 +441,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (window.lucide) {
                 lucide.createIcons();
             }
-            window.history.pushState({}, '', url);
+            if (pushHistory) {
+                window.history.pushState({}, '', url);
+            }
         } catch (err) {
             console.error("AJAX refresh error:", err);
             if (permitSearchInput && permitSearchInput.form) permitSearchInput.form.submit();
@@ -454,6 +456,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    window.addEventListener('popstate', function () {
+        updateModulePermitTableAJAX(window.location.href, false);
+    });
 
     if (permitSearchInput) {
         if (permitSearchInput.value) {

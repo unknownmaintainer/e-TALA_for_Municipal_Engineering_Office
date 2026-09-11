@@ -1172,7 +1172,7 @@
             const searchSpinner = document.getElementById('searchSpinner');
 
             // Clean Seamless AJAX Table Refresh (Silky Smooth Micro-Fade Transition)
-            async function updateRecordsTableAJAX(url) {
+            async function updateRecordsTableAJAX(url, pushHistory = true) {
                 const tableCard = document.getElementById('recordsTableCard') || document.querySelector('.content-card');
                 const searchSpinner = document.getElementById('searchSpinner');
 
@@ -1274,7 +1274,9 @@
                     }
 
                     // 3. Update browser history URL silently
-                    window.history.pushState({}, '', url);
+                    if (pushHistory) {
+                        window.history.pushState({}, '', url);
+                    }
 
                 } catch (err) {
                     console.error("AJAX table refresh error:", err);
@@ -1292,6 +1294,10 @@
                     }
                 }
             }
+
+            window.addEventListener('popstate', function () {
+                updateRecordsTableAJAX(window.location.href, false);
+            });
 
             // Intercept clicks on Category Tabs, Sub-filter Pills, Scope Pills, Pagination, Reset All, and Clear Search
             document.addEventListener('click', function (e) {
