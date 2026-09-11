@@ -9168,7 +9168,7 @@
                             </button>
 
                             <!-- Quick Help & User Guide Button -->
-                            <button class="header-help-btn" type="button" onclick="openQuickHelpModal();" title="Quick Help & Guide (Press ?)" aria-label="Help Guide"
+                            <button class="header-help-btn" type="button" data-bs-toggle="modal" data-bs-target="#globalHelpModal" onclick="openQuickHelpModal();" title="Quick Help & Guide (Press ?)" aria-label="Help Guide"
                                 style="background: transparent; border: none; padding: 6px; border-radius: 9px; cursor: pointer; color: #64748b; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; transition: all 0.2s ease;">
                                 <i class="fa-regular fa-circle-question" style="font-size: 16px;"></i>
                             </button>
@@ -9383,6 +9383,12 @@
                                         </div>
                                         <span class="user-profile-menu-text">About eTala</span>
                                     </a>
+                                    <button type="button" class="dropdown-item user-profile-menu-link border-0 bg-transparent w-100 text-start" data-bs-toggle="modal" data-bs-target="#globalHelpModal" onclick="openQuickHelpModal();">
+                                        <div class="user-profile-menu-icon user-profile-menu-icon-blue" style="background: rgba(14, 165, 233, 0.12); color: #0284c7;">
+                                            <i class="fa-regular fa-circle-question"></i>
+                                        </div>
+                                        <span class="user-profile-menu-text">Quick Guide &amp; FAQs</span>
+                                    </button>
 
                                     <hr class="dropdown-divider my-1" style="width: 100% !important; margin: 4px 0 !important; border-color: rgba(226, 232, 240, 0.8) !important;">
 
@@ -11351,6 +11357,56 @@
     </div>
 
     <script>
+        /* ══ GLOBAL SYSTEM HELP & FAQS ENGINE ═════════════════════════════════ */
+        window.openQuickHelpModal = function() {
+            const modalEl = document.getElementById('globalHelpModal');
+            if (modalEl && window.bootstrap && bootstrap.Modal) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            }
+        };
+
+        window.toggleFaqItem = function(button) {
+            if (!button) return;
+            const item = button.closest('.faq-accordion-item');
+            if (!item) return;
+            const body = item.querySelector('.faq-accordion-body');
+            const chevron = item.querySelector('.faq-chevron');
+            if (!body) return;
+
+            const isCurrentlyHidden = body.classList.contains('d-none');
+            document.querySelectorAll('#faqAccordionList .faq-accordion-body').forEach(b => b.classList.add('d-none'));
+            document.querySelectorAll('#faqAccordionList .faq-chevron').forEach(c => { if(c) c.style.transform = 'rotate(0deg)'; });
+
+            if (isCurrentlyHidden) {
+                body.classList.remove('d-none');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+            }
+        };
+
+        window.filterFaqs = function() {
+            const input = document.getElementById('faqSearchInput');
+            if (!input) return;
+            const query = input.value.trim().toLowerCase();
+            const items = document.querySelectorAll('#faqAccordionList .faq-accordion-item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (!query || text.includes(query)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        };
+
+        // Shortcut: Press '?' outside inputs to open Quick Guide
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !document.activeElement?.isContentEditable) {
+                e.preventDefault();
+                openQuickHelpModal();
+            }
+        });
+
         /* ══ NOTIFICATION UNREAD / ITEM READ / DISMISS ENGINE ══ */
         function markItemAsRead(element, url) {
             if (!element) return;
