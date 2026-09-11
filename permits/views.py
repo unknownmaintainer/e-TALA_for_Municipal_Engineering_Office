@@ -6552,7 +6552,7 @@ def toggle_user_active_view(request, user_id):
 
 @login_required
 def users_view(request):
-    if request.user.role != 'admin':
+    if request.user.role != 'admin' and not request.user.is_superuser:
         raise PermissionDenied("You do not have permission to view User Management.")
 
     if request.method == 'POST':
