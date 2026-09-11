@@ -21,6 +21,8 @@ try:
     server.ehlo()
     server.starttls(context=context)
     server.ehlo()
+    if user and password:
+        server.login(user, password)
     from email.mime.text import MIMEText
     from email.header import Header
 

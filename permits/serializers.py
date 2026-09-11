@@ -56,6 +56,7 @@ class EngineeringRecordSerializer(serializers.ModelSerializer):
             'specific_type', 'permit_detail', 'project_detail',
             'date_started', 'date_completed', 'created_at', 'updated_at', 'documents'
         ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
 
 
 # Backward compatibility serializer for legacy Record model

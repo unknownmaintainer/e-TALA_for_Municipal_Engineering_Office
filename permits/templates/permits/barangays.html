@@ -1037,14 +1037,13 @@
                                 style="font-size: 0.82rem; letter-spacing: -0.01em;">Barangay Map</span>
                         </div>
 
-                        <!-- Right: Map Base Layer Selector -->
+                        <!-- Right: Constant Satellite View Badge -->
                         <div class="d-flex align-items-center flex-nowrap gap-1.5 ms-auto flex-shrink-0">
-                            <select id="mapLayerSelect" class="map-layer-select-custom"
-                                onchange="switchMapLayer(this.value)" title="Choose Map Style">
-                                <option value="osm" selected>OpenStreetMap</option>
-                                <option value="satellite">Satellite View</option>
-                                <option value="streets">Street View</option>
-                            </select>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1"
+                                style="font-size: 0.72rem; font-weight: 600; padding: 4px 8px; border-radius: 6px;">
+                                <i class="fa-solid fa-satellite" style="font-size: 10px;"></i>
+                                <span>Satellite View</span>
+                            </span>
                         </div>
                     </div>
 
@@ -1367,12 +1366,12 @@
             L.DomEvent.disableClickPropagation(mapInstance.getContainer());
         }
 
-        // OpenStreetMap (Consistent with Barangay View)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Google Satellite View (High-Resolution Aerial Imagery)
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
             maxZoom: 19,
-            maxNativeZoom: 19,
-            subdomains: ['a', 'b', 'c'],
-            attribution: '&copy; OpenStreetMap contributors'
+            maxNativeZoom: 18,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '&copy; Google Satellite'
         }).addTo(mapInstance);
 
         const customIcon = L.divIcon({
@@ -1444,14 +1443,32 @@
                 initPickerMap('add_map_picker', 'add_latitude', 'add_longitude', 11.2980, 124.6890);
             });
             addModalEl.addEventListener('shown.bs.modal', function () {
-                if (addPickerMap) addPickerMap.invalidateSize();
+                [0, 50, 150, 300, 500].forEach(delay => {
+                    setTimeout(() => {
+                        if (addPickerMap) {
+                            addPickerMap.invalidateSize();
+                            const lat = parseFloat(document.getElementById('add_latitude').value) || 11.2980;
+                            const lng = parseFloat(document.getElementById('add_longitude').value) || 124.6890;
+                            addPickerMap.panTo([lat, lng], { animate: false });
+                        }
+                    }, delay);
+                });
             });
         }
 
         const editModalEl = document.getElementById('editBarangayModal');
         if (editModalEl) {
             editModalEl.addEventListener('shown.bs.modal', function () {
-                if (editPickerMap) editPickerMap.invalidateSize();
+                [0, 50, 150, 300, 500].forEach(delay => {
+                    setTimeout(() => {
+                        if (editPickerMap) {
+                            editPickerMap.invalidateSize();
+                            const lat = parseFloat(document.getElementById('edit_latitude').value) || 11.2980;
+                            const lng = parseFloat(document.getElementById('edit_longitude').value) || 124.6890;
+                            editPickerMap.panTo([lat, lng], { animate: false });
+                        }
+                    }, delay);
+                });
             });
         }
     });
@@ -1480,10 +1497,20 @@
         const parsedLat = (lat && !isNaN(lat)) ? parseFloat(lat) : 11.2980;
         const parsedLng = (lng && !isNaN(lng)) ? parseFloat(lng) : 124.6890;
 
-        // Initialize / update picker map immediately without waiting for transition to finish
+        // Initialize / update picker map immediately
         initPickerMap('edit_map_picker', 'edit_latitude', 'edit_longitude', parsedLat, parsedLng);
 
-        if (bsModal) bsModal.show();
+        if (bsModal) {
+            bsModal.show();
+            [50, 150, 300, 500].forEach(delay => {
+                setTimeout(() => {
+                    if (editPickerMap) {
+                        editPickerMap.invalidateSize();
+                        editPickerMap.panTo([parsedLat, parsedLng], { animate: false });
+                    }
+                }, delay);
+            });
+        }
     };
 
     window.confirmDeleteBarangay = function(id, name, totalRecords) {
@@ -1950,34 +1977,14 @@
                 preferCanvas: true
             }).setView([centerLat, centerLng], 12.5);
 
-            // 1. Street View (Google Maps Cartography - 100% Calibrated with Database Geocodes)
-            tileLayers['streets'] = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2', {
-                maxZoom: 19,
-                maxNativeZoom: 19,
-                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                attribution: '&copy; Google Maps'
-            });
-
-            // 2. Satellite Hybrid (High-Resolution Aerial Imagery)
-            tileLayers['satellite'] = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
-                maxZoom: 19,
+            // Constant Google Satellite View (High-Resolution Aerial Imagery across all maps)
+            const satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
+                maxZoom: 20,
                 maxNativeZoom: 18,
                 subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
                 attribution: '&copy; Google Satellite'
             });
-
-            // 3. OpenStreetMap (Detailed Building Outlines, Chapels & Local Streets)
-            tileLayers['osm'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                maxNativeZoom: 19,
-                subdomains: ['a', 'b', 'c'],
-                attribution: '&copy; OpenStreetMap contributors'
-            });
-
-            const layerSelector = document.getElementById('mapLayerSelect');
-            const defaultLayerKey = layerSelector ? layerSelector.value : 'osm';
-            activeTileLayer = tileLayers[defaultLayerKey] || tileLayers['osm'];
-            activeTileLayer.addTo(map);
+            satelliteLayer.addTo(map);
 
             map.on('click', function () {
                 resetBarangayHighlight();

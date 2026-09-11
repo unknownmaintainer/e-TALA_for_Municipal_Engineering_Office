@@ -6227,20 +6227,22 @@
             bottom: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            background: rgba(15, 23, 42, 0.45) !important;
+            background: transparent !important;
             z-index: 1040 !important;
             opacity: 0 !important;
             visibility: hidden !important;
             pointer-events: none !important;
-            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            transition: opacity 0.15s ease, visibility 0.15s ease !important;
         }
 
-        html.header-dropdown-open,
-        body.header-dropdown-open {
-            overflow: hidden !important;
-            height: 100% !important;
-            touch-action: none !important;
-            overscroll-behavior: none !important;
+        @media (max-width: 767.98px) {
+            html.header-dropdown-open,
+            body.header-dropdown-open {
+                overflow: hidden !important;
+                height: 100% !important;
+                touch-action: none !important;
+                overscroll-behavior: none !important;
+            }
         }
 
         html.header-dropdown-open .etala-header-backdrop,
@@ -6248,7 +6250,6 @@
             opacity: 1 !important;
             visibility: visible !important;
             pointer-events: auto !important;
-            touch-action: none !important;
         }
 
         .dropdown-menu.show,
@@ -8899,7 +8900,9 @@
             color: #f8fafc !important;
         }
     </style>
+    <div id="etala-page-extra-css" style="display:none !important;">
     {% block extra_css %}{% endblock %}
+    </div>
 </head>
 
 <body>
@@ -12356,6 +12359,13 @@
                         currentHeader.innerHTML = newHeader.innerHTML;
                     }
 
+                    // Synchronize page-specific styles (<style> and <link> from extra_css)
+                    const newCss = doc.querySelector('#etala-page-extra-css');
+                    const curCss = document.querySelector('#etala-page-extra-css');
+                    if (newCss && curCss) {
+                        curCss.innerHTML = newCss.innerHTML;
+                    }
+
                     // Smooth DOM swap of main content with silky fade transition
                     currentContent.style.opacity = '0.7';
                     currentContent.innerHTML = newContent.innerHTML;
@@ -12380,13 +12390,27 @@
                         });
                     } catch (e) {}
 
-                    // Execute any dynamic script blocks inside newContent
-                    const scripts = currentContent.querySelectorAll('script');
-                    scripts.forEach(oldScript => {
+                    // Synchronize and execute dynamic script blocks inside newContent and extra_js
+                    const newJs = doc.querySelector('#etala-page-extra-js');
+                    const curJs = document.querySelector('#etala-page-extra-js');
+                    if (curJs) {
+                        curJs.innerHTML = '';
+                    }
+
+                    const scriptsToRun = [
+                        ...currentContent.querySelectorAll('script'),
+                        ...(newJs ? Array.from(newJs.querySelectorAll('script')) : [])
+                    ];
+
+                    scriptsToRun.forEach(oldScript => {
                         const newScript = document.createElement('script');
                         Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
                         newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-                        oldScript.parentNode.replaceChild(newScript, oldScript);
+                        if (oldScript.parentNode && oldScript.parentNode.tagName !== 'HEAD') {
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        } else {
+                            document.body.appendChild(newScript);
+                        }
                     });
 
                     // Re-init global date pickers & lucide icons
@@ -12740,7 +12764,9 @@
         })();
     </script>
 
+    <div id="etala-page-extra-js" style="display:none !important;">
     {% block extra_js %}{% endblock %}
+    </div>
 </body>
 
 </html>

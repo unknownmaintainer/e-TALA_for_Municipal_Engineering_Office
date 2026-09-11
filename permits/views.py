@@ -27,6 +27,7 @@ from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpR
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError, ImproperlyConfigured
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q, Count, Sum, F
 from django.utils import timezone
 from django.core import signing
@@ -3648,6 +3649,12 @@ def document_upload_view(request, record_id):
         if expiry_date:
             try:
                 parsed_expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                if parsed_expiry_date < timezone.localdate():
+                    err_msg = "Past expiry date is not allowed. Expiration date must be today or a future date."
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('record_detail', record_id=record.record_id)
             except ValueError:
                 parsed_expiry_date = None
 
@@ -3819,7 +3826,14 @@ def document_replace_view(request, record_id, document_id):
         if expiry_date:
             try:
                 import datetime
-                doc.expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                parsed_exp = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                if parsed_exp < timezone.localdate():
+                    err_msg = "Past expiry date is not allowed. Expiration date must be today or a future date."
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'error': err_msg}, status=400)
+                    messages.error(request, err_msg)
+                    return redirect('record_detail', record_id=record.record_id)
+                doc.expiry_date = parsed_exp
             except ValueError:
                 doc.expiry_date = None
         else:
@@ -7034,61 +7048,76 @@ def batch_upload_documents_view(request, record_id):
             for req in record.requirements.select_related('requirement_item')
         }
 
-        for idx, f in enumerate(files):
-            try:
-                validate_document_file(f, is_illegal_construction=record.is_illegal_construction)
-            except ValidationError as ve:
-                messages.error(request, f"File '{f.name}' rejected: {ve.message}")
-                continue
+        # Track old documents to safely delete ONLY AFTER successful creation and save
+        old_docs_to_cleanup = []
 
-            target_item_id = str(item_ids[idx]).strip() if idx < len(item_ids) else ''
-            matched_req = reqs_by_item_id.get(target_item_id)
+        try:
+            with transaction.atomic():
+                for idx, f in enumerate(files):
+                    try:
+                        validate_document_file(f, is_illegal_construction=record.is_illegal_construction)
+                    except ValidationError as ve:
+                        messages.error(request, f"File '{f.name}' rejected: {ve.message}")
+                        continue
 
-            raw_expiry = expiry_dates[idx].strip() if idx < len(expiry_dates) else ''
-            parsed_expiry_date = None
-            if raw_expiry:
-                try:
-                    import datetime
-                    parsed_expiry_date = datetime.datetime.strptime(raw_expiry, '%Y-%m-%d').date()
-                    if parsed_expiry_date < timezone.localdate():
-                        messages.warning(request, f"File '{f.name}': Past expiry date was rejected. Expiry date must be in the future.")
-                        parsed_expiry_date = None
-                except ValueError:
+                    target_item_id = str(item_ids[idx]).strip() if idx < len(item_ids) else ''
+                    matched_req = reqs_by_item_id.get(target_item_id)
+
+                    raw_expiry = expiry_dates[idx].strip() if idx < len(expiry_dates) else ''
                     parsed_expiry_date = None
+                    if raw_expiry:
+                        try:
+                            import datetime
+                            parsed_expiry_date = datetime.datetime.strptime(raw_expiry, '%Y-%m-%d').date()
+                            if parsed_expiry_date < timezone.localdate():
+                                messages.warning(request, f"File '{f.name}': Past expiry date was rejected. Expiry date must be in the future.")
+                                parsed_expiry_date = None
+                        except ValueError:
+                            parsed_expiry_date = None
 
-            # Check if existing document should be safely replaced in this slot
-            new_version = 1
-            if matched_req and matched_req.document:
-                old_doc = matched_req.document
-                new_version = (old_doc.version or 1) + 1
-                try:
-                    old_doc.file.delete(save=False)
-                    old_doc.delete()
-                except Exception as e:
-                    logger.error(f"Error replacing old batch document: {e}")
+                    # Check if existing document should be safely replaced in this slot
+                    new_version = 1
+                    if matched_req and matched_req.document:
+                        old_doc = matched_req.document
+                        new_version = (old_doc.version or 1) + 1
+                        old_docs_to_cleanup.append(old_doc)
 
-            doc_type = matched_req.requirement_item.name[:50] if matched_req else ("Incident Evidence" if record.is_illegal_construction else "Additional Document")
-            doc = Document.objects.create(
-                engineering_record=record,
-                requirement_item=matched_req.requirement_item if matched_req else None,
-                document_type=doc_type,
-                file=f,
-                file_name=f.name,
-                file_size=f.size,
-                version=new_version,
-                uploaded_by=request.user,
-                expiry_date=parsed_expiry_date,
-            )
+                    doc_type = matched_req.requirement_item.name[:50] if matched_req else ("Incident Evidence" if record.is_illegal_construction else "Additional Document")
+                    doc = Document.objects.create(
+                        engineering_record=record,
+                        requirement_item=matched_req.requirement_item if matched_req else None,
+                        document_type=doc_type,
+                        file=f,
+                        file_name=f.name,
+                        file_size=f.size,
+                        version=new_version,
+                        uploaded_by=request.user,
+                        expiry_date=parsed_expiry_date,
+                    )
 
-            if matched_req:
-                matched_req.document = doc
-                matched_req.is_fulfilled = True
-                matched_req.fulfilled_at = timezone.now()
-                matched_req.fulfilled_by = request.user
-                matched_req.save()
-                matched_count += 1
+                    if matched_req:
+                        matched_req.document = doc
+                        matched_req.is_fulfilled = True
+                        matched_req.fulfilled_at = timezone.now()
+                        matched_req.fulfilled_by = request.user
+                        matched_req.save()
+                        matched_count += 1
 
-            uploaded_count += 1
+                    uploaded_count += 1
+
+                # Clean up old files only after all new documents are successfully created and committed
+                for old_doc in old_docs_to_cleanup:
+                    try:
+                        if old_doc.file:
+                            old_doc.file.delete(save=False)
+                        old_doc.delete()
+                    except Exception as e:
+                        logger.error(f"Error cleaning up old batch document after replacement: {e}")
+
+        except Exception as e:
+            logger.error(f"Batch upload transaction failed: {e}")
+            messages.error(request, f"Batch upload failed: {e}")
+            return redirect('record_detail', record_id=record.record_id)
 
         log_audit(
             request.user,
