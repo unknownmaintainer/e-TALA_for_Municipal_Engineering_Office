@@ -6537,6 +6537,31 @@
             z-index: 99999 !important;
         }
 
+        /* ── Auto Dropup & Dropdown Positioning (Visible from Top to Bottom) ── */
+        .dropup .dropdown-menu,
+        .dropdown.dropup .dropdown-menu,
+        .dropdown-menu.dropup-active {
+            top: auto !important;
+            bottom: 100% !important;
+            margin-top: 0 !important;
+            margin-bottom: 6px !important;
+        }
+
+        .dropdown:not(.dropup) > .dropdown-menu:not(.dropup-active) {
+            top: 100% !important;
+            bottom: auto !important;
+            margin-top: 6px !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* Prevent clipping of dropdown menus in cards and tables */
+        .content-card,
+        #usersTableContainer,
+        #recordsTableCard,
+        .table-responsive-cards {
+            overflow: visible !important;
+        }
+
         .dark-mode .row-action-btn + .dropdown-menu,
         .dark-mode .checklist-kebab-btn + .dropdown-menu,
         .dark-mode .user-row-item .dropdown-menu,
@@ -12027,15 +12052,28 @@
             document.addEventListener('show.bs.dropdown', function (e) {
                 const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, [data-bs-toggle="dropdown"]');
                 if (!btn) return;
-                const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell');
+                const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell, .btn-group');
                 if (!parentDropdown) return;
 
                 const rect = btn.getBoundingClientRect();
                 const spaceBelowViewport = window.innerHeight - rect.bottom;
                 const spaceAboveViewport = rect.top;
 
-                // Check distance to bottom of scrollable parent card / container / body
-                const card = btn.closest('.content-card, .table-responsive, .table-responsive-cards, #recordsTableCard, .card-body, .card, .checklist-group-card, .record-section-card, .modal-body, .modal-content');
+                // Estimate menu height (average action menu is ~190-230px)
+                const menu = parentDropdown.querySelector('.dropdown-menu');
+                let menuHeight = 220;
+                if (menu) {
+                    const cloned = menu.cloneNode(true);
+                    cloned.style.visibility = 'hidden';
+                    cloned.style.display = 'block';
+                    cloned.style.position = 'absolute';
+                    document.body.appendChild(cloned);
+                    menuHeight = Math.max(cloned.offsetHeight || 0, 180);
+                    document.body.removeChild(cloned);
+                }
+
+                // Check distance to bottom of scrollable parent container / card
+                const card = btn.closest('.content-card, .table-responsive, .table-responsive-cards, #recordsTableCard, .card-body, .card, .checklist-group-card, .record-section-card, .modal-body, .modal-content, #usersTableContainer');
                 let spaceBelowCard = Infinity;
                 let spaceAboveCard = Infinity;
                 if (card) {
@@ -12049,34 +12087,49 @@
                 const listParent = row ? row.parentElement : null;
                 const isFirstItem = row && listParent && !row.previousElementSibling && listParent.children.length > 1;
 
-                // Drop UP if bottom space is tight (< 190px viewport OR < 160px card bottom) AND ample room above
-                const shouldDropUp = (!isFirstItem || spaceBelowViewport < 160) && 
-                                     (spaceBelowViewport < 190 || spaceBelowCard < 160) && 
-                                     (spaceAboveViewport >= 130 || spaceAboveCard >= 130);
+                // Decision: Drop UP if space below is smaller than needed AND space above can accommodate or is greater
+                const needDropUp = (!isFirstItem && (spaceBelowViewport < (menuHeight + 15) || spaceBelowCard < (menuHeight + 10))) ||
+                                   (spaceBelowViewport < 150 && spaceAboveViewport > spaceBelowViewport);
 
-                if (shouldDropUp) {
+                if (needDropUp) {
                     parentDropdown.classList.add('dropup');
                     const dropContainer = btn.closest('.dropdown');
                     if (dropContainer) dropContainer.classList.add('dropup');
-                    const menu = parentDropdown.querySelector('.dropdown-menu');
-                    if (menu) menu.classList.add('dropup-active');
+                    if (menu) {
+                        menu.classList.add('dropup-active');
+                        menu.style.top = 'auto';
+                        menu.style.bottom = '100%';
+                        menu.style.marginTop = '0px';
+                        menu.style.marginBottom = '6px';
+                    }
                 } else {
                     parentDropdown.classList.remove('dropup');
                     const dropContainer = btn.closest('.dropdown');
                     if (dropContainer) dropContainer.classList.remove('dropup');
-                    const menu = parentDropdown.querySelector('.dropdown-menu');
-                    if (menu) menu.classList.remove('dropup-active');
+                    if (menu) {
+                        menu.classList.remove('dropup-active');
+                        menu.style.top = '100%';
+                        menu.style.bottom = 'auto';
+                        menu.style.marginTop = '6px';
+                        menu.style.marginBottom = '0px';
+                    }
                 }
             });
 
             document.addEventListener('hidden.bs.dropdown', function (e) {
                 const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, [data-bs-toggle="dropdown"]');
                 if (btn) {
-                    const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell');
+                    const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell, .btn-group');
                     if (parentDropdown) {
                         parentDropdown.classList.remove('dropup');
                         const menu = parentDropdown.querySelector('.dropdown-menu');
-                        if (menu) menu.classList.remove('dropup-active');
+                        if (menu) {
+                            menu.classList.remove('dropup-active');
+                            menu.style.removeProperty('top');
+                            menu.style.removeProperty('bottom');
+                            menu.style.removeProperty('margin-top');
+                            menu.style.removeProperty('margin-bottom');
+                        }
                     }
                     const dropContainer = btn.closest('.dropdown');
                     if (dropContainer) dropContainer.classList.remove('dropup');
