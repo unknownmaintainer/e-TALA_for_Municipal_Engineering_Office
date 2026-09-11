@@ -12048,7 +12048,7 @@
             });
 
             // ══ SMART AUTO-DROPUP FOR TABLE & CHECKLIST ACTION MENUS ═════════════════════
-            // Auto-flips dropdown upwards when in the bottom rows or near viewport/card boundary
+            // Auto-flips dropdown upwards ONLY when bottom space is genuinely tight AND room above is ample
             document.addEventListener('show.bs.dropdown', function (e) {
                 const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, [data-bs-toggle="dropdown"]');
                 if (!btn) return;
@@ -12059,21 +12059,21 @@
                 const spaceBelowViewport = window.innerHeight - rect.bottom;
                 const spaceAboveViewport = rect.top;
 
-                // Estimate menu height (average action menu is ~190-230px)
+                // Estimate menu height (average action menu is ~160-220px)
                 const menu = parentDropdown.querySelector('.dropdown-menu');
-                let menuHeight = 220;
+                let menuHeight = 190;
                 if (menu) {
                     const cloned = menu.cloneNode(true);
                     cloned.style.visibility = 'hidden';
                     cloned.style.display = 'block';
                     cloned.style.position = 'absolute';
                     document.body.appendChild(cloned);
-                    menuHeight = Math.max(cloned.offsetHeight || 0, 180);
+                    menuHeight = Math.max(cloned.offsetHeight || 0, 160);
                     document.body.removeChild(cloned);
                 }
 
-                // Check distance to bottom of scrollable parent container / card
-                const card = btn.closest('.content-card, .table-responsive, .table-responsive-cards, #recordsTableCard, .card-body, .card, .checklist-group-card, .record-section-card, .modal-body, .modal-content, #usersTableContainer');
+                // Check distance to top and bottom of scrollable parent container / modal / card
+                const card = btn.closest('.content-card, .table-responsive, .table-responsive-cards, #recordsTableCard, .card-body, .card, .checklist-group-card, .record-section-card, .modal-body, .modal-content, #usersTableContainer, #slotAttachmentsModal');
                 let spaceBelowCard = Infinity;
                 let spaceAboveCard = Infinity;
                 if (card) {
@@ -12083,13 +12083,18 @@
                 }
 
                 // If inside a table row or list
-                const row = btn.closest('tr, .list-group-item, .document-item, .checklist-item, .attachment-item');
+                const row = btn.closest('tr, .list-group-item, .document-item, .checklist-item, .attachment-item, .checklist-standalone-item');
                 const listParent = row ? row.parentElement : null;
                 const isFirstItem = row && listParent && !row.previousElementSibling && listParent.children.length > 1;
 
-                // Decision: Drop UP if space below is smaller than needed AND space above can accommodate or is greater
-                const needDropUp = (!isFirstItem && (spaceBelowViewport < (menuHeight + 15) || spaceBelowCard < (menuHeight + 10))) ||
-                                   (spaceBelowViewport < 150 && spaceAboveViewport > spaceBelowViewport);
+                // STRICT DROP-UP RULES:
+                // 1. Must NEVER drop up if space above the container is less than the menu height (e.g. at the top of a modal or card)
+                // 2. Must NEVER drop up if it is the first item and space below is usable
+                // 3. Drop up ONLY when space below is tight AND room above can fully accommodate the menu
+                const hasRoomAbove = spaceAboveViewport >= (menuHeight + 10) && spaceAboveCard >= (menuHeight + 10);
+                const isTightBelow = spaceBelowViewport < (menuHeight + 10) || spaceBelowCard < (menuHeight + 10);
+                
+                const needDropUp = !isFirstItem && hasRoomAbove && isTightBelow && (spaceAboveCard > spaceBelowCard || spaceAboveViewport > spaceBelowViewport);
 
                 if (needDropUp) {
                     parentDropdown.classList.add('dropup');
