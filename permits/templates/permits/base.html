@@ -27,83 +27,37 @@
 
         // ⚡ PERFECTLY SYNCHRONIZED THEME SWITCH (View Transitions API)
         // Uses the browser's View Transitions API to capture a pixel-perfect
-        // screenshot, apply all DOM changes, then crossfade the entire page
-        // as a single unit. No individual element can be out of sync.
         window.applyTheme = function(theme) {
             const isDark = theme === 'dark';
             const root = document.documentElement;
             const body = document.body;
 
-            function doThemeSwitch() {
-                if (isDark) {
-                    root.classList.add('dark-mode');
-                    root.setAttribute('data-bs-theme', 'dark');
-                    root.style.colorScheme = 'dark';
-                    root.style.backgroundColor = '#0b1329';
-                    if (body) {
-                        body.classList.add('dark-mode');
-                        body.setAttribute('data-bs-theme', 'dark');
-                        body.style.colorScheme = 'dark';
-                        body.style.backgroundColor = '#0b1329';
-                    }
-                } else {
-                    root.classList.remove('dark-mode');
-                    root.setAttribute('data-bs-theme', 'light');
-                    root.style.colorScheme = 'light';
-                    root.style.backgroundColor = '#f8fafc';
-                    if (body) {
-                        body.classList.remove('dark-mode');
-                        body.setAttribute('data-bs-theme', 'light');
-                        body.style.colorScheme = 'light';
-                        body.style.backgroundColor = '#f8fafc';
-                    }
+            if (isDark) {
+                root.classList.add('dark-mode');
+                root.setAttribute('data-bs-theme', 'dark');
+                root.style.colorScheme = 'dark';
+                root.style.backgroundColor = '#0b1329';
+                if (body) {
+                    body.classList.add('dark-mode');
+                    body.setAttribute('data-bs-theme', 'dark');
+                    body.style.colorScheme = 'dark';
+                    body.style.backgroundColor = '#0b1329';
                 }
-                try { localStorage.setItem('theme', theme); } catch(e) {}
-                if (window.dispatchEvent) {
-                    window.dispatchEvent(new CustomEvent('etala-theme-changed', { detail: { theme: theme } }));
+            } else {
+                root.classList.remove('dark-mode');
+                root.setAttribute('data-bs-theme', 'light');
+                root.style.colorScheme = 'light';
+                root.style.backgroundColor = '#f8fafc';
+                if (body) {
+                    body.classList.remove('dark-mode');
+                    body.setAttribute('data-bs-theme', 'light');
+                    body.style.colorScheme = 'light';
+                    body.style.backgroundColor = '#f8fafc';
                 }
             }
-
-            // Primary: View Transitions API — single atomic crossfade for the entire page
-            if (document.startViewTransition) {
-                // Temporarily remove view-transition-names on sidebar/header so they
-                // don't get independent transition groups with animation:none.
-                // This makes them part of the root crossfade instead.
-                var sidebar = document.querySelector('.etala-sidebar, #sidebar');
-                var header = document.querySelector('.etala-header');
-                var sidebarVTN = '';
-                var headerVTN = '';
-                if (sidebar) {
-                    sidebarVTN = sidebar.style.viewTransitionName || '';
-                    sidebar.style.viewTransitionName = 'none';
-                }
-                if (header) {
-                    headerVTN = header.style.viewTransitionName || '';
-                    header.style.viewTransitionName = 'none';
-                }
-
-                // Mark root so CSS can target the theme-switch transition specifically
-                root.classList.add('theme-vt-active');
-
-                var vt = document.startViewTransition(doThemeSwitch);
-                vt.finished.then(function() {
-                    // Restore view-transition-names for cross-document navigation
-                    if (sidebar) sidebar.style.viewTransitionName = sidebarVTN;
-                    if (header) header.style.viewTransitionName = headerVTN;
-                    root.classList.remove('theme-vt-active');
-                }).catch(function() {
-                    if (sidebar) sidebar.style.viewTransitionName = sidebarVTN;
-                    if (header) header.style.viewTransitionName = headerVTN;
-                    root.classList.remove('theme-vt-active');
-                });
-            } else {
-                // Fallback for browsers without View Transitions API (Firefox/older Safari)
-                root.classList.add('theme-transitioning');
-                void root.offsetHeight;
-                doThemeSwitch();
-                setTimeout(function() {
-                    root.classList.remove('theme-transitioning');
-                }, 450);
+            try { localStorage.setItem('theme', theme); } catch(e) {}
+            if (window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('etala-theme-changed', { detail: { theme: theme } }));
             }
         };
 
@@ -216,6 +170,32 @@
             --text-muted: #94a3b8 !important;
         }
 
+        /* Dark mode contrast normalization for standard Bootstrap utility classes */
+        .dark-mode .text-dark,
+        [data-bs-theme="dark"] .text-dark {
+            color: #f8fafc !important;
+        }
+
+        .dark-mode .btn-light,
+        [data-bs-theme="dark"] .btn-light {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+
+        .dark-mode .btn-light:hover,
+        [data-bs-theme="dark"] .btn-light:hover {
+            background-color: #334155 !important;
+            border-color: #475569 !important;
+            color: #38bdf8 !important;
+        }
+
+        .dark-mode .bg-light,
+        [data-bs-theme="dark"] .bg-light {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+        }
+
         /* Critical Instant Sidebar Styling (Eliminates White Blink / Flash on Page Transitions) */
         #sidebar,
         .etala-sidebar,
@@ -313,167 +293,48 @@
                 z-index: 1050 !important;
             }
         }
-
-        /* ══ VIEW TRANSITIONS: THEME SWITCH CROSSFADE ══════════════════════════════
-         * The View Transitions API captures a screenshot of the old state,
-         * applies DOM changes, then cross-fades old → new as a single unit.
-         * Every pixel transitions at the exact same rate.
-         *
-         * We keep the OLD snapshot fully opaque and fade it out on top of the
-         * already-visible NEW state. This produces a clean dissolve instead of
-         * the default "both at 50% opacity" washed-out mid-point.
-         * ═════════════════════════════════════════════════════════════════════ */
-        ::view-transition-old(root) {
-            animation: etala-theme-fade-out 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            mix-blend-mode: normal;
-            z-index: 1;
+        /* ══ INSTANT & CRISP THEME SWITCH TRANSITIONS ══════════════════════ */
+        .theme-switch-btn {
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
         }
-        ::view-transition-new(root) {
-            animation: etala-theme-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            mix-blend-mode: normal;
-        }
-
-        @keyframes etala-theme-fade-out {
-            from { opacity: 1; }
-            to   { opacity: 0; }
-        }
-        @keyframes etala-theme-fade-in {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-        }
-
-        /* ══ THEME SWITCH TOGGLE INDEPENDENT PHYSICAL SLIDE ══════════════════ */
-        .theme-switch-thumb {
-            view-transition-name: theme-toggle-thumb;
+        .theme-switch-btn:focus,
+        .theme-switch-btn:focus-visible,
+        .theme-switch-btn:active {
+            outline: none !important;
+            box-shadow: none !important;
+            border: none !important;
+            transform: none !important;
         }
 
         .theme-switch-track {
-            view-transition-name: theme-toggle-track;
+            transition: background-color 0.14s ease, border-color 0.14s ease !important;
         }
 
-        ::view-transition-group(theme-toggle-thumb) {
-            animation-duration: 0.36s;
-            animation-timing-function: cubic-bezier(0.34, 1.45, 0.64, 1);
-            z-index: 1000;
+        .theme-switch-thumb {
+            transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.3, 1), background-color 0.14s ease, box-shadow 0.14s ease !important;
+            will-change: transform;
         }
 
-        ::view-transition-old(theme-toggle-thumb) {
-            animation: etala-thumb-old 0.36s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
-            mix-blend-mode: normal;
+        .thumb-icon-sun,
+        .thumb-icon-moon {
+            transition: opacity 0.12s ease, transform 0.14s ease !important;
         }
 
-        ::view-transition-new(theme-toggle-thumb) {
-            animation: etala-thumb-new 0.36s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
-            mix-blend-mode: normal;
-        }
-
-        @keyframes etala-thumb-old {
-            from { opacity: 1; transform: rotate(0deg) scale(1); }
-            to   { opacity: 0; transform: rotate(90deg) scale(0.6); }
-        }
-
-        @keyframes etala-thumb-new {
-            from { opacity: 0; transform: rotate(-90deg) scale(0.6); }
-            to   { opacity: 1; transform: rotate(0deg) scale(1); }
-        }
-
-        ::view-transition-group(theme-toggle-track) {
-            animation-duration: 0.35s;
-            animation-timing-function: ease;
-            z-index: 999;
-        }
-
-        /* ══ KILL ELEMENT-LEVEL CSS TRANSITIONS DURING VIEW TRANSITION ═════════
-         * When theme-vt-active is on <html>, the View Transitions API is about
-         * to capture the "new state" screenshot. Elements like .etala-header have
-         * their own CSS transitions (e.g. background-color 0.15s) — if those are
-         * still animating when the screenshot is captured, the old colors leak
-         * into the new-state image, causing visible staggering.
-         *
-         * This rule forces every element to SNAP instantly to its new theme
-         * colors so the captured screenshot is pixel-perfect.
-         * ═════════════════════════════════════════════════════════════════════ */
-        html.theme-vt-active *:not(.theme-switch-btn):not(.theme-switch-track):not(.theme-switch-thumb):not(.thumb-icon-sun):not(.thumb-icon-moon):not(.track-icon-sun):not(.track-icon-moon),
-        html.theme-vt-active *::before,
-        html.theme-vt-active *::after {
-            transition: none !important;
-        }
-
-        /* ══ FALLBACK: PER-ELEMENT THEME CROSSFADE (Firefox / older Safari) ════ */
-        html[class*="theme-transitioning"],
-        html[class*="theme-transitioning"] *,
-        html[class*="theme-transitioning"] *::before,
-        html[class*="theme-transitioning"] *::after {
-            transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        background 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        fill 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        stroke 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        outline-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-
-        /* Theme toggle thumb keeps its own bounce animation in fallback mode */
-        html[class*="theme-transitioning"] .theme-switch-thumb {
-            transition: transform 0.32s cubic-bezier(0.34, 1.3, 0.64, 1),
-                        background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                        box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-        html[class*="theme-transitioning"] .thumb-icon-sun,
-        html[class*="theme-transitioning"] .thumb-icon-moon {
-            transition: opacity 0.25s ease-out, transform 0.28s ease-out !important;
-        }
-
-        /* ══ GLOBAL HELP MODAL DARK MODE THEME SUPPORT ══ */
-        html.dark-mode #globalHelpModal .modal-content,
-        [data-bs-theme="dark"] #globalHelpModal .modal-content,
-        .dark-mode #globalHelpModal .modal-content {
-            background-color: #1e293b !important;
-            background: #1e293b !important;
-            color: #f8fafc !important;
-        }
-        html.dark-mode #globalHelpModal .modal-body,
-        [data-bs-theme="dark"] #globalHelpModal .modal-body,
-        .dark-mode #globalHelpModal .modal-body {
-            background-color: #1e293b !important;
-            background: #1e293b !important;
-            color: #f8fafc !important;
-        }
-        html.dark-mode #globalHelpModal .faq-outer-container,
-        [data-bs-theme="dark"] #globalHelpModal .faq-outer-container,
-        .dark-mode #globalHelpModal .faq-outer-container {
-            background-color: #0b1329 !important;
-            background: #0b1329 !important;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
-        }
-        html.dark-mode #globalHelpModal .faq-accordion-item,
-        [data-bs-theme="dark"] #globalHelpModal .faq-accordion-item,
-        .dark-mode #globalHelpModal .faq-accordion-item {
-            background-color: #1e293b !important;
-            background: #1e293b !important;
-            border: 1px solid #334155 !important;
-        }
-        html.dark-mode #globalHelpModal .faq-question-text,
-        [data-bs-theme="dark"] #globalHelpModal .faq-question-text,
-        .dark-mode #globalHelpModal .faq-question-text,
-        html.dark-mode #globalHelpModal h2.text-dark,
-        [data-bs-theme="dark"] #globalHelpModal h2.text-dark,
-        .dark-mode #globalHelpModal h2.text-dark {
-            color: #f8fafc !important;
-        }
-        html.dark-mode #globalHelpModal .faq-accordion-body,
-        [data-bs-theme="dark"] #globalHelpModal .faq-accordion-body,
-        .dark-mode #globalHelpModal .faq-accordion-body {
-            color: #cbd5e1 !important;
+        .track-icon-sun,
+        .track-icon-moon {
+            transition: opacity 0.12s ease, color 0.12s ease !important;
         }
 
         /* ══ ULTRA-SMOOTH MODAL OPEN & CLOSE ANIMATIONS ═════════════════════════ */
         .modal.fade .modal-dialog {
-            transform: scale(0.96) translateY(-8px) !important;
+            transform: scale(0.97) translateY(-6px) !important;
             opacity: 0 !important;
-            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out !important;
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out !important;
+            will-change: transform, opacity;
         }
 
         .modal.show .modal-dialog {
@@ -483,7 +344,7 @@
 
         .modal-backdrop.fade {
             opacity: 0 !important;
-            transition: opacity 0.2s linear !important;
+            transition: opacity 0.15s linear !important;
         }
 
         .modal-backdrop.show {
@@ -8572,7 +8433,6 @@
         .header-bell-btn,
         .notification-btn,
         .sidebar-collapse-btn,
-        .theme-switch-btn,
         .filter-pill,
         .scope-pill-btn,
         .pill-tab,
@@ -8583,7 +8443,7 @@
         .mobile-menu-btn,
         .mobile-drawer-close-btn,
         button[type="submit"],
-        button[type="button"] {
+        button[type="button"]:not(.theme-switch-btn):not(.pw-toggle-btn):not(.pwd-eye-btn):not(.password-toggle-btn) {
             transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1),
                         box-shadow 0.14s ease,
                         background-color 0.14s ease,
@@ -8602,7 +8462,6 @@
         .header-bell-btn:active,
         .notification-btn:active,
         .sidebar-collapse-btn:active,
-        .theme-switch-btn:active,
         .filter-pill:active,
         .scope-pill-btn:active,
         .pill-tab:active,
@@ -8613,7 +8472,7 @@
         .mobile-menu-btn:active,
         .mobile-drawer-close-btn:active,
         button[type="submit"]:active,
-        button[type="button"]:active {
+        button[type="button"]:not(.theme-switch-btn):not(.pw-toggle-btn):not(.pwd-eye-btn):not(.password-toggle-btn):active {
             transform: scale(0.95) translateY(1px) !important;
             transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.25, 1) !important;
         }
@@ -9124,11 +8983,12 @@
                     </div>
 
                     <div class="header-right d-flex align-items-center justify-content-end gap-2 ms-auto">
-                        <!-- Quick Utility Actions (Search, Theme, Notifications) -->
+                        <!-- Quick Utility Actions (Search, Theme, Help, Notifications) -->
                         <div class="header-action-group d-flex align-items-center gap-2">
                             <!-- Spotlight Quick Search Icon Trigger (Ctrl+K or /) -->
-                            <button class="header-search-icon-btn" type="button" onclick="openSpotlightSearch()" title="Quick Search (Ctrl+K or /)" aria-label="Quick Search">
-                                <i class="fa-solid fa-magnifying-glass"></i>
+                            <button class="header-search-icon-btn" type="button" onclick="openSpotlightSearch()" title="Quick Search (Ctrl+K or /)" aria-label="Quick Search"
+                                style="background: transparent; border: none; padding: 6px; border-radius: 9px; cursor: pointer; color: #64748b; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; outline: none; box-shadow: none; transition: color 0.15s ease, transform 0.15s ease;">
+                                <i class="fa-solid fa-magnifying-glass" style="font-size: 15px;"></i>
                             </button>
 
                             <!-- Premium Theme Toggle Switch Button -->
@@ -9168,7 +9028,7 @@
                             </button>
 
                             <!-- Quick Help & User Guide Button -->
-                            <button class="header-help-btn" type="button" data-bs-toggle="modal" data-bs-target="#globalHelpModal" onclick="openQuickHelpModal();" title="Quick Help & Guide (Press ?)" aria-label="Help Guide"
+                            <button class="header-help-btn" type="button" onclick="openQuickHelpModal();" title="Quick Help & Guide (Press ?)" aria-label="Help Guide"
                                 style="background: transparent; border: none; padding: 6px; border-radius: 9px; cursor: pointer; color: #64748b; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; transition: all 0.2s ease;">
                                 <i class="fa-regular fa-circle-question" style="font-size: 16px;"></i>
                             </button>
@@ -9225,7 +9085,8 @@
                                     <div class="px-3 py-2.5 border-bottom notification-item d-flex align-items-center gap-2.5 position-relative {% if not n.is_read %}is-unread-item{% endif %}"
                                         style="cursor:pointer; transition: all 0.22s ease;"
                                         onclick="markItemAsRead(this, '{{ n.url }}')"
-                                        data-notification-id="{{ n.id|default:n.action|slugify }}">
+                                        data-notification-id="{{ n.id|default:n.action|slugify }}"
+                                        data-server-read="{% if n.is_read %}true{% else %}false{% endif %}">
 
                                         <!-- Left Pastel Icon Circle -->
                                         <div class="notification-icon-wrapper flex-shrink-0 align-self-center {% if n.type == 'security' %}notif-security{% elif n.type == 'trash_warning' %}notif-trash{% elif 'Violation' in n.action or 'violation' in n.action %}notif-violation{% elif 'FSIC' in n.action %}notif-fsic{% elif 'Electrical' in n.action %}notif-electrical{% elif 'Other' in n.action or 'Record' in n.action %}notif-record{% else %}notif-default{% endif %}">
@@ -9383,12 +9244,6 @@
                                         </div>
                                         <span class="user-profile-menu-text">About eTala</span>
                                     </a>
-                                    <button type="button" class="dropdown-item user-profile-menu-link border-0 bg-transparent w-100 text-start" data-bs-toggle="modal" data-bs-target="#globalHelpModal" onclick="openQuickHelpModal();">
-                                        <div class="user-profile-menu-icon user-profile-menu-icon-blue" style="background: rgba(14, 165, 233, 0.12); color: #0284c7;">
-                                            <i class="fa-regular fa-circle-question"></i>
-                                        </div>
-                                        <span class="user-profile-menu-text">Quick Guide &amp; FAQs</span>
-                                    </button>
 
                                     <hr class="dropdown-divider my-1" style="width: 100% !important; margin: 4px 0 !important; border-color: rgba(226, 232, 240, 0.8) !important;">
 
@@ -9701,21 +9556,6 @@
                         filterBtn.classList.add('active');
                     }
                 }
-            }
-        });
-
-        // Global search shortcut (/)
-        document.addEventListener('keydown', (e) => {
-            const isEditing = document.activeElement && (
-                document.activeElement.tagName === 'INPUT' ||
-                document.activeElement.tagName === 'TEXTAREA' ||
-                document.activeElement.contentEditable === 'true' ||
-                document.activeElement.tagName === 'SELECT'
-            );
-            if (e.key === '/' && !isEditing) {
-                e.preventDefault();
-                const searchInput = document.getElementById('globalSearchInput');
-                if (searchInput) searchInput.focus();
             }
         });
 
@@ -11130,283 +10970,9 @@
                 window.initAllSegmentedGliders(true);
             }
         });
-        window.addEventListener('etala-theme-changed', function() {
-            window.initAllSegmentedGliders(true);
-        });
     </script>
 
-    <!-- ══ GLOBAL SYSTEM HELP & FAQS MODAL ═════════════════════════════════════ -->
-    <div class="modal fade" id="globalHelpModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 1050px;">
-            <div class="modal-content border-0 shadow-lg"
-                style="border-radius: 16px; overflow: hidden; background: #ffffff;">
-                <!-- Modal Header -->
-                <div class="modal-header text-white"
-                    style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 20px 28px; border-bottom: none;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center"
-                            style="width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1);">
-                            <i data-lucide="help-circle" style="width: 22px; height: 22px; color: #60a5fa;"></i>
-                        </div>
-                        <h5 class="modal-title fw-bold text-white mb-0"
-                            style="font-size: 1.15rem; letter-spacing: -0.01em;">
-                            eTala Help &amp; FAQs
-                        </h5>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
-                </div>
-
-                <div class="modal-body p-4 p-md-4.5" style="font-size: 0.85rem; background: #ffffff;">
-                    <!-- Outer Frame Canvas Container -->
-                    <div class="faq-outer-container p-4 p-md-4.5 rounded-4"
-                        style="background: #f8fafc; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.03);">
-
-                        <!-- Top Bar Header & Search Pill -->
-                        <div
-                            class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
-                            <div>
-                                <h2 class="fw-black mb-0 text-dark"
-                                    style="font-size: 1.8rem; letter-spacing: -0.03em; font-weight: 900; color: #0f172a;">
-                                    FAQ</h2>
-                                <div class="text-muted small" style="font-size: 0.78rem;">Frequently Asked Questions
-                                    &amp; Troubleshooting Guides</div>
-                            </div>
-                            <div class="etala-search-pill-wrapper" style="width: 100%; max-width: 320px;">
-                                <button type="button" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" onclick="document.getElementById('faqSearchInput').focus(); filterFaqs();" title="Search FAQs">
-                                    <i class="fa-solid fa-magnifying-glass"></i>
-                                </button>
-                                <input type="text" id="faqSearchInput" onkeyup="filterFaqs()"
-                                    class="etala-search-pill-input search-text-input" placeholder="Search FAQ topics...">
-                            </div>
-                        </div>
-
-                        <!-- Floating Accordion Stack -->
-                        <div id="faqAccordionList">
-
-                            <!-- FAQ Item 1 -->
-                            <div class="faq-accordion-item mb-3 rounded-4 border-0 bg-white shadow-xs overflow-hidden">
-                                <button
-                                    class="faq-accordion-header w-100 p-3.5 px-4 text-start border-0 bg-transparent d-flex align-items-center justify-content-between gap-3"
-                                    type="button" onclick="toggleFaqItem(this)">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 34px; height: 34px; background: #fef3c7; color: #d97706;">
-                                            <i data-lucide="key" style="width: 16px; height: 16px;"></i>
-                                        </div>
-                                        <span class="fw-bold text-dark faq-question-text"
-                                            style="font-size: 0.93rem; color: #0f172a;">
-                                            How do I reset my password or unlock a locked staff account?
-                                        </span>
-                                    </div>
-                                    <i data-lucide="chevron-down" class="faq-chevron text-muted flex-shrink-0"
-                                        style="width: 18px; height: 18px;"></i>
-                                </button>
-                                <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
-                                    style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
-                                    Go to the Login screen and click on the 'Forgot Password?' link below the login
-                                    fields. Enter your registered Carigara LGU staff email address to request a 6-digit
-                                    OTP reset code. Accounts automatically locked after 10 failed login attempts can be
-                                    unlocked instantly by a Municipal Admin.
-                                </div>
-                            </div>
-
-                            <!-- FAQ Item 2 -->
-                            <div class="faq-accordion-item mb-3 rounded-4 border-0 bg-white shadow-xs overflow-hidden">
-                                <button
-                                    class="faq-accordion-header w-100 p-3.5 px-4 text-start border-0 bg-transparent d-flex align-items-center justify-content-between gap-3"
-                                    type="button" onclick="toggleFaqItem(this)">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 34px; height: 34px; background: #eff6ff; color: #2563eb;">
-                                            <i data-lucide="file-up" style="width: 16px; height: 16px;"></i>
-                                        </div>
-                                        <span class="fw-bold text-dark faq-question-text"
-                                            style="font-size: 0.93rem; color: #0f172a;">
-                                            How do I upload building clearances, PDF plans, and checklist items?
-                                        </span>
-                                    </div>
-                                    <i data-lucide="chevron-down" class="faq-chevron text-muted flex-shrink-0"
-                                        style="width: 18px; height: 18px;"></i>
-                                </button>
-                                <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
-                                    style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
-                                    Open any engineering record, navigate to the 'Document Checklist' tab, and click
-                                    'Upload Document'. You can drag & drop PDF files or scanned blueprints up to 50MB
-                                    per document. Authorized staff can also waive optional checklist requirements when
-                                    allowed.
-                                </div>
-                            </div>
-
-                            <!-- FAQ Item 3 -->
-                            <div class="faq-accordion-item mb-3 rounded-4 border-0 bg-white shadow-xs overflow-hidden">
-                                <button
-                                    class="faq-accordion-header w-100 p-3.5 px-4 text-start border-0 bg-transparent d-flex align-items-center justify-content-between gap-3"
-                                    type="button" onclick="toggleFaqItem(this)">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 34px; height: 34px; background: #fee2e2; color: #dc2626;">
-                                            <i data-lucide="shield-alert" style="width: 16px; height: 16px;"></i>
-                                        </div>
-                                        <span class="fw-bold text-dark faq-question-text"
-                                            style="font-size: 0.93rem; color: #0f172a;">
-                                            What is an 'Unpermitted Construction Flag' and how do I resolve it?
-                                        </span>
-                                    </div>
-                                    <i data-lucide="chevron-down" class="faq-chevron text-muted flex-shrink-0"
-                                        style="width: 18px; height: 18px;"></i>
-                                </button>
-                                <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
-                                    style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
-                                    A special violation flag raised for structures built or started without securing a
-                                    prior Building Permit (P.D. 1096 Sec. 301). To resolve it, open the violation record,
-                                    enter the issued Official Building Permit Number upon payment, and attach supporting files.
-                                </div>
-                            </div>
-
-                            <!-- FAQ Item 4 -->
-                            <div class="faq-accordion-item mb-3 rounded-4 border-0 bg-white shadow-xs overflow-hidden">
-                                <button
-                                    class="faq-accordion-header w-100 p-3.5 px-4 text-start border-0 bg-transparent d-flex align-items-center justify-content-between gap-3"
-                                    type="button" onclick="toggleFaqItem(this)">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 34px; height: 34px; background: #f0fdfa; color: #0d9488;">
-                                            <i data-lucide="map-pin" style="width: 16px; height: 16px;"></i>
-                                        </div>
-                                        <span class="fw-bold text-dark faq-question-text"
-                                            style="font-size: 0.93rem; color: #0f172a;">
-                                            How do I locate engineering records on the interactive GIS map?
-                                        </span>
-                                    </div>
-                                    <i data-lucide="chevron-down" class="faq-chevron text-muted flex-shrink-0"
-                                        style="width: 18px; height: 18px;"></i>
-                                </button>
-                                <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
-                                    style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
-                                    Navigate to the Barangay Workspace or Search module, click 'Map View', and click on
-                                    any barangay marker pin. You can also view Google Maps coordinates and satellite
-                                    pins for each project location.
-                                </div>
-                            </div>
-
-                            <!-- FAQ Item 5 -->
-                            <div class="faq-accordion-item mb-3 rounded-4 border-0 bg-white shadow-xs overflow-hidden">
-                                <button
-                                    class="faq-accordion-header w-100 p-3.5 px-4 text-start border-0 bg-transparent d-flex align-items-center justify-content-between gap-3"
-                                    type="button" onclick="toggleFaqItem(this)">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 34px; height: 34px; background: #f3e8ff; color: #7c3aed;">
-                                            <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px;"></i>
-                                        </div>
-                                        <span class="fw-bold text-dark faq-question-text"
-                                            style="font-size: 0.93rem; color: #0f172a;">
-                                            How do I export municipal reports and system audit logs?
-                                        </span>
-                                    </div>
-                                    <i data-lucide="chevron-down" class="faq-chevron text-muted flex-shrink-0"
-                                        style="width: 18px; height: 18px;"></i>
-                                </button>
-                                <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
-                                    style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
-                                    Admins and authorized staff can navigate to 'Activity Logs' or 'Reports' page,
-                                    filter by date range or barangay, and click 'Export' to download official CSV
-                                    spreadsheet reports.
-                                </div>
-                            </div>
-
-                            <!-- FAQ Item 6 -->
-                            <div class="faq-accordion-item mb-3 rounded-4 border-0 bg-white shadow-xs overflow-hidden">
-                                <button
-                                    class="faq-accordion-header w-100 p-3.5 px-4 text-start border-0 bg-transparent d-flex align-items-center justify-content-between gap-3"
-                                    type="button" onclick="toggleFaqItem(this)">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                                            style="width: 34px; height: 34px; background: #dcfce7; color: #16a34a;">
-                                            <i data-lucide="search" style="width: 16px; height: 16px;"></i>
-                                        </div>
-                                        <span class="fw-bold text-dark faq-question-text"
-                                            style="font-size: 0.93rem; color: #0f172a;">
-                                            How do I search across 100,000+ historical engineering records?
-                                        </span>
-                                    </div>
-                                    <i data-lucide="chevron-down" class="faq-chevron text-muted flex-shrink-0"
-                                        style="width: 18px; height: 18px;"></i>
-                                </button>
-                                <div class="faq-accordion-body px-4 pb-4 pt-2 d-none text-secondary"
-                                    style="font-size: 0.86rem; line-height: 1.6; color: #475569; padding-left: 3.8rem !important;">
-                                    Use the persistent Search bar at the top of any page or press Ctrl + K. Type a
-                                    permit number, applicant name, barangay name, or year to instantly filter results
-                                    with zero page reload.
-                                </div>
-                            </div>
-
-                        </div>
-
-                    </div>
-                </div>
-                <div class="modal-footer border-0 px-4 py-3 d-flex align-items-center justify-content-end"
-                    style="background: #ffffff;">
-                    <button type="button" class="btn btn-dark px-4 py-2 fw-semibold" data-bs-dismiss="modal"
-                        style="border-radius: 8px; font-size: 0.85rem; background: #0f172a; border: none;">Close
-                        Guide</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
-        /* ══ GLOBAL SYSTEM HELP & FAQS ENGINE ═════════════════════════════════ */
-        window.openQuickHelpModal = function() {
-            const modalEl = document.getElementById('globalHelpModal');
-            if (modalEl && window.bootstrap && bootstrap.Modal) {
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-            }
-        };
-
-        window.toggleFaqItem = function(button) {
-            if (!button) return;
-            const item = button.closest('.faq-accordion-item');
-            if (!item) return;
-            const body = item.querySelector('.faq-accordion-body');
-            const chevron = item.querySelector('.faq-chevron');
-            if (!body) return;
-
-            const isCurrentlyHidden = body.classList.contains('d-none');
-            document.querySelectorAll('#faqAccordionList .faq-accordion-body').forEach(b => b.classList.add('d-none'));
-            document.querySelectorAll('#faqAccordionList .faq-chevron').forEach(c => { if(c) c.style.transform = 'rotate(0deg)'; });
-
-            if (isCurrentlyHidden) {
-                body.classList.remove('d-none');
-                if (chevron) chevron.style.transform = 'rotate(180deg)';
-            }
-        };
-
-        window.filterFaqs = function() {
-            const input = document.getElementById('faqSearchInput');
-            if (!input) return;
-            const query = input.value.trim().toLowerCase();
-            const items = document.querySelectorAll('#faqAccordionList .faq-accordion-item');
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                if (!query || text.includes(query)) {
-                    item.style.display = '';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        };
-
-        // Shortcut: Press '?' outside inputs to open Quick Guide
-        document.addEventListener('keydown', function(e) {
-            if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !document.activeElement?.isContentEditable) {
-                e.preventDefault();
-                openQuickHelpModal();
-            }
-        });
-
         /* ══ NOTIFICATION UNREAD / ITEM READ / DISMISS ENGINE ══ */
         function markItemAsRead(element, url) {
             if (!element) return;
@@ -11655,11 +11221,16 @@
         window.updateNotificationBadges = function() {
             const readList = getReadNotifs();
             const deletedList = getDeletedNotifs();
+            const listContainer = document.getElementById('notificationListContainer');
 
-            const items = document.querySelectorAll('.notification-item');
+            const items = Array.from(document.querySelectorAll('.notification-item'));
             let visibleCount = 0;
             let unreadCount = 0;
 
+            const unreadItems = [];
+            const readItems = [];
+
+            let readListChanged = false;
             items.forEach(el => {
                 const id = el.getAttribute('data-notification-id');
                 if (id && deletedList.includes(id)) {
@@ -11669,25 +11240,47 @@
 
                 visibleCount++;
                 const toggleReadBtn = el.querySelector('.notif-item-toggle-read');
+                const isServerRead = el.getAttribute('data-server-read') === 'true';
+                const isLocalRead = id && readList.includes(id);
+                const isRead = isServerRead || isLocalRead;
 
-                if (id && readList.includes(id)) {
+                if (isRead) {
+                    if (id && !readList.includes(id)) {
+                        readList.push(id);
+                        readListChanged = true;
+                    }
                     el.classList.remove('is-unread-item');
                     if (toggleReadBtn) {
                         toggleReadBtn.innerHTML = '<i class="fa-regular fa-envelope text-primary" style="width: 14px;"></i> <span>Mark as unread</span>';
                     }
+                    readItems.push(el);
                 } else {
                     unreadCount++;
                     el.classList.add('is-unread-item');
                     if (toggleReadBtn) {
                         toggleReadBtn.innerHTML = '<i class="fa-solid fa-check text-primary" style="width: 14px;"></i> <span>Mark as read</span>';
                     }
+                    unreadItems.push(el);
                 }
             });
+
+            if (readListChanged) {
+                setReadNotifs(readList);
+            }
+
+            // Automatically sort DOM: Unread notifications stay on top, Read notifications move to bottom
+            if (listContainer) {
+                const emptyState = document.getElementById('noNotificationsEmptyState');
+                unreadItems.forEach(el => listContainer.appendChild(el));
+                readItems.forEach(el => listContainer.appendChild(el));
+                if (emptyState) {
+                    listContainer.appendChild(emptyState);
+                }
+            }
 
             const bellBadge = document.getElementById('notificationBadge');
             const markBtn = document.getElementById('markAllReadBtn');
             let emptyState = document.getElementById('noNotificationsEmptyState');
-            const listContainer = document.getElementById('notificationListContainer');
 
             if (!emptyState && listContainer) {
                 emptyState = document.createElement('div');
@@ -11893,13 +11486,6 @@
                     }
                 }
             }, { passive: false });
-
-            const helpModal = document.getElementById('globalHelpModal');
-            if (helpModal) {
-                helpModal.addEventListener('shown.bs.modal', function () {
-                    if (window.lucide) window.lucide.createIcons();
-                });
-            }
         });
 
         window.closeAllHeaderDropdowns = function () {
@@ -11917,46 +11503,6 @@
             document.documentElement.classList.remove('header-dropdown-open');
             document.body.classList.remove('header-dropdown-open');
         };
-
-        function toggleFaqItem(button) {
-            const item = button.closest('.faq-accordion-item');
-            const body = item.querySelector('.faq-accordion-body');
-            const isExpanded = item.classList.contains('expanded');
-
-            // Close all other open accordion items for clean accordion UX
-            document.querySelectorAll('.faq-accordion-item').forEach(otherItem => {
-                if (otherItem !== item) {
-                    otherItem.classList.remove('expanded');
-                    const otherBody = otherItem.querySelector('.faq-accordion-body');
-                    if (otherBody) otherBody.classList.add('d-none');
-                }
-            });
-
-            if (isExpanded) {
-                item.classList.remove('expanded');
-                body.classList.add('d-none');
-            } else {
-                item.classList.add('expanded');
-                body.classList.remove('d-none');
-            }
-            if (window.lucide) window.lucide.createIcons();
-        }
-
-        function filterFaqs() {
-            const input = document.getElementById('faqSearchInput');
-            if (!input) return;
-            const filter = input.value.toLowerCase().trim();
-            const items = document.querySelectorAll('#faqAccordionList .faq-accordion-item');
-
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                if (text.includes(filter)) {
-                    item.style.display = '';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
     </script>
 
     <!-- ══ UNIVERSAL ZIP & EXPORT DOWNLOAD PROGRESS INDICATOR TOAST ═══════════════════ -->

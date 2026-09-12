@@ -218,7 +218,8 @@ def recent_notifications(request):
         a['is_read'] = is_read
         if not is_read:
             unread_count += 1
-        filtered_alerts.append(a)
+    # Automatically sort so unread notifications are at the top and read notifications at the bottom
+    filtered_alerts.sort(key=lambda x: (1 if x.get('is_read', False) else 0))
 
     result = {
         'recent_notifications': filtered_alerts[:8],

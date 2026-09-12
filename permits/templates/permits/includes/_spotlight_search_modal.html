@@ -73,35 +73,44 @@
 <style>
 /* ─── HEADER SEARCH TRIGGER ICON BUTTON ───────────────────────────── */
 .header-search-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    color: #64748b;
-    font-size: 14px;
-    cursor: pointer;
-    box-sizing: border-box;
-    transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    padding: 0;
-    margin: 0;
-    outline: none;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 9px !important;
+    color: #64748b !important;
+    font-size: 15px !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    transition: color 0.15s ease, transform 0.15s ease !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
 .header-search-icon-btn:hover {
-    background: #f1f5f9;
-    color: #0284c7;
-    transform: translateY(-1px) scale(1.05);
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: #0284c7 !important;
+    transform: scale(1.08) !important;
 }
 
+.header-search-icon-btn:focus,
+.header-search-icon-btn:focus-visible,
 .header-search-icon-btn:active {
-    transform: translateY(0) scale(0.95);
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    transform: scale(0.95) !important;
 }
 
 /* Subtle Vertical Divider between utilities and profile */
@@ -596,16 +605,20 @@
 /* ─── DARK MODE REFINEMENTS ───────────────────────────────────────── */
 .dark-mode .header-search-icon-btn,
 [data-bs-theme="dark"] .header-search-icon-btn {
-    background: transparent;
-    border-color: transparent;
-    color: #cbd5e1 !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: #94a3b8 !important;
 }
 
 .dark-mode .header-search-icon-btn:hover,
 [data-bs-theme="dark"] .header-search-icon-btn:hover {
-    background: #334155;
-    color: #38bdf8;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: #38bdf8 !important;
 }
 
 .dark-mode .header-v-divider,
@@ -810,6 +823,10 @@ let spotlightSelectedIndex = -1;
 let currentSpotlightState = 'initial'; // 'initial' | 'results' | 'empty'
 
 function openSpotlightSearch() {
+    // Close Quick Help modal if open
+    if (typeof window.closeQuickHelpModal === 'function') {
+        window.closeQuickHelpModal();
+    }
     const modal = document.getElementById('spotlightSearchModal');
     const input = document.getElementById('spotlightSearchInput');
     if (!modal || !input) return;
@@ -853,11 +870,14 @@ function closeSpotlightSearch() {
     modal.classList.remove('is-active');
     modal.setAttribute('aria-hidden', 'true');
 
-    // Release background scroll lock
-    document.documentElement.classList.remove('modal-open');
-    document.body.classList.remove('modal-open');
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
+    // Release background scroll lock only if no other modal is visible
+    const hasOtherModal = document.querySelector('.modal.show, #quickHelpModal.show');
+    if (!hasOtherModal) {
+        document.documentElement.classList.remove('modal-open');
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+    }
 }
 
 function clearSpotlightSearch() {
