@@ -12305,7 +12305,283 @@
                 });
             }
         })();
+
+        // ── ⚡ SMART RESUME / WELCOME BACK AMBIENT OVERLAY ──
+        {% if user.is_authenticated %}
+        (function() {
+            let lastActiveTime = Date.now();
+            let lastHiddenTime = 0;
+            const TAB_AWAY_THRESHOLD_MS = 60 * 1000;         // 1 minute when switching tabs/minimized
+            const IDLE_STANDBY_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes when page is idle untouched
+            let isShowingResume = false;
+            let standbyTriggered = false;
+
+            // 1. Tab visibility / minimize handling
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden') {
+                    lastHiddenTime = Date.now();
+                } else if (document.visibilityState === 'visible') {
+                    if (lastHiddenTime > 0 && (Date.now() - lastHiddenTime) >= TAB_AWAY_THRESHOLD_MS) {
+                        triggerResumeScreen();
+                    }
+                    lastHiddenTime = 0;
+                    lastActiveTime = Date.now();
+                }
+            });
+
+            window.addEventListener('blur', function() {
+                if (!lastHiddenTime) lastHiddenTime = Date.now();
+            });
+
+            window.addEventListener('focus', function() {
+                if (lastHiddenTime > 0 && (Date.now() - lastHiddenTime) >= TAB_AWAY_THRESHOLD_MS) {
+                    triggerResumeScreen();
+                }
+                lastHiddenTime = 0;
+                lastActiveTime = Date.now();
+            });
+
+            // 2. On-page idle standby tracking (when left open on screen)
+            function recordActivity() {
+                const now = Date.now();
+                if (!isShowingResume) {
+                    if ((now - lastActiveTime) >= IDLE_STANDBY_THRESHOLD_MS && !standbyTriggered) {
+                        standbyTriggered = true;
+                        triggerResumeScreen();
+                    }
+                }
+                lastActiveTime = now;
+            }
+
+            let activityThrottle = null;
+            function onUserAction() {
+                if (!activityThrottle) {
+                    recordActivity();
+                    activityThrottle = setTimeout(() => { activityThrottle = null; }, 2000);
+                }
+            }
+
+            ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+                window.addEventListener(evt, onUserAction, { passive: true });
+            });
+
+            function triggerResumeScreen() {
+                if (isShowingResume) return;
+                const overlay = document.getElementById('etala-resume-screen');
+                if (!overlay) return;
+
+                isShowingResume = true;
+                overlay.classList.add('active');
+                
+                // Animate progress bar smoothly
+                const progressBar = overlay.querySelector('.etala-resume-progress-fill');
+                if (progressBar) {
+                    progressBar.style.width = '0%';
+                    setTimeout(() => { progressBar.style.width = '100%'; }, 40);
+                }
+
+                // Smoothly dismiss after 1.2s to allow data to refresh
+                setTimeout(function() {
+                    overlay.classList.add('fade-out');
+                    setTimeout(function() {
+                        overlay.classList.remove('active', 'fade-out');
+                        if (progressBar) progressBar.style.width = '0%';
+                        isShowingResume = false;
+                        standbyTriggered = false;
+                        lastActiveTime = Date.now();
+                    }, 350);
+                }, 1200);
+            }
+
+            // Trigger welcome overlay immediately if user just successfully authenticated/logged in
+            {% if show_welcome_transition %}
+            (function() {
+                const overlay = document.getElementById('etala-resume-screen');
+                if (overlay) {
+                    isShowingResume = true;
+                    const progressBar = overlay.querySelector('.etala-resume-progress-fill');
+                    if (progressBar) {
+                        progressBar.style.width = '0%';
+                        setTimeout(() => { progressBar.style.width = '100%'; }, 50);
+                    }
+                    setTimeout(function() {
+                        overlay.classList.remove('initial-login-active');
+                        overlay.classList.add('fade-out');
+                        setTimeout(function() {
+                            overlay.classList.remove('active', 'fade-out');
+                            overlay.style.opacity = '';
+                            overlay.style.visibility = '';
+                            overlay.style.pointerEvents = '';
+                            if (progressBar) progressBar.style.width = '0%';
+                            isShowingResume = false;
+                            standbyTriggered = false;
+                            lastActiveTime = Date.now();
+                        }, 400);
+                    }, 1350);
+                }
+            })();
+            {% endif %}
+        })();
+        {% endif %}
     </script>
+
+    {% if user.is_authenticated %}
+    <!-- ══ SMART RESUME / WELCOME BACK OVERLAY (LOGIN THEME) ══ -->
+    <div id="etala-resume-screen" class="etala-resume-overlay {% if show_welcome_transition %}active initial-login-active{% endif %}" aria-hidden="true" {% if show_welcome_transition %}style="opacity:1; visibility:visible; pointer-events:auto;"{% endif %}>
+        <div class="etala-resume-modal" style="background:#ffffff !important; color:#0f172a !important;">
+            <div class="etala-resume-seal-wrap" style="background:#ffffff !important; border:2.5px solid rgba(0,40,85,0.14) !important;">
+                <img src="{% static 'carigara_logo.png' %}" alt="Official Municipal Seal of Carigara, Leyte" class="etala-resume-seal">
+            </div>
+            <h3 class="etala-resume-title" style="color:#002855 !important; font-weight:800 !important; font-size:1.3rem !important; display:block !important; margin:0 0 4px 0 !important; text-align:center !important; line-height:1.25 !important; letter-spacing:-0.3px !important;">Welcome to eTala</h3>
+            <div class="etala-resume-sub" style="color:#64748b !important; font-size:0.8125rem !important; font-weight:500 !important; display:block !important; margin:0 0 14px 0 !important; text-align:center !important; line-height:1.45 !important;">Engineering Records Archiving &amp; Document Management System</div>
+            <div class="etala-resume-progress-track" style="background:#e2e8f0 !important;">
+                <div class="etala-resume-progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* ══ SMART RESUME MICRO-TRANSITION STYLES (MATCHES LOGIN THEME) ══ */
+        .etala-resume-overlay {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            background: rgba(15, 23, 42, 0.78) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            z-index: 999999 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s;
+        }
+
+        .etala-resume-overlay.active,
+        .etala-resume-overlay.initial-login-active {
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+        }
+
+        .etala-resume-overlay.initial-login-active {
+            background: rgba(15, 23, 42, 0.94) !important;
+        }
+
+        .etala-resume-overlay.fade-out {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+
+        .etala-resume-modal,
+        .dark-mode .etala-resume-modal,
+        [data-bs-theme="dark"] .etala-resume-modal {
+            background: #ffffff !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border-radius: 16px !important;
+            padding: 1.75rem 2rem !important;
+            width: 100% !important;
+            max-width: 340px !important;
+            text-align: center !important;
+            box-shadow: 0 20px 40px -10px rgba(0, 20, 50, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.9) !important;
+            transform: scale(0.96);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            color: #0f172a !important;
+        }
+
+        .etala-resume-overlay.active .etala-resume-modal,
+        .etala-resume-overlay.initial-login-active .etala-resume-modal {
+            transform: scale(1) !important;
+        }
+
+        .etala-resume-seal-wrap,
+        .dark-mode .etala-resume-seal-wrap,
+        [data-bs-theme="dark"] .etala-resume-seal-wrap {
+            width: 68px !important;
+            height: 68px !important;
+            margin: 0 auto 0.75rem auto !important;
+            border-radius: 50% !important;
+            background: #ffffff !important;
+            padding: 4px !important;
+            border: 2.5px solid rgba(0, 40, 85, 0.14) !important;
+            box-shadow: 0 4px 14px rgba(0, 40, 85, 0.12) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+        }
+
+        .etala-resume-seal {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            image-rendering: -webkit-optimize-contrast !important;
+        }
+
+        .etala-resume-title,
+        .dark-mode .etala-resume-title,
+        .dark-mode h3.etala-resume-title,
+        [data-bs-theme="dark"] .etala-resume-title,
+        [data-bs-theme="dark"] h3.etala-resume-title {
+            font-size: 1.3rem !important;
+            font-weight: 800 !important;
+            color: #002855 !important;
+            text-align: center !important;
+            letter-spacing: -0.3px !important;
+            line-height: 1.25 !important;
+            margin: 0 0 4px 0 !important;
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        .etala-resume-sub,
+        .dark-mode .etala-resume-sub,
+        .dark-mode div.etala-resume-sub,
+        [data-bs-theme="dark"] .etala-resume-sub,
+        [data-bs-theme="dark"] div.etala-resume-sub {
+            text-align: center !important;
+            color: #64748b !important;
+            font-size: 0.8125rem !important;
+            margin: 0 0 14px 0 !important;
+            font-weight: 500 !important;
+            line-height: 1.45 !important;
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        .etala-resume-progress-track,
+        .dark-mode .etala-resume-progress-track,
+        [data-bs-theme="dark"] .etala-resume-progress-track {
+            width: 100% !important;
+            height: 4px !important;
+            background: #e2e8f0 !important;
+            border-radius: 999px !important;
+            overflow: hidden !important;
+            margin: 0 auto !important;
+            display: block !important;
+        }
+
+        .etala-resume-progress-fill,
+        .dark-mode .etala-resume-progress-fill,
+        [data-bs-theme="dark"] .etala-resume-progress-fill {
+            width: 0%;
+            height: 100% !important;
+            background: linear-gradient(90deg, #002855, #C5A059) !important;
+            border-radius: 999px !important;
+            transition: width 0.85s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            display: block !important;
+        }
+    </style>
+    {% endif %}
 
     {% block extra_js %}{% endblock %}
 </body>

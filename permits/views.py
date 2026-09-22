@@ -413,6 +413,7 @@ def login_view(request):
                 login(request, user)
                 remember_me = request.POST.get('remember_me')
                 request.session.set_expiry(1209600 if remember_me else 0)
+                request.session['show_welcome_screen'] = True
 
                 log_audit(user, f"Logged in from trusted device: {device_name}", request=request)
                 messages.success(request, "Welcome back to eTala.")
@@ -429,6 +430,7 @@ def login_view(request):
             user.backend = 'permits.auth_backends.EmailBackend'
             LoginAttempt.objects.create(email_attempted=user.email or user.username or login_input, success=True, ip_address=ip_address)
             login(request, user, backend='permits.auth_backends.EmailBackend')
+            request.session['show_welcome_screen'] = True
             messages.success(request, "Welcome back to eTala.")
             response = redirect('dashboard')
             response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
@@ -527,6 +529,7 @@ def verify_otp_view(request):
 
             log_audit(user, f"2FA OTP verified successfully on new device: {device_name}", request=request)
             dispatch_new_device_login_alert(user, device, request)
+            request.session['show_welcome_screen'] = True
             messages.success(request, "Device verified successfully.")
             response = redirect('dashboard')
             response.set_cookie('etala_device_token', device_token, max_age=31536000, httponly=True, samesite='Lax')
@@ -590,6 +593,57 @@ def access_restricted_view(request):
         'is_blocked_ip': True,
         'blocked_ip': ip or '127.0.0.1',
     }, status=403)
+
+
+def session_ping_view(request):
+    """Keepalive ping to extend user session when active or when Stay Logged In is clicked."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'unauthenticated', 'authenticated': False}, status=401)
+    request.session.modified = True
+    return JsonResponse({'status': 'ok', 'authenticated': True, 'username': request.user.username})
+
+
+def session_unlock_view(request):
+    """Verifies user password to unlock idle screen without losing unsaved form data or reloading page."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'unauthenticated', 'message': 'Session expired. Please log in again.'}, status=401)
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+    import json
+    password = ''
+    try:
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+            password = data.get('password', '').strip()
+        else:
+            password = request.POST.get('password', '').strip()
+    except Exception:
+        password = request.POST.get('password', '').strip()
+
+    if not password:
+        return JsonResponse({'status': 'error', 'message': 'Password is required to unlock your session.'}, status=400)
+
+    if request.user.check_password(password):
+        request.session.modified = True
+        log_audit(request.user, "Screen unlocked after session inactivity", request=request)
+        return JsonResponse({'status': 'ok', 'message': 'Session unlocked successfully.'})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Incorrect password. Please try again.'}, status=400)
+
+
+def session_timeout_logout_view(request):
+    """Handles automatic logout due to inactivity."""
+    if request.user.is_authenticated:
+        log_audit(request.user, "Session logged out automatically due to inactivity", request=request)
+        logout(request)
+    
+    messages.info(request, "Your session has ended due to inactivity for security reasons. Please log in again to continue.")
+    
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+        return JsonResponse({'status': 'logged_out', 'redirect_url': '/login/'})
+    return redirect('login')
 
 
 @login_required

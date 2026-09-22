@@ -286,9 +286,20 @@ def system_global_context(request):
                 "Provincial Engineering Office (PEO Leyte)",
             ]
 
+    show_welcome = False
+    if getattr(request, 'user', None) and request.user.is_authenticated:
+        if request.session.get('show_welcome_screen'):
+            show_welcome = True
+            try:
+                request.session.pop('show_welcome_screen', None)
+                request.session.modified = True
+            except Exception:
+                pass
+
     return {
         'total_barangays_count': total_brgys,
         'common_project_titles': common_project_titles,
         'common_contractors': contractor_list,
+        'show_welcome_transition': show_welcome,
     }
 
