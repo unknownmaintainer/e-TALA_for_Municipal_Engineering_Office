@@ -1,0 +1,1892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eTala — System Diagrams & Manuscript Text</title>
+  <!-- Mermaid JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --primary: #0f2b5c;
+      --accent: #2563eb;
+      --word-blue: #2b579a;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 30px 20px;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0f2b5c 0%, #1e3a8a 100%);
+      color: white;
+      padding: 26px 30px;
+      border-radius: 14px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 25px -5px rgba(15, 43, 92, 0.2);
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    header p {
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .btn-word {
+      background: #2b579a;
+      color: white;
+    }
+    .btn-word:hover {
+      background: #1e3e6f;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .btn-outline {
+      background: white;
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover {
+      background: #f1f5f9;
+    }
+
+    .btn-copy-small {
+      background: #f1f5f9;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-copy-small:hover {
+      background: #e2e8f0;
+      color: var(--primary);
+    }
+
+    .diagram-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 26px;
+      padding: 24px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.03);
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .card-title h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 2px;
+    }
+
+    .card-title p {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .manuscript-narrative {
+      margin-bottom: 18px;
+      background: #f8fafc;
+      border-left: 3px solid #3b82f6;
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+
+    .manuscript-narrative-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .manuscript-narrative-header span {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--primary);
+    }
+
+    .manuscript-text {
+      font-size: 13.5px;
+      color: #334155;
+      line-height: 1.7;
+      text-align: justify;
+    }
+
+    .diagram-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px 16px;
+      background: #ffffff;
+      border: 1px solid #f1f5f9;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .mermaid svg, .diagram-container svg {
+      max-width: 820px !important;
+      max-height: 390px !important;
+      width: 100% !important;
+      height: auto !important;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* Subgraph / cluster styling */
+    .cluster rect {
+      rx: 8px !important;
+      ry: 8px !important;
+    }
+
+    .cluster text, .cluster-label text {
+      font-weight: 700 !important;
+      fill: #1e293b !important;
+      font-size: 12px !important;
+      font-family: Arial, sans-serif !important;
+    }
+
+    /* Edge labels styling - Clean plain text without box borders */
+    .edgeLabel {
+      background-color: #ffffff !important;
+      color: #334155 !important;
+      font-weight: 600 !important;
+      font-size: 11px !important;
+      padding: 1px 4px !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    .edgeLabel rect, 
+    .edgeLabel .label-container,
+    .labelBox {
+      fill: #ffffff !important;
+      stroke: none !important;
+      stroke-width: 0 !important;
+    }
+
+    .caption {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .academic-table-wrap {
+      margin-top: 18px;
+      overflow-x: auto;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+    }
+
+    .academic-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: center;
+      background: #ffffff;
+    }
+
+    .academic-table th {
+      background: #0f2b5c;
+      color: #ffffff;
+      font-weight: 700;
+      padding: 9px 12px;
+      border: 1px solid #0f2b5c;
+      font-size: 12px;
+    }
+
+    .academic-table td {
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+      color: #334155;
+    }
+
+    .academic-table tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .academic-table td.task-name {
+      text-align: left;
+      font-weight: 700;
+      color: #0f2b5c;
+      background: #f1f5f9 !important;
+    }
+
+    .phase-cell {
+      background: #e0f2fe !important;
+      color: #0369a1 !important;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .phase-cell-dev {
+      background: #e0e7ff !important;
+      color: #3730a3 !important;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .phase-cell-test {
+      background: #fef3c7 !important;
+      color: #92400e !important;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .phase-cell-deploy {
+      background: #ccfbf1 !important;
+      color: #115e59 !important;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .phase-cell-eval {
+      background: #f3e8ff !important;
+      color: #6b21a8 !important;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .phase-cell-doc {
+      background: #f1f5f9 !important;
+      color: #475569 !important;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 25px;
+      right: 25px;
+      background: #0f2b5c;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .nav-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+      padding: 10px 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    }
+    .nav-pill {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      text-decoration: none;
+      padding: 5px 11px;
+      border-radius: 6px;
+      background: #f1f5f9;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .nav-pill:hover {
+      background: #0f2b5c;
+      color: #ffffff;
+    }
+
+    .academic-gantt-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: Arial, 'Times New Roman', sans-serif;
+      font-size: 12px;
+      background: #ffffff;
+      margin: 6px 0;
+    }
+    .academic-gantt-table th, .academic-gantt-table td {
+      border: 1px solid #cbd5e1;
+      padding: 7px 8px;
+      text-align: center;
+    }
+    .academic-gantt-table th {
+      background: #0f2b5c;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 11px;
+      letter-spacing: 0.4px;
+    }
+    .academic-gantt-table td.task-name {
+      text-align: left;
+      font-weight: bold;
+      color: #0f2b5c;
+      background: #f8fafc;
+      width: 18%;
+    }
+    .gantt-bar {
+      height: 18px;
+      border-radius: 4px;
+      display: block;
+      margin: 0 auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .bar-plan { background: #0284c7; }
+    .bar-design { background: #0284c7; }
+    .bar-dev { background: #0f2b5c; }
+    .bar-test { background: #d97706; }
+    .bar-deploy { background: #0d9488; }
+    .bar-eval { background: #7c3aed; }
+    .bar-doc { background: #475569; }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 20mm 15mm;
+      }
+      body {
+        background: #ffffff;
+        padding: 0;
+        color: #000000;
+        font-size: 11pt;
+      }
+      .container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      header, .nav-pills, .toolbar, .card-actions, .manuscript-narrative-header button, .toast {
+        display: none !important;
+      }
+      .diagram-card {
+        page-break-before: always !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .diagram-card:first-of-type {
+        page-break-before: auto !important;
+      }
+      .manuscript-narrative {
+        background: transparent !important;
+        border-left: none !important;
+        padding: 0 !important;
+        margin-bottom: 12pt !important;
+      }
+      .manuscript-text {
+        font-family: 'Times New Roman', serif !important;
+        font-size: 11pt !important;
+        line-height: 1.5 !important;
+        color: #000000 !important;
+      }
+      .diagram-container {
+        border: 1pt solid #cbd5e1 !important;
+        border-radius: 4px !important;
+        padding: 12pt 8pt !important;
+        margin: 10pt 0 !important;
+        page-break-inside: avoid !important;
+      }
+      .mermaid svg, .diagram-container svg, #diag-erd svg, #diag-gantt svg {
+        max-width: 100% !important;
+        max-height: 3.6in !important;
+        width: auto !important;
+        height: auto !important;
+        display: block !important;
+        margin: 0 auto !important;
+      }
+      .caption {
+        font-family: 'Times New Roman', serif !important;
+        font-size: 10pt !important;
+        font-weight: bold !important;
+        color: #000000 !important;
+        margin-top: 6pt !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>eTala System — Diagrams & Manuscript Descriptions</h1>
+    <p>Municipal Engineering Office — LGU Carigara, Leyte (Chapter 3: System Architecture & Design)</p>
+    <div class="toolbar">
+      <button class="btn btn-word" onclick="downloadWordDocument()">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>
+        Download Word (.doc)
+      </button>
+      <button class="btn btn-outline" onclick="copyAllManuscript()">
+        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        Copy All Descriptions
+      </button>
+      <button class="btn btn-outline" style="border-color: #0284c7; color: #0284c7; font-weight: bold; background: #f0f9ff;" onclick="triggerResumeDemo()">
+        ✨ Preview Smart Resume Screen
+      </button>
+      <button class="btn btn-outline" onclick="downloadAllPNGs()">Download All PNGs</button>
+      <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+  </header>
+
+  <nav class="nav-pills">
+    <a href="#card-resume-demo" class="nav-pill" style="border-color: #0284c7; color: #0284c7; font-weight: bold; background: #e0f2fe;">✨ Smart Resume Screen</a>
+    <a href="#card-arch" class="nav-pill">Fig 3.1 Architecture</a>
+    <a href="#card-usecase" class="nav-pill">Fig 3.2 Use Case</a>
+    <a href="#card-gantt" class="nav-pill">Fig 3.3 Timeline (Gantt)</a>
+    <a href="#card-erd" class="nav-pill">Fig 3.4 Database ERD</a>
+    <a href="#card-auth" class="nav-pill">Fig 3.5A Login & 2FA</a>
+    <a href="#card-encode" class="nav-pill">Fig 3.5B Encoding</a>
+    <a href="#card-upload" class="nav-pill">Fig 3.5C Upload</a>
+    <a href="#card-trash" class="nav-pill">Fig 3.5D Trash</a>
+    <a href="#card-violation" class="nav-pill">Fig 3.5E Violations</a>
+    <a href="#card-dfd0" class="nav-pill">Fig 3.6A DFD Level 0</a>
+    <a href="#card-dfd1" class="nav-pill">Fig 3.6B DFD Level 1</a>
+  </nav>
+
+  <!-- 0. SMART RESUME / WELCOME BACK SCREEN SHOWCASE -->
+  <div class="diagram-card" id="card-resume-demo" style="border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0, 40, 85, 0.08);">
+    <div class="card-header" style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
+      <div class="card-title">
+        <h2 style="color: #002855; font-weight: 800;">✨ Smart Resume Screen (Login Page Theme)</h2>
+        <p>Clean government-grade micro-transition display matching the eTala login design.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary" style="background: #002855; border-color: #002855;" onclick="triggerResumeDemo()">
+          ▶ Test Live Fullscreen Animation
+        </button>
+      </div>
+    </div>
+    <div class="diagram-container" style="background: #0f172a; padding: 48px 20px; border-radius: 0 0 12px 12px; display: flex; justify-content: center; align-items: center; background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px); background-size: 20px 20px;">
+      <!-- Embedded Visual UI Preview Card matching Login Page -->
+      <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 16px; padding: 1.6rem 1.8rem 1.4rem 1.8rem; width: 100%; max-width: 360px; box-shadow: 0 20px 40px -10px rgba(0, 20, 50, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.9); text-align: center;">
+        <div style="width: 72px; height: 72px; margin: 0 auto 0.75rem auto; border-radius: 50%; background: #ffffff; padding: 4px; border: 2.5px solid rgba(0, 40, 85, 0.14); box-shadow: 0 4px 14px rgba(0, 40, 85, 0.12); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+          <img src="./staticfiles/carigara_logo.png" alt="Official Municipal Seal of Carigara, Leyte" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+        <h3 style="font-size: 1.35rem; font-weight: 800; color: #002855; text-align: center; letter-spacing: -0.3px; line-height: 1.25; margin-bottom: 4px;">Welcome to eTala</h3>
+        <div style="text-align: center; color: #64748b; font-size: 0.8125rem; font-weight: 400; line-height: 1.45; margin-bottom: 1.15rem;">Engineering Records Archiving &amp; Document Management System</div>
+        <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+          <div style="width: 80%; height: 100%; background: linear-gradient(90deg, #002855, #C5A059); border-radius: 999px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">
+      Visual Showcase: Smart Resume / Welcome Back Ambient Screen
+    </div>
+  </div>
+
+  <!-- 1. ARCHITECTURE -->
+  <div class="diagram-card" id="card-arch">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.1: Hardware & Cloud Architecture</h2>
+        <p>Deployment setup connecting office workstations with application and cloud services.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-arch', 'Figure 3.1')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-arch', 'Figure_3_1_Architecture.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-arch', 'Figure 3.1')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-arch">
+        Figure 3.1 illustrates the hardware and cloud architecture connecting office workstations to the eTala web server. The server connects to cloud services for database records, document storage, GIS map displays, and email login verification codes.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-arch">
+flowchart TD
+    Client["Engineering Office Workstations"]
+    Server["eTala Web Server"]
+
+    subgraph Services [" Cloud Services "]
+        direction LR
+        C[("Records Database")]
+        D["Document Storage"]
+        E["GIS Map Service"]
+        F["Email OTP Service"]
+    end
+
+    Client <-->|Web Access| Server
+    Server <-->|Permits &<br/>Projects Data| C
+    Server <-->|Uploaded<br/>Files| D
+    Server <-->|Map<br/>Coordinates| E
+    Server -->|Email OTP<br/>Codes| F
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef client fill:#f0f9ff,stroke:#0284c7,stroke-width:1.5px,color:#0369a1,font-weight:bold;
+    classDef server fill:#0f2b5c,stroke:#091e42,stroke-width:1.5px,color:#ffffff,font-weight:bold;
+    classDef db fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#14532d,font-weight:bold;
+    classDef storage fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#854d0e,font-weight:bold;
+    classDef gis fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1,font-weight:bold;
+    classDef otp fill:#faf5ff,stroke:#7c3aed,stroke-width:1.5px,color:#581c87,font-weight:bold;
+    classDef box fill:#f8fafc,stroke:#94a3b8,stroke-width:1.2px,stroke-dasharray: 4 4,color:#1e293b,font-weight:bold;
+
+    class Client client;
+    class Server server;
+    class C db;
+    class D storage;
+    class E gis;
+    class F otp;
+    class Services box;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.1. Hardware and Cloud Architecture
+    </div>
+  </div>
+
+  <!-- 2. USE CASE (BALANCED LANDSCAPE) -->
+  <div class="diagram-card" id="card-usecase">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.2: Use Case Diagram</h2>
+        <p>Functional boundaries and role responsibilities for Staff and Municipal Engineer.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-usecase', 'Figure 3.2')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-usecase', 'Figure_3_2_Use_Case.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-usecase', 'Figure 3.2')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-usecase">
+        Figure 3.2 outlines the operational functions assigned to Engineering Staff and the Municipal Engineer in the eTala system. Engineering Staff handle record encoding, document uploads, map viewing, violation logging, and report generation, while the Municipal Engineer has full access to all operational tasks plus exclusive controls for user accounts, audit logs, and record restorations.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-usecase">
+flowchart LR
+    Staff["Engineering Staff"]
+
+    subgraph System [" eTala System "]
+        direction LR
+        subgraph Ops [" Operational Features "]
+            direction TB
+            UC1(["Log In"])
+            UC2(["Encode Records"])
+            UC3(["Upload Documents"])
+            UC4(["View GIS Map"])
+            UC5(["Log Violations"])
+            UC6(["Generate Reports"])
+            UC7(["Move to Trash"])
+        end
+
+        subgraph AdminOps [" Administration "]
+            direction TB
+            UC8(["Restore Records"])
+            UC9(["Manage User Accounts"])
+            UC10(["View Audit Logs"])
+        end
+    end
+
+    Admin["Municipal Engineer"]
+
+    Staff --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7
+    UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 --- Admin
+    UC8 & UC9 & UC10 --- Admin
+
+    classDef staffStyle fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1,font-weight:bold;
+    classDef adminStyle fill:#0f2b5c,stroke:#091e42,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef ucOps fill:#ffffff,stroke:#0284c7,stroke-width:1.3px,color:#0f172a,font-weight:600;
+    classDef ucAdmin fill:#faf5ff,stroke:#7c3aed,stroke-width:1.3px,color:#4c1d95,font-weight:600;
+    classDef systemBox fill:#f8fafc,stroke:#0f2b5c,stroke-width:1.5px,stroke-dasharray: 4 4,color:#0f2b5c,font-weight:bold;
+    classDef subBox fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,stroke-dasharray: 3 3,color:#475569,font-weight:600;
+
+    class Staff staffStyle;
+    class Admin adminStyle;
+    class UC1,UC2,UC3,UC4,UC5,UC6,UC7 ucOps;
+    class UC8,UC9,UC10 ucAdmin;
+    class System systemBox;
+    class Ops,AdminOps subBox;
+    linkStyle default stroke:#475569,stroke-width:1.3px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.2. Use Case Diagram
+    </div>
+  </div>
+
+  <!-- 2.5. PROJECT TIMELINE GANTT (FIGURE 3.3) -->
+  <div class="diagram-card" id="card-gantt">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.3: Project Development Timeline (Gantt Chart)</h2>
+        <p>Five-month SDLC implementation plan (June to October) covering planning, development, deployment, and evaluation.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-gantt', 'Figure 3.3')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-gantt', 'Figure_3_3_Project_Timeline_Gantt.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-gantt', 'Figure 3.3')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-gantt">
+        Figure 3.3 presents the five-month development timeline of the eTala system from June to October. It details the sequential execution of planning, database design, software development, system testing, cloud deployment, and final user evaluation.
+      </p>
+    </div>
+    <div class="diagram-container" id="diag-gantt">
+      <svg viewBox="0 0 760 246" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="background: #ffffff; font-family: Arial, sans-serif; display: block; margin: 0 auto;">
+        <defs>
+          <filter id="gantt-shadow" x="-2%" y="-5%" width="104%" height="115%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000000" flood-opacity="0.12"/>
+          </filter>
+        </defs>
+
+        <!-- 1. Row Background Alternating Colors -->
+        <rect x="0" y="32" width="760" height="30" fill="#f8fafc"/>
+        <rect x="0" y="62" width="760" height="30" fill="#ffffff"/>
+        <rect x="0" y="92" width="760" height="30" fill="#f8fafc"/>
+        <rect x="0" y="122" width="760" height="30" fill="#ffffff"/>
+        <rect x="0" y="152" width="760" height="30" fill="#f8fafc"/>
+        <rect x="0" y="182" width="760" height="30" fill="#ffffff"/>
+        <rect x="0" y="212" width="760" height="34" fill="#f8fafc"/>
+
+        <!-- 2. Background Grid Lines (Behind the bars) -->
+        <!-- Horizontal Row Lines -->
+        <line x1="0" y1="32" x2="760" y2="32" stroke="#cbd5e1" stroke-width="1.2"/>
+        <line x1="0" y1="62" x2="760" y2="62" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="0" y1="92" x2="760" y2="92" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="0" y1="122" x2="760" y2="122" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="0" y1="152" x2="760" y2="152" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="0" y1="182" x2="760" y2="182" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="0" y1="212" x2="760" y2="212" stroke="#e2e8f0" stroke-width="1"/>
+
+        <!-- Vertical Month Grid Lines -->
+        <line x1="160" y1="0" x2="160" y2="246" stroke="#cbd5e1" stroke-width="1.2"/>
+        <line x1="280" y1="0" x2="280" y2="246" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="400" y1="0" x2="400" y2="246" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="520" y1="0" x2="520" y2="246" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="640" y1="0" x2="640" y2="246" stroke="#e2e8f0" stroke-width="1"/>
+
+        <!-- 3. Task Name Column Labels -->
+        <text x="14" y="51" fill="#0f2b5c" font-size="11.5" font-weight="bold">Planning</text>
+        <text x="14" y="81" fill="#0f2b5c" font-size="11.5" font-weight="bold">Design</text>
+        <text x="14" y="111" fill="#0f2b5c" font-size="11.5" font-weight="bold">Development</text>
+        <text x="14" y="141" fill="#0f2b5c" font-size="11.5" font-weight="bold">Testing</text>
+        <text x="14" y="171" fill="#0f2b5c" font-size="11.5" font-weight="bold">Deployment</text>
+        <text x="14" y="201" fill="#0f2b5c" font-size="11.5" font-weight="bold">Evaluation</text>
+        <text x="14" y="231" fill="#0f2b5c" font-size="11.5" font-weight="bold">Documentation</text>
+
+        <!-- 4. Timeline Colored Bars & Text (Drawn on top of grid lines) -->
+        <!-- Row 1: Planning -->
+        <rect x="166" y="36" width="108" height="22" rx="4" fill="#0284c7" filter="url(#gantt-shadow)"/>
+        <text x="220" y="51" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">June 1 - 30</text>
+
+        <!-- Row 2: Design -->
+        <rect x="220" y="66" width="174" height="22" rx="4" fill="#0284c7" filter="url(#gantt-shadow)"/>
+        <text x="307" y="81" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">June 15 - July 31</text>
+
+        <!-- Row 3: Development -->
+        <rect x="286" y="96" width="294" height="22" rx="4" fill="#0f2b5c" filter="url(#gantt-shadow)"/>
+        <text x="433" y="111" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">July 1 - Sept 15</text>
+
+        <!-- Row 4: Testing -->
+        <rect x="460" y="126" width="174" height="22" rx="4" fill="#d97706" filter="url(#gantt-shadow)"/>
+        <text x="547" y="141" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">Aug 15 - Sept 30</text>
+
+        <!-- Row 5: Deployment -->
+        <rect x="580" y="156" width="120" height="22" rx="4" fill="#0d9488" filter="url(#gantt-shadow)"/>
+        <text x="640" y="171" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">Sept 15 - Oct 15</text>
+
+        <!-- Row 6: Evaluation -->
+        <rect x="646" y="186" width="108" height="22" rx="4" fill="#7c3aed" filter="url(#gantt-shadow)"/>
+        <text x="700" y="201" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">Oct 1 - 31</text>
+
+        <!-- Row 7: Documentation -->
+        <rect x="166" y="216" width="588" height="22" rx="4" fill="#475569" filter="url(#gantt-shadow)"/>
+        <text x="460" y="231" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">Continuous (June 1 - October 31)</text>
+
+        <!-- 5. Header Bar & Border (Top layer) -->
+        <rect x="0" y="0" width="760" height="32" fill="#0f2b5c" rx="4"/>
+        <text x="14" y="20" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="start">Tasks / SDLC Phases</text>
+        <text x="220" y="20" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle">June</text>
+        <text x="340" y="20" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle">July</text>
+        <text x="460" y="20" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle">August</text>
+        <text x="580" y="20" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle">September</text>
+        <text x="700" y="20" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle">October</text>
+
+        <!-- Outer Border -->
+        <rect x="0" y="0" width="760" height="246" fill="none" stroke="#cbd5e1" stroke-width="1.2" rx="4"/>
+      </svg>
+    </div>
+    <div class="caption">
+      Figure 3.3. Project Development Timeline (Gantt Chart)
+    </div>
+  </div>
+
+  <!-- 2.6. DATABASE ERD (FIGURE 3.4) -->
+  <div class="diagram-card" id="card-erd">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.4: Database Entity-Relationship Diagram (ERD)</h2>
+        <p>Relational database schema linking user accounts, barangays, engineering records, permit/project details, digital documents, and audit trails.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-erd', 'Figure 3.4')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-erd', 'Figure_3_4_Database_ERD.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-erd', 'Figure 3.4')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-erd">
+        Figure 3.4 shows the database tables and relationships supporting the eTala system. The central engineering records table links to barangay locations, user accounts, permit and project details, uploaded documents, and system audit logs.
+      </p>
+    </div>
+    <div class="diagram-container" id="diag-erd">
+      <svg viewBox="0 0 1020 665" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="background: #ffffff; font-family: Arial, 'Segoe UI', sans-serif; display: block; margin: 0 auto;">
+        <defs>
+          <filter id="erd-card-shadow" x="-3%" y="-4%" width="106%" height="112%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.08"/>
+          </filter>
+        </defs>
+
+        <!-- ==================== ORTHOGONAL RELATIONSHIP LINES ==================== -->
+        <!-- 1. BARANGAY to ENGINEERING_RECORD (1:N) -->
+        <path d="M 300 105 L 330 105 L 330 250 L 360 250" fill="none" stroke="#475569" stroke-width="1.8"/>
+        <path d="M 360 250 L 350 244 M 360 250 L 350 256 M 354 244 L 354 256" fill="none" stroke="#475569" stroke-width="1.5"/>
+        <g transform="translate(330, 175)">
+          <rect x="-18" y="-9" width="36" height="18" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+          <text x="0" y="3.5" font-size="9" font-weight="bold" fill="#0f2b5c" text-anchor="middle">1 : N</text>
+        </g>
+
+        <!-- 2. CUSTOM_USER to ENGINEERING_RECORD (1:N) -->
+        <path d="M 720 105 L 690 105 L 690 250 L 660 250" fill="none" stroke="#475569" stroke-width="1.8"/>
+        <path d="M 660 250 L 670 244 M 660 250 L 670 256 M 666 244 L 666 256" fill="none" stroke="#475569" stroke-width="1.5"/>
+        <g transform="translate(690, 175)">
+          <rect x="-18" y="-9" width="36" height="18" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+          <text x="0" y="3.5" font-size="9" font-weight="bold" fill="#0f2b5c" text-anchor="middle">1 : N</text>
+        </g>
+
+        <!-- 3. CUSTOM_USER to AUDIT_LOG (1:N) -->
+        <path d="M 850 185 L 850 255" fill="none" stroke="#475569" stroke-width="1.8"/>
+        <path d="M 850 255 L 844 245 M 850 255 L 856 245 M 844 250 L 856 250" fill="none" stroke="#475569" stroke-width="1.5"/>
+        <g transform="translate(885, 220)">
+          <rect x="-18" y="-9" width="36" height="18" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+          <text x="0" y="3.5" font-size="9" font-weight="bold" fill="#0f2b5c" text-anchor="middle">1 : N</text>
+        </g>
+
+        <!-- 4. ENGINEERING_RECORD to PERMIT_DETAIL (1:1 Specialization) -->
+        <path d="M 420 420 L 420 455 L 175 455 L 175 490" fill="none" stroke="#475569" stroke-width="1.8"/>
+        <path d="M 170 480 L 180 480 M 170 484 L 180 484" fill="none" stroke="#475569" stroke-width="1.5"/>
+        <g transform="translate(297, 455)">
+          <rect x="-18" y="-9" width="36" height="18" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+          <text x="0" y="3.5" font-size="9" font-weight="bold" fill="#0f2b5c" text-anchor="middle">1 : 1</text>
+        </g>
+
+        <!-- 5. ENGINEERING_RECORD to PROJECT_DETAIL (1:1 Specialization) -->
+        <path d="M 510 420 L 510 490" fill="none" stroke="#475569" stroke-width="1.8"/>
+        <path d="M 505 480 L 515 480 M 505 484 L 515 484" fill="none" stroke="#475569" stroke-width="1.5"/>
+        <g transform="translate(510, 455)">
+          <rect x="-18" y="-9" width="36" height="18" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+          <text x="0" y="3.5" font-size="9" font-weight="bold" fill="#0f2b5c" text-anchor="middle">1 : 1</text>
+        </g>
+
+        <!-- 6. ENGINEERING_RECORD to DOCUMENT (1:N) -->
+        <path d="M 600 420 L 600 455 L 845 455 L 845 490" fill="none" stroke="#475569" stroke-width="1.8"/>
+        <path d="M 845 490 L 839 480 M 845 490 L 851 480 M 839 485 L 851 485" fill="none" stroke="#475569" stroke-width="1.5"/>
+        <g transform="translate(722, 455)">
+          <rect x="-18" y="-9" width="36" height="18" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+          <text x="0" y="3.5" font-size="9" font-weight="bold" fill="#0f2b5c" text-anchor="middle">1 : N</text>
+        </g>
+
+        <!-- ==================== TIER 1: MASTER TABLES (TOP) ==================== -->
+        <!-- 1. BARANGAY TABLE (Top Left) -->
+        <g transform="translate(40, 25)" filter="url(#erd-card-shadow)">
+          <rect x="0" y="0" width="260" height="160" rx="6" fill="#ffffff" stroke="#1e3a8a" stroke-width="1.5"/>
+          <path d="M 0 6 Q 0 0 6 0 L 254 0 Q 260 0 260 6 L 260 28 L 0 28 Z" fill="#0f2b5c"/>
+          <text x="130" y="19" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">BARANGAY</text>
+          
+          <!-- Rows -->
+          <rect x="0" y="28" width="260" height="26" fill="#fffbeb"/>
+          <rect x="8" y="34" width="24" height="15" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+          <text x="20" y="45" font-size="8.5" font-weight="bold" fill="#92400e" text-anchor="middle">PK</text>
+          <text x="38" y="46" font-size="11" font-weight="bold" fill="#0f172a">barangay_id</text>
+          <text x="250" y="46" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="54" x2="260" y2="54" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="54" width="260" height="26" fill="#ffffff"/>
+          <text x="38" y="72" font-size="11" fill="#334155">psgc_code</text>
+          <text x="250" y="72" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(20)</text>
+          <line x1="0" y1="80" x2="260" y2="80" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="80" width="260" height="26" fill="#f8fafc"/>
+          <text x="38" y="98" font-size="11" font-weight="600" fill="#0f172a">barangay_name</text>
+          <text x="250" y="98" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(100)</text>
+          <line x1="0" y1="106" x2="260" y2="106" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="106" width="260" height="26" fill="#ffffff"/>
+          <text x="38" y="124" font-size="11" fill="#334155">district</text>
+          <text x="250" y="124" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(50)</text>
+          <line x1="0" y1="132" x2="260" y2="132" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="132" width="260" height="28" fill="#f8fafc"/>
+          <text x="38" y="150" font-size="11" fill="#334155">latitude, longitude</text>
+          <text x="250" y="150" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Float</text>
+        </g>
+
+        <!-- 2. CUSTOM_USER TABLE (Top Right) -->
+        <g transform="translate(720, 25)" filter="url(#erd-card-shadow)">
+          <rect x="0" y="0" width="260" height="160" rx="6" fill="#ffffff" stroke="#1e3a8a" stroke-width="1.5"/>
+          <path d="M 0 6 Q 0 0 6 0 L 254 0 Q 260 0 260 6 L 260 28 L 0 28 Z" fill="#0f2b5c"/>
+          <text x="130" y="19" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">CUSTOM_USER</text>
+          
+          <!-- Rows -->
+          <rect x="0" y="28" width="260" height="26" fill="#fffbeb"/>
+          <rect x="8" y="34" width="24" height="15" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+          <text x="20" y="45" font-size="8.5" font-weight="bold" fill="#92400e" text-anchor="middle">PK</text>
+          <text x="38" y="46" font-size="11" font-weight="bold" fill="#0f172a">user_id</text>
+          <text x="250" y="46" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="54" x2="260" y2="54" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="54" width="260" height="26" fill="#ffffff"/>
+          <text x="38" y="72" font-size="11" font-weight="600" fill="#0f172a">username</text>
+          <text x="250" y="72" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(150)</text>
+          <line x1="0" y1="80" x2="260" y2="80" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="80" width="260" height="26" fill="#f8fafc"/>
+          <text x="38" y="98" font-size="11" fill="#334155">full_name</text>
+          <text x="250" y="98" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(255)</text>
+          <line x1="0" y1="106" x2="260" y2="106" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="106" width="260" height="26" fill="#ffffff"/>
+          <text x="38" y="124" font-size="11" fill="#334155">role</text>
+          <text x="250" y="124" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(20)</text>
+          <line x1="0" y1="132" x2="260" y2="132" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="132" width="260" height="28" fill="#f8fafc"/>
+          <text x="38" y="150" font-size="11" fill="#334155">email</text>
+          <text x="250" y="150" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(254)</text>
+        </g>
+
+        <!-- ==================== TIER 2: PRIMARY CORE TABLE (CENTER) ==================== -->
+        <!-- 3. ENGINEERING_RECORD -->
+        <g transform="translate(360, 200)" filter="url(#erd-card-shadow)">
+          <rect x="0" y="0" width="300" height="220" rx="6" fill="#ffffff" stroke="#0f2b5c" stroke-width="2"/>
+          <path d="M 0 6 Q 0 0 6 0 L 294 0 Q 300 0 300 6 L 300 28 L 0 28 Z" fill="#0f2b5c"/>
+          <text x="150" y="19" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">ENGINEERING_RECORD</text>
+          
+          <!-- Rows -->
+          <!-- Row 1: PK -->
+          <rect x="0" y="28" width="300" height="23" fill="#fffbeb"/>
+          <rect x="8" y="32" width="24" height="14" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+          <text x="20" y="42.5" font-size="8.5" font-weight="bold" fill="#92400e" text-anchor="middle">PK</text>
+          <text x="38" y="44" font-size="11" font-weight="bold" fill="#0f172a">record_id</text>
+          <text x="290" y="44" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="51" x2="300" y2="51" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Row 2: FK -->
+          <rect x="0" y="51" width="300" height="23" fill="#f0f9ff"/>
+          <rect x="8" y="55" width="24" height="14" rx="3" fill="#e0f2fe" stroke="#bae6fd" stroke-width="0.8"/>
+          <text x="20" y="65.5" font-size="8.5" font-weight="bold" fill="#0369a1" text-anchor="middle">FK</text>
+          <text x="38" y="67" font-size="11" font-weight="600" fill="#0f172a">barangay_id</text>
+          <text x="290" y="67" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="74" x2="300" y2="74" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Row 3: FK -->
+          <rect x="0" y="74" width="300" height="23" fill="#f0f9ff"/>
+          <rect x="8" y="78" width="24" height="14" rx="3" fill="#e0f2fe" stroke="#bae6fd" stroke-width="0.8"/>
+          <text x="20" y="88.5" font-size="8.5" font-weight="bold" fill="#0369a1" text-anchor="middle">FK</text>
+          <text x="38" y="90" font-size="11" font-weight="600" fill="#0f172a">created_by</text>
+          <text x="290" y="90" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="97" x2="300" y2="97" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Row 4 -->
+          <rect x="0" y="97" width="300" height="24" fill="#ffffff"/>
+          <text x="38" y="113" font-size="11" font-weight="600" fill="#0f172a">record_type</text>
+          <text x="290" y="113" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(10)</text>
+          <line x1="0" y1="121" x2="300" y2="121" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Row 5 -->
+          <rect x="0" y="121" width="300" height="24" fill="#f8fafc"/>
+          <text x="38" y="137" font-size="11" fill="#334155">title</text>
+          <text x="290" y="137" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(255)</text>
+          <line x1="0" y1="145" x2="300" y2="145" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Row 6 -->
+          <rect x="0" y="145" width="300" height="24" fill="#ffffff"/>
+          <text x="38" y="161" font-size="11" fill="#334155">year, status</text>
+          <text x="290" y="161" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Int, VarChar(20)</text>
+          <line x1="0" y1="169" x2="300" y2="169" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Row 7 -->
+          <rect x="0" y="169" width="300" height="24" fill="#f8fafc"/>
+          <text x="38" y="185" font-size="11" fill="#334155">is_illegal_construction</text>
+          <text x="290" y="185" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Boolean</text>
+          <line x1="0" y1="193" x2="300" y2="193" stroke="#e2e8f0" stroke-width="1"/>
+
+          <!-- Row 8 -->
+          <rect x="0" y="193" width="300" height="27" fill="#ffffff"/>
+          <text x="38" y="210" font-size="11" fill="#334155">latitude, longitude</text>
+          <text x="290" y="210" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Float</text>
+        </g>
+
+        <!-- 4. AUDIT_LOG TABLE (Middle Right) -->
+        <g transform="translate(720, 255)" filter="url(#erd-card-shadow)">
+          <rect x="0" y="0" width="260" height="150" rx="6" fill="#ffffff" stroke="#1e3a8a" stroke-width="1.5"/>
+          <path d="M 0 6 Q 0 0 6 0 L 254 0 Q 260 0 260 6 L 260 28 L 0 28 Z" fill="#0f2b5c"/>
+          <text x="130" y="19" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">AUDIT_LOG</text>
+          
+          <!-- Rows -->
+          <rect x="0" y="28" width="260" height="24" fill="#fffbeb"/>
+          <rect x="8" y="32" width="24" height="14" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+          <text x="20" y="42.5" font-size="8.5" font-weight="bold" fill="#92400e" text-anchor="middle">PK</text>
+          <text x="38" y="44" font-size="11" font-weight="bold" fill="#0f172a">log_id</text>
+          <text x="250" y="44" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="52" x2="260" y2="52" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="52" width="260" height="24" fill="#f0f9ff"/>
+          <rect x="8" y="56" width="24" height="14" rx="3" fill="#e0f2fe" stroke="#bae6fd" stroke-width="0.8"/>
+          <text x="20" y="66.5" font-size="8.5" font-weight="bold" fill="#0369a1" text-anchor="middle">FK</text>
+          <text x="38" y="68" font-size="11" font-weight="600" fill="#0f172a">user_id</text>
+          <text x="250" y="68" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="76" x2="260" y2="76" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="76" width="260" height="24" fill="#ffffff"/>
+          <text x="38" y="92" font-size="11" fill="#334155">action</text>
+          <text x="250" y="92" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(50)</text>
+          <line x1="0" y1="100" x2="260" y2="100" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="100" width="260" height="24" fill="#f8fafc"/>
+          <text x="38" y="116" font-size="11" fill="#334155">target_record_id</text>
+          <text x="250" y="116" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="124" x2="260" y2="124" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="124" width="260" height="26" fill="#ffffff"/>
+          <text x="38" y="141" font-size="11" fill="#334155">performed_at</text>
+          <text x="250" y="141" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">DateTime</text>
+        </g>
+
+        <!-- ==================== TIER 3: DETAIL & ATTACHMENT TABLES (BOTTOM) ==================== -->
+        <!-- 5. PERMIT_DETAIL TABLE (Bottom Left) -->
+        <g transform="translate(40, 490)" filter="url(#erd-card-shadow)">
+          <rect x="0" y="0" width="270" height="155" rx="6" fill="#ffffff" stroke="#1e3a8a" stroke-width="1.5"/>
+          <path d="M 0 6 Q 0 0 6 0 L 264 0 Q 270 0 270 6 L 270 28 L 0 28 Z" fill="#0f2b5c"/>
+          <text x="135" y="19" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">PERMIT_DETAIL</text>
+          
+          <!-- Rows -->
+          <rect x="0" y="28" width="270" height="25" fill="#fffbeb"/>
+          <rect x="8" y="33" width="24" height="15" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+          <text x="20" y="44" font-size="8.5" font-weight="bold" fill="#92400e" text-anchor="middle">PK</text>
+          <text x="38" y="45" font-size="11" font-weight="bold" fill="#0f172a">permit_id</text>
+          <text x="260" y="45" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="53" x2="270" y2="53" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="53" width="270" height="25" fill="#f0f9ff"/>
+          <rect x="8" y="58" width="24" height="15" rx="3" fill="#e0f2fe" stroke="#bae6fd" stroke-width="0.8"/>
+          <text x="20" y="69" font-size="8.5" font-weight="bold" fill="#0369a1" text-anchor="middle">FK</text>
+          <text x="38" y="70" font-size="11" font-weight="600" fill="#0f172a">record_id</text>
+          <text x="260" y="70" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="78" x2="270" y2="78" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="78" width="270" height="25" fill="#ffffff"/>
+          <text x="38" y="95" font-size="11" fill="#334155">permit_type</text>
+          <text x="260" y="95" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(30)</text>
+          <line x1="0" y1="103" x2="270" y2="103" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="103" width="270" height="25" fill="#f8fafc"/>
+          <text x="38" y="120" font-size="11" fill="#334155">building_type</text>
+          <text x="260" y="120" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(30)</text>
+          <line x1="0" y1="128" x2="270" y2="128" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="128" width="270" height="27" fill="#ffffff"/>
+          <text x="38" y="145" font-size="11" fill="#334155">applicant_name, date</text>
+          <text x="260" y="145" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar, Date</text>
+        </g>
+
+        <!-- 6. PROJECT_DETAIL TABLE (Bottom Center) -->
+        <g transform="translate(375, 490)" filter="url(#erd-card-shadow)">
+          <rect x="0" y="0" width="270" height="155" rx="6" fill="#ffffff" stroke="#1e3a8a" stroke-width="1.5"/>
+          <path d="M 0 6 Q 0 0 6 0 L 264 0 Q 270 0 270 6 L 270 28 L 0 28 Z" fill="#0f2b5c"/>
+          <text x="135" y="19" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">PROJECT_DETAIL</text>
+          
+          <!-- Rows -->
+          <rect x="0" y="28" width="270" height="25" fill="#fffbeb"/>
+          <rect x="8" y="33" width="24" height="15" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+          <text x="20" y="44" font-size="8.5" font-weight="bold" fill="#92400e" text-anchor="middle">PK</text>
+          <text x="38" y="45" font-size="11" font-weight="bold" fill="#0f172a">project_id</text>
+          <text x="260" y="45" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="53" x2="270" y2="53" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="53" width="270" height="25" fill="#f0f9ff"/>
+          <rect x="8" y="58" width="24" height="15" rx="3" fill="#e0f2fe" stroke="#bae6fd" stroke-width="0.8"/>
+          <text x="20" y="69" font-size="8.5" font-weight="bold" fill="#0369a1" text-anchor="middle">FK</text>
+          <text x="38" y="70" font-size="11" font-weight="600" fill="#0f172a">record_id</text>
+          <text x="260" y="70" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="78" x2="270" y2="78" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="78" width="270" height="25" fill="#ffffff"/>
+          <text x="38" y="95" font-size="11" fill="#334155">project_type</text>
+          <text x="260" y="95" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(50)</text>
+          <line x1="0" y1="103" x2="270" y2="103" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="103" width="270" height="25" fill="#f8fafc"/>
+          <text x="38" y="120" font-size="11" fill="#334155">funding_source, contractor</text>
+          <text x="260" y="120" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(255)</text>
+          <line x1="0" y1="128" x2="270" y2="128" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="128" width="270" height="27" fill="#ffffff"/>
+          <text x="38" y="145" font-size="11" fill="#334155">project_cost, status</text>
+          <text x="260" y="145" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Decimal, VarChar</text>
+        </g>
+
+        <!-- 7. DOCUMENT TABLE (Bottom Right) -->
+        <g transform="translate(710, 490)" filter="url(#erd-card-shadow)">
+          <rect x="0" y="0" width="270" height="155" rx="6" fill="#ffffff" stroke="#1e3a8a" stroke-width="1.5"/>
+          <path d="M 0 6 Q 0 0 6 0 L 264 0 Q 270 0 270 6 L 270 28 L 0 28 Z" fill="#0f2b5c"/>
+          <text x="135" y="19" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">DOCUMENT</text>
+          
+          <!-- Rows -->
+          <rect x="0" y="28" width="270" height="25" fill="#fffbeb"/>
+          <rect x="8" y="33" width="24" height="15" rx="3" fill="#fef3c7" stroke="#fde68a" stroke-width="0.8"/>
+          <text x="20" y="44" font-size="8.5" font-weight="bold" fill="#92400e" text-anchor="middle">PK</text>
+          <text x="38" y="45" font-size="11" font-weight="bold" fill="#0f172a">document_id</text>
+          <text x="260" y="45" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="53" x2="270" y2="53" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="53" width="270" height="25" fill="#f0f9ff"/>
+          <rect x="8" y="58" width="24" height="15" rx="3" fill="#e0f2fe" stroke="#bae6fd" stroke-width="0.8"/>
+          <text x="20" y="69" font-size="8.5" font-weight="bold" fill="#0369a1" text-anchor="middle">FK</text>
+          <text x="38" y="70" font-size="11" font-weight="600" fill="#0f172a">record_id</text>
+          <text x="260" y="70" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">Integer</text>
+          <line x1="0" y1="78" x2="270" y2="78" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="78" width="270" height="25" fill="#ffffff"/>
+          <text x="38" y="95" font-size="11" fill="#334155">document_type</text>
+          <text x="260" y="95" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar(50)</text>
+          <line x1="0" y1="103" x2="270" y2="103" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="103" width="270" height="25" fill="#f8fafc"/>
+          <text x="38" y="120" font-size="11" fill="#334155">file_name, file_size</text>
+          <text x="260" y="120" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">VarChar, Integer</text>
+          <line x1="0" y1="128" x2="270" y2="128" stroke="#e2e8f0" stroke-width="1"/>
+
+          <rect x="0" y="128" width="270" height="27" fill="#ffffff"/>
+          <text x="38" y="145" font-size="11" fill="#334155">uploaded_by, date</text>
+          <text x="260" y="145" font-size="10" font-style="italic" fill="#64748b" text-anchor="end">FK, DateTime</text>
+        </g>
+      </svg>
+    </div>
+    <div class="caption">
+      Figure 3.4. Database Entity-Relationship Diagram (ERD)
+    </div>
+  </div>
+  </div>
+
+  <!-- 3. LOGIN 2FA FLOWCHART (HORIZONTAL LANDSCAPE) -->
+  <div class="diagram-card" id="card-auth">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.5A: Login & 2FA Verification Flow</h2>
+        <p>Three-step security flow verifying credentials, trusted device tokens, and email OTP.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-auth', 'Figure 3.5A')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-auth', 'Figure_3_5A_Login_2FA.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-auth', 'Figure 3.5A')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-auth">
+        Figure 3.5A illustrates the two-factor authentication security workflow for accessing the eTala system. Recognized office devices open the dashboard directly, while unrecognized devices require a one-time verification code sent via email before access is granted.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-auth">
+flowchart LR
+    Start(["Start"]) --> A["Enter Username & Password"]
+    A --> B{"Valid Account?"}
+    B -- "No" --> C["Invalid Login Error"] --> A
+    B -- "Yes" --> D{"Recognized Device?"}
+    D -- "Yes" --> Dash(["Open Dashboard"])
+    D -- "No" --> E["Send Email OTP"]
+    E --> F["Enter OTP Code"]
+    F --> G{"Valid Code?"}
+    G -- "No" --> H["Invalid OTP Error"] --> F
+    G -- "Yes" --> I["Save as Trusted Device"] --> Dash
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#92400e,font-weight:bold;
+    classDef otp fill:#faf5ff,stroke:#7c3aed,stroke-width:1.5px,color:#581c87,font-weight:600;
+    classDef pass fill:#c8e6c9,stroke:#2e7d32,stroke-width:1.5px,color:#1b5e20,font-weight:bold;
+    classDef fail fill:#ffcdd2,stroke:#c62828,stroke-width:1.5px,color:#b71c1c,font-weight:bold;
+    classDef startEnd fill:#0f2b5c,stroke:#091e42,stroke-width:1.5px,color:#ffffff,font-weight:bold;
+
+    class Start startEnd;
+    class Dash pass;
+    class B,D,G decision;
+    class E otp;
+    class C,H fail;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.5A. Login and Two-Factor Authentication Flow
+    </div>
+  </div>
+
+  <!-- 4. RECORD ENCODING FLOWCHART (HORIZONTAL LANDSCAPE) -->
+  <div class="diagram-card" id="card-encode">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.5B: Record Encoding Flow</h2>
+        <p>Record type selection, barangay assignment, and requirement checklist creation.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-encode', 'Figure 3.5B')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-encode', 'Figure_3_5B_Encoding.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-encode', 'Figure 3.5B')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-encode">
+        Figure 3.5B illustrates the step-by-step process of encoding permit and infrastructure records in eTala. The user selects the record type, designates the barangay, and fills in required details to save the entry and automatically generate the document checklist.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-encode">
+flowchart LR
+    Start(["Start"]) --> A["Choose Record Type"]
+    A --> B1["Building Permit"]
+    A --> B2["Municipal Project"]
+    B1 & B2 --> C["Select Barangay"]
+    C --> D["Fill Application Details"]
+    D --> E{"All Fields Valid?"}
+    E -- "No" --> F["Show Validation Warning"] --> D
+    E -- "Yes" --> G["Save Record &<br/>Generate Checklist"] --> End(["Record Saved"])
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef permit fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1,font-weight:bold;
+    classDef project fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#115e59,font-weight:bold;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#92400e,font-weight:bold;
+    classDef pass fill:#c8e6c9,stroke:#2e7d32,stroke-width:1.5px,color:#1b5e20,font-weight:bold;
+    classDef fail fill:#ffcdd2,stroke:#c62828,stroke-width:1.5px,color:#b71c1c,font-weight:bold;
+    classDef startEnd fill:#0f2b5c,stroke:#091e42,stroke-width:1.5px,color:#ffffff,font-weight:bold;
+
+    class Start startEnd;
+    class B1 permit;
+    class B2 project;
+    class E decision;
+    class End pass;
+    class F fail;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.5B. Record Encoding Flow
+    </div>
+  </div>
+
+  <!-- 5. DOCUMENT UPLOAD FLOWCHART (HORIZONTAL LANDSCAPE) -->
+  <div class="diagram-card" id="card-upload">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.5C: Document Upload Flow</h2>
+        <p>Document validation, cloud storage synchronization, and progress tracking.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-upload', 'Figure 3.5C')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-upload', 'Figure_3_5C_Upload.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-upload', 'Figure 3.5C')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-upload">
+        Figure 3.5C illustrates the document attachment and cloud synchronization process in the eTala system. An authorized user selects a pending checklist item and uploads a validated PDF file to update the record's progress and cloud storage.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-upload">
+flowchart LR
+    Start(["Start"]) --> A["Open Document Checklist"]
+    A --> B["Select Pending Requirement"]
+    B --> C["Choose PDF Document"]
+    C --> D{"Valid PDF<br/>& Size?"}
+    D -- "No" --> E["File Error (Not PDF / Too Large)"] --> C
+    D -- "Yes" --> F["Upload to Cloud Storage"]
+    F --> G["Mark Completed &<br/>Update Progress %"] --> End(["Document Attached"])
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#92400e,font-weight:bold;
+    classDef pass fill:#c8e6c9,stroke:#2e7d32,stroke-width:1.5px,color:#1b5e20,font-weight:bold;
+    classDef fail fill:#ffcdd2,stroke:#c62828,stroke-width:1.5px,color:#b71c1c,font-weight:bold;
+    classDef startEnd fill:#0f2b5c,stroke:#091e42,stroke-width:1.5px,color:#ffffff,font-weight:bold;
+
+    class Start startEnd;
+    class D decision;
+    class End pass;
+    class E fail;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.5C. Document Upload Flow
+    </div>
+  </div>
+
+  <!-- 6. TRASH & RESTORE FLOWCHART (HORIZONTAL LANDSCAPE) -->
+  <div class="diagram-card" id="card-trash">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.5D: Trash & Recovery Flow</h2>
+        <p>Resolution paths for archiving, restoring, or permanently deleting records.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-trash', 'Figure 3.5D')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-trash', 'Figure_3_5D_Trash_Restore.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-trash', 'Figure 3.5D')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-trash">
+        Figure 3.5D illustrates the soft-deletion, restoration, and automated archiving lifecycle in eTala. Deleted records are moved to a temporary trash repository where the Municipal Engineer can restore them to active status, delete them permanently, or let the system purge them after thirty days.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-trash">
+flowchart LR
+    Start(["Start"]) --> A["Move Record to Trash"]
+    A --> B{"Choose Action"}
+    B -- "Restore" --> C["Restore to Active List"] --> EndActive(["Active Record Restored"])
+    B -- "Manual Delete" --> D["Permanently Delete Now"]
+    B -- "30 Days Inactive" --> E["Automated System Purge"]
+    D & E --> EndDeleted(["Permanently Deleted"])
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#92400e,font-weight:bold;
+    classDef pass fill:#c8e6c9,stroke:#2e7d32,stroke-width:1.5px,color:#1b5e20,font-weight:bold;
+    classDef del fill:#ffcdd2,stroke:#c62828,stroke-width:1.5px,color:#b71c1c,font-weight:bold;
+    classDef startEnd fill:#0f2b5c,stroke:#091e42,stroke-width:1.5px,color:#ffffff,font-weight:bold;
+
+    class Start startEnd;
+    class B decision;
+    class EndActive pass;
+    class EndDeleted,D,E del;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.5D. Trash and Recovery Flow
+    </div>
+  </div>
+
+  <!-- 7. VIOLATION TRACKING FLOWCHART (HORIZONTAL LANDSCAPE) -->
+  <div class="diagram-card" id="card-violation">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.5E: Violation Tracking Flow</h2>
+        <p>Inspection, photographic evidence, and permit regularization resolution.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-violation', 'Figure 3.5E')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-violation', 'Figure_3_5E_Violation_Regularization.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-violation', 'Figure 3.5E')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-violation">
+        Figure 3.5E illustrates the regulatory workflow for logging and resolving illegal construction incidents in the municipality. Personnel log violation reports with photos, which are converted into official building permits once the owner complies with documentary requirements.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-violation">
+flowchart LR
+    Start(["Start"]) --> A["Log Illegal Construction"]
+    A --> B{"Owner Complies?"}
+    B -- "Yes" --> C["Submit Permit Application"]
+    C --> D["Regularize into Official Permit"]
+    D --> EndResolved(["Case Resolved"])
+    B -- "No" --> EndOpen(["Case Unresolved"])
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef startEnd fill:#0f2b5c,stroke:#091e42,stroke-width:1.5px,color:#ffffff,font-weight:bold;
+    classDef report fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#991b1b,font-weight:bold;
+    classDef process fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#92400e,font-weight:bold;
+    classDef pass fill:#c8e6c9,stroke:#2e7d32,stroke-width:1.5px,color:#1b5e20,font-weight:bold;
+
+    class Start startEnd;
+    class A,EndOpen report;
+    class B process;
+    class C default;
+    class D,EndResolved pass;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.5E. Violation Tracking and Regularization Flow
+    </div>
+  </div>
+
+  <!-- 8. DFD LEVEL 0 (HORIZONTAL LANDSCAPE) -->
+  <div class="diagram-card" id="card-dfd0">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.6A: Data Flow Diagram Level 0 (Context Diagram)</h2>
+        <p>High-level boundary data exchanges between Staff, Municipal Engineer, and eTala.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-dfd0', 'Figure 3.6A')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-dfd0', 'Figure_3_6A_DFD_Level0.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-dfd0', 'Figure 3.6A')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-dfd0">
+        Figure 3.6A illustrates the Level 0 Data Flow Diagram showing the high-level data exchanges between office users and the eTala system. Engineering Staff submit application details and files to receive document checklists and map displays, while the Municipal Engineer interacts with all operational functions in addition to managing user accounts, summary reports, and audit logs.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-dfd0">
+flowchart LR
+    Staff["Engineering Staff"]
+    Core(["eTala System"])
+    Admin["Municipal Engineer"]
+
+    Staff -->|Application Details & Files| Core
+    Core -->|Checklists & Map Displays| Staff
+
+    Admin -->|User Accounts & Settings| Core
+    Core -->|Summary Reports & Audit Logs| Admin
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef staffEntity fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1,font-weight:bold;
+    classDef adminEntity fill:#0f2b5c,stroke:#091e42,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef process fill:#0f2b5c,stroke:#091e42,stroke-width:2px,color:#ffffff,font-weight:bold;
+
+    class Staff staffEntity;
+    class Admin adminEntity;
+    class Core process;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.6A. Data Flow Diagram Level 0 (Context Diagram)
+    </div>
+  </div>
+
+  <!-- 9. DFD LEVEL 1 (HORIZONTAL LANDSCAPE) -->
+  <div class="diagram-card" id="card-dfd1">
+    <div class="card-header">
+      <div class="card-title">
+        <h2>Figure 3.6B: Data Flow Diagram Level 1</h2>
+        <p>Three core processes: Record Management, GIS Mapping, and Report Generation.</p>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" onclick="copySection('desc-dfd1', 'Figure 3.6B')">Copy Description</button>
+        <button class="btn btn-primary" onclick="downloadPNG('diag-dfd1', 'Figure_3_6B_DFD_Level1.png')">Download PNG</button>
+      </div>
+    </div>
+    <div class="manuscript-narrative">
+      <div class="manuscript-narrative-header">
+        <span>Description for Paper</span>
+        <button class="btn-copy-small" onclick="copySection('desc-dfd1', 'Figure 3.6B')">Copy Text</button>
+      </div>
+      <p class="manuscript-text" id="desc-dfd1">
+        Figure 3.6B illustrates the Level 1 Data Flow Diagram showing how information moves across the core processes of the eTala system. Engineering Staff encode application details into Record Management to store and retrieve records in the database, while GIS Mapping displays interactive map locations and Report Generation compiles accomplishment reports for the Municipal Engineer.
+      </p>
+    </div>
+    <div class="diagram-container">
+      <div class="mermaid" id="diag-dfd1">
+flowchart LR
+    Staff["Engineering Staff"]
+    
+    P1["Record Management"]
+    P2["GIS Mapping"]
+    P3["Report Generation"]
+    
+    DB[("Records Database")]
+    Admin["Municipal Engineer"]
+
+    Staff -->|Application Details| P1
+    P1 <-->|Permit & Project Records| DB
+
+    DB -->|Map Coordinates| P2
+    P2 -->|Interactive Map View| Staff
+
+    DB -->|Compiled Record Summaries| P3
+    P3 -->|Accomplishment Reports| Admin
+
+    classDef default fill:#f8fafc,stroke:#1e3a8a,stroke-width:1.5px,color:#0f172a,font-weight:600;
+    classDef staff fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1,font-weight:bold;
+    classDef admin fill:#0f2b5c,stroke:#091e42,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef proc fill:#0f2b5c,stroke:#091e42,stroke-width:1.5px,color:#ffffff,font-weight:bold;
+    classDef db fill:#f0fdf4,stroke:#16a34a,stroke-width:1.8px,color:#14532d,font-weight:bold;
+
+    class Staff staff;
+    class Admin admin;
+    class P1,P2,P3 proc;
+    class DB db;
+    linkStyle default stroke:#475569,stroke-width:1.5px;
+      </div>
+    </div>
+    <div class="caption">
+      Figure 3.6B. Data Flow Diagram Level 1
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast">Message</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    theme: 'base',
+    themeVariables: {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '12px',
+      primaryColor: '#f8fafc',
+      primaryTextColor: '#0f172a',
+      primaryBorderColor: '#1e3a8a',
+      lineColor: '#475569',
+      secondaryColor: '#f0f9ff',
+      tertiaryColor: '#ffffff',
+      edgeLabelBackground: '#ffffff',
+      clusterBkg: '#f8fafc',
+      clusterBorder: '#94a3b8'
+    },
+    flowchart: {
+      htmlLabels: true,
+      curve: 'basis',
+      padding: 12,
+      nodeSpacing: 28,
+      rankSpacing: 32
+    }
+  });
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  function copySection(elementId, label) {
+    const text = document.getElementById(elementId).innerText.trim();
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(`Copied description for ${label}!`);
+    }).catch(() => {
+      showToast('Copy failed. Please manually select the text.');
+    });
+  }
+
+  function copyAllManuscript() {
+    const sections = [
+      ['Figure 3.1: Hardware and Cloud Architecture', 'desc-arch'],
+      ['Figure 3.2: Use Case Diagram', 'desc-usecase'],
+      ['Figure 3.3: Project Development Timeline (Gantt Chart)', 'desc-gantt'],
+      ['Figure 3.4: Database Entity-Relationship Diagram (ERD)', 'desc-erd'],
+      ['Figure 3.5A: Login and Two-Factor Authentication Flow', 'desc-auth'],
+      ['Figure 3.5B: Record Encoding Flow', 'desc-encode'],
+      ['Figure 3.5C: Document Upload Flow', 'desc-upload'],
+      ['Figure 3.5D: Trash and Recovery Flow', 'desc-trash'],
+      ['Figure 3.5E: Violation Tracking and Regularization Flow', 'desc-violation'],
+      ['Figure 3.6A: Data Flow Diagram Level 0', 'desc-dfd0'],
+      ['Figure 3.6B: Data Flow Diagram Level 1', 'desc-dfd1']
+    ];
+
+    let fullText = 'CHAPTER 3: SYSTEM ARCHITECTURE & SYSTEM DESIGN\n\n';
+    sections.forEach(([title, id]) => {
+      const el = document.getElementById(id);
+      if (el) {
+        fullText += `${title}\n\n${el.innerText.trim()}\n\n\n`;
+      }
+    });
+
+    navigator.clipboard.writeText(fullText).then(() => {
+      showToast('All 11 descriptions copied for Word!');
+    }).catch(() => {
+      showToast('Copy failed.');
+    });
+  }
+
+  function getBase64Image(containerId) {
+    return new Promise((resolve) => {
+      const container = document.getElementById(containerId);
+      const svg = container ? container.querySelector('svg') : null;
+      if (!svg) {
+        resolve('');
+        return;
+      }
+
+      const scale = 4; // 4x Ultra HD (300+ DPI Print Quality for hardbound book printing)
+      const svgRect = svg.getBoundingClientRect();
+      const actualWidth = (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width) ? svg.viewBox.baseVal.width : (svgRect.width || 800);
+      const actualHeight = (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.height) ? svg.viewBox.baseVal.height : (svgRect.height || 400);
+
+      // Clone SVG and set explicit scaled width/height so browser rasterizes vector at full 4K
+      const svgClone = svg.cloneNode(true);
+      svgClone.setAttribute('width', (actualWidth * scale) + 'px');
+      svgClone.setAttribute('height', (actualHeight * scale) + 'px');
+      svgClone.style.backgroundColor = '#ffffff';
+
+      const styleTag = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      styleTag.textContent = `
+        .edgeLabel { background: #ffffff !important; border: none !important; font-family: Arial, sans-serif !important; font-size: 11px !important; font-weight: bold !important; }
+        .edgeLabel rect, .edgeLabel .label-container, .labelBox { fill: #ffffff !important; stroke: none !important; stroke-width: 0 !important; }
+        .edgeLabel span { background: #ffffff !important; border: none !important; }
+      `;
+      svgClone.insertBefore(styleTag, svgClone.firstChild);
+
+      const svgData = new XMLSerializer().serializeToString(svgClone);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      canvas.width = Math.round((actualWidth + 40) * scale);
+      canvas.height = Math.round((actualHeight + 40) * scale);
+
+      img.onload = function() {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, Math.round(20 * scale), Math.round(20 * scale), Math.round(actualWidth * scale), Math.round(actualHeight * scale));
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = function() {
+        resolve('');
+      };
+
+      img.src = 'data:image/svg+xml;charset=utf-8;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    });
+  }
+
+  async function downloadWordDocument() {
+    showToast('Generating Word document with 4K Ultra HD figures...');
+    
+    const items = [
+      { id: 'diag-arch', descId: 'desc-arch', title: 'Figure 3.1: Hardware and Cloud Architecture', caption: 'Figure 3.1. Hardware and Cloud Architecture' },
+      { id: 'diag-usecase', descId: 'desc-usecase', title: 'Figure 3.2: Use Case Diagram', caption: 'Figure 3.2. Use Case Diagram' },
+      { id: 'diag-gantt', descId: 'desc-gantt', title: 'Figure 3.3: Project Development Timeline (Gantt Chart)', caption: 'Figure 3.3. Project Development Timeline (Gantt Chart)' },
+      { id: 'diag-erd', descId: 'desc-erd', title: 'Figure 3.4: Database Entity-Relationship Diagram (ERD)', caption: 'Figure 3.4. Database Entity-Relationship Diagram (ERD)' },
+      { id: 'diag-auth', descId: 'desc-auth', title: 'Figure 3.5A: Login and Two-Factor Authentication Flow', caption: 'Figure 3.5A. Login and Two-Factor Authentication Flow' },
+      { id: 'diag-encode', descId: 'desc-encode', title: 'Figure 3.5B: Record Encoding Flow', caption: 'Figure 3.5B. Record Encoding Flow' },
+      { id: 'diag-upload', descId: 'desc-upload', title: 'Figure 3.5C: Document Upload Flow', caption: 'Figure 3.5C. Document Upload Flow' },
+      { id: 'diag-trash', descId: 'desc-trash', title: 'Figure 3.5D: Trash and Recovery Flow', caption: 'Figure 3.5D. Trash and Recovery Flow' },
+      { id: 'diag-violation', descId: 'desc-violation', title: 'Figure 3.5E: Violation Tracking and Regularization Flow', caption: 'Figure 3.5E. Violation Tracking and Regularization Flow' },
+      { id: 'diag-dfd0', descId: 'desc-dfd0', title: 'Figure 3.6A: Data Flow Diagram Level 0 (Context Diagram)', caption: 'Figure 3.6A. Data Flow Diagram Level 0 (Context Diagram)' },
+      { id: 'diag-dfd1', descId: 'desc-dfd1', title: 'Figure 3.6B: Data Flow Diagram Level 1', caption: 'Figure 3.6B. Data Flow Diagram Level 1' }
+    ];
+
+    let bodyHtml = `
+      <h1 style="font-size: 18pt; color: #0f2b5c; text-align: center; margin-bottom: 6pt;">eTala System: Design and Architecture</h1>
+      <p style="font-size: 12pt; text-align: center; color: #475569; margin-bottom: 24pt;">Municipal Engineering Office — LGU Carigara, Leyte</p>
+    `;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const base64Img = await getBase64Image(item.id);
+      const descEl = document.getElementById(item.descId);
+      const descText = descEl ? descEl.innerText.trim() : '';
+      const pageBreak = i > 0 ? 'page-break-before: always;' : '';
+
+      bodyHtml += `
+        <div style="${pageBreak} page-break-inside: avoid; break-inside: avoid; margin-top: 6pt; margin-bottom: 18pt;">
+          <h2 style="font-family: 'Times New Roman', Arial, serif; font-size: 12.5pt; font-weight: bold; color: #0f2b5c; border-bottom: 1pt solid #cbd5e1; padding-bottom: 3pt; margin-bottom: 8pt; page-break-after: avoid;">${item.title}</h2>
+          
+          <p style="font-family: 'Times New Roman', Arial, serif; font-size: 10.5pt; line-height: 1.45; text-align: justify; margin-bottom: 10pt; color: #1e293b;">
+            ${descText}
+          </p>
+          
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 6pt 0; page-break-inside: avoid;">
+            <tr>
+              <td align="center" style="text-align: center;">
+                ${base64Img ? `<img src="${base64Img}" width="520" style="max-width: 5.6in; max-height: 3.5in; width: auto; height: auto; display: block; margin: 0 auto; object-fit: contain;" alt="${item.title}"/>` : ''}
+                <p style="font-family: 'Times New Roman', Arial, serif; font-weight: bold; font-size: 9.5pt; color: #334155; margin-top: 5pt; text-align: center; page-break-before: avoid;">${item.caption}</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `;
+    }
+
+    const fullWordHtml = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>eTala System Diagrams & Manuscript</title>
+        <style>
+          @page Section1 { size: 21.0cm 29.7cm; margin: 2.0cm 2.0cm 2.0cm 2.0cm; mso-page-orientation: portrait; }
+          div.Section1 { page: Section1; }
+          body { font-family: 'Times New Roman', 'Arial', serif; font-size: 10.5pt; line-height: 1.4; color: #111827; }
+        </style>
+      </head>
+      <body>
+        <div class="Section1">
+          ${bodyHtml}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff' + fullWordHtml], {
+      type: 'application/msword;charset=utf-8'
+    });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'eTala_System_Diagrams_Chapter3.doc';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Word Document with Ultra HD figures downloaded!');
+  }
+
+  function downloadPNG(containerId, filename) {
+    const container = document.getElementById(containerId);
+    const svg = container ? container.querySelector('svg') : null;
+    if (!svg) {
+      alert('Diagram is rendering. Please try in a moment.');
+      return;
+    }
+
+    const scale = 4; // Ultra HD (300+ DPI Crisp Print Quality)
+    const svgRect = svg.getBoundingClientRect();
+    const actualWidth = (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width) ? svg.viewBox.baseVal.width : (svgRect.width || 800);
+    const actualHeight = (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.height) ? svg.viewBox.baseVal.height : (svgRect.height || 400);
+
+    const svgClone = svg.cloneNode(true);
+    svgClone.setAttribute('width', (actualWidth * scale) + 'px');
+    svgClone.setAttribute('height', (actualHeight * scale) + 'px');
+    svgClone.style.backgroundColor = '#ffffff';
+
+    const styleTag = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleTag.textContent = `
+      .edgeLabel { background: #ffffff !important; border: none !important; font-family: Arial, sans-serif !important; font-size: 11px !important; font-weight: bold !important; }
+      .edgeLabel rect, .edgeLabel .label-container, .labelBox { fill: #ffffff !important; stroke: none !important; stroke-width: 0 !important; }
+      .edgeLabel span { background: #ffffff !important; border: none !important; }
+    `;
+    svgClone.insertBefore(styleTag, svgClone.firstChild);
+
+    const svgData = new XMLSerializer().serializeToString(svgClone);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    canvas.width = Math.round((actualWidth + 40) * scale);
+    canvas.height = Math.round((actualHeight + 40) * scale);
+
+    img.onload = function() {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, Math.round(20 * scale), Math.round(20 * scale), Math.round(actualWidth * scale), Math.round(actualHeight * scale));
+      
+      const pngUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = pngUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast(`Downloaded (Ultra HD 4K/300 DPI): ${filename}`);
+    };
+
+    img.src = 'data:image/svg+xml;charset=utf-8;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  }
+
+  function downloadAllPNGs() {
+    const diagrams = [
+      ['diag-arch', 'Figure_3_1_Architecture.png'],
+      ['diag-usecase', 'Figure_3_2_Use_Case.png'],
+      ['diag-gantt', 'Figure_3_3_Project_Timeline_Gantt.png'],
+      ['diag-erd', 'Figure_3_4_Database_ERD.png'],
+      ['diag-auth', 'Figure_3_5A_Login_2FA.png'],
+      ['diag-encode', 'Figure_3_5B_Encoding.png'],
+      ['diag-upload', 'Figure_3_5C_Upload.png'],
+      ['diag-trash', 'Figure_3_5D_Trash_Restore.png'],
+      ['diag-violation', 'Figure_3_5E_Violation_Regularization.png'],
+      ['diag-dfd0', 'Figure_3_6A_DFD_Level0.png'],
+      ['diag-dfd1', 'Figure_3_6B_DFD_Level1.png']
+    ];
+
+    diagrams.forEach((item, index) => {
+      setTimeout(() => downloadPNG(item[0], item[1]), index * 400);
+    });
+  }
+
+  function triggerResumeDemo() {
+    let overlay = document.getElementById('demo-resume-screen');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'demo-resume-screen';
+      overlay.style.cssText = `
+        position: fixed; inset: 0; background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px); z-index: 999999; display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.3s ease;
+      `;
+      overlay.innerHTML = `
+        <div style="background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 16px; padding: 1.6rem 1.8rem 1.4rem 1.8rem; width: 100%; max-width: 360px; box-shadow: 0 20px 40px -10px rgba(0, 20, 50, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.9); text-align: center; transform: scale(0.96); transition: transform 0.3s ease;">
+          <div style="width: 72px; height: 72px; margin: 0 auto 0.75rem auto; border-radius: 50%; background: #ffffff; padding: 4px; border: 2.5px solid rgba(0, 40, 85, 0.14); box-shadow: 0 4px 14px rgba(0, 40, 85, 0.12); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+            <img src="./staticfiles/carigara_logo.png" alt="Official Municipal Seal of Carigara, Leyte" style="width: 100%; height: 100%; object-fit: contain;">
+          </div>
+          <h3 style="font-size: 1.35rem; font-weight: 800; color: #002855; text-align: center; letter-spacing: -0.3px; line-height: 1.25; margin-bottom: 4px;">Welcome to eTala</h3>
+          <div style="text-align: center; color: #64748b; font-size: 0.8125rem; font-weight: 400; line-height: 1.45; margin-bottom: 1.15rem;">Engineering Records Archiving &amp; Document Management System</div>
+          <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+            <div id="demo-resume-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #002855, #C5A059); border-radius: 999px; transition: width 0.85s ease;"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => {
+      overlay.style.opacity = '1';
+      const modal = overlay.querySelector('div');
+      if (modal) modal.style.transform = 'scale(1)';
+      const bar = document.getElementById('demo-resume-bar');
+      if (bar) {
+        bar.style.width = '0%';
+        setTimeout(() => bar.style.width = '100%', 40);
+      }
+    });
+
+    setTimeout(() => {
+      overlay.style.opacity = '0';
+      const modal = overlay.querySelector('div');
+      if (modal) modal.style.transform = 'scale(0.96)';
+      setTimeout(() => { overlay.style.display = 'none'; }, 350);
+    }, 1100);
+  }
+</script>
+
+</body>
+</html>
