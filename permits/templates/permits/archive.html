@@ -1,64 +1,281 @@
 {% extends 'permits/base.html' %}
 {% load static permit_filters %}
 
-{% block title %}{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %} | eTala{% endblock %}
+{% block title %}Trash | eTala{% endblock %}
 
 {% block breadcrumb %}
-<span class="breadcrumb-item active">{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}</span>
+<span class="breadcrumb-item active">Trash</span>
 {% endblock %}
 
 {% block content %}
 
-<!-- ══ PAGE HEADING ════════════════════════════════════════════════════ -->
+<!-- ══ HIDDEN FORMS FOR BULK & EMPTY TRASH ═════════════════════════════ -->
+<form id="emptyTrashForm" method="POST" action="{% url 'empty_trash' %}" style="display: none;">
+    {% csrf_token %}
+</form>
+
+<form id="batchTrashForm" method="POST" action="{% url 'batch_trash_action' %}" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="batchActionInput" value="">
+    <input type="hidden" name="record_ids_csv" id="batchRecordIdsInput" value="">
+</form>
+
+<!-- ══ PAGE HEADING (Standard Clean Header, No Subtitle) ════════════════ -->
 <div class="etala-page-header mb-3">
     <div>
-        <h1 class="etala-page-title mb-0">{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}</h1>
+        <h1 class="etala-page-title mb-0">Trash</h1>
     </div>
+    {% if request.user.role == 'admin' %}
+    <div class="etala-header-actions">
+        <button type="button" class="premium-btn btn-delete text-decoration-none" onclick="confirmEmptyTrash()"
+            {% if total_trash_unfiltered_count == 0 %}disabled style="opacity: 0.5; pointer-events: none;"{% endif %}
+            title="Permanently remove all items in trash">
+            <span class="btn-icon"><i class="fa-solid fa-trash-can"></i></span>
+            <span class="btn-divider"></span>
+            <span>Empty Trash</span>
+        </button>
+    </div>
+    {% endif %}
 </div>
 
-<!-- ══ DIRECTORY / ARCHIVE TOOLBAR (Badges Left, Compact Search Right) ══ -->
+<!-- ══ CATEGORY TABS & SEARCH TOOLBAR (Standard eTala Layout) ══════════ -->
 <form method="GET" action="{% url 'archive' %}" id="archiveFilterForm" class="mb-3">
+    <input type="hidden" name="record_type" id="filterRecordType" value="{{ selected_record_type|default:'' }}">
+    <input type="hidden" name="barangay" id="filterBarangay" value="{{ selected_barangay|default:'' }}">
+    <input type="hidden" name="year" id="filterYear" value="{{ selected_year|default:'' }}">
+    <input type="hidden" name="sort" id="filterSort" value="{{ current_sort|default:'' }}">
+
     <div class="records-filter-toolbar gap-3 mb-0 w-100 d-flex align-items-center justify-content-between flex-wrap"
         style="border-bottom: none !important; max-width: 100%; box-sizing: border-box;">
         
-        <!-- Left: Trash Count Badges -->
-        <div class="d-flex align-items-center gap-2 flex-wrap min-w-0">
-            <span class="badge rounded-pill px-2.5 py-1.5 d-inline-flex align-items-center gap-1.5 flex-shrink-0" style="background: rgba(220, 38, 38, 0.08); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.22); font-size: 0.74rem; font-weight: 600;">
-                <i class="fa-solid fa-trash-can" style="font-size: 10px;"></i>
-                <span>{{ page_obj.paginator.count|default:0 }} Record{{ page_obj.paginator.count|pluralize }} in Trash</span>
-            </span>
-            {% if expiring_soon_count > 0 %}
-            <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1 px-2.5 py-1.5 rounded-pill flex-shrink-0" style="border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.74rem; font-weight: 600;">
-                <i class="fa-solid fa-triangle-exclamation" style="font-size: 9px;"></i>
-                <span>{{ expiring_soon_count }} Expiring Soon</span>
-            </span>
-            {% endif %}
+        <!-- Left: Category Tabs (All, Permits, Projects, Violations) -->
+        <div class="filter-tabs-wrapper d-flex align-items-center gap-1.5 flex-nowrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;">
+            <a href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}{% if per_page %}per_page={{ per_page }}&{% endif %}"
+               class="filter-tab {% if not selected_record_type %}active{% endif %}"
+               style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+               All <span class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_trash_count|default:0 }}</span>
+            </a>
+            <a href="?record_type=Permit{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
+               class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}"
+               style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+               Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_trash_count|default:0 }}</span>
+            </a>
+            <a href="?record_type=Project{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
+               class="filter-tab {% if selected_record_type == 'Project' %}active{% endif %}"
+               style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+               Projects <span class="tab-count {% if selected_record_type == 'Project' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ projects_trash_count|default:0 }}</span>
+            </a>
+            <a href="?record_type=Illegal{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
+               class="filter-tab {% if selected_record_type == 'Illegal' %}active{% endif %}"
+               style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
+               Violations <span class="tab-count {% if selected_record_type == 'Illegal' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ illegal_trash_count|default:0 }}</span>
+            </a>
         </div>
 
-        <!-- Right: Compact Search Pill (Contained, no overflow) -->
+        <!-- Right: Compact Search Pill -->
         <div class="d-flex align-items-center ms-auto records-search-wrapper">
             <div class="etala-search-pill-wrapper">
                 <button type="submit" class="etala-search-pill-icon search-btn-icon" style="cursor: pointer; background: transparent; border: none;" title="Search trash">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </button>
                 <input type="text" name="q" id="archiveSearchInput" value="{{ q|default:'' }}" class="etala-search-pill-input search-text-input"
-                       placeholder="Search trash..." maxlength="80" autocomplete="off" spellcheck="false"
-                       title="Search by title, contractor, applicant, permit no., barangay, or type">
+                       placeholder="Search trash..." maxlength="80" autocomplete="off" spellcheck="false">
 
                 <div id="archiveSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                    style="width: 13px; height: 13px; margin-right: 6px; flex-shrink: 0;">
+                    style="width: 12px; height: 12px; border-width: 2px; margin-right: 6px; flex-shrink: 0;">
                     <span class="visually-hidden">Searching...</span>
                 </div>
 
-                <a href="{% url 'archive' %}" id="archiveClearBtn" class="text-muted d-flex align-items-center justify-content-center border-0 p-0 {% if not q %}d-none{% endif %} clear-search-icon" style="background: transparent;" title="Clear search">
+                <a href="{% url 'archive' %}" id="archiveClearBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not q %}d-none{% endif %}" title="Clear search">
                     <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                 </a>
             </div>
         </div>
     </div>
+
+    <!-- Active Filter & Sort Chips -->
+    <div id="activeChipsWrapper">
+        {% if active_filters_count > 0 or current_sort %}
+        <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2 mt-1.5">
+            {% if current_sort %}
+            <div class="filter-chip">
+                <span>Sorted by: <strong>
+                    {% if current_sort == 'title_asc' %}Title (A–Z)
+                    {% elif current_sort == 'title_desc' %}Title (Z–A)
+                    {% elif current_sort == 'retention_asc' %}Expiring Soonest
+                    {% elif current_sort == 'retention_desc' %}Recently Deleted
+                    {% else %}{{ current_sort }}{% endif %}
+                </strong></span>
+                <button type="button" class="clear-chip-btn" onclick="removeFilterChipSmooth(this, 'sort', '')" title="Clear sort">&times;</button>
+            </div>
+            {% endif %}
+
+            {% if selected_barangay %}
+            <div class="filter-chip">
+                <span>Barangay: <strong>
+                    {% for b in barangays %}
+                    {% if b.barangay_id|stringformat:"i" == selected_barangay %}{{ b.barangay_name }}{% endif %}
+                    {% endfor %}
+                </strong></span>
+                <button type="button" class="clear-chip-btn" onclick="removeFilterChipSmooth(this, 'barangay', '')" title="Clear barangay filter">&times;</button>
+            </div>
+            {% endif %}
+
+            {% if selected_year %}
+            <div class="filter-chip">
+                <span>Year: <strong>{{ selected_year }}</strong></span>
+                <button type="button" class="clear-chip-btn" onclick="removeFilterChipSmooth(this, 'year', '')" title="Clear year filter">&times;</button>
+            </div>
+            {% endif %}
+
+            <a href="javascript:void(0)" onclick="clearAllFiltersAndSorts()"
+                class="action-btn action-btn-ghost action-btn-xs ms-auto"
+                style="font-size: var(--text-2xs); padding: 2px 6px;">
+                Reset All
+            </a>
+        </div>
+        {% endif %}
+    </div>
 </form>
 
+<!-- ══ IN-PLACE SELECTION ACTION BAR (Standard Unified Design) ══ -->
+<div id="trashSelectionBar" class="trash-selection-bar">
+    <div class="batch-selection-inner">
+        <!-- Left: Pill Counter -->
+        <div class="batch-counter-badge">
+            <span class="batch-check-circle"><i class="fa-solid fa-check"></i></span>
+            <span class="batch-counter-text"><strong id="selectionCountText">0</strong> selected</span>
+        </div>
+
+        <!-- Right: Standard Premium Action Buttons (100% Height & Style Consistent with Empty Trash) -->
+        <div class="batch-actions-group">
+            <button type="button" class="premium-btn btn-restore text-decoration-none" onclick="executeBatchAction('restore')" title="Restore selected records">
+                <span class="btn-icon"><i class="fa-solid fa-rotate-left"></i></span>
+                <span class="btn-divider"></span>
+                <span>Restore</span>
+            </button>
+            {% if request.user.role == 'admin' %}
+            <button type="button" class="premium-btn btn-delete text-decoration-none" onclick="executeBatchAction('permanent_delete')" title="Permanently delete selected records">
+                <span class="btn-icon"><i class="fa-solid fa-trash-can"></i></span>
+                <span class="btn-divider"></span>
+                <span>Permanent Delete</span>
+            </button>
+            {% endif %}
+            <button type="button" class="premium-btn btn-secondary text-decoration-none" onclick="deselectAllTrash()" title="Deselect all records">
+                <span class="btn-icon"><i class="fa-solid fa-xmark"></i></span>
+                <span class="btn-divider"></span>
+                <span>Cancel</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <style>
+    /* ── Active Filter Chips & Clean Neutral Styling ── */
+    #activeChipsWrapper {
+        overflow: hidden;
+        transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease, margin 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    #activeChipsWrapper.wrapper-collapsing {
+        max-height: 0 !important;
+        opacity: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        pointer-events: none !important;
+    }
+    .active-filter-chips {
+        transition: opacity 0.20s ease, transform 0.20s ease, margin 0.20s ease;
+    }
+    .filter-chip {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 9999px !important;
+        padding: 3px 10px !important;
+        font-size: var(--text-xs, 0.75rem) !important;
+        color: #64748b !important;
+        font-weight: 500 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+        max-width: 450px;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        box-sizing: border-box;
+        transition: max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.20s cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                    padding 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                    margin 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                    border-width 0.25s ease,
+                    background-color 0.15s ease,
+                    border-color 0.15s ease !important;
+    }
+    .filter-chip:hover {
+        background: #f1f5f9 !important;
+        border-color: #cbd5e1 !important;
+    }
+    .filter-chip span strong {
+        color: #0f172a !important;
+        font-weight: 600 !important;
+    }
+    .dark-mode .filter-chip {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        color: #94a3b8 !important;
+        box-shadow: none !important;
+    }
+    .dark-mode .filter-chip:hover {
+        background: #243044 !important;
+        border-color: #475569 !important;
+    }
+    .dark-mode .filter-chip span strong {
+        color: #f8fafc !important;
+    }
+    .clear-chip-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border: none !important;
+        background: transparent !important;
+        color: #94a3b8 !important;
+        padding: 0 !important;
+        margin: 0 -2px 0 2px !important;
+        cursor: pointer !important;
+        border-radius: 50% !important;
+        width: 16px !important;
+        height: 16px !important;
+        transition: all 0.15s ease !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        line-height: 1 !important;
+    }
+    .clear-chip-btn:hover {
+        background: #fee2e2 !important;
+        color: #ef4444 !important;
+    }
+    .dark-mode .clear-chip-btn:hover {
+        background: rgba(239, 68, 68, 0.18) !important;
+        color: #f87171 !important;
+    }
+    .filter-chip.chip-removing {
+        opacity: 0 !important;
+        transform: scale(0.85) translateY(-2px) !important;
+        max-width: 0 !important;
+        min-width: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: -8px !important;
+        border-left-width: 0 !important;
+        border-right-width: 0 !important;
+        border-color: transparent !important;
+        pointer-events: none !important;
+    }
     .records-search-wrapper {
         flex: 0 0 260px !important;
         width: 260px !important;
@@ -86,6 +303,139 @@
         }
     }
 
+    /* ── Standard Unified Batch Selection Bar ── */
+    .trash-selection-bar {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transform: translateY(-4px);
+        transition: max-height 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.20s ease, transform 0.20s cubic-bezier(0.16, 1, 0.3, 1), margin-bottom 0.20s ease;
+        margin-bottom: 0;
+        pointer-events: none;
+    }
+    .trash-selection-bar.show {
+        max-height: 72px;
+        opacity: 1;
+        transform: translateY(0);
+        margin-bottom: 12px;
+        pointer-events: auto;
+    }
+    .batch-selection-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 6px 12px;
+        background: #f0f7ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.06);
+    }
+    .dark-mode .batch-selection-inner,
+    [data-bs-theme="dark"] .batch-selection-inner {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .batch-counter-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .batch-check-circle {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #2563eb;
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        flex-shrink: 0;
+    }
+    .batch-counter-text {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: #1e3a8a;
+        line-height: 1;
+    }
+    .batch-counter-text strong {
+        font-weight: 700;
+        color: #1d4ed8;
+    }
+    .dark-mode .batch-check-circle,
+    [data-bs-theme="dark"] .batch-check-circle {
+        background: #3b82f6;
+    }
+    .dark-mode .batch-counter-text,
+    [data-bs-theme="dark"] .batch-counter-text {
+        color: #cbd5e1 !important;
+    }
+    .dark-mode .batch-counter-text strong,
+    [data-bs-theme="dark"] .batch-counter-text strong {
+        color: #60a5fa !important;
+    }
+
+    .batch-actions-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    /* Standard restore styling for Restore premium button */
+    .premium-btn.btn-restore {
+        background: #ecfdf5 !important;
+        border: 1px solid #a7f3d0 !important;
+        color: #047857 !important;
+    }
+    .premium-btn.btn-restore:hover {
+        background: #059669 !important;
+        border-color: #059669 !important;
+        color: #ffffff !important;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(5, 150, 105, 0.3) !important;
+    }
+    .dark-mode .premium-btn.btn-restore,
+    [data-bs-theme="dark"] .premium-btn.btn-restore {
+        background: rgba(16, 185, 129, 0.15) !important;
+        border-color: rgba(16, 185, 129, 0.3) !important;
+        color: #34d399 !important;
+    }
+    .dark-mode .premium-btn.btn-restore:hover,
+    [data-bs-theme="dark"] .premium-btn.btn-restore:hover {
+        background: #059669 !important;
+        border-color: #059669 !important;
+        color: #ffffff !important;
+    }
+
+    /* Standard secondary styling for Cancel premium button */
+    .premium-btn.btn-secondary {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+    }
+    .premium-btn.btn-secondary:hover {
+        background: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        color: #0f172a !important;
+    }
+    .dark-mode .premium-btn.btn-secondary,
+    [data-bs-theme="dark"] .premium-btn.btn-secondary {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        color: #cbd5e1 !important;
+    }
+    .dark-mode .premium-btn.btn-secondary:hover,
+    [data-bs-theme="dark"] .premium-btn.btn-secondary:hover {
+        background: #334155 !important;
+        border-color: #475569 !important;
+        color: #f8fafc !important;
+    }
+
     #archiveTableContainer {
         width: 100% !important;
         max-width: 100% !important;
@@ -106,20 +456,39 @@
         width: 100% !important;
         max-width: 100% !important;
     }
+
+    /* ── Table Typography & System-Wide Consistency ── */
     .data-table {
         width: 100% !important;
         max-width: 100% !important;
         table-layout: fixed !important;
     }
-    .data-table th {
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+    .data-table thead th {
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.4px !important;
+        line-height: 1.2 !important;
+        vertical-align: middle !important;
+        color: #64748b !important;
+        padding: 10px 14px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
         white-space: nowrap !important;
+        user-select: none !important;
     }
+    .dark-mode .data-table thead th,
+    [data-bs-theme="dark"] .data-table thead th {
+        color: #94a3b8 !important;
+        border-bottom-color: #334155 !important;
+    }
+
     .data-table td {
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        padding: 11px 14px !important;
+        vertical-align: middle !important;
     }
+
     .data-table .cell-title {
         width: 100% !important;
         max-width: 100% !important;
@@ -145,100 +514,152 @@
         min-width: 0 !important;
     }
 
-    /* Light mode specific rules */
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr {
-        background-color: #ffffff !important;
-        border-color: #e2e8f0 !important;
-    }
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr:hover {
-        background-color: #f8fafc !important;
-    }
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-title {
-        color: #0f172a !important;
+    /* ── Header Menu Buttons ── */
+    .header-menu-btn {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-family: inherit !important;
+        font-size: 0.72rem !important;
         font-weight: 700 !important;
-    }
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-subtitle {
-        color: #475569 !important;
-    }
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-subtitle strong {
-        color: #0f172a !important;
-    }
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-subtitle span.bullet-divider {
-        color: #94a3b8 !important;
-    }
-    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table td.cell-muted {
-        color: #475569 !important;
-    }
-
-    /* Dark Mode Overrides */
-    .dark-mode .data-table tbody tr,
-    [data-bs-theme="dark"] .data-table tbody tr {
-        background-color: #1e293b !important;
-        border-color: #334155 !important;
-    }
-    .dark-mode .data-table tbody tr:hover,
-    [data-bs-theme="dark"] .data-table tbody tr:hover {
-        background-color: #26354a !important;
-    }
-    .dark-mode .data-table tbody td,
-    [data-bs-theme="dark"] .data-table tbody td {
-        background-color: transparent !important;
-        border-color: #334155 !important;
-        color: #ffffff !important;
-    }
-    .dark-mode .data-table .cell-title,
-    [data-bs-theme="dark"] .data-table .cell-title,
-    .dark-mode .cell-title,
-    [data-bs-theme="dark"] .cell-title {
-        background: transparent !important;
-        background-color: transparent !important;
-        color: #ffffff !important;
-    }
-    .dark-mode .data-table .cell-subtitle,
-    [data-bs-theme="dark"] .data-table .cell-subtitle {
-        background: transparent !important;
-        background-color: transparent !important;
-        color: #cbd5e1 !important;
-    }
-    .dark-mode .data-table .cell-subtitle strong,
-    [data-bs-theme="dark"] .data-table .cell-subtitle strong {
-        color: #ffffff !important;
-    }
-    .dark-mode .data-table .cell-subtitle span.bullet-divider,
-    [data-bs-theme="dark"] .data-table .cell-subtitle span.bullet-divider {
+        text-transform: uppercase !important;
+        letter-spacing: 0.4px !important;
+        line-height: 1.2 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 3px !important;
         color: #64748b !important;
-    }
-    .dark-mode .data-table td.cell-muted,
-    [data-bs-theme="dark"] .data-table td.cell-muted {
-        color: #cbd5e1 !important;
-    }
-
-    .data-table {
-        table-layout: auto !important;
-        width: 100% !important;
-    }
-    .data-table th, .data-table td {
-        padding: 12px 14px !important;
+        cursor: pointer !important;
+        transition: color 0.15s ease !important;
         vertical-align: middle !important;
     }
-    .data-table .tag,
-    .data-table .tag-project,
-    .data-table .tag-permit {
-        white-space: normal !important;
+    .header-menu-btn .dropdown-chevron {
+        font-size: 8px !important;
+        opacity: 0.55 !important;
+        margin-left: 2px !important;
+        transition: transform 0.18s ease, opacity 0.15s ease, color 0.15s ease !important;
         display: inline-block !important;
-        line-height: 1.35 !important;
-        max-width: 100% !important;
-        font-size: 0.81rem !important;
-        font-weight: 500 !important;
-        word-break: normal !important;
-        overflow-wrap: break-word !important;
-        color: #334155 !important;
+        line-height: 1 !important;
+        vertical-align: middle !important;
     }
-    .dark-mode .data-table .tag-project,
-    .dark-mode .data-table .tag-permit,
-    [data-bs-theme="dark"] .data-table .tag-project,
-    [data-bs-theme="dark"] .data-table .tag-permit {
+    .header-menu-btn:hover {
+        color: #2563eb !important;
+        background: transparent !important;
+    }
+    .header-menu-btn:hover .dropdown-chevron {
+        opacity: 0.95 !important;
+        color: #2563eb !important;
+    }
+    .header-menu-btn.active,
+    .header-menu-btn[aria-expanded="true"] {
+        color: #2563eb !important;
+        font-weight: 700 !important;
+        background: transparent !important;
+    }
+    .header-menu-btn.active .dropdown-chevron {
+        opacity: 1 !important;
+        color: #2563eb !important;
+    }
+    .header-menu-btn[aria-expanded="true"] .dropdown-chevron {
+        transform: rotate(180deg) !important;
+        opacity: 1 !important;
+        color: #2563eb !important;
+    }
+
+    .dark-mode .header-menu-btn,
+    [data-bs-theme="dark"] .header-menu-btn {
+        color: #94a3b8 !important;
+    }
+    .dark-mode .header-menu-btn:hover,
+    [data-bs-theme="dark"] .header-menu-btn:hover {
+        color: #38bdf8 !important;
+    }
+    .dark-mode .header-menu-btn.active,
+    .dark-mode .header-menu-btn[aria-expanded="true"],
+    [data-bs-theme="dark"] .header-menu-btn.active,
+    [data-bs-theme="dark"] .header-menu-btn[aria-expanded="true"] {
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+
+    /* ── Dropdown Menus (Normalized Title Case) ── */
+    .header-filter-dropdown {
+        border-radius: 10px !important;
+        padding: 6px !important;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1) !important;
+        border: 1px solid #e2e8f0 !important;
+        background: #ffffff !important;
+        margin-top: 6px !important;
+        z-index: 1060 !important;
+    }
+    .header-filter-dropdown .dropdown-header {
+        font-size: 0.66rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        color: #94a3b8 !important;
+        padding: 4px 8px 6px 8px !important;
+    }
+    .header-filter-dropdown .dropdown-item {
+        font-size: 0.80rem !important;
+        font-weight: 450 !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        padding: 6px 10px !important;
+        border-radius: 6px !important;
+        color: #334155 !important;
+        transition: background-color 0.12s ease, color 0.12s ease !important;
+        cursor: pointer !important;
+    }
+    .header-filter-dropdown .dropdown-item:hover {
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+    }
+    .header-filter-dropdown .dropdown-item.active {
+        background-color: #eff6ff !important;
+        color: #2563eb !important;
+        font-weight: 600 !important;
+    }
+
+    .dark-mode .header-filter-dropdown,
+    [data-bs-theme="dark"] .header-filter-dropdown {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode .header-filter-dropdown .dropdown-item,
+    [data-bs-theme="dark"] .header-filter-dropdown .dropdown-item {
         color: #e2e8f0 !important;
+    }
+    .dark-mode .header-filter-dropdown .dropdown-item:hover,
+    [data-bs-theme="dark"] .header-filter-dropdown .dropdown-item:hover {
+        background-color: #334155 !important;
+        color: #60a5fa !important;
+    }
+    .dark-mode .header-filter-dropdown .dropdown-item.active,
+    [data-bs-theme="dark"] .header-filter-dropdown .dropdown-item.active {
+        background-color: rgba(96, 165, 250, 0.15) !important;
+        color: #60a5fa !important;
+    }
+
+    /* ── Checkbox Styling & Clean Table Alignment ── */
+    .trash-check-wrap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    .trash-checkbox {
+        width: 15px !important;
+        height: 15px !important;
+        cursor: pointer !important;
+        margin: 0 !important;
+        border-radius: 4px !important;
+        border: 1.5px solid #cbd5e1 !important;
+    }
+    .trash-checkbox:checked {
+        background-color: #2563eb !important;
+        border-color: #2563eb !important;
     }
 
     /* ── Mobile Dedicated Card List Styles ── */
@@ -294,8 +715,8 @@
     .mobile-record-icon.trash {
         background: rgba(220, 38, 38, 0.08);
         color: #dc2626;
-        width: 36px;
-        height: 36px;
+        width: 34px;
+        height: 34px;
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -307,6 +728,7 @@
         background: rgba(239, 68, 68, 0.16) !important;
         color: #f87171 !important;
     }
+
     .mobile-archive-content {
         min-width: 0 !important;
         flex: 1 1 auto !important;
@@ -336,97 +758,53 @@
         overflow: hidden !important;
         min-width: 0 !important;
     }
-    .mobile-archive-meta .tag {
-        max-width: 135px !important;
-        flex-shrink: 1 !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-        display: inline-block !important;
-        vertical-align: middle !important;
+
+    /* ── Light / Dark Mode Row Colors ── */
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr {
+        background-color: #ffffff !important;
+        border-color: #e2e8f0 !important;
     }
-    .mobile-archive-meta .badge {
-        flex-shrink: 0 !important;
-        white-space: nowrap !important;
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table tbody tr:hover {
+        background-color: #f8fafc !important;
+    }
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-title {
+        color: #0f172a !important;
+        font-weight: 700 !important;
+    }
+    html:not([data-bs-theme="dark"]):not(.dark-mode) .data-table .cell-subtitle {
+        color: #475569 !important;
     }
 
-    /* ── Dropdown Menu & Action Button Enhancements ── */
-    .mobile-archive-item .dropdown,
-    .data-table .dropdown {
-        position: relative !important;
-    }
-    .mobile-archive-item .dropdown-menu,
-    .data-table .dropdown-menu {
-        z-index: 1060 !important;
-    }
-    .mobile-archive-item .dropdown.dropup .dropdown-menu,
-    .data-table .dropdown.dropup .dropdown-menu {
-        top: auto !important;
-        bottom: 100% !important;
-        margin-top: 0 !important;
-        margin-bottom: 4px !important;
-    }
-
-    .dark-mode .dropdown-menu,
-    [data-bs-theme="dark"] .dropdown-menu {
+    .dark-mode .data-table tbody tr,
+    [data-bs-theme="dark"] .data-table tbody tr {
         background-color: #1e293b !important;
-        border: 1px solid #334155 !important;
-        color: #f8fafc !important;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
+        border-color: #334155 !important;
     }
-    .dark-mode .dropdown-menu .dropdown-item,
-    [data-bs-theme="dark"] .dropdown-menu .dropdown-item {
-        color: #e2e8f0 !important;
+    .dark-mode .data-table tbody tr:hover,
+    [data-bs-theme="dark"] .data-table tbody tr:hover {
+        background-color: #26354a !important;
     }
-    .dark-mode .dropdown-menu .dropdown-item:hover,
-    [data-bs-theme="dark"] .dropdown-menu .dropdown-item:hover {
-        background-color: rgba(255, 255, 255, 0.08) !important;
+    .dark-mode .data-table tbody td,
+    [data-bs-theme="dark"] .data-table tbody td {
+        background-color: transparent !important;
+        border-color: #334155 !important;
         color: #ffffff !important;
     }
-    .dark-mode .dropdown-menu .dropdown-divider,
-    [data-bs-theme="dark"] .dropdown-menu .dropdown-divider {
-        border-top-color: rgba(51, 65, 85, 0.7) !important;
+    .dark-mode .data-table .cell-title,
+    [data-bs-theme="dark"] .data-table .cell-title {
+        color: #ffffff !important;
     }
-
-    /* ── Mobile Responsive Overrides ── */
-    @media (max-width: 767.98px) {
-        .etala-page-title {
-            font-size: 1.25rem !important;
-            font-weight: 750 !important;
-            letter-spacing: -0.015em !important;
-        }
-        #archiveFilterForm {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin-left: 0 !important;
-        }
-        #archiveTableContainer .content-card {
-            min-height: auto !important;
-            border-radius: 14px !important;
-            padding: 0 !important;
-            overflow: visible !important;
-        }
-        #archiveTableContainer .row-action-btn {
-            width: 34px !important;
-            height: 34px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: rgba(148, 163, 184, 0.08) !important;
-            border: 1px solid rgba(226, 232, 240, 0.6) !important;
-            border-radius: 8px !important;
-            color: #64748b !important;
-        }
-        .dark-mode #archiveTableContainer .row-action-btn,
-        [data-bs-theme="dark"] #archiveTableContainer .row-action-btn {
-            background: rgba(255, 255, 255, 0.05) !important;
-            border-color: rgba(255, 255, 255, 0.10) !important;
-            color: #94a3b8 !important;
-        }
+    .dark-mode .data-table .cell-subtitle,
+    [data-bs-theme="dark"] .data-table .cell-subtitle {
+        color: #cbd5e1 !important;
+    }
+    .dark-mode .data-table .cell-subtitle strong,
+    [data-bs-theme="dark"] .data-table .cell-subtitle strong {
+        color: #ffffff !important;
     }
 </style>
 
-<!-- Table / Empty State Container for Seamless AJAX Live Search -->
+<!-- ══ TABLE / EMPTY STATE CONTAINER (Seamless AJAX Live Search) ═════════ -->
 <div id="archiveTableContainer">
     {% if page_obj.object_list %}
     <div class="content-card">
@@ -435,34 +813,72 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th class="text-center cell-row-num" style="width: 44px; min-width: 44px; max-width: 44px;">#</th>
-                        <th style="width: 44%; min-width: 220px;">Record Title</th>
-                        <th style="width: 26%; min-width: 160px;">Type</th>
-                        <th style="width: 22%; min-width: 120px;">Retention</th>
-                        <th class="text-end" style="width: 68px; min-width: 68px; padding-right: 16px;">Action</th>
+                        <!-- MASTER CHECKBOX & # COLUMN -->
+                        <th class="text-center cell-row-num" style="width: 58px; min-width: 58px; max-width: 58px;">
+                            <div class="trash-check-wrap">
+                                <input type="checkbox" id="selectAllTrash" class="form-check-input trash-checkbox" title="Select all on this page">
+                                <span>#</span>
+                            </div>
+                        </th>
+
+                        <!-- TITLE Column Header (Sort Dropdown) -->
+                        <th style="width: 50%; min-width: 220px;">
+                            <div class="dropdown position-relative d-inline-block">
+                                <button type="button" class="header-menu-btn {% if current_sort == 'title_asc' or current_sort == 'title_desc' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Sort by Title">
+                                    <span>Title</span>
+                                    <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                </button>
+                                <div class="dropdown-menu header-filter-dropdown shadow-sm" style="min-width: 155px;">
+                                    <div class="dropdown-header">Sort</div>
+                                    <a class="dropdown-item d-flex align-items-center justify-content-between {% if current_sort == 'title_asc' %}active{% endif %}" href="javascript:void(0)" onclick="setColumnSort('title_asc')">
+                                        <span>A to Z</span>
+                                        {% if current_sort == 'title_asc' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                    </a>
+                                    <a class="dropdown-item d-flex align-items-center justify-content-between {% if current_sort == 'title_desc' %}active{% endif %}" href="javascript:void(0)" onclick="setColumnSort('title_desc')">
+                                        <span>Z to A</span>
+                                        {% if current_sort == 'title_desc' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                    </a>
+                                </div>
+                            </div>
+                        </th>
+
+                        <!-- TYPE Column Header (Clean Plain Text) -->
+                        <th style="width: 26%; min-width: 140px;">Type</th>
+
+                        <!-- RETENTION Column Header (Sort Dropdown) -->
+                        <th class="text-end" style="width: 24%; min-width: 130px; padding-right: 20px;">
+                            <div class="dropdown position-relative d-inline-block">
+                                <button type="button" class="header-menu-btn {% if current_sort == 'retention_asc' or current_sort == 'retention_desc' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Sort by Retention">
+                                    <span>Retention</span>
+                                    <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end header-filter-dropdown shadow-sm" style="min-width: 185px;">
+                                    <div class="dropdown-header">Sort</div>
+                                    <a class="dropdown-item d-flex align-items-center justify-content-between {% if current_sort == 'retention_asc' %}active{% endif %}" href="javascript:void(0)" onclick="setColumnSort('retention_asc')">
+                                        <span>Expiring Soonest</span>
+                                        {% if current_sort == 'retention_asc' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                    </a>
+                                    <a class="dropdown-item d-flex align-items-center justify-content-between {% if current_sort == 'retention_desc' %}active{% endif %}" href="javascript:void(0)" onclick="setColumnSort('retention_desc')">
+                                        <span>Recently Deleted</span>
+                                        {% if current_sort == 'retention_desc' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                    </a>
+                                </div>
+                            </div>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for record in page_obj %}
                     <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
-                        <td class="text-center cell-muted cell-row-num" data-label="#" style="font-weight: 600; font-size: 0.82rem;">
-                            {% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}
+                        <td class="text-center cell-muted cell-row-num" onclick="event.stopPropagation();" style="width: 58px;">
+                            <div class="trash-check-wrap">
+                                <input type="checkbox" class="form-check-input trash-row-checkbox trash-checkbox" value="{{ record.record_id }}" data-title="{{ record.display_title }}" onchange="updateSelectionBar()" onclick="event.stopPropagation();">
+                                <span class="fw-semibold cell-muted" style="font-size: 0.80rem; min-width: 14px;">{% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}</span>
+                            </div>
                         </td>
-                        <td data-label="Record Title">
+                        <td data-label="Title">
                             <div class="cell-title text-truncate" style="font-weight: 700; font-size: 0.88rem; text-align: left;">
-                                <span class="text-truncate">
-                                    {% if record.record_type == 'Permit' %}
-                                        {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                             {{ record.permit_detail.applicant_name }}
-                                        {% elif record.title and record.title != 'Permit' %}
-                                             {{ record.title }}
-                                        {% else %}
-                                             {{ record.specific_type_label }}
-                                        {% endif %}
-                                    {% else %}
-                                        {{ record.title }}
-                                    {% endif %}
-                                </span>
+                                <span class="text-truncate" title="{{ record.display_title }}">{{ record.display_title }}</span>
                             </div>
                             <div class="cell-subtitle text-truncate mt-0.5" style="font-size: 0.74rem; text-align: left;">
                                 {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
@@ -483,13 +899,13 @@
                                     {% else %}
                                     <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1 text-muted" style="font-size: 11px;"></i>Pending Issuance</div>
                                     {% endif %}
-                                {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
-                                    <div class="subtitle-row text-truncate" title="Contractor: {{ record.project_detail.contractor }}"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.project_detail.contractor }}</strong></div>
                                 {% endif %}
                             </div>
                         </td>
                         <td data-label="Type" style="white-space: nowrap; text-align: left;">
-                            {% if record.record_type == 'Permit' %}
+                            {% if record.is_illegal_construction %}
+                            <span class="tag tag-permit fw-semibold" style="font-size: 0.78rem;">Building Violation</span>
+                            {% elif record.record_type == 'Permit' %}
                             <span class="tag tag-permit">{{ record.specific_type_label }}</span>
                             {% else %}
                             <span class="tag tag-project">{{ record.specific_type_label }}</span>
@@ -499,50 +915,23 @@
                             <div class="fw-semibold title-text-adaptive text-truncate" style="font-size: 0.81rem;">
                                 {% if record.deleted_at %}{{ record.deleted_at|date:"M d, Y" }}{% else %}{{ record.updated_at|date:"M d, Y" }}{% endif %}
                             </div>
-                            <div>
-                                {% if record.is_trash_expiring_soon %}
-                                <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1" style="font-size: 0.70rem; padding: 2.5px 7px; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; white-space: nowrap;">
+                            <div class="mt-0.5">
+                                {% if record.trash_days_remaining <= 7 %}
+                                <span class="badge bg-danger-subtle text-danger d-inline-flex align-items-center gap-1" style="font-size: 0.70rem; padding: 2.5px 7px; border: none; border-radius: 6px; white-space: nowrap;">
                                     <i class="fa-solid fa-triangle-exclamation" style="font-size: 8.5px;"></i>
                                     <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
                                 </span>
+                                {% elif record.trash_days_remaining <= 20 %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1" style="font-size: 0.70rem; padding: 2.5px 7px; border: none; border-radius: 6px; white-space: nowrap;">
+                                    <i class="fa-regular fa-clock" style="font-size: 8.5px;"></i>
+                                    <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
+                                </span>
                                 {% else %}
-                                <span class="badge d-inline-flex align-items-center gap-1" style="font-size: 0.70rem; padding: 2.5px 7px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); border-radius: 6px; white-space: nowrap;">
+                                <span class="badge d-inline-flex align-items-center gap-1" style="font-size: 0.70rem; padding: 2.5px 7px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: none; border-radius: 6px; white-space: nowrap;">
                                     <i class="fa-regular fa-clock" style="font-size: 8.5px;"></i>
                                     <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
                                 </span>
                                 {% endif %}
-                            </div>
-                        </td>
-                        <td class="text-end action-menu-cell" style="width: 48px; min-width: 48px; max-width: 48px; padding-right: 16px !important;" onclick="event.stopPropagation();">
-                            <div class="dropdown" onclick="event.stopPropagation();">
-                                <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
-                                    <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999;" onclick="event.stopPropagation();">
-                                    <li>
-                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap" href="{% url 'record_detail' record.record_id %}">
-                                            <i class="fa-solid fa-eye text-primary" style="font-size: 13px; flex-shrink: 0;"></i>
-                                            <span>Inspect</span>
-                                        </a>
-                                    </li>
-                                    {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-                                    <li>
-                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" data-url="{% url 'restore_record' record.record_id %}" data-title="{% if record.record_type == 'Permit' %}{% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% elif record.title and record.title != 'Permit' %}{{ record.title }}{% else %}{{ record.specific_type_label }}{% endif %}{% else %}{{ record.title }}{% endif %}" onclick="confirmRestoreRecord(this.dataset.url, this.dataset.title)">
-                                            <i class="fa-solid fa-rotate-left" style="font-size: 13px; color:#10b981; flex-shrink:0;"></i>
-                                            <span>Restore</span>
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                    {% if request.user.role == 'admin' %}
-                                    <li><hr class="dropdown-divider my-1"></li>
-                                    <li>
-                                        <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" data-url="{% url 'permanent_delete_record' record.record_id %}" data-title="{% if record.record_type == 'Permit' %}{% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% elif record.title and record.title != 'Permit' %}{{ record.title }}{% else %}{{ record.specific_type_label }}{% endif %}{% else %}{{ record.title }}{% endif %}" onclick="confirmPermanentDelete(this.dataset.url, this.dataset.title)">
-                                            <i class="fa-solid fa-trash-can" style="font-size: 13px; color:#ef4444; flex-shrink:0;"></i>
-                                            <span>Permanent Delete</span>
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                </ul>
                             </div>
                         </td>
                     </tr>
@@ -555,71 +944,45 @@
         <div class="mobile-archive-list d-block d-md-none">
             {% for record in page_obj %}
             <div class="mobile-archive-item" data-href="{% url 'record_detail' record.record_id %}">
+                <div class="d-flex align-items-center me-1 flex-shrink-0" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="form-check-input trash-row-checkbox trash-checkbox" value="{{ record.record_id }}" data-title="{{ record.display_title }}" onchange="updateSelectionBar()" onclick="event.stopPropagation();">
+                </div>
                 <div class="mobile-record-icon trash flex-shrink-0">
                     <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
                 </div>
                 <div class="mobile-archive-content flex-grow-1 min-w-0">
                     <div class="mobile-archive-title text-truncate">
-                        {% if record.record_type == 'Permit' %}
-                            {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-                                 {{ record.permit_detail.applicant_name }}
-                            {% elif record.title and record.title != 'Permit' %}
-                                 {{ record.title }}
-                            {% else %}
-                                 {{ record.specific_type_label }}
-                            {% endif %}
-                        {% else %}
-                            {{ record.title }}
-                        {% endif %}
+                        {{ record.display_title }}
                     </div>
                     <div class="mobile-archive-meta mt-1">
+                        {% if record.is_illegal_construction %}
+                        <span class="tag tag-permit text-truncate" style="font-size: 0.70rem; padding: 1px 6px;">Building Violation</span>
+                        {% else %}
                         <span class="tag {% if record.record_type == 'Permit' %}tag-permit{% else %}tag-project{% endif %} text-truncate" style="font-size: 0.70rem; padding: 1px 6px;" title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
-                        {% if record.is_trash_expiring_soon %}
-                        <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; white-space: nowrap;">
+                        {% endif %}
+                        
+                        {% if record.trash_days_remaining <= 7 %}
+                        <span class="badge bg-danger-subtle text-danger d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: none; border-radius: 6px; white-space: nowrap;">
                             <i class="fa-solid fa-triangle-exclamation" style="font-size: 8px;"></i>
-                            <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
+                            <span>{{ record.trash_days_remaining }}d left</span>
+                        </span>
+                        {% elif record.trash_days_remaining <= 20 %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: none; border-radius: 6px; white-space: nowrap;">
+                            <i class="fa-regular fa-clock" style="font-size: 8px;"></i>
+                            <span>{{ record.trash_days_remaining }}d left</span>
                         </span>
                         {% else %}
-                        <span class="badge d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); border-radius: 6px; white-space: nowrap;">
+                        <span class="badge d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: none; border-radius: 6px; white-space: nowrap;">
                             <i class="fa-regular fa-clock" style="font-size: 8px;"></i>
-                            <span>{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} left</span>
+                            <span>{{ record.trash_days_remaining }}d left</span>
                         </span>
                         {% endif %}
                     </div>
-                </div>
-                <div class="dropdown flex-shrink-0 ms-1" onclick="event.stopPropagation();">
-                    <button class="row-action-btn" type="button" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" data-bs-auto-close="true" onclick="event.stopPropagation();" title="Actions">
-                        <i class="fa-solid fa-ellipsis-vertical" style="font-size: 14px;"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="min-width: 185px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 99999;" onclick="event.stopPropagation();">
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap" href="{% url 'record_detail' record.record_id %}">
-                                <i class="fa-solid fa-eye text-primary" style="font-size: 13px; flex-shrink: 0;"></i>
-                                <span>Inspect</span>
-                            </a>
-                        </li>
-                        {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-success text-nowrap" href="javascript:void(0)" data-url="{% url 'restore_record' record.record_id %}" data-title="{% if record.record_type == 'Permit' %}{% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% elif record.title and record.title != 'Permit' %}{{ record.title }}{% else %}{{ record.specific_type_label }}{% endif %}{% else %}{{ record.title }}{% endif %}" onclick="confirmRestoreRecord(this.dataset.url, this.dataset.title)">
-                                <i class="fa-solid fa-rotate-left" style="font-size: 13px; color:#10b981; flex-shrink:0;"></i>
-                                <span>Restore</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if request.user.role == 'admin' %}
-                        <li><hr class="dropdown-divider my-1"></li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap" href="javascript:void(0)" data-url="{% url 'permanent_delete_record' record.record_id %}" data-title="{% if record.record_type == 'Permit' %}{% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}{{ record.permit_detail.applicant_name }}{% elif record.title and record.title != 'Permit' %}{{ record.title }}{% else %}{{ record.specific_type_label }}{% endif %}{% else %}{{ record.title }}{% endif %}" onclick="confirmPermanentDelete(this.dataset.url, this.dataset.title)">
-                                <i class="fa-solid fa-trash-can" style="font-size: 13px; color:#ef4444; flex-shrink:0;"></i>
-                                <span>Permanent Delete</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
                 </div>
             </div>
             {% endfor %}
         </div>
+
         <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex align-items-center justify-content-between w-100 flex-nowrap gap-2">
                 <span class="pagination-info m-0">
@@ -632,19 +995,19 @@
                 <div class="per-page-select">
                     <span>Show:</span>
                     <select class="form-select form-select-sm" onchange="changePerPage(this.value)">
-                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                        <option value="20" {% if per_page == 20 or per_page == '20' or not per_page %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 or per_page == '50' %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 or per_page == '100' %}selected{% endif %}>100</option>
+                        <option value="500" {% if per_page == 500 or per_page == '500' %}selected{% endif %}>500</option>
                     </select>
                 </div>
             </div>
             
             <div class="d-flex align-items-center gap-2 pagination-controls">
                 {% if page_obj.paginator.num_pages > 5 %}
-                <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                <div class="page-jump d-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.76rem;">
                     <span>Page:</span>
-                    <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
+                    <input type="number" class="form-control form-control-sm text-center px-1" style="width: 44px; height: 30px; font-size: 0.76rem; border-radius: 7px;" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max)">
                     <span>/ {{ page_obj.paginator.num_pages }}</span>
                 </div>
                 {% endif %}
@@ -653,13 +1016,13 @@
                 <nav aria-label="Archive Pagination">
                     <ul class="pagination pagination-sm mb-0 gap-1">
                         {% if page_obj.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_record_type %}record_type={{ selected_record_type }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}page={{ page_obj.previous_page_number }}&per_page={{ per_page }}">‹ Prev</a></li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">‹ Prev</span></li>
                         {% endif %}
 
                         {% if page_obj.number > 2 %}
-                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page=1&per_page={{ per_page }}">1</a></li>
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_record_type %}record_type={{ selected_record_type }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}page=1&per_page={{ per_page }}">1</a></li>
                         {% if page_obj.number > 3 %}
                         <li class="page-item disabled"><span class="page-link">…</span></li>
                         {% endif %}
@@ -670,7 +1033,7 @@
                             {% if page_obj.number == p %}
                             <li class="page-item active"><span class="page-link">{{ p }}</span></li>
                             {% else %}
-                            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
+                            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_record_type %}record_type={{ selected_record_type }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}page={{ p }}&per_page={{ per_page }}">{{ p }}</a></li>
                             {% endif %}
                         {% endif %}
                         {% endfor %}
@@ -679,11 +1042,11 @@
                             {% if page_obj.number < page_obj.paginator.num_pages|add:-2 %}
                             <li class="page-item disabled"><span class="page-link">…</span></li>
                             {% endif %}
-                            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.paginator.num_pages }}&per_page={{ per_page }}">{{ page_obj.paginator.num_pages }}</a></li>
+                            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_record_type %}record_type={{ selected_record_type }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}page={{ page_obj.paginator.num_pages }}&per_page={{ per_page }}">{{ page_obj.paginator.num_pages }}</a></li>
                         {% endif %}
 
                         {% if page_obj.has_next %}
-                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
+                        <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if selected_record_type %}record_type={{ selected_record_type }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}page={{ page_obj.next_page_number }}&per_page={{ per_page }}">Next ›</a></li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">Next ›</span></li>
                         {% endif %}
@@ -697,15 +1060,15 @@
     <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 380px;">
         <div class="rounded-circle d-flex align-items-center justify-content-center mb-3 empty-state-icon-circle"
              style="width:64px;height:64px;background:rgba(100, 116, 139, 0.12); color:#64748b;">
-            <i class="fa-solid {% if q %}fa-magnifying-glass{% else %}fa-trash-can{% endif %}" style="font-size:26px;"></i>
+            <i class="fa-solid {% if q or active_filters_count > 0 or selected_record_type %}fa-magnifying-glass{% else %}fa-trash-can{% endif %}" style="font-size:26px;"></i>
         </div>
-        <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size:1.05rem;">{% if q %}No matching records in trash{% else %}Trash is empty{% endif %}</h5>
-        <p class="text-muted small mb-4" style="font-size:0.84rem; max-width:420px; line-height:1.5;">{% if q %}Try searching with a different keyword or clear the search filter.{% else %}No deleted records found in trash.{% endif %}</p>
-        {% if q %}
+        <h5 class="fw-bold mb-1.5 title-text-adaptive" style="font-size:1.05rem;">{% if q or active_filters_count > 0 or selected_record_type %}No matching records in trash{% else %}Trash is empty{% endif %}</h5>
+        <p class="text-muted small mb-4" style="font-size:0.84rem; max-width:420px; line-height:1.5;">{% if q or active_filters_count > 0 or selected_record_type %}Try searching with a different keyword or reset filters.{% else %}No deleted records found in trash.{% endif %}</p>
+        {% if q or active_filters_count > 0 or selected_record_type or current_sort %}
         <a href="{% url 'archive' %}" class="premium-btn btn-view text-decoration-none" style="border-radius:8px;">
             <span class="btn-icon"><i class="fa-solid fa-rotate-left"></i></span>
             <span class="btn-divider"></span>
-            <span>Clear search filter</span>
+            <span>Reset filters</span>
         </a>
         {% endif %}
     </div>
@@ -716,107 +1079,482 @@
 
 {% block extra_js %}
 <script>
+// ── URL Serialization Helper (Clean URLs without empty query params) ──
+function cleanUrlParams(rawUrl) {
+    try {
+        const urlObj = new URL(rawUrl, window.location.origin);
+        const cleanParams = new URLSearchParams();
+        for (const [k, v] of urlObj.searchParams.entries()) {
+            if (v !== null && v.toString().trim() !== '') {
+                if (k === 'page' && v.toString().trim() === '1') continue;
+                cleanParams.set(k, v.toString().trim());
+            }
+        }
+        const qStr = cleanParams.toString();
+        return qStr ? urlObj.pathname + '?' + qStr : urlObj.pathname;
+    } catch (e) {
+        return rawUrl;
+    }
+}
+
+function buildArchiveUrl(form, overrideParams = {}) {
+    const params = new URLSearchParams();
+    if (form) {
+        const formData = new FormData(form);
+        for (const [key, value] of formData.entries()) {
+            if (value !== null && value.toString().trim() !== '') {
+                params.set(key, value.toString().trim());
+            }
+        }
+    }
+    for (const [key, value] of Object.entries(overrideParams)) {
+        if (value !== null && value.toString().trim() !== '') {
+            params.set(key, value.toString().trim());
+        } else {
+            params.delete(key);
+        }
+    }
+    if (params.get('page') === '1') {
+        params.delete('page');
+    }
+    const queryString = params.toString();
+    return queryString ? window.location.pathname + '?' + queryString : window.location.pathname;
+}
+
+// ── Global AJAX Table & Filter Updater for Trash ──
+async function updateArchiveTableAJAX(url, pushHistory = true) {
+    const tableContainer = document.getElementById('archiveTableContainer');
+    const archiveSearchSpinner = document.getElementById('archiveSearchSpinner');
+    const archiveClearBtn = document.getElementById('archiveClearBtn');
+    const archiveSearchInput = document.getElementById('archiveSearchInput');
+
+    const cleanUrl = cleanUrlParams(url);
+
+    if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
+    if (archiveClearBtn) archiveClearBtn.classList.add('d-none');
+    if (tableContainer) {
+        tableContainer.style.minHeight = `${tableContainer.offsetHeight}px`;
+        tableContainer.classList.add('table-ajax-loading');
+    }
+
+    try {
+        const response = await fetch(cleanUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const text = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+
+        // 1. Update Table or Empty State Container
+        const newTableContainer = doc.getElementById('archiveTableContainer');
+        if (tableContainer && newTableContainer) {
+            tableContainer.innerHTML = newTableContainer.innerHTML;
+            tableContainer.classList.remove('table-ajax-loading');
+            tableContainer.classList.add('table-ajax-fade-in');
+            setTimeout(() => {
+                tableContainer.classList.remove('table-ajax-fade-in');
+                tableContainer.style.minHeight = '';
+            }, 200);
+        }
+
+        // 2. Update Active Filter Chips
+        const newChips = doc.getElementById('activeChipsWrapper');
+        const currentChips = document.getElementById('activeChipsWrapper');
+        if (currentChips && newChips) {
+            currentChips.classList.remove('wrapper-collapsing');
+            currentChips.style.maxHeight = '';
+            currentChips.innerHTML = newChips.innerHTML;
+        }
+
+        // 3. Update Category Tabs & Counters
+        const newTabs = doc.querySelector('.filter-tabs-wrapper');
+        const currentTabs = document.querySelector('.filter-tabs-wrapper');
+        if (currentTabs && newTabs) {
+            currentTabs.innerHTML = newTabs.innerHTML;
+        }
+
+        // 4. Update Header Actions (e.g. Empty Trash button state)
+        const newHeaderActions = doc.querySelector('.etala-header-actions');
+        const currentHeaderActions = document.querySelector('.etala-header-actions');
+        if (currentHeaderActions && newHeaderActions) {
+            currentHeaderActions.innerHTML = newHeaderActions.innerHTML;
+        }
+
+        // 5. Synchronize Form Inputs from Clean URL
+        const parsedUrl = new URL(cleanUrl, window.location.origin);
+        const form = document.getElementById('archiveFilterForm');
+        if (form) {
+            ['record_type', 'barangay', 'year', 'sort'].forEach(field => {
+                const val = parsedUrl.searchParams.get(field) || '';
+                const inp = form.querySelector(`[name="${field}"]`);
+                if (inp) inp.value = val;
+            });
+        }
+        if (archiveSearchInput) {
+            const queryParam = parsedUrl.searchParams.get('q');
+            if (queryParam !== null && queryParam !== archiveSearchInput.value) {
+                archiveSearchInput.value = queryParam;
+            }
+        }
+
+        // 6. Reset selection bar on filter/page change
+        deselectAllTrash();
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+
+        if (pushHistory) {
+            window.history.pushState({}, '', cleanUrl);
+        }
+    } catch (err) {
+        console.error("AJAX refresh error:", err);
+        window.location.href = cleanUrl;
+    } finally {
+        if (archiveSearchSpinner) archiveSearchSpinner.classList.add('d-none');
+        if (archiveClearBtn && archiveSearchInput) {
+            if (archiveSearchInput.value.trim().length > 0) archiveClearBtn.classList.remove('d-none');
+            else archiveClearBtn.classList.add('d-none');
+        }
+    }
+}
+window.updateArchiveTableAJAX = updateArchiveTableAJAX;
+
+// ── Smooth Filter Chip Removal with animated exit ──
+function removeFilterChipSmooth(btn, filterName, value) {
+    const chip = btn.closest('.filter-chip');
+    const chipsWrapper = document.getElementById('activeChipsWrapper');
+    if (chip) {
+        const curWidth = chip.getBoundingClientRect().width;
+        chip.style.maxWidth = curWidth + 'px';
+        
+        const allChips = chip.parentElement ? chip.parentElement.querySelectorAll('.filter-chip:not(.chip-removing)') : [];
+        if (allChips.length <= 1 && chipsWrapper) {
+            chipsWrapper.classList.add('wrapper-collapsing');
+        }
+        
+        requestAnimationFrame(() => {
+            chip.classList.add('chip-removing');
+        });
+    }
+    setTimeout(() => {
+        if (filterName === 'sort') {
+            setColumnSort('');
+        } else {
+            setColumnFilter(filterName, value || '');
+        }
+    }, 110);
+}
+window.removeFilterChipSmooth = removeFilterChipSmooth;
+
+// ── Column Filter & Sort Helpers ──
+function setColumnFilter(filterName, filterVal) {
+    const form = document.getElementById('archiveFilterForm');
+    if (!form) return;
+    
+    let targetInput = form.querySelector(`[name="${filterName}"]`);
+    if (!targetInput) {
+        targetInput = document.createElement('input');
+        targetInput.type = 'hidden';
+        targetInput.name = filterName;
+        form.appendChild(targetInput);
+    }
+    targetInput.value = filterVal;
+    
+    const url = buildArchiveUrl(form, { [filterName]: filterVal, page: '' });
+    updateArchiveTableAJAX(url);
+}
+window.setColumnFilter = setColumnFilter;
+
+function setColumnSort(sortVal) {
+    const form = document.getElementById('archiveFilterForm');
+    if (!form) return;
+    let sortInput = form.querySelector('input[name="sort"]');
+    if (!sortInput) {
+        sortInput = document.createElement('input');
+        sortInput.type = 'hidden';
+        sortInput.name = 'sort';
+        form.appendChild(sortInput);
+    }
+    sortInput.value = sortVal;
+    
+    const url = buildArchiveUrl(form, { sort: sortVal, page: '' });
+    updateArchiveTableAJAX(url);
+}
+window.setColumnSort = setColumnSort;
+
+function clearAllFiltersAndSorts() {
+    const wrapper = document.getElementById('activeChipsWrapper');
+    if (wrapper) wrapper.classList.add('wrapper-collapsing');
+    const form = document.getElementById('archiveFilterForm');
+    if (form) {
+        ['record_type', 'barangay', 'year', 'sort'].forEach(name => {
+            const el = form.querySelector(`[name="${name}"]`);
+            if (el) el.value = '';
+        });
+    }
+    const searchInp = document.getElementById('archiveSearchInput');
+    if (searchInp) searchInp.value = '';
+    updateArchiveTableAJAX("{% url 'archive' %}");
+}
+window.clearAllFiltersAndSorts = clearAllFiltersAndSorts;
+
+function changePerPage(val) {
+    const form = document.getElementById('archiveFilterForm');
+    const url = buildArchiveUrl(form, { per_page: val, page: '' });
+    updateArchiveTableAJAX(url);
+}
+window.changePerPage = changePerPage;
+
+function jumpToPage(pageNum, maxPages) {
+    let p = parseInt(pageNum, 10);
+    if (isNaN(p) || p < 1) p = 1;
+    if (maxPages && p > parseInt(maxPages, 10)) p = parseInt(maxPages, 10);
+    const form = document.getElementById('archiveFilterForm');
+    const url = buildArchiveUrl(form, { page: p });
+    updateArchiveTableAJAX(url);
+}
+window.jumpToPage = jumpToPage;
+
+// ── Selection State & Sync Helpers (Deduplicated Across Desktop and Mobile Views) ──
+function getSelectedRecordIds() {
+    const checked = Array.from(document.querySelectorAll('.trash-row-checkbox:checked'));
+    const uniqueIds = Array.from(new Set(checked.map(cb => cb.value).filter(Boolean)));
+    return uniqueIds;
+}
+
+function updateSelectionBar() {
+    const selectedIds = getSelectedRecordIds();
+    const count = selectedIds.length;
+    const bar = document.getElementById('trashSelectionBar');
+    const countText = document.getElementById('selectionCountText');
+    const masterCheckbox = document.getElementById('selectAllTrash');
+
+    if (countText) countText.textContent = count;
+
+    if (count > 0) {
+        if (bar) bar.classList.add('show');
+    } else {
+        if (bar) bar.classList.remove('show');
+    }
+
+    const allBoxes = Array.from(document.querySelectorAll('.trash-row-checkbox'));
+    const allUniqueIds = Array.from(new Set(allBoxes.map(cb => cb.value).filter(Boolean)));
+    const totalUniqueCount = allUniqueIds.length;
+
+    if (masterCheckbox) {
+        masterCheckbox.checked = (totalUniqueCount > 0 && count === totalUniqueCount);
+        masterCheckbox.indeterminate = (count > 0 && count < totalUniqueCount);
+    }
+}
+window.updateSelectionBar = updateSelectionBar;
+
+function deselectAllTrash() {
+    document.querySelectorAll('.trash-row-checkbox').forEach(cb => cb.checked = false);
+    const masterCheckbox = document.getElementById('selectAllTrash');
+    if (masterCheckbox) {
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = false;
+    }
+    updateSelectionBar();
+}
+window.deselectAllTrash = deselectAllTrash;
+
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.id === 'selectAllTrash') {
+        const isChecked = e.target.checked;
+        document.querySelectorAll('.trash-row-checkbox').forEach(cb => {
+            cb.checked = isChecked;
+        });
+        updateSelectionBar();
+    } else if (e.target && e.target.classList.contains('trash-row-checkbox')) {
+        const val = e.target.value;
+        const isChecked = e.target.checked;
+        // Keep desktop and mobile checkboxes for the same record in sync
+        document.querySelectorAll(`.trash-row-checkbox[value="${val}"]`).forEach(cb => {
+            cb.checked = isChecked;
+        });
+        updateSelectionBar();
+    }
+});
+
+// ── Batch Action Trigger ──
+function executeBatchAction(actionName) {
+    const ids = getSelectedRecordIds();
+    const count = ids.length;
+
+    if (count === 0) {
+        if (window.showToast) {
+            showToast('Please select at least one record.', 'info');
+        } else {
+            alert('Please select at least one record.');
+        }
+        return;
+    }
+
+    const actionInput = document.getElementById('batchActionInput');
+    const idsInput = document.getElementById('batchRecordIdsInput');
+    const batchForm = document.getElementById('batchTrashForm');
+
+    if (!actionInput || !idsInput || !batchForm) return;
+
+    actionInput.value = actionName;
+    idsInput.value = ids.join(',');
+
+    const recordLabel = count === 1 ? 'Record' : `${count} Records`;
+
+    if (actionName === 'restore') {
+        if (window.showConfirmModal) {
+            showConfirmModal({
+                title: `Restore ${recordLabel}?`,
+                message: `Are you sure you want to restore ${count === 1 ? 'this record' : `<strong>${count} selected records</strong>`} back to the active database?`,
+                confirmText: 'Restore',
+                cancelText: 'Cancel',
+                confirmClass: 'action-btn-success',
+                onConfirm: function() {
+                    batchForm.submit();
+                }
+            });
+        } else {
+            if (confirm(`Restore ${count} selected ${count === 1 ? 'record' : 'records'}?`)) {
+                batchForm.submit();
+            }
+        }
+    } else if (actionName === 'permanent_delete') {
+        if (window.showConfirmModal) {
+            showConfirmModal({
+                title: `Permanently Delete ${recordLabel}?`,
+                message: `Are you sure you want to permanently delete ${count === 1 ? 'this record' : `<strong>${count} selected records</strong>`} and all attached files? This action cannot be undone.`,
+                confirmText: 'Permanently Delete',
+                cancelText: 'Cancel',
+                confirmClass: 'action-btn-danger',
+                onConfirm: function() {
+                    batchForm.submit();
+                }
+            });
+        } else {
+            if (confirm(`Permanently delete ${count} selected ${count === 1 ? 'record' : 'records'}? This cannot be undone.`)) {
+                batchForm.submit();
+            }
+        }
+    }
+}
+window.executeBatchAction = executeBatchAction;
+
+// ── Empty Trash Modal ──
+function confirmEmptyTrash() {
+    const emptyForm = document.getElementById('emptyTrashForm');
+    if (!emptyForm) return;
+
+    if (window.showConfirmModal) {
+        showConfirmModal({
+            title: 'Empty Trash?',
+            message: 'Are you sure you want to empty the trash? All deleted records and their uploaded files will be permanently erased forever. This action cannot be undone.',
+            confirmText: 'Empty Trash',
+            cancelText: 'Cancel',
+            confirmClass: 'action-btn-danger',
+            onConfirm: function() {
+                emptyForm.submit();
+            }
+        });
+    } else {
+        if (confirm('Empty entire trash? All items will be deleted forever.')) {
+            emptyForm.submit();
+        }
+    }
+}
+window.confirmEmptyTrash = confirmEmptyTrash;
+
+// ── Single Record Restore & Permanent Delete ──
 function confirmRestoreRecord(restoreUrl, recordTitle) {
     const cleanTitle = (recordTitle || 'this record').trim();
     if (window.showConfirmModal) {
         showConfirmModal({
             title: 'Restore Record?',
-            message: "This will restore '" + cleanTitle + "' back to the active database.",
-            confirmText: 'RESTORE',
-            cancelText: 'CANCEL',
+            message: `Are you sure you want to restore <strong>${cleanTitle}</strong> back to the active database?`,
+            confirmText: 'Restore',
+            cancelText: 'Cancel',
             confirmClass: 'action-btn-success',
             onConfirm: function() {
                 window.location.href = restoreUrl;
             }
         });
     } else {
-        if (confirm("Restore '" + cleanTitle + "'?")) {
+        if (confirm(`Restore "${cleanTitle}"?`)) {
             window.location.href = restoreUrl;
         }
     }
 }
+window.confirmRestoreRecord = confirmRestoreRecord;
 
 function confirmPermanentDelete(deleteUrl, recordTitle) {
     const cleanTitle = (recordTitle || 'this record').trim();
     if (window.showConfirmModal) {
         showConfirmModal({
-            title: 'Delete Permanently?',
-            message: "This will permanently delete '" + cleanTitle + "' and cannot be undone.",
-            confirmText: 'DELETE',
-            cancelText: 'CANCEL',
+            title: 'Permanently Delete Record?',
+            message: `Are you sure you want to permanently delete <strong>${cleanTitle}</strong> and all attached files? This action cannot be undone.`,
+            confirmText: 'Permanently Delete',
+            cancelText: 'Cancel',
             confirmClass: 'action-btn-danger',
             onConfirm: function() {
                 window.location.href = deleteUrl;
             }
         });
     } else {
-        if (confirm("Permanently delete '" + cleanTitle + "'? This action cannot be undone.")) {
+        if (confirm(`Permanently delete "${cleanTitle}"? This cannot be undone.`)) {
             window.location.href = deleteUrl;
         }
     }
 }
-
-function changePerPage(val) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('per_page', val);
-    url.searchParams.set('page', '1');
-    window.location.href = url.toString();
-}
+window.confirmPermanentDelete = confirmPermanentDelete;
 
 // Delegated Row Click Navigation
 document.addEventListener('click', function(e) {
     const row = e.target.closest('tr[data-href], .mobile-archive-item[data-href]');
-    if (row && !e.target.closest('.action-menu-cell') && !e.target.closest('.dropdown') && !e.target.closest('button') && !e.target.closest('a')) {
+    if (row && !e.target.closest('.action-menu-cell') && !e.target.closest('.dropdown') && !e.target.closest('button') && !e.target.closest('a') && !e.target.closest('input[type="checkbox"]')) {
         window.location.href = row.dataset.href;
+    }
+});
+
+// Intercept Navigation Clicks (Category Tabs, Pagination, Clear search, Reset)
+document.addEventListener('click', function (e) {
+    // 1. Category Filter Tabs (All, Permits, Projects, Violations)
+    const catTab = e.target.closest('.filter-tabs-wrapper a.filter-tab');
+    if (catTab) {
+        e.preventDefault();
+        const url = catTab.getAttribute('href');
+        if (url && url !== '#') {
+            updateArchiveTableAJAX(url);
+        }
+        return;
+    }
+
+    // 2. Pagination Links
+    const pageLink = e.target.closest('.pagination-bar a.page-link');
+    if (pageLink && !pageLink.closest('.disabled')) {
+        e.preventDefault();
+        const url = pageLink.getAttribute('href');
+        if (url && url !== '#') {
+            updateArchiveTableAJAX(url);
+        }
+        return;
+    }
+
+    // 3. Reset All in empty state
+    const emptyResetLink = e.target.closest('.empty-state-unified a.btn-view');
+    if (emptyResetLink) {
+        e.preventDefault();
+        clearAllFiltersAndSorts();
+        return;
     }
 });
 
 // Live Debounced Auto-Search for Trash with Smooth AJAX
 document.addEventListener('DOMContentLoaded', function () {
-    const archiveSearchInput = document.querySelector('input[name="q"]');
+    const archiveSearchInput = document.getElementById('archiveSearchInput');
     const archiveSearchSpinner = document.getElementById('archiveSearchSpinner');
     const archiveClearBtn = document.getElementById('archiveClearBtn');
     let archiveSearchTimer;
-
-    async function updateArchiveTableAJAX(url, pushHistory = true) {
-        const tableContainer = document.getElementById('archiveTableContainer');
-        if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
-        if (archiveClearBtn) archiveClearBtn.classList.add('d-none');
-        if (tableContainer) {
-            tableContainer.style.transition = 'opacity 0.08s ease';
-            tableContainer.style.opacity = '0.5';
-        }
-
-        try {
-            const response = await fetch(url, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-            const text = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
-
-            const newTableContainer = doc.getElementById('archiveTableContainer');
-            if (tableContainer && newTableContainer) {
-                tableContainer.innerHTML = newTableContainer.innerHTML;
-            }
-            if (window.lucide) {
-                lucide.createIcons();
-            }
-            if (pushHistory) {
-                window.history.pushState({}, '', url);
-            }
-        } catch (err) {
-            console.error("AJAX refresh error:", err);
-            if (archiveSearchInput && archiveSearchInput.form) archiveSearchInput.form.submit();
-        } finally {
-            if (tableContainer) tableContainer.style.opacity = '1';
-            if (archiveSearchSpinner) archiveSearchSpinner.classList.add('d-none');
-            if (archiveClearBtn) {
-                if (archiveSearchInput && archiveSearchInput.value.trim().length > 0) archiveClearBtn.classList.remove('d-none');
-                else archiveClearBtn.classList.add('d-none');
-            }
-        }
-    }
 
     window.addEventListener('popstate', function () {
         updateArchiveTableAJAX(window.location.href, false);
@@ -829,7 +1567,6 @@ document.addEventListener('DOMContentLoaded', function () {
             archiveSearchInput.setSelectionRange(len, len);
         }
         archiveSearchInput.addEventListener('input', function () {
-            // Standard search sanitization: allow letters, numbers, spaces, and standard search characters (-_.#()',/)
             const sanitized = this.value.replace(/[^a-zA-Z0-9\s\-_.#()',/]/g, '');
             if (this.value !== sanitized) {
                 this.value = sanitized;
@@ -838,19 +1575,18 @@ document.addEventListener('DOMContentLoaded', function () {
             if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
             if (archiveClearBtn) archiveClearBtn.classList.add('d-none');
             archiveSearchTimer = setTimeout(() => {
-                const formData = new FormData(archiveSearchInput.form);
-                const params = new URLSearchParams(formData);
-                updateArchiveTableAJAX(window.location.pathname + '?' + params.toString());
+                const form = document.getElementById('archiveFilterForm') || archiveSearchInput.form;
+                const url = buildArchiveUrl(form, { q: archiveSearchInput.value.trim(), page: '' });
+                updateArchiveTableAJAX(url);
             }, 300);
         });
 
-        // Intercept form submit
         if (archiveSearchInput.form) {
             archiveSearchInput.form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                const formData = new FormData(archiveSearchInput.form);
-                const params = new URLSearchParams(formData);
-                updateArchiveTableAJAX(window.location.pathname + '?' + params.toString());
+                const form = document.getElementById('archiveFilterForm') || archiveSearchInput.form;
+                const url = buildArchiveUrl(form, { q: archiveSearchInput.value.trim(), page: '' });
+                updateArchiveTableAJAX(url);
             });
         }
     }
@@ -862,9 +1598,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (archiveSearchSpinner) archiveSearchSpinner.classList.add('d-none');
             archiveClearBtn.classList.add('d-none');
             const form = document.getElementById('archiveFilterForm') || archiveSearchInput.form;
-            const formData = new FormData(form);
-            const params = new URLSearchParams(formData);
-            updateArchiveTableAJAX(window.location.pathname + '?' + params.toString());
+            const url = buildArchiveUrl(form, { q: '', page: '' });
+            updateArchiveTableAJAX(url);
             archiveSearchInput.focus();
         });
     }

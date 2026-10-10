@@ -28,7 +28,8 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError, ImproperlyConfigured
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q, Count, Sum, F
+from django.db.models import Q, Count, Sum, F, Subquery, OuterRef, Case, When, DateTimeField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.core import signing
 from django.contrib.auth.tokens import default_token_generator
@@ -42,7 +43,7 @@ from .models import (
     AuditLog, LoginAttempt, PasswordHistory,
     EngineeringRecord, PermitDetail, ProjectDetail,
     RequirementTemplate, RequirementItem, RecordRequirement,
-    BlockedIP, UserDevice, SystemFeedback,
+    BlockedIP, UserDevice, SystemFeedback, RecordAccessLog,
 )
 from .validators import validate_document_file, validate_violation_evidence_file, sanitize_input, validate_password_strength, validate_backlog_year
 from .utils import get_client_ip, process_avatar_image
@@ -56,7 +57,8 @@ from .services import (
     parse_decimal_safely, send_etala_email,
     parse_device_user_agent, get_client_device_token,
     dispatch_device_approval_request, dispatch_new_device_login_alert,
-    execute_automated_backup, get_latest_backup_info
+    execute_automated_backup, get_latest_backup_info,
+    export_full_system_zip, restore_full_system_archive
 )
 
 
@@ -119,6 +121,25 @@ def log_audit(user, action, target_record_id=None, request=None):
     )
 
 
+def log_record_access(user, record):
+    """
+    Updates the per-user 'Last Opened' timestamp for the given record.
+    Enables the dashboard and workspace to track recently opened records per staff.
+    """
+    if not user or not user.is_authenticated or not record:
+        return
+    try:
+        rec = record if isinstance(record, EngineeringRecord) else EngineeringRecord.objects.filter(pk=record).first()
+        if rec:
+            RecordAccessLog.objects.update_or_create(
+                user=user,
+                record=rec,
+                defaults={'accessed_at': timezone.now()}
+            )
+    except Exception as e:
+        logger.warning(f"Failed to log record access: {e}")
+
+
 def check_lockout(email, ip_address):
     now = timezone.now()
     fifteen_mins_ago = now - timedelta(minutes=15)
@@ -166,11 +187,11 @@ def check_lockout(email, ip_address):
 
 
 
-def get_per_page(request, default=10):
+def get_per_page(request, default=20):
     val = request.GET.get('per_page', '')
     try:
         val = int(val)
-        if val in [10, 20, 50, 100]:
+        if val in [20, 50, 100, 500]:
             return val
     except ValueError:
         pass
@@ -439,6 +460,11 @@ def login_view(request):
             # Check if account is locked due to consecutive failures
             is_locked, lockout_msg = check_lockout(login_input, ip_address)
             LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
+            try:
+                from django.core.cache import cache
+                cache.clear()
+            except Exception:
+                pass
             if is_locked:
                 messages.error(request, lockout_msg)
             else:
@@ -946,8 +972,63 @@ def dashboard_view(request):
         requirements__is_waived=False
     )
 
+    # Subquery for user's last accessed time:
+    if request.user.is_authenticated:
+        my_access_sq = RecordAccessLog.objects.filter(
+            record=OuterRef('pk'),
+            user=request.user
+        ).values('accessed_at')[:1]
+    else:
+        my_access_sq = RecordAccessLog.objects.none().values('accessed_at')[:1]
+
+    # Subquery for office-wide last accessed time:
+    office_access_sq = RecordAccessLog.objects.filter(
+        record=OuterRef('pk')
+    ).order_by('-accessed_at').values('accessed_at')[:1]
+
+    # Incomplete records counts (All vs Mine)
     incomplete_records = records.filter(incomplete_filter).distinct().count()
-    my_incomplete_records = records.filter(incomplete_filter, created_by=request.user).distinct().count() if request.user.is_authenticated else 0
+    if request.user.is_authenticated:
+        my_incomplete_records = records.filter(
+            incomplete_filter
+        ).filter(
+            Q(created_by=request.user) | Q(access_logs__user=request.user)
+        ).distinct().count()
+    else:
+        my_incomplete_records = 0
+
+    # Incomplete Records list annotated with Last Opened timestamps
+    incomplete_base = records.filter(incomplete_filter).distinct().select_related(
+        'barangay', 'created_by', 'permit_detail', 'project_detail'
+    ).prefetch_related(
+        'requirements__requirement_item', 'requirements__document'
+    )
+
+    if request.user.is_authenticated:
+        incomplete_annotated = incomplete_base.annotate(
+            my_accessed_at=Subquery(my_access_sq),
+            office_accessed_at=Subquery(office_access_sq),
+        ).annotate(
+            office_last_opened=Coalesce('office_accessed_at', 'updated_at', 'created_at'),
+            my_last_opened=Case(
+                When(my_accessed_at__isnull=False, then=F('my_accessed_at')),
+                When(created_by=request.user, then=Coalesce('updated_at', 'created_at')),
+                default=None,
+                output_field=DateTimeField(null=True)
+            )
+        )
+    else:
+        incomplete_annotated = incomplete_base.annotate(
+            office_accessed_at=Subquery(office_access_sq),
+        ).annotate(
+            office_last_opened=Coalesce('office_accessed_at', 'updated_at', 'created_at'),
+            my_last_opened=Case(default=None, output_field=DateTimeField(null=True))
+        )
+
+    # Order by office last opened by default
+    incomplete_list = list(incomplete_annotated.order_by('-office_last_opened')[:50])
+    for r in incomplete_list:
+        r.is_my_item = (r.created_by_id == request.user.id) or (getattr(r, 'my_accessed_at', None) is not None)
 
     # Checklist Digitization Compliance Stats (Leaf items only)
     active_with_reqs = records.annotate(
@@ -986,14 +1067,6 @@ def dashboard_view(request):
 
     # Recent Uploads
     recent_uploads = Document.objects.select_related('engineering_record', 'uploaded_by').order_by('-uploaded_at')[:5]
-
-    # Incomplete Records list (select created_by for instant JS scope filtering)
-    incomplete_list = records.filter(incomplete_filter).distinct().select_related(
-        'barangay', 'created_by', 'permit_detail', 'project_detail'
-    ).prefetch_related(
-        'requirements__requirement_item', 'requirements__document'
-    )[:30]
-
 
     # Pending records
     pending_records = records.filter(status='pending').select_related('barangay').order_by('-created_at')[:5]
@@ -1333,14 +1406,29 @@ def barangay_workspace_view(request, barangay_id):
     total_projects = records.filter(record_type='Project').count()
     total_violations = records.filter(is_illegal_construction=True).count()
     total_documents = Document.objects.filter(engineering_record__barangay=barangay).exclude(engineering_record__status='archived').count()
-    total_records = total_projects + total_permits
+    total_records = records.count()
+
+    # Filter parameters
+    tab = request.GET.get('tab', 'all').strip()
+    query = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+    year = request.GET.get('year', '').strip()
+    type_filter = request.GET.get('type', '').strip()
+    upload_status = request.GET.get('upload_status', '').strip()
+    sort = request.GET.get('sort', '').strip()
+
+    # Year choices available for this barangay
+    year_choices = list(records.exclude(year__isnull=True).values_list('year', flat=True).distinct().order_by('-year'))
+
+    filtered_records = filter_engineering_records(
+        records,
+        query=query,
+        status=status_filter,
+        year=year,
+        illegal_filter=None
+    )
 
     # Tab filter
-    tab = request.GET.get('tab', 'all')
-    query = request.GET.get('q', '').strip()
-    status_filter = request.GET.get('status', '')
-    
-    filtered_records = records
     if tab == 'permits':
         filtered_records = filtered_records.filter(record_type='Permit', is_illegal_construction=False)
     elif tab == 'projects':
@@ -1348,28 +1436,57 @@ def barangay_workspace_view(request, barangay_id):
     elif tab == 'violations':
         filtered_records = filtered_records.filter(is_illegal_construction=True)
 
-    if query:
-        q_clean = str(query).strip()
-        tokens = [t for t in q_clean.split() if t]
-        for token in tokens:
-            token_filter = (
-                Q(title__icontains=token) |
-                Q(permit_detail__applicant_name__icontains=token) |
-                Q(permit_detail__permit_number__icontains=token) |
-                Q(permit_detail__permit_type__icontains=token) |
-                Q(project_detail__contractor__icontains=token) |
-                Q(project_detail__project_type__icontains=token)
+    # Specific Type filter
+    if type_filter:
+        if type_filter.lower() == 'municipal':
+            filtered_records = filtered_records.filter(record_type='Project', project_scope='Municipal')
+        elif type_filter.lower() == 'barangay':
+            filtered_records = filtered_records.filter(record_type='Project', project_scope='Barangay')
+        elif type_filter.lower() == 'violation':
+            filtered_records = filtered_records.filter(is_illegal_construction=True)
+        else:
+            filtered_records = filtered_records.filter(
+                Q(permit_detail__permit_type__iexact=type_filter) |
+                Q(project_detail__project_type__iexact=type_filter) |
+                Q(record_type__iexact=type_filter)
             )
-            num_clean = re.sub(r'^[#recREC\-\s]+', '', token)
-            if num_clean.isdigit():
-                num_val = int(num_clean)
-                token_filter |= Q(record_id=num_val)
-            filtered_records = filtered_records.filter(token_filter)
-        filtered_records = filtered_records.distinct()
-    if status_filter:
-        filtered_records = filtered_records.filter(status=status_filter)
 
-    filtered_records = filtered_records.order_by('-created_at')
+    # Upload Status filter (Complete vs Incomplete)
+    if upload_status == 'complete':
+        complete_ids = [r.record_id for r in filtered_records if r.completion_stats['is_complete']]
+        filtered_records = filtered_records.filter(record_id__in=complete_ids)
+    elif upload_status == 'incomplete':
+        incomplete_ids = [r.record_id for r in filtered_records if not r.completion_stats['is_complete']]
+        filtered_records = filtered_records.filter(record_id__in=incomplete_ids)
+
+    # Multi-Column Sorting
+    if sort == 'title_asc':
+        rec_list = list(filtered_records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -r.created_at.timestamp() if r.created_at else 0))
+        filtered_records = rec_list
+    elif sort == 'title_desc':
+        rec_list = list(filtered_records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -r.created_at.timestamp() if r.created_at else 0), reverse=True)
+        filtered_records = rec_list
+    elif sort == 'year_asc':
+        filtered_records = filtered_records.order_by('year', '-created_at') if hasattr(filtered_records, 'order_by') else sorted(filtered_records, key=lambda r: (r.year or 0, -r.created_at.timestamp() if r.created_at else 0))
+    elif sort == 'year_desc':
+        filtered_records = filtered_records.order_by('-year', '-created_at') if hasattr(filtered_records, 'order_by') else sorted(filtered_records, key=lambda r: (r.year or 0, -r.created_at.timestamp() if r.created_at else 0), reverse=True)
+    elif sort == 'created_asc':
+        filtered_records = filtered_records.order_by('created_at') if hasattr(filtered_records, 'order_by') else sorted(filtered_records, key=lambda r: (r.created_at.timestamp() if r.created_at else 0))
+    elif sort == 'created_desc':
+        filtered_records = filtered_records.order_by('-created_at') if hasattr(filtered_records, 'order_by') else sorted(filtered_records, key=lambda r: (r.created_at.timestamp() if r.created_at else 0), reverse=True)
+    elif sort == 'uploads_desc':
+        rec_list = list(filtered_records)
+        rec_list.sort(key=lambda r: (-r.completion_stats['pct'], -r.completion_stats['fulfilled'], -r.created_at.timestamp() if r.created_at else 0))
+        filtered_records = rec_list
+    elif sort == 'uploads_asc':
+        rec_list = list(filtered_records)
+        rec_list.sort(key=lambda r: (r.completion_stats['pct'], r.completion_stats['fulfilled'], -r.created_at.timestamp() if r.created_at else 0))
+        filtered_records = rec_list
+    else:
+        if hasattr(filtered_records, 'order_by'):
+            filtered_records = filtered_records.order_by('-created_at')
 
     # Permits breakdown
     permit_breakdown = PermitDetail.objects.filter(
@@ -1387,7 +1504,7 @@ def barangay_workspace_view(request, barangay_id):
         target_record_id__in=record_ids
     ).select_related('user').order_by('-performed_at')[:10]
 
-    per_page = get_per_page(request, 10)
+    per_page = get_per_page(request, 20)
     paginator = Paginator(filtered_records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
@@ -1434,6 +1551,11 @@ def barangay_workspace_view(request, barangay_id):
         'current_tab': tab,
         'q': query,
         'selected_status': status_filter,
+        'selected_year': year,
+        'selected_type': type_filter,
+        'selected_upload_status': upload_status,
+        'current_sort': sort,
+        'year_choices': year_choices,
         'active_tab': 'barangays',
     }
     return render(request, 'permits/barangay_workspace.html', context)
@@ -1455,7 +1577,9 @@ def records_browse_view(request):
         qstr = params.urlencode()
         return redirect(f"{url}?{qstr}" if qstr else url)
 
-    base_records = EngineeringRecord.objects.exclude(status='archived').select_related(
+    base_records = EngineeringRecord.objects.exclude(status='archived').filter(
+        is_illegal_construction=False
+    ).select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     ).prefetch_related(
         'requirements__requirement_item', 'requirements__document'
@@ -1493,10 +1617,10 @@ def records_browse_view(request):
         unfiltered_base = unfiltered_base.filter(created_by=request.user)
 
     # 2. Compute TRUE STABLE COUNTS for top tabs
-    all_count = unfiltered_base.filter(Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False)).count()
+    all_count = unfiltered_base.count()
     municipal_count = unfiltered_base.filter(record_type='Project', project_scope='Municipal').count()
     barangay_count = unfiltered_base.filter(record_type='Project', project_scope='Barangay').count()
-    permits_count = unfiltered_base.filter(record_type='Permit', is_illegal_construction=False).count()
+    permits_count = unfiltered_base.filter(record_type='Permit').count()
 
     # 3. Apply active tab & sub-filter to get the final records list
     records = filter_engineering_records(
@@ -1504,22 +1628,65 @@ def records_browse_view(request):
         record_type=record_type,
         illegal_filter=None
     )
-    if record_type == 'Permit':
-        records = records.filter(is_illegal_construction=False)
     if selected_scope == 'my':
         records = records.filter(created_by=request.user)
-    if project_scope and record_type == 'Project':
-        records = records.filter(project_scope=project_scope)
 
-    total_count = records.count()
-    per_page = get_per_page(request, 10)
+    # 4. Apply Upload Status filter (Complete vs Incomplete)
+    upload_status = request.GET.get('upload_status', '').strip()
+    if upload_status == 'complete':
+        complete_ids = [r.record_id for r in records if r.completion_stats['is_complete']]
+        records = records.filter(record_id__in=complete_ids)
+    elif upload_status == 'incomplete':
+        incomplete_ids = [r.record_id for r in records if not r.completion_stats['is_complete']]
+        records = records.filter(record_id__in=incomplete_ids)
+
+    # 5. Apply Multi-Column Sorting
+    sort = request.GET.get('sort', '').strip()
+    if sort == 'title_asc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -r.created_at.timestamp() if r.created_at else 0))
+        records = rec_list
+    elif sort == 'title_desc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -r.created_at.timestamp() if r.created_at else 0), reverse=True)
+        records = rec_list
+    elif sort == 'barangay_asc':
+        records = records.order_by('barangay__barangay_name', 'title') if hasattr(records, 'order_by') else sorted(records, key=lambda r: ((r.barangay.barangay_name.lower() if r.barangay else ''), r.sort_title_key))
+    elif sort == 'barangay_desc':
+        records = records.order_by('-barangay__barangay_name', '-title') if hasattr(records, 'order_by') else sorted(records, key=lambda r: ((r.barangay.barangay_name.lower() if r.barangay else ''), r.sort_title_key), reverse=True)
+    elif sort == 'year_asc':
+        records = records.order_by('year', '-created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.year or 0, -r.created_at.timestamp() if r.created_at else 0))
+    elif sort == 'year_desc':
+        records = records.order_by('-year', '-created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.year or 0, -r.created_at.timestamp() if r.created_at else 0), reverse=True)
+    elif sort == 'created_asc':
+        records = records.order_by('created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.created_at.timestamp() if r.created_at else 0))
+    elif sort == 'created_desc':
+        records = records.order_by('-created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.created_at.timestamp() if r.created_at else 0), reverse=True)
+    elif sort == 'uploads_desc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (-r.completion_stats['pct'], -r.completion_stats['fulfilled'], -r.created_at.timestamp() if r.created_at else 0))
+        records = rec_list
+    elif sort == 'uploads_asc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.completion_stats['pct'], r.completion_stats['fulfilled'], -r.created_at.timestamp() if r.created_at else 0))
+        records = rec_list
+    elif upload_status == 'incomplete':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.completion_stats['pct'], r.completion_stats['fulfilled'], -r.created_at.timestamp() if r.created_at else 0))
+        records = rec_list
+    else:
+        if hasattr(records, 'order_by'):
+            records = records.order_by('-created_at')
+
+    total_count = len(records) if isinstance(records, list) else records.count()
+    per_page = get_per_page(request, 20)
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     year_choices = get_year_choices()
 
     # Calculate active advanced filters count (only count optional dropdown filters)
-    active_filters_count = sum(1 for val in [barangay_id, year, project_type, permit_type] if val)
+    active_filters_count = sum(1 for val in [barangay_id, year, project_type, permit_type, upload_status] if val)
 
     context = {
         'per_page': per_page,
@@ -1532,6 +1699,7 @@ def records_browse_view(request):
         'permits_count': permits_count,
         'active_filters_count': active_filters_count,
         'q': query,
+        'current_sort': sort,
         'selected_record_type': record_type,
         'selected_scope': selected_scope,
         'my_scope_count': my_scope_count,
@@ -1541,6 +1709,7 @@ def records_browse_view(request):
         'selected_year': year,
         'selected_project_type': project_type,
         'selected_permit_type': permit_type,
+        'selected_upload_status': upload_status,
         'year_choices': year_choices,
         'project_type_choices': [choice[0] for choice in ProjectDetail.PROJECT_TYPE_CHOICES],
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
@@ -1628,8 +1797,32 @@ def illegal_constructions_view(request):
         stage_filter = 'all'
         records = qs
 
-    total_count = records.count()
-    per_page = get_per_page(request, 10)
+    total_count = len(records) if isinstance(records, list) else records.count()
+
+    # Multi-Column Sorting
+    sort = request.GET.get('sort', '').strip()
+    if sort == 'title_asc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -r.created_at.timestamp() if r.created_at else 0))
+        records = rec_list
+    elif sort == 'title_desc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -r.created_at.timestamp() if r.created_at else 0), reverse=True)
+        records = rec_list
+    elif sort == 'barangay_asc':
+        records = records.order_by('barangay__barangay_name', 'title') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.barangay.barangay_name.lower() if r.barangay else ''))
+    elif sort == 'barangay_desc':
+        records = records.order_by('-barangay__barangay_name', '-title') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.barangay.barangay_name.lower() if r.barangay else ''), reverse=True)
+    elif sort == 'year_asc':
+        records = records.order_by('year', '-created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: r.year or 0)
+    elif sort == 'year_desc':
+        records = records.order_by('-year', '-created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: r.year or 0, reverse=True)
+    else:
+        if hasattr(records, 'order_by'):
+            records = records.order_by('-created_at')
+
+    total_count = len(records) if isinstance(records, list) else records.count()
+    per_page = get_per_page(request, 20)
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
@@ -1649,6 +1842,7 @@ def illegal_constructions_view(request):
         'stage_filter': stage_filter,
         'active_filters_count': active_filters_count,
         'q': query,
+        'current_sort': sort,
         'selected_scope': selected_scope,
         'my_scope_count': my_scope_count,
         'all_scope_count': all_scope_count,
@@ -1952,6 +2146,7 @@ def record_create_step3_view(request):
         request.session.pop('create_barangay_id', None)
         request.session.pop('create_barangay_name', None)
         
+        log_record_access(request.user, record)
         log_audit(
             request.user,
             f"Created {record_type} record: '{title}'",
@@ -2282,6 +2477,7 @@ def record_create_view(request):
 @login_required
 def record_detail_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    log_record_access(request.user, record)
 
     # Auto-populate checklist requirements if missing
     # Skip for pure unresolved violation reports (incident report only, no permit applied yet)
@@ -2551,6 +2747,7 @@ def record_detail_view(request, record_id):
 def record_requirement_detail_view(request, record_id, req_id):
     """Dedicated workspace page for managing a specific requirement category or folder."""
     record = get_object_or_404(EngineeringRecord, pk=record_id)
+    log_record_access(request.user, record)
     req = get_object_or_404(RecordRequirement.objects.select_related('requirement_item', 'document'), pk=req_id, record=record)
 
     # Find all sub-items under this requirement_item
@@ -3025,6 +3222,7 @@ def toggle_requirement_waived_view(request, req_id):
 @login_required
 def record_edit_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    log_record_access(request.user, record)
     if record.status == 'archived':
         messages.error(request, "This record is currently in the Trash Bin and cannot be edited. Please restore it first.")
         return redirect('record_detail', record_id=record.record_id)
@@ -3656,6 +3854,7 @@ def serve_document_view(request, token, filename=None):
 @login_required
 def document_upload_view(request, record_id):
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    log_record_access(request.user, record)
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.headers.get('Accept', '').lower()
 
     if record.status == 'archived':
@@ -4088,15 +4287,19 @@ def archive_view(request):
     except Exception as e:
         logger.warning(f"Trash auto-purge check warning: {e}")
 
-    records = EngineeringRecord.objects.filter(status='archived').select_related(
+    # Base query for all archived records
+    base_qs = EngineeringRecord.objects.filter(status='archived').select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
-    ).order_by('-deleted_at', '-updated_at')
+    )
+    total_trash_unfiltered_count = base_qs.count()
 
     query = request.GET.get('q', '').strip()
     record_type = request.GET.get('record_type', '').strip()
     barangay_id = request.GET.get('barangay', '').strip()
     year = request.GET.get('year', '').strip()
+    sort = request.GET.get('sort', '').strip()
 
+    records = base_qs
     if query or record_type or barangay_id or year:
         records = filter_engineering_records(
             records,
@@ -4106,18 +4309,40 @@ def archive_view(request):
             year=year
         )
 
-    # Calculate counts for banner & expiring soon badge
-    total_trash_count = records.count()
-    expiring_soon_count = sum(1 for r in records if r.is_trash_expiring_soon)
+    # High-accuracy sorting
+    if sort == 'title_asc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -(r.deleted_at or r.created_at).timestamp() if (r.deleted_at or r.created_at) else 0))
+        records = rec_list
+    elif sort == 'title_desc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.sort_title_key, -(r.deleted_at or r.created_at).timestamp() if (r.deleted_at or r.created_at) else 0), reverse=True)
+        records = rec_list
+    elif sort == 'retention_asc':
+        records = records.order_by('deleted_at', 'updated_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.deleted_at or r.updated_at or r.created_at).timestamp() if (r.deleted_at or r.updated_at or r.created_at) else 0)
+    elif sort == 'retention_desc':
+        records = records.order_by('-deleted_at', '-updated_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: (r.deleted_at or r.updated_at or r.created_at).timestamp() if (r.deleted_at or r.updated_at or r.created_at) else 0, reverse=True)
+    else:
+        if hasattr(records, 'order_by'):
+            records = records.order_by('-deleted_at', '-updated_at')
 
-    per_page = get_per_page(request, 10)
+    # Calculate counts for banner & expiring soon badge
+    total_trash_count = len(records) if isinstance(records, list) else records.count()
+    expiring_soon_count = sum(1 for r in records if r.is_trash_expiring_soon)
+    active_filters_count = sum(1 for v in [record_type, barangay_id, year] if v)
+
+    per_page = get_per_page(request, 20)
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     barangays = Barangay.objects.all().order_by('barangay_name')
-    current_year = timezone.now().year
-    year_choices = list(range(2020, current_year + 2))
-    year_choices.reverse()
+    year_choices = get_year_choices()
+
+    # Category Tab Counts
+    all_trash_count = base_qs.count()
+    permits_trash_count = base_qs.filter(record_type='Permit', is_illegal_construction=False).count()
+    projects_trash_count = base_qs.filter(record_type='Project').count()
+    illegal_trash_count = base_qs.filter(is_illegal_construction=True).count()
 
     context = {
         'per_page': per_page,
@@ -4126,14 +4351,86 @@ def archive_view(request):
         'selected_record_type': record_type,
         'selected_barangay': barangay_id,
         'selected_year': year,
+        'current_sort': sort,
+        'active_filters_count': active_filters_count,
         'barangays': barangays,
         'year_choices': year_choices,
         'active_tab': 'archive',
         'is_staff_view': (request.user.role == 'staff'),
         'total_trash_count': total_trash_count,
+        'total_trash_unfiltered_count': total_trash_unfiltered_count,
         'expiring_soon_count': expiring_soon_count,
+        'all_trash_count': all_trash_count,
+        'permits_trash_count': permits_trash_count,
+        'projects_trash_count': projects_trash_count,
+        'illegal_trash_count': illegal_trash_count,
     }
     return render(request, 'permits/archive.html', context)
+
+
+@login_required
+@require_POST
+def empty_trash_view(request):
+    """Permanently delete all archived/trash records (Admin only)."""
+    if request.user.role != 'admin':
+        raise PermissionDenied("Only administrators can empty the trash.")
+
+    archived_qs = EngineeringRecord.objects.filter(status='archived')
+    count = archived_qs.count()
+    if count == 0:
+        messages.info(request, "Trash is already empty.")
+        return redirect('archive')
+
+    archived_qs.delete()
+    log_audit(request.user, f"Permanently emptied trash ({count} records deleted)", request=request)
+    messages.success(request, f"Trash successfully emptied. Permanently deleted {count} record(s).")
+    return redirect('archive')
+
+
+@login_required
+@require_POST
+def batch_trash_action_view(request):
+    """Batch restore or batch permanent delete for selected trash records."""
+    if request.user.role not in ['admin', 'staff']:
+        raise PermissionDenied("Unauthorized.")
+
+    action = request.POST.get('action', '').strip()
+    record_ids_raw = request.POST.getlist('record_ids')
+    if not record_ids_raw and request.POST.get('record_ids_csv'):
+        record_ids_raw = [x.strip() for x in request.POST.get('record_ids_csv').split(',') if x.strip()]
+
+    valid_ids = []
+    for r_id in record_ids_raw:
+        try:
+            valid_ids.append(int(r_id))
+        except (ValueError, TypeError):
+            pass
+
+    if not valid_ids:
+        messages.warning(request, "No records were selected.")
+        return redirect('archive')
+
+    records = EngineeringRecord.objects.filter(record_id__in=valid_ids, status='archived')
+    found_count = records.count()
+
+    if action == 'restore':
+        for record in records:
+            record.status = 'active'
+            record.deleted_at = None
+            record.save()
+            log_audit(request.user, f"Batch Restored: '{record.title}'", record.record_id, request)
+        messages.success(request, f"Successfully restored {found_count} record(s) back to active database.")
+    elif action == 'permanent_delete':
+        if request.user.role != 'admin':
+            raise PermissionDenied("Only administrators can permanently delete records.")
+        titles = list(records.values_list('title', flat=True)[:5])
+        records.delete()
+        log_audit(request.user, f"Batch Permanently Deleted ({found_count} records: {', '.join(titles)}...)", request=request)
+        messages.success(request, f"Successfully permanently deleted {found_count} record(s).")
+    else:
+        messages.error(request, "Invalid batch action.")
+
+    return redirect('archive')
 
 
 # ─── SEARCH ──────────────────────────────────────────────────────────────────
@@ -4166,7 +4463,7 @@ def search_view(request):
     # Apply remaining dropdown filters
     records = filter_engineering_records(records, record_type=record_type, barangay_id=barangay_id, year=year, status=status)
 
-    per_page = get_per_page(request, 10)
+    per_page = get_per_page(request, 20)
     paginator = Paginator(records, per_page)
     page_obj = paginator.get_page(request.GET.get('page'))
 
@@ -4342,45 +4639,81 @@ def reports_view(request):
         is_single_barangay = bool(target_brgy_name)
 
         if is_single_barangay:
-            # Determine months to show based on filters
-            if selected_month and selected_month.isdigit():
-                months_to_show = [int(selected_month)]
-            elif selected_quarter in ['Q1', '1']:
-                months_to_show = [1, 2, 3]
-            elif selected_quarter in ['Q2', '2']:
-                months_to_show = [4, 5, 6]
-            elif selected_quarter in ['Q3', '3']:
-                months_to_show = [7, 8, 9]
-            elif selected_quarter in ['Q4', '4']:
-                months_to_show = [10, 11, 12]
+            if selected_year and selected_year.isdigit():
+                # Specific Year selected: show months (Jan - Dec or filtered month)
+                if selected_month and selected_month.isdigit():
+                    months_to_show = [int(selected_month)]
+                elif selected_quarter in ['Q1', '1']:
+                    months_to_show = [1, 2, 3]
+                elif selected_quarter in ['Q2', '2']:
+                    months_to_show = [4, 5, 6]
+                elif selected_quarter in ['Q3', '3']:
+                    months_to_show = [7, 8, 9]
+                elif selected_quarter in ['Q4', '4']:
+                    months_to_show = [10, 11, 12]
+                else:
+                    months_to_show = list(range(1, 13))
+
+                m_stats_qs = records.values('created_at__month').annotate(
+                    proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                    muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                    brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                    perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                    viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                    budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+                    tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+                )
+                m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+
+                export_table_rows = []
+                for seq_idx, m_num in enumerate(months_to_show, 1):
+                    row = m_stats_map.get(m_num, {})
+                    export_table_rows.append({
+                        'seq': seq_idx,
+                        'label': calendar.month_name[m_num],
+                        'muni_proj_cnt': row.get('muni_proj_cnt', 0),
+                        'brgy_proj_cnt': row.get('brgy_proj_cnt', 0),
+                        'perm_cnt': row.get('perm_cnt', 0),
+                        'viol_cnt': row.get('viol_cnt', 0),
+                        'tot_cnt': row.get('tot_cnt', 0),
+                        'budget_sum': row.get('budget_sum') or 0,
+                    })
+                period_header_label = "MONTH / PERIOD"
             else:
-                months_to_show = list(range(1, 13))
+                # All Years selected: show Year-by-Year breakdown
+                y_stats_qs = records.values('year').annotate(
+                    proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                    muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                    brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                    perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                    viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                    budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+                    tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+                ).order_by('-year')
+                y_stats_map = {row['year']: row for row in y_stats_qs if row['year']}
 
-            m_stats_qs = records.values('created_at__month').annotate(
-                proj_cnt=Count('record_id', filter=Q(record_type='Project')),
-                muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
-                brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
-                viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
-            )
-            m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+                years_to_show = get_year_choices()
+                for y_val in y_stats_map.keys():
+                    if y_val and y_val not in years_to_show:
+                        years_to_show.append(y_val)
+                years_to_show = sorted(list(set(years_to_show)), reverse=True)
 
-            export_table_rows = []
-            for seq_idx, m_num in enumerate(months_to_show, 1):
-                row = m_stats_map.get(m_num, {})
-                export_table_rows.append({
-                    'seq': seq_idx,
-                    'label': calendar.month_name[m_num],
-                    'muni_proj_cnt': row.get('muni_proj_cnt', 0),
-                    'brgy_proj_cnt': row.get('brgy_proj_cnt', 0),
-                    'perm_cnt': row.get('perm_cnt', 0),
-                    'viol_cnt': row.get('viol_cnt', 0),
-                    'tot_cnt': row.get('tot_cnt', 0),
-                    'budget_sum': row.get('budget_sum') or 0,
-                })
+                export_table_rows = []
+                for seq_idx, y_num in enumerate(years_to_show, 1):
+                    row = y_stats_map.get(y_num, {})
+                    export_table_rows.append({
+                        'seq': seq_idx,
+                        'label': f"Year {y_num}" if selected_month else str(y_num),
+                        'muni_proj_cnt': row.get('muni_proj_cnt', 0),
+                        'brgy_proj_cnt': row.get('brgy_proj_cnt', 0),
+                        'perm_cnt': row.get('perm_cnt', 0),
+                        'viol_cnt': row.get('viol_cnt', 0),
+                        'tot_cnt': row.get('tot_cnt', 0),
+                        'budget_sum': row.get('budget_sum') or 0,
+                    })
+                period_header_label = "YEAR / PERIOD"
         else:
+            period_header_label = "BARANGAY"
             # Aggregate barangay stats accurately (Total Accomplishments = Projects + Official Permits)
             b_stats_qs = records.values('barangay_id').annotate(
                 proj_cnt=Count('record_id', filter=Q(record_type='Project')),
@@ -4514,7 +4847,7 @@ def reports_view(request):
                     cell.border = thin_border
 
             # 3. Master Accomplishment Matrix Table
-            headers = ["#", "MONTH / PERIOD" if is_single_barangay else "BARANGAY", "MUNICIPAL", "BARANGAY", "PERMITS", "VIOLATIONS", "TOTAL", "PROJECT BUDGET (₱)"]
+            headers = ["#", period_header_label if is_single_barangay else "BARANGAY", "MUNICIPAL", "BARANGAY", "PERMITS", "VIOLATIONS", "TOTAL", "PROJECT BUDGET (₱)"]
             header_row_idx = 11
             ws.row_dimensions[header_row_idx].height = 24
 
@@ -4838,7 +5171,7 @@ def reports_view(request):
             col_widths = [22, 121, 54, 54, 48, 58, 48, 118.27]
             table_data = [[
                 Paragraph("#", header_center_style),
-                Paragraph("MONTH / PERIOD" if is_single_barangay else "BARANGAY", header_cell_style),
+                Paragraph(period_header_label if is_single_barangay else "BARANGAY", header_cell_style),
                 Paragraph("MUNICIPAL", header_center_style),
                 Paragraph("BARANGAY", header_center_style),
                 Paragraph("PERMITS", header_center_style),
@@ -5020,45 +5353,82 @@ def reports_view(request):
     is_single_barangay = bool(target_brgy_name)
 
     if is_single_barangay:
-        if selected_month and selected_month.isdigit():
-            months_to_show = [int(selected_month)]
-        elif selected_quarter in ['Q1', '1']:
-            months_to_show = [1, 2, 3]
-        elif selected_quarter in ['Q2', '2']:
-            months_to_show = [4, 5, 6]
-        elif selected_quarter in ['Q3', '3']:
-            months_to_show = [7, 8, 9]
-        elif selected_quarter in ['Q4', '4']:
-            months_to_show = [10, 11, 12]
+        if selected_year and selected_year.isdigit():
+            if selected_month and selected_month.isdigit():
+                months_to_show = [int(selected_month)]
+            elif selected_quarter in ['Q1', '1']:
+                months_to_show = [1, 2, 3]
+            elif selected_quarter in ['Q2', '2']:
+                months_to_show = [4, 5, 6]
+            elif selected_quarter in ['Q3', '3']:
+                months_to_show = [7, 8, 9]
+            elif selected_quarter in ['Q4', '4']:
+                months_to_show = [10, 11, 12]
+            else:
+                months_to_show = list(range(1, 13))
+
+            m_stats_qs = tab_base_records.values('created_at__month').annotate(
+                proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+            )
+            m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+
+            barangay_summary_list = []
+            for m_num in months_to_show:
+                row = m_stats_map.get(m_num, {})
+                barangay_summary_list.append({
+                    'label': calendar.month_name[m_num],
+                    'is_month': True,
+                    'projects_count': row.get('proj_cnt', 0),
+                    'municipal_projects_count': row.get('muni_proj_cnt', 0),
+                    'barangay_projects_count': row.get('brgy_proj_cnt', 0),
+                    'permits_count': row.get('perm_cnt', 0),
+                    'violations_count': row.get('viol_cnt', 0),
+                    'total_count': row.get('tot_cnt', 0),
+                    'budget_total': row.get('budget_sum') or 0
+                })
+            period_header_label = "MONTH / PERIOD"
         else:
-            months_to_show = list(range(1, 13))
+            # All Years selected: Show Year-by-Year breakdown for this barangay
+            y_stats_qs = tab_base_records.values('year').annotate(
+                proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
+                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+            ).order_by('-year')
+            y_stats_map = {row['year']: row for row in y_stats_qs if row['year']}
 
-        m_stats_qs = tab_base_records.values('created_at__month').annotate(
-            proj_cnt=Count('record_id', filter=Q(record_type='Project')),
-            muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
-            brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-            perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
-            viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-            budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-            tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
-        )
-        m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+            years_to_show = get_year_choices()
+            for y_val in y_stats_map.keys():
+                if y_val and y_val not in years_to_show:
+                    years_to_show.append(y_val)
+            years_to_show = sorted(list(set(years_to_show)), reverse=True)
 
-        barangay_summary_list = []
-        for m_num in months_to_show:
-            row = m_stats_map.get(m_num, {})
-            barangay_summary_list.append({
-                'label': calendar.month_name[m_num],
-                'is_month': True,
-                'projects_count': row.get('proj_cnt', 0),
-                'municipal_projects_count': row.get('muni_proj_cnt', 0),
-                'barangay_projects_count': row.get('brgy_proj_cnt', 0),
-                'permits_count': row.get('perm_cnt', 0),
-                'violations_count': row.get('viol_cnt', 0),
-                'total_count': row.get('tot_cnt', 0),
-                'budget_total': row.get('budget_sum') or 0
-            })
+            barangay_summary_list = []
+            for y_num in years_to_show:
+                row = y_stats_map.get(y_num, {})
+                barangay_summary_list.append({
+                    'label': f"Year {y_num}" if selected_month else str(y_num),
+                    'is_month': True,
+                    'projects_count': row.get('proj_cnt', 0),
+                    'municipal_projects_count': row.get('muni_proj_cnt', 0),
+                    'barangay_projects_count': row.get('brgy_proj_cnt', 0),
+                    'permits_count': row.get('perm_cnt', 0),
+                    'violations_count': row.get('viol_cnt', 0),
+                    'total_count': row.get('tot_cnt', 0),
+                    'budget_total': row.get('budget_sum') or 0
+                })
+            period_header_label = "YEAR / PERIOD"
     else:
+        period_header_label = "BARANGAY"
         b_stats_qs = tab_base_records.values('barangay_id').annotate(
             proj_cnt=Count('record_id', filter=Q(record_type='Project')),
             muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
@@ -5153,6 +5523,7 @@ def reports_view(request):
         'monthly_summary_list': monthly_summary_list,
         'barangay_summary_list': barangay_summary_list,
         'is_single_barangay': is_single_barangay,
+        'period_header_label': period_header_label,
         'target_brgy_name': target_brgy_name,
         'all_count': all_count,
         'municipal_count': municipal_count,
@@ -5318,7 +5689,7 @@ def activity_logs_view(request):
             Q(action__icontains='archived') | Q(action__icontains='trash')
         )
 
-    per_page = get_per_page(request, 10)
+    per_page = get_per_page(request, 20)
     audit_paginator = Paginator(audit_logs, per_page)
     log_page_obj = audit_paginator.get_page(request.GET.get('log_page'))
 
@@ -6429,37 +6800,46 @@ def settings_view(request):
             return redirect(f"{reverse('settings')}?tab=templates&template_id={template_id}")
 
         elif action == 'db_backup':
-            log_audit(request.user, "Exported full database backup", request=request)
-            from django.core import serializers
-            import io
+            backup_format = request.POST.get('backup_format', 'full_zip').strip().lower()
 
-            models_to_backup = [
-                Barangay,
-                RequirementTemplate,
-                RequirementItem,
-                CustomUser,
-                EngineeringRecord,
-                PermitDetail,
-                ProjectDetail,
-                Document,
-                RecordRequirement,
-                AuditLog,
-                LoginAttempt,
-            ]
-            
-            all_objects = []
-            for model_cls in models_to_backup:
-                try:
-                    all_objects.extend(list(model_cls.objects.all()))
-                except Exception:
-                    pass
-
-            json_data = serializers.serialize('json', all_objects, indent=2)
-            
-            response = HttpResponse(json_data, content_type="application/json")
-            filename = f"etala_backup_{timezone.now().strftime('%Y%m%d_%H%M%S')}.json"
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
+            try:
+                if backup_format == 'full_zip':
+                    zip_buffer, filename, total_records, media_count = export_full_system_zip(user=request.user)
+                    response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+                    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                    response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+                    return response
+                else:
+                    log_audit(request.user, "Exported data-only database backup (JSON)", request=request)
+                    from django.core import serializers
+                    models_to_backup = [
+                        Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
+                        EngineeringRecord, PermitDetail, ProjectDetail, Document,
+                        RecordRequirement, AuditLog, LoginAttempt, UserDevice
+                    ]
+                    all_objects = []
+                    for model_cls in models_to_backup:
+                        try:
+                            all_objects.extend(list(model_cls.objects.all()))
+                        except Exception:
+                            pass
+                    try:
+                        json_data = serializers.serialize('json', all_objects, indent=2)
+                    except Exception:
+                        json_data = json.dumps([json.loads(serializers.serialize('json', [o]))[0] for o in all_objects if o], indent=2)
+                    response = HttpResponse(json_data, content_type="application/json")
+                    local_now = timezone.localtime(timezone.now())
+                    filename = f"eTala_Backup_{local_now.strftime('%Y-%m-%d_%I.%M%p')}.json"
+                    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                    response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+                    return response
+            except Exception as e:
+                logger.error(f"Failed to generate backup: {e}", exc_info=True)
+                is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': f"Could not create backup: {str(e)}"}, status=500)
+                messages.error(request, f"Could not create backup: {str(e)}")
+                return redirect('settings')
 
         elif action == 'run_auto_backup':
             res = execute_automated_backup(user=request.user)
@@ -6476,36 +6856,16 @@ def settings_view(request):
         elif action == 'db_restore':
             backup_file = request.FILES.get('backup_file')
             if not backup_file:
-                messages.error(request, "Please select a valid .json backup file to restore.")
-                return redirect(f"{reverse('settings')}?tab=maintenance")
-            
-            if not backup_file.name.endswith('.json'):
-                messages.error(request, "Invalid file format. Only .JSON backup files are supported.")
-                return redirect(f"{reverse('settings')}?tab=maintenance")
+                messages.error(request, "Please select a backup file to restore.")
+                return redirect(f"{reverse('settings')}?tab=backup")
 
-            try:
-                from django.core import serializers
-                from django.db import transaction
+            res = restore_full_system_archive(backup_file, user=request.user)
+            if res.get('success'):
+                messages.success(request, "Backup restored successfully.")
+            else:
+                messages.error(request, res.get('error', 'Could not restore backup file.'))
 
-                content = backup_file.read().decode('utf-8')
-                objects_to_save = list(serializers.deserialize('json', content, ignorenonexistent=True))
-                
-                if not objects_to_save:
-                    messages.warning(request, "The uploaded backup file contains no valid eTala records.")
-                    return redirect(f"{reverse('settings')}?tab=maintenance")
-
-                saved_count = 0
-                with transaction.atomic():
-                    for obj in objects_to_save:
-                        obj.save()
-                        saved_count += 1
-
-                log_audit(request.user, f"Restored {saved_count} records from backup file '{backup_file.name}'", request=request)
-                messages.success(request, f"Database restored successfully! {saved_count} records were processed and synchronized.")
-            except Exception as e:
-                messages.error(request, f"Failed to restore database backup: {str(e)}")
-
-            return redirect(f"{reverse('settings')}?tab=maintenance")
+            return redirect(f"{reverse('settings')}?tab=backup")
 
         elif action == 'change_password':
             old_password = request.POST.get('old_password')
@@ -6815,7 +7175,7 @@ def users_view(request):
             Q(designation__icontains=query)
         )
 
-    per_page = get_per_page(request, 10)
+    per_page = get_per_page(request, 20)
     paginator = Paginator(users_base, per_page)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -7080,6 +7440,7 @@ def batch_upload_documents_view(request, record_id):
     if request.user.role not in ['staff', 'admin']:
         return HttpResponseForbidden("Unauthorized")
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    log_record_access(request.user, record)
     if record.status == 'archived':
         messages.error(request, "This record is currently in the Trash Bin and cannot be modified. Please restore it first.")
         return redirect('record_detail', record_id=record.record_id)

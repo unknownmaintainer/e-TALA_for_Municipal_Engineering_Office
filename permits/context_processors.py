@@ -83,7 +83,7 @@ def recent_notifications(request):
     alerts = []
     
     # 1. Security failed login alert for admins (past 24 hours, localized Philippine time)
-    if request.user.role == 'admin':
+    if request.user.role == 'admin' or request.user.is_superuser or request.user.is_staff:
         twenty_four_hours_ago = timezone.now() - datetime.timedelta(hours=24)
         recent_failed = LoginAttempt.objects.filter(success=False, timestamp__gte=twenty_four_hours_ago).order_by('-timestamp')
         latest_failed = recent_failed.first()
@@ -195,12 +195,15 @@ def recent_notifications(request):
         target_str = str(target_id).strip()
         if target_str in saved_set:
             return True
+        # Security alerts must ONLY match their exact ID so new failed login batches are not suppressed
+        if target_str.startswith('sec_'):
+            return False
         action_slug = slugify(action_text) if action_text else ''
         if action_slug and action_slug in saved_set:
             return True
         for s in saved_set:
             s_str = str(s).strip()
-            if not s_str:
+            if not s_str or s_str.startswith('sec_'):
                 continue
             if s_str == target_str or s_str == action_slug or s_str.startswith(f"{target_str}_") or target_str.startswith(f"{s_str}_") or (action_slug and (s_str.startswith(f"{action_slug}_") or action_slug.startswith(f"{s_str}_"))):
                 return True

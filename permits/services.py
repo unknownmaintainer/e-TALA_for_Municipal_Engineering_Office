@@ -419,7 +419,7 @@ def get_document_group_folder(doc, record):
 
 def generate_record_summary_text(record, user=None):
     """
-    Generates a clean, human-readable, jargon-free 00_RECORD_SUMMARY.txt content for an EngineeringRecord.
+    Generates a clean, human-readable, jargon-free RECORD_SUMMARY.txt content for an EngineeringRecord.
     """
     now = timezone.now()
     now_str = now.strftime('%B %d, %Y by ') + (user.get_full_name() or user.username if user and hasattr(user, 'username') else 'Administrator')
@@ -433,10 +433,29 @@ def generate_record_summary_text(record, user=None):
             encoded_by_name += f" ({record.created_by.role.title()})"
     encoded_date_str = record.created_at.strftime('%B %d, %Y') + f" by {encoded_by_name}" if record.created_at else f"by {encoded_by_name}"
 
-    record_title = record.title
-    if record.record_type == 'Permit' and hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
-        applicant = record.permit_detail.applicant_name
-        record_title = f"{applicant} ({record.title or 'Building Permit'})"
+    record_title = record.title or "Untitled Record"
+    if record.is_illegal_construction:
+        if record.illegal_compliance_status == 'resolved' and hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.permit_number:
+            app = record.permit_detail.applicant_name or record.display_title
+            record_title = f"{app} (Permit #{record.permit_detail.permit_number})"
+        else:
+            record_title = record.title or "Unpermitted Construction"
+    elif record.record_type == 'Permit':
+        if hasattr(record, 'permit_detail') and record.permit_detail:
+            p_num = record.permit_detail.permit_number
+            app = record.permit_detail.applicant_name
+            if p_num and app:
+                record_title = f"{app} (Permit #{p_num})"
+            elif p_num:
+                record_title = f"Permit #{p_num}"
+            elif app:
+                record_title = app
+            else:
+                record_title = record.title or "Building Permit"
+        else:
+            record_title = record.title or "Building Permit"
+    elif record.record_type == 'Project':
+        record_title = record.title or "Infrastructure Project"
 
     type_str = f"{record.record_type}"
     if record.record_type == 'Project' and record.project_scope:
@@ -528,8 +547,7 @@ def generate_record_summary_text(record, user=None):
             is_last = (idx == len(group['items']) - 1)
             prefix = "   └── " if is_last else "   ├── "
             if item.is_fulfilled and item.document:
-                fname = item.document.file_name or (os.path.basename(item.document.file.name) if item.document.file else f"{item.requirement_item.name}.pdf")
-                lines.append(f"{prefix}[UPLOADED] {fname}")
+                lines.append(f"{prefix}[UPLOADED] {item.requirement_item.name}")
             elif item.is_waived:
                 lines.append(f"{prefix}[N/A]      {item.requirement_item.name} (Waived / Not Required)")
             else:
@@ -544,8 +562,7 @@ def generate_record_summary_text(record, user=None):
             is_last = (idx == len(standalone_items) - 1)
             prefix = "   └── " if is_last else "   ├── "
             if item.is_fulfilled and item.document:
-                fname = item.document.file_name or (os.path.basename(item.document.file.name) if item.document.file else f"{item.requirement_item.name}.pdf")
-                lines.append(f"{prefix}[UPLOADED] {fname}")
+                lines.append(f"{prefix}[UPLOADED] {item.requirement_item.name}")
             elif item.is_waived:
                 lines.append(f"{prefix}[N/A]      {item.requirement_item.name} (Waived / Not Required)")
             else:
@@ -576,7 +593,7 @@ def generate_record_summary_text(record, user=None):
 
 def generate_barangay_summary_text(barangay, records, user=None):
     """
-    Generates a clean, human-readable 00_BARANGAY_SUMMARY.txt content for an entire Barangay archive.
+    Generates a clean, human-readable BARANGAY_SUMMARY.txt content for an entire Barangay archive.
     """
     now = timezone.now()
     now_str = now.strftime('%B %d, %Y by ') + (user.get_full_name() or user.username if user and hasattr(user, 'username') else 'Administrator')
@@ -618,7 +635,7 @@ def generate_barangay_summary_text(barangay, records, user=None):
 
     lines.append("")
     lines.append("📁 03_Building_Permits/")
-    for rec in records.filter(record_type='Permit'):
+    for rec in records.filter(record_type='Permit', is_illegal_construction=False):
         lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
 
     if illegal_cases > 0:
@@ -642,7 +659,7 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
     """
     Generates an in-memory ZIP archive buffer containing all fulfilled documents for an EngineeringRecord.
     Structure:
-      ├── 00_RECORD_SUMMARY.txt
+      ├── RECORD_SUMMARY.txt
       ├── 01_Building_Plans/ (Sub-folders only for multi-item parent groups)
       │   └── Plan_and_Profiles.pdf
       ├── 03_Specifications.pdf (Direct loose file for standalone requirements)
@@ -652,10 +669,10 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
     used_paths = set()
 
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # 1. Add 00_RECORD_SUMMARY.txt at root of ZIP
+        # 1. Add RECORD_SUMMARY.txt at root of ZIP
         summary_text = generate_record_summary_text(record, user=user)
-        zip_file.writestr("00_RECORD_SUMMARY.txt", summary_text.encode('utf-8'))
-        used_paths.add("00_RECORD_SUMMARY.txt")
+        zip_file.writestr("RECORD_SUMMARY.txt", summary_text.encode('utf-8'))
+        used_paths.add("RECORD_SUMMARY.txt")
 
         # Map parent group requirement items to sequence numbers
         leaf_reqs = record.requirements.filter(
@@ -824,10 +841,10 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
     Generates an in-memory ZIP archive buffer containing all documents for an entire Barangay.
     Clean structure:
       Barangay_Balilit/
-        ├── 00_BARANGAY_SUMMARY.txt
+        ├── BARANGAY_SUMMARY.txt
         ├── 01_Municipal_Projects/
         │   └── Water_System_Project/
-        │       ├── 00_RECORD_SUMMARY.txt
+        │       ├── RECORD_SUMMARY.txt
         │       ├── 01_Building_Plans/
         │       └── 03_Specifications.pdf
         ├── 02_Barangay_Projects/
@@ -865,10 +882,10 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
         used_record_folders[record.record_id] = (section, base_name)
 
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # 1. Add Master 00_BARANGAY_SUMMARY.txt
+        # 1. Add Master BARANGAY_SUMMARY.txt
         brgy_summary = generate_barangay_summary_text(barangay, records, user=user)
-        zip_file.writestr(f"{clean_b_name}/00_BARANGAY_SUMMARY.txt", brgy_summary.encode('utf-8'))
-        used_paths.add(f"{clean_b_name}/00_BARANGAY_SUMMARY.txt")
+        zip_file.writestr(f"{clean_b_name}/BARANGAY_SUMMARY.txt", brgy_summary.encode('utf-8'))
+        used_paths.add(f"{clean_b_name}/BARANGAY_SUMMARY.txt")
 
         # 2. Add each record and its documents
         for record in records:
@@ -880,7 +897,7 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
 
             # Add record's own summary file
             rec_summary = generate_record_summary_text(record, user=user)
-            rec_summary_path = f"{rec_prefix}/00_RECORD_SUMMARY.txt"
+            rec_summary_path = f"{rec_prefix}/RECORD_SUMMARY.txt"
             if rec_summary_path not in used_paths:
                 zip_file.writestr(rec_summary_path, rec_summary.encode('utf-8'))
                 used_paths.add(rec_summary_path)
@@ -989,7 +1006,7 @@ def build_municipal_zip_buffer(stream_getter_func, user=None):
             summary_lines.append(f"📁 {sanitize_zip_name(b.barangay_name).replace(' ', '_')}/")
         summary_lines.extend(["", "=" * 80, "Generated by eTala for Carigara Engineering Office Records.", "=" * 80, ""])
 
-        zip_file.writestr(f"Carigara_Engineering_Records_{today_str}/00_MUNICIPAL_SUMMARY.txt", "\n".join(summary_lines).encode('utf-8'))
+        zip_file.writestr(f"Carigara_Engineering_Records_{today_str}/MUNICIPAL_SUMMARY.txt", "\n".join(summary_lines).encode('utf-8'))
 
         for b in barangays:
             b_buf = build_barangay_zip_buffer(b, stream_getter_func, user=user)
@@ -1504,8 +1521,10 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
                 'dry_run': dry_run,
             }
 
-    timestamp_str = now.strftime('%Y%m%d_%H%M%S')
-    db_filename = f"etala_db_{timestamp_str}.json"
+    local_now = timezone.localtime(now)
+    timestamp_str = local_now.strftime('%Y-%m-%d_%I.%M%p')
+    zip_filename = f"eTala_Backup_{timestamp_str}.zip"
+    db_filename = f"eTala_Backup_{timestamp_str}.json"
 
     if not target_dir:
         env_path = os.getenv('BACKUP_STORAGE_PATH', '').strip()
@@ -1520,37 +1539,38 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
     media_backup_dir = base_backup_dir / 'media'
 
     if not dry_run:
+        base_backup_dir.mkdir(parents=True, exist_ok=True)
         db_dir.mkdir(parents=True, exist_ok=True)
         media_backup_dir.mkdir(parents=True, exist_ok=True)
 
     db_file_path = db_dir / db_filename
+    zip_file_path = base_backup_dir / zip_filename
 
-    # 1. Database serialization
-    app_models = apps.get_app_config('permits').get_models()
-    all_objects = []
-    for model_cls in app_models:
-        try:
-            all_objects.extend(list(model_cls.objects.all()))
-        except Exception as e:
-            logger.warning(f"Could not serialize model {model_cls.__name__}: {e}")
-
-    total_records = len(all_objects)
+    # 1. Generate Full Municipal Archive (.ZIP) containing database and physical documents
+    zip_buffer, _, total_records, total_media_files = export_full_system_zip(user=user)
+    zip_bytes = zip_buffer.getvalue()
 
     if not dry_run:
-        json_data = serializers.serialize('json', all_objects, indent=2)
-        with open(db_file_path, 'w', encoding='utf-8') as f:
-            f.write(json_data)
+        # Save complete .ZIP archive snapshot locally
+        with open(zip_file_path, 'wb') as f:
+            f.write(zip_bytes)
 
-    # 2. Smart Incremental Media Sync
+    # 2. Smart Incremental Media Sync (Excluding developer feedback screenshots, backups, temp files)
+    EXCLUDED_MEDIA_DIRS = {'backups', 'feedback_attachments', 'temp_uploads', '.tmp', '__pycache__'}
     new_files_synced = 0
-    total_media_files = 0
     media_root = Path(settings.MEDIA_ROOT)
 
     if media_root.exists():
-        for src_path in media_root.rglob('*'):
+        for src_path in sorted(media_root.rglob('*')):
             if src_path.is_file():
-                total_media_files += 1
                 rel_path = src_path.relative_to(media_root)
+                parts = rel_path.parts
+                # Skip excluded root directories and junk files
+                if parts and parts[0].lower() in EXCLUDED_MEDIA_DIRS:
+                    continue
+                if src_path.name.startswith('.') or src_path.name.lower() in ('thumbs.db', 'desktop.ini'):
+                    continue
+
                 dest_path = media_backup_dir / rel_path
 
                 needs_copy = False
@@ -1575,8 +1595,21 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
     purged_snapshots = 0
     cutoff_time = now - timedelta(days=retention_days)
 
+    if base_backup_dir.exists():
+        old_archives = list(base_backup_dir.glob('eTala_Backup_*.zip')) + list(base_backup_dir.glob('*.zip'))
+        for old_archive in old_archives:
+            try:
+                file_mtime = datetime.datetime.fromtimestamp(old_archive.stat().st_mtime, tz=datetime.timezone.utc)
+                if file_mtime < cutoff_time:
+                    if not dry_run:
+                        old_archive.unlink()
+                    purged_snapshots += 1
+            except Exception as e:
+                logger.warning(f"Error checking/deleting old backup archive {old_archive}: {e}")
+
     if db_dir.exists():
-        for old_file in db_dir.glob('etala_db_*.json'):
+        old_files = list(db_dir.glob('eTala_Backup_*.json')) + list(db_dir.glob('etala_db_*.json'))
+        for old_file in old_files:
             try:
                 file_mtime = datetime.datetime.fromtimestamp(old_file.stat().st_mtime, tz=datetime.timezone.utc)
                 if file_mtime < cutoff_time:
@@ -1589,7 +1622,7 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
     # 4. Audit Log
     if not dry_run:
         try:
-            log_msg = f"Automated System Backup: {db_filename} ({total_records} records, {new_files_synced} new files synced, {purged_snapshots} expired snapshots cleaned)"
+            log_msg = f"Automated System Backup: {zip_filename} ({total_records} records, {total_media_files} media files packaged, {purged_snapshots} expired snapshots cleaned)"
             AuditLog.objects.create(
                 user=user,
                 action=log_msg
@@ -1597,7 +1630,7 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
         except Exception as e:
             logger.error(f"Audit log error during auto-backup: {e}")
 
-    # 5. Optional Supabase Cloud Sync
+    # 5. Optional Supabase Cloud Sync (Uploads Complete .ZIP Archive)
     supabase_synced = False
     supabase_url = getattr(settings, 'SUPABASE_URL', None) or os.getenv('SUPABASE_URL')
     supabase_key = getattr(settings, 'SUPABASE_KEY', None) or os.getenv('SUPABASE_KEY')
@@ -1608,14 +1641,17 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
             bucket = getattr(settings, 'SUPABASE_BUCKET_NAME', 'etala-documents')
             sup_storage = SupabaseStorage(bucket_name=bucket)
             if sup_storage._is_configured():
-                with open(db_file_path, 'rb') as f:
-                    sup_storage.save(f"backups/{db_filename}", ContentFile(f.read()))
+                # Upload full .ZIP archive to Supabase cloud vault
+                sup_storage.save(f"backups/{zip_filename}", ContentFile(zip_bytes))
                 supabase_synced = True
+                logger.info(f"Successfully uploaded Full Backup Archive {zip_filename} to Supabase bucket '{bucket}'.")
         except Exception as e:
-            logger.warning(f"Could not upload backup to Supabase: {e}")
+            logger.warning(f"Could not upload backup archive to Supabase: {e}")
 
     return {
         'success': True,
+        'zip_filename': zip_filename,
+        'zip_path': str(zip_file_path),
         'db_filename': db_filename,
         'db_path': str(db_file_path),
         'backup_dir': str(base_backup_dir),
@@ -1664,5 +1700,273 @@ def get_latest_backup_info(target_dir=None):
         'total_snapshots': total_snapshots,
         'total_synced_media': total_synced_media,
         'backup_dir': str(base_backup_dir),
+    }
+
+
+# ─── COMPLETE MUNICIPAL ARCHIVE ENGINE (.ZIP & .JSON RESTORE) ────────────────
+
+def export_full_system_zip(user=None):
+    """
+    Generates a Complete Municipal Archive (.ZIP) containing:
+    1. database/etala_database.json (All models: Permits, Projects, Barangays, Checklists, Users, etc.)
+    2. media/ (All physical document files: scanned PDF blueprints, permit scans, photos, attachments)
+    3. backup_manifest.json (Metadata, record counts, timestamp, user info)
+    Returns: (zip_buffer_io, filename, total_records, total_files)
+    """
+    import zipfile
+    import json
+    import io
+    from pathlib import Path
+    from django.core import serializers
+    from django.conf import settings
+    from django.utils import timezone
+    from .models import (
+        Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
+        EngineeringRecord, PermitDetail, ProjectDetail, Document,
+        RecordRequirement, Record, AuditLog, LoginAttempt, BlockedIP, UserDevice
+    )
+
+    now = timezone.now()
+    local_now = timezone.localtime(now)
+    timestamp_str = local_now.strftime('%Y-%m-%d_%I.%M%p')
+    filename = f"eTala_Backup_{timestamp_str}.zip"
+
+    # 1. Serialize all essential municipal database models
+    models_to_backup = [
+        Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
+        EngineeringRecord, PermitDetail, ProjectDetail, Document,
+        RecordRequirement, Record, AuditLog, LoginAttempt, BlockedIP, UserDevice
+    ]
+    serialized_entries = []
+    total_records = 0
+
+    for model_cls in models_to_backup:
+        try:
+            qs = list(model_cls.objects.all())
+            if qs:
+                raw_json = serializers.serialize('json', qs)
+                parsed = json.loads(raw_json)
+                if parsed:
+                    serialized_entries.extend(parsed)
+                    total_records += len(parsed)
+        except Exception as e:
+            logger.warning(f"Batch JSON serialization failed for {model_cls.__name__} ({e}), trying individual...")
+            try:
+                for obj in model_cls.objects.all():
+                    try:
+                        raw_json = serializers.serialize('json', [obj])
+                        obj_data = json.loads(raw_json)
+                        if obj_data:
+                            serialized_entries.extend(obj_data)
+                            total_records += 1
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+    json_data = json.dumps(serialized_entries, indent=2)
+
+    # 2. Build ZIP in memory
+    zip_buffer = io.BytesIO()
+    media_files_count = 0
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    EXCLUDED_MEDIA_DIRS = {'backups', 'feedback_attachments', 'temp_uploads', '.tmp', '__pycache__'}
+
+    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+        # Write database json into clean database/ folder (compressed)
+        zip_file.writestr('database/etala_database.json', json_data, compress_type=zipfile.ZIP_DEFLATED)
+
+        # Write clean municipal media files (documents, blueprints, profile pictures)
+        # Using ZIP_STORED because PDFs, JPGs, and PNGs are already compressed
+        if media_root.exists():
+            for src_path in sorted(media_root.rglob('*')):
+                try:
+                    if src_path.is_file():
+                        rel_path = src_path.relative_to(media_root)
+                        parts = rel_path.parts
+
+                        # Skip excluded root directories (backups, feedback screenshots, temp uploads)
+                        if parts and parts[0].lower() in EXCLUDED_MEDIA_DIRS:
+                            continue
+                        # Skip OS and hidden files
+                        if src_path.name.startswith('.') or src_path.name.lower() in ('thumbs.db', 'desktop.ini'):
+                            continue
+
+                        zip_archive_path = f"media/{rel_path.as_posix()}"
+                        zip_file.write(src_path, arcname=zip_archive_path, compress_type=zipfile.ZIP_STORED)
+                        media_files_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to write file {src_path} to backup zip: {e}")
+
+        # Write user-friendly, descriptive manifest.json (compressed)
+        user_display = (user.get_full_name() or user.username) if user else "System Administrator"
+        manifest_data = {
+            "system": "eTala Municipal Engineering Records System",
+            "version": "1.0.0",
+            "municipality": "Municipality of Carigara, Leyte",
+            "archive_type": "Full Municipal Backup (.ZIP)",
+            "created_at": now.isoformat(),
+            "created_at_formatted": timezone.localtime(now).strftime('%B %d, %Y - %I:%M:%S %p'),
+            "created_by": user_display,
+            "summary": {
+                "total_database_records": total_records,
+                "total_documents_and_files": media_files_count,
+                "database_file": "database/etala_database.json",
+                "media_folder": "media/"
+            },
+            "models_included": [m.__name__ for m in models_to_backup],
+        }
+        zip_file.writestr('backup_manifest.json', json.dumps(manifest_data, indent=2), compress_type=zipfile.ZIP_DEFLATED)
+
+    zip_buffer.seek(0)
+
+    # Audit log
+    if user:
+        try:
+            AuditLog.objects.create(
+                user=user,
+                action=f"Exported Complete System Archive (.ZIP): {total_records} records, {media_files_count} documents."
+            )
+        except Exception:
+            pass
+
+    return zip_buffer, filename, total_records, media_files_count
+
+
+def restore_full_system_archive(uploaded_file, user=None):
+    """
+    Restores eTala system from either:
+    - .ZIP archive (Complete system: extracts physical media files + deserializes database tables)
+    - .JSON file (Legacy data-only: deserializes database tables)
+    Guaranteed ZipSlip protection & atomic database rollback.
+    Returns: dict with status, counts, and message.
+    """
+    import zipfile
+    import json
+    from pathlib import Path
+    from django.core import serializers
+    from django.db import transaction
+    from django.conf import settings
+    from .models import AuditLog
+
+    fname = uploaded_file.name.lower()
+    if not (fname.endswith('.zip') or fname.endswith('.json')):
+        return {'success': False, 'error': 'Invalid file format. Please upload a .ZIP or .JSON backup file.'}
+
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    restored_records_count = 0
+    restored_media_count = 0
+    manifest_info = None
+    EXCLUDED_RESTORE_DIRS = {'backups', 'feedback_attachments', 'temp_uploads', '.tmp', '__pycache__'}
+
+    if fname.endswith('.zip'):
+        try:
+            with zipfile.ZipFile(uploaded_file, 'r') as zf:
+                # 1. Read manifest if present
+                if 'backup_manifest.json' in zf.namelist():
+                    try:
+                        manifest_info = json.loads(zf.read('backup_manifest.json').decode('utf-8'))
+                    except Exception:
+                        pass
+
+                # 2. Extract media files safely with ZipSlip protection
+                media_root.mkdir(parents=True, exist_ok=True)
+                for member in zf.namelist():
+                    if member.endswith('/'):
+                        continue
+
+                    # Support members inside media/ or directly at top level (documents/, profile_pictures/)
+                    rel_member_path = None
+                    if member.startswith('media/'):
+                        rel_member_path = member[len('media/'):]
+                    elif member.startswith('documents/') or member.startswith('profile_pictures/'):
+                        rel_member_path = member
+
+                    if rel_member_path:
+                        parts = Path(rel_member_path).parts
+                        if parts and parts[0].lower() in EXCLUDED_RESTORE_DIRS:
+                            continue
+                        if '..' in rel_member_path or (parts and parts[-1].startswith('.')):
+                            continue
+
+                        dest_file_path = (media_root / rel_member_path).resolve()
+                        # Strict ZipSlip path check: ensure dest_file_path is inside media_root
+                        if not str(dest_file_path).startswith(str(media_root)):
+                            logger.warning(f"ZipSlip attempt blocked for member: {member}")
+                            continue
+
+                        dest_file_path.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(member, 'r') as source_f, open(dest_file_path, 'wb') as target_f:
+                            shutil.copyfileobj(source_f, target_f, length=256 * 1024)
+                        restored_media_count += 1
+
+                # 3. Locate & Restore database json
+                db_member = None
+                for candidate in ['database/etala_database.json', 'etala_database.json']:
+                    if candidate in zf.namelist():
+                        db_member = candidate
+                        break
+
+                if not db_member:
+                    # Look for any .json inside
+                    for member in zf.namelist():
+                        if member.endswith('.json') and member != 'backup_manifest.json':
+                            db_member = member
+                            break
+
+                if not db_member:
+                    return {'success': False, 'error': 'Invalid backup file: Missing database records inside ZIP.'}
+
+                json_content = zf.read(db_member).decode('utf-8')
+                objects_to_save = list(serializers.deserialize('json', json_content, ignorenonexistent=True))
+
+                if not objects_to_save:
+                    return {'success': False, 'error': 'Invalid backup file: No valid records found in backup.'}
+
+                with transaction.atomic():
+                    for obj in objects_to_save:
+                        obj.save()
+                        restored_records_count += 1
+
+        except zipfile.BadZipFile:
+            return {'success': False, 'error': 'Invalid backup file: The ZIP file is damaged or incomplete.'}
+        except Exception as e:
+            logger.error(f"Failed restoring backup: {e}", exc_info=True)
+            return {'success': False, 'error': f'Restore failed: {str(e)}'}
+
+    else:
+        # Legacy .JSON restore
+        try:
+            content = uploaded_file.read().decode('utf-8')
+            objects_to_save = list(serializers.deserialize('json', content, ignorenonexistent=True))
+            if not objects_to_save:
+                return {'success': False, 'error': 'The uploaded backup file contains no valid eTala records.'}
+
+            with transaction.atomic():
+                for obj in objects_to_save:
+                    obj.save()
+                    restored_records_count += 1
+        except Exception as e:
+            return {'success': False, 'error': f'Failed to restore JSON backup: {str(e)}'}
+
+    # Record Audit Log
+    if user:
+        try:
+            archive_type_str = "Complete System Archive (.ZIP)" if fname.endswith('.zip') else "Data Backup (.JSON)"
+            log_desc = f"Restored {archive_type_str} from '{uploaded_file.name}': {restored_records_count} records and {restored_media_count} media files restored."
+            AuditLog.objects.create(
+                user=user,
+                action=log_desc
+            )
+        except Exception:
+            pass
+
+    return {
+        'success': True,
+        'is_zip': fname.endswith('.zip'),
+        'records_restored': restored_records_count,
+        'media_restored': restored_media_count,
+        'manifest': manifest_info,
+        'filename': uploaded_file.name,
     }
 

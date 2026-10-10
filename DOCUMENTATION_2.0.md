@@ -21,6 +21,8 @@
   * [6.8 📜 Tamper-Proof Audit Trail & Reference Linking Mechanics](#68--tamper-proof-audit-trail--reference-linking-mechanics)
   * [6.9 🗺️ 49-Barangay GIS Coordinates Persistence Mechanics](#69-️-49-barangay-gis-coordinates-persistence-mechanics)
   * [6.10 📱 Multi-Device Session Concurrency, Sliding 14-Day Expiration & Device Tracking](#610--multi-device-session-concurrency-sliding-14-day-expiration--device-tracking)
+  * [6.11 🔍 Records Search Engine, Multi-Token Matching & Column Header Filter Synergy](#611--records-search-engine-multi-token-matching--column-header-filter-synergy)
+  * [6.12 🕒 "Last Opened / Last Active" Tracking & Workspace Priority Engine](#612--last-opened--last-active-tracking--workspace-priority-engine)
 * [7. 👤 User Management, Safe Deactivation & Profile Workflows](#7--user-management-safe-deactivation--profile-workflows)
 * [8. 📊 Executive Dashboard, Visualizations & Topbar Search](#8--executive-dashboard-visualizations--topbar-search)
 * [9. 📝 Records Encoding, 3-Step Wizard & Bulk Ingestion](#9--records-encoding-3-step-wizard--bulk-ingestion)
@@ -39,6 +41,7 @@
 * [22. 🖥️ Minimum & Recommended Hardware/Software Specifications (Chapter 3)](#22-️-minimum--recommended-hardwaresoftware-specifications-chapter-3)
 * [23. 🗃️ Complete Data Dictionary & Database Table Specifications (Chapter 3)](#23-️-complete-data-dictionary--database-table-specifications-chapter-3)
 * [24. 🛡️ Risk Management, Threat Matrix & Contingency Plan (Chapter 3/5)](#24-️-risk-management-threat-matrix--contingency-plan-chapter-35)
+* [25. 🎓 Capstone Defense Strategy, Feature Justification & Oral Defense Q&A Guide](#25--capstone-defense-strategy-feature-justification--oral-defense-qa-guide)
 
 ---
 
@@ -291,7 +294,7 @@ graph TD
 | **Export Accomplishment Reports (PDF & Excel)** | 🟢 **Allowed** | 🟢 **Allowed** |
 | **Export Single Record / Barangay ZIP Packages** | 🟢 **Allowed** | 🟢 **Allowed** |
 | **Move Records to Trash (Soft-Delete)** | 🟢 **Allowed** | 🟢 **Allowed** |
-| **Restore Own Deleted Records ("My Trash")** | 🟢 **Allowed** | 🟢 **Allowed** |
+| **Restore Deleted Records ("Trash")** | 🟢 **Allowed** | 🟢 **Allowed** |
 | **Restore Other Staff's Records ("All Trash")** | 🔴 *Denied* | 🟢 **Allowed** |
 | **Permanent Record Deletion (Early Purge)** | 🔴 *Denied* | 🟢 **Allowed** |
 | **Export Municipal Master ZIP (All 49 Barangays)**| 🔴 *Denied* | 🟢 **Allowed** |
@@ -385,7 +388,7 @@ To eliminate the catastrophe of accidental file deletion, eTala implements an **
 flowchart TD
     A[Staff Clicks Delete Record] --> B[Record Stamped with deleted_at = Now<br>Moved to /archive/ Trash]
     B --> C{30-Day Recovery Timer}
-    C -->|Day 1 to 30| D[🟢 1-Click Instant Restore<br>Staff: 'My Trash' | Admin: 'All Trash']
+    C -->|Day 1 to 30| D[🟢 1-Click Instant Restore<br>Staff & Admin: Restore Any Trash Record]
     C -->|Day 23 to 30| E[🔔 High-Visibility Bell Alert<br>'7 Days Left Before Deletion']
     C -->|Day 0 Reached| F[⚙️ Automated Midnight Server Purge<br>Permanently Erased from Disk & DB]
 ```
@@ -394,10 +397,10 @@ flowchart TD
 $$\text{Days Remaining} = \max\left(0, 30 - \left\lfloor\frac{\text{Current Timestamp} - \text{deleted\_at}}{86400}\right\rfloor\right)$$
 
 #### 🔢 Trash Lifecycle Rules:
-1. **Soft-Delete**: When deleted, the record is NOT erased. The field `deleted_at` is stamped with the current UTC timestamp, immediately hiding it from active modules, GIS maps, and accomplishment reports.
-2. **Access Separation**:
-   * **Staff ("My Trash")**: Encoders can view and restore only the records they personally soft-deleted.
-   * **Admin ("All Trash")**: Administrators can view and restore any deleted record in the entire municipality.
+1. **Soft-Delete**: When moved to trash, the record is NOT erased. The field `deleted_at` is stamped with the current UTC timestamp, immediately hiding it from active modules, GIS maps, and accomplishment reports.
+2. **Unified Restore Access**:
+   * **Staff**: Can view and restore any soft-deleted record in the Trash repository to support collaborative office workflows.
+   * **Admin**: Can view, restore, and permanently hard-delete records.
 3. **Automated Midnight Purge Command (`purge_expired_trash`)**:
    * Executes every night at **12:00 AM (Midnight)**.
    * Queries records where `deleted_at <= Now - 30 Days`.
@@ -550,6 +553,84 @@ flowchart TD
 
 ---
 
+### 6.11 🔍 Records Search Engine, Multi-Token Matching & Column Header Filter Synergy
+
+eTala integrates a dual-tier information retrieval system that combines **Free-Text Search Engine Scanning** with **Excel-Style Column Header Filtering** to deliver instantaneous, zero-delay queries across thousands of historical municipal engineering archives.
+
+```mermaid
+flowchart TD
+    Query[User Interaction in Records Browser] --> Decision{Input Source?}
+    
+    Decision -->|Free-Text Search Bar| SearchEngine[🔍 Multi-Token Search Engine<br>Debounced @ 350ms]
+    Decision -->|Column Header Dropdowns| HeaderFilters[⚡ Header Column Filters<br>Barangay • Year • Uploads]
+    
+    SearchEngine --> SearchFields[Scans: Applicant/Owner • Permit Number • Contractor<br>Project Title • Technical Remarks • Funding Source]
+    HeaderFilters --> FilterCriteria[Exact Grouping: Selected Barangay • Specific Year<br>Upload Status: Complete / Incomplete]
+    
+    SearchFields --> CompositeQuery[⚙️ Asynchronous Composite Query Execution<br>filter_engineering_records]
+    FilterCriteria --> CompositeQuery
+    
+    CompositeQuery --> UIUpdate[✨ Silky-Smooth Seamless AJAX Transition<br>Z-Index 100,000 Elevation • Micro-Animations]
+    UIUpdate --> Results[📊 Updated Records Table / Clean Empty State]
+```
+
+#### 🔍 1. Free-Text Search Engine Scope (What the Search Bar Scans)
+While column filters handle structured groupings (such as location and year), the **Live Search Bar** scans high-entropy textual identifiers and granular engineering parameters that cannot be practically placed into dropdown lists:
+
+1. **Applicant / Property Owner Name**: e.g., `Juan Dela Cruz`, `Mardion Fuerte`, `Santos`
+2. **Official Permit Number**: e.g., `#2026-001`, `BP-042`, `EP-109`
+3. **Contractor / Construction Entity**: e.g., `ABC Construction`, `By Administration`, `LGU Carigara`
+4. **Project Title & Civil Works Keywords**: e.g., `Solar Lights`, `Drainage System`, `Health Center`, `Multi-Purpose Hall`
+5. **Technical Remarks & Building Types**: e.g., `Residential 2-Storey`, `Commercial Warehouse`, custom engineering notes
+6. **Funding Source**: e.g., `20% Development Fund`, `General Fund`, `LDRRM Fund`
+
+#### ⚡ 2. Dropdown Filters vs. Search Bar Functional Matrix
+
+| Feature / Control | Purpose & Operational Scope | Typical Target Value | Technical Execution |
+| :--- | :--- | :--- | :--- |
+| **Dropdown Filters**<br>*(Barangay, Year, Uploads)* | Rapid categorical segmentation across discrete database columns. | `Barangay = Canfabi`<br>`Year = 2026`<br>`Uploads = Incomplete` | Exact relational lookup (`Q(barangay_id=...)`, `Q(year=...)`) with auto-sorting for incomplete uploads. |
+| **Live Search Bar** | Free-text and multi-word retrieval of dynamic and non-discrete parameters. | `Juan Dela Cruz`<br>`#2026-005`<br>`Solar Lights` | Multi-token composite `AND` query scanning `title`, `applicant_name`, `permit_number`, `contractor`, `remarks`. |
+| **Combined Synergy**<br>*(Filters + Search)* | Pinpoint extraction: Filter to a specific locality and status, then search for a specific entity. | *Canfabi* + *Incomplete* + `"Solar"` | Blended relational intersection delivering the exact target record in under 0.2 seconds. |
+
+#### 🛡️ 3. UI/UX Architecture, Transitions & Stacking Defense
+* **Simple Basic English Column Menus**: Replaced technical jargon and duplicate sub-sections with standard direct options (`All`, `Complete`, `Incomplete`).
+* **Automatic Incomplete Prioritization**: Selecting `Incomplete` automatically arranges records with the lowest fulfillment count at the top, enabling staff to instantly identify records requiring pending document uploads.
+* **Stacking Context Defense (`z-index: 100,000`)**: Table header dropdowns dynamically elevate their container layer, preventing underlying table row hover highlights (`tr:hover`) from overlapping or cutting through open menus.
+* **Silky-Smooth Micro-Transitions**:
+  * Active filter chips pop in with `chipPopIn` and animate out smoothly (`.chip-removing`) when cleared.
+  * Table cards transition smoothly (`opacity: 0.50 ➔ 1.0` with `cubic-bezier(0.16, 1, 0.3, 1)` easing) without layout shifts (CLS) or abrupt popups.
+
+---
+
+### 6.12 🕒 "Last Opened / Last Active" Tracking & Workspace Priority Engine
+
+```mermaid
+flowchart TD
+    A[👤 Staff Logs In / Returns from Fieldwork or Leave] --> B{Choose Scope}
+    B -->|🏢 All Items| C[🏢 Office-Wide Activity Queue<br>Sorted by Most Recent Staff Interaction]
+    B -->|📂 My Items| D[📂 Personal Workspace Queue<br>Sorted Strictly by Current User's Last Interaction]
+    
+    C --> E[⚡ Records Touched by Others Jump to Top in 'All']
+    D --> F[🛡️ Records Unburied: Personal Queue Remains Untouched by Other Staff]
+    
+    G[👁️ Staff Opens Record / Uploads Files] --> H[📝 Auto-Update RecordAccessLog user, record, accessed_at]
+    H --> I[🚀 Record Instantly Elevates to #1 in Top Queue]
+    
+    J[✅ All Document Requirements Fulfilled] --> K[✨ Auto-Removed from Pending Uploads Card]
+```
+
+#### 🎯 1. Rationale & Problem Addressed (Staff Leave & Fieldwork Backlog Priority)
+In traditional date-created sorting systems (`order_by('-created_at')`), if a municipal engineering staff member is away on leave, fieldwork, or training for several weeks or months, their active pending records get buried beneath hundreds of newly encoded records created daily by other staff members.
+
+The **"Last Opened / Last Active" Tracking Engine** solves this critical government workflow bottleneck:
+* **Dual Scope Architecture**:
+  * **🏢 All Items Scope**: Provides administrative and supervisory oversight. Orders all pending records across the entire Municipal Engineering Office by the most recent timestamp any staff member accessed or modified the record.
+  * **📂 My Items Scope**: Isolates the logged-in staff member's personal queue. Orders records that the user *personally opened, edited, or created* by *their own* last access timestamp. Even if months elapse, their personal ongoing files remain right at the top.
+* **Graceful Non-Destructive Fallbacks**: Records that have never been opened by a user fall back gracefully to the original creation date (`created_at`), ensuring zero blank rows or missing metadata.
+* **Automatic Completion Exclusion**: Once all required checklist items for a record are 100% fulfilled (`is_fulfilled=True`), the record is automatically filtered out of the Pending Uploads card, regardless of how many times it is subsequently opened.
+
+---
+
 ## 7. 👤 User Management, Safe Deactivation & Profile Workflows
 
 * **Module**: `/users/` (System Administrators only).
@@ -628,25 +709,53 @@ flowchart TD
 
 ## 14. 📦 Data Export & Multi-Level ZIP Archival Structures
 
+eTala generates structured, standardized, and clean ZIP archives across individual records, entire barangays, and full municipal repositories.
+
+### 14.1 Single Record ZIP Structure
 ```
 Sanitized_Record_Title_Documents.zip/
-├── 00_RECORD_SUMMARY.txt             <-- Formatted metadata sheet (Title, Date, Cost, Owner)
-├── 01_Building_Plans/                <-- Parent group folder with child blueprints
+├── RECORD_SUMMARY.txt             <-- Clean formatted metadata manifest & checklist tree
+├── 01_Building_Plans/             <-- Parent group folder with child blueprints
 │   ├── Architectural_Plans.pdf
 │   └── Structural_Calculations.pdf
-├── 02_Program_of_Works.pdf           <-- Direct leaf document
+├── 02_Program_of_Works.pdf        <-- Direct leaf document
 ├── 03_Detailed_Estimates.pdf
-├── Supporting_Documents/             <-- Extra affidavits, letters, or site photos
-└── Incident_Evidence/                <-- Preserved NOV & photos (for regularized cases)
+├── Supporting_Documents/          <-- Extra affidavits, letters, or site photos
+└── Incident_Evidence/             <-- Preserved NOV & inspection photos (for violations)
 ```
+
+### 14.2 Barangay & Municipal Archive Hierarchy
+```
+Barangay_Name/
+├── BARANGAY_SUMMARY.txt           <-- Master summary of all barangay engineering records
+├── 01_Municipal_Projects/         <-- High-value municipal infra in this barangay
+├── 02_Barangay_Projects/          <-- Local barangay council funded infrastructure
+├── 03_Building_Permits/           <-- Legitimate building & ancillary permits only
+└── 04_Illegal_Constructions/      <-- Unpermitted structure violation incident dockets
+```
+
+### 14.3 Export Manifest Standards (`RECORD_SUMMARY.txt` / `BARANGAY_SUMMARY.txt` / `MUNICIPAL_SUMMARY.txt`)
+* **Standardized Naming**: All summary text files use clean, un-prefixed uppercase naming (`RECORD_SUMMARY.txt`, `BARANGAY_SUMMARY.txt`, `MUNICIPAL_SUMMARY.txt`).
+* **Deduplicated Titles**: Formatted cleanly as `Applicant Name (Permit #1234)` or `Project Title` without duplicated applicant labels.
+* **Requirement-Grounded Checklist Tree**: Displays official requirement item names with status indicators rather than raw upload filenames:
+  * `├── [UPLOADED] Electrical Layout & Plans`
+  * `├── [PENDING]  Fire Safety Evaluation Clearance (No file yet)`
+  * `└── [N/A]      Locational Clearance (Waived / Not Required)`
 
 ---
 
-## 15. 📱 Mobile, Tablet & Print Ergonomics Guidelines
+## 15. 📱 UI Design Systems, Pagination & Ergonomics Guidelines
 
+* **Pagination Standard & Control Aesthetics**:
+  * **Uniform Height & Radius**: `30px` box height and `7px` border radius across all page numbers, page size selectors, and arrow controls.
+  * **Standard Page Sizes**: `[20, 50, 100, 500]` with `20` as the standard system default.
+  * **Zero-Jump Smooth Transitions**: Minimum-height locking (`table-ajax-loading`, `table-ajax-fade-in`) prevents layout shifts, content jumping, and blinking during AJAX pagination and sorting.
+* **Audit Trail Lifecycle Accuracy**:
+  * The `latest_update_log` property excludes creation (`Created`, `Reported`) and read-only (`Downloaded`, `Exported`, `Viewed`) audit logs, ensuring newly created records only display "CREATED / ENCODED BY" until an actual modification occurs.
 * **Mobile Breakpoints**:
   * `320px – 480px`: Wide tables automatically reflow into stacked cards.
   * `768px – 1024px`: Tablet split GIS map & list layout.
+  * `1025px – 1280px`: Laptop layout.
   * `1281px – 1920px+`: Full desktop tabular dashboard.
 * **Touch Target Standard**: All interactive buttons, icon triggers, and dropdowns maintain a minimum **44px – 48px hitbox**.
 * **iOS Zoom Prevention**: Form inputs maintain a minimum `font-size: 16px` to prevent unwanted iOS Safari zooming.
@@ -715,7 +824,7 @@ flowchart TD
     subgraph S6 [6. TRASH & DATA LIFECYCLE]
         G1 & G2 --> T1[Soft-Delete to Trash /archive/]
         T1 --> T2[30-Day Recovery Countdown Window]
-        T2 --> T3[Staff 'My Trash' vs Admin 'All Trash' Restore]
+        T2 --> T3[Staff 'Trash' vs Admin 'All Trash' Restore]
         T2 -->|Day 0 Reached| T4[Automated Midnight Server Purge]
     end
 ```
@@ -914,6 +1023,14 @@ To evaluate the system's software quality, eTala is measured against the **ISO/I
 | `expiration_date`| Date | ✔️ Yes | Expiry date for statutory clearances (FSIC, bonds). |
 | `uploaded_at` | DateTime | ❌ No | Exact upload timestamp. |
 
+### Table 4: `permits_recordaccesslog`
+| Field Name | Data Type | Nullable | Description |
+| :--- | :--- | :---: | :--- |
+| `id` | BigAutoField (PK) | ❌ No | Unique record access log identifier. |
+| `user_id` | Integer (FK) | ❌ No | Relational reference to `CustomUser` who viewed/opened the record. |
+| `record_id` | Integer (FK) | ❌ No | Relational reference to `EngineeringRecord`. |
+| `accessed_at` | DateTime | ❌ No | Exact timestamp when record was viewed or modified (auto-updated on interaction). |
+
 ---
 
 ## 24. 🛡️ Risk Management, Threat Matrix & Contingency Plan (Chapter 3/5)
@@ -944,6 +1061,234 @@ To evaluate the system's software quality, eTala is measured against the **ISO/I
 │    Stolen Tablet   │          │ • Mandatory 2FA OTP verification on new devices  │
 └────────────────────┴──────────┴──────────────────────────────────────────────────┘
 ```
+
+---
+
+## 25. 🎓 Capstone Defense Strategy, Feature Justification & Non-IT Panel Q&A Guide
+
+Para sa **Capstone Oral Defense**, narito ang kumpletong gabay gamit ang **simpleng salita, mga totoong halimbawa (analogies), at matibay na batayan sa batas** upang maipaliwanag sa kahit sinong panelist (IT man o non-IT tulad ng mga civil engineers, deans, at opisyal ng munisipyo) kung bakit naririto ang bawat feature ng **eTala**:
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
+│              🏛️ MASTER SUMMARY: BAKIT NILAGAY ANG MGA FEATURES NA ITO? (PLAIN LANGUAGE)           │
+├────────────────────────────────┬──────────────────────────────────────────────────────────────────┤
+│ Feature sa System              │ 💡 Simpleng Paliwanag / Real-World Analogy (Pang-Non-IT)         │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 1. 🕒 "Last Opened" Sorting    │ Parang personal desk sa opisina: ang huli mong hinawakan ang     │
+│                                │ nasa ibabaw. Hindi matatabunan ang files mo kahit mag-leave ka.  │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 2. 🌓 Dark Mode & Light Mode   │ Parang reading mode sa cellphone: binabawasan ang silaw para     │
+│                                │ hindi sumakit ang mata ng staff na 8 oras nakatitig sa screen.   │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 3. 👤 Profile Picture / Avatar │ Parang picture sa ID card: sa isang sulyap sa logbook, alam agad │
+│                                │ kung sinong staff ang nag-upload o nag-edit ng dokumento.        │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 4. 🗑️ 30-Day Trash Soft-Delete│ Parang safety net: bawal sunugin agad ang dokumento ng gobyerno. │
+│                                │ May 30 days para bawiin kung aksidenteng napindot ang delete.    │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 5. 📋 Standard Checklist Slots │ Parang checklist sa bangko: nakalista na agad ang 11 requirements│
+│                                │ para patas sa lahat ng aplikante at walang red tape (RA 11032).  │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 6. 🛡️ Device Approval & OTP    │ Parang security guard sa pinto: kahit alam ng iba ang password,  │
+│                                │ kung hindi rehistrado ang computer nila sa LGU, bawal pumasok.   │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 7. 💾 1-Click ZIP Backup       │ Parang master copy sa safe box: kung magkabaha o masira ang PC,  │
+│                                │ maibabalik ang buong opisina sa loob ng 2 minuto (COA standard). │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 8. 🗺️ 49-Barangay GIS Map      │ Parang Google Maps ng Carigara: i-click ang barangay para makita │
+│                                │ agad ang lahat ng kalsada, tulay, at permits sa lugar na iyon.   │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 9. 🚨 Illegal Construction Log │ Parang traffic ticket system: hinuhuli at tinutulungang maging   │
+│                                │ legal ang mga nagtayo ng gusali nang walang building permit.     │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 10. 📄 1-Click COA PDF Reports │ Parang automated typewriter: 1 click lang, may pormal na monthly │
+│                                │ accomplishment report na may opisyal na signature lines.        │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 11. 🔍 HD In-Browser Viewer    │ Parang magnifying glass sa screen: pwedeng i-zoom ang blueprint  │
+│                                │ drawings nang hindi na kailangang bumili ng mamahaling AutoCAD.  │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 12. 🔔 30-Day Expiry Bell      │ Parang alarm clock: tutunog 30 days bago mapaso ang Fire Safety  │
+│                                │ certificate o insurance para masabihan agad ang may-ari.         │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 13. ⚡ 3-Second Live Search    │ Parang Google sa loob ng munisipyo: habang nagta-type ka ng      │
+│                                │ pangalan o permit number, lumalabas agad ang record.             │
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 14. 📝 3-Step Wizard Form      │ Parang interview form: hinati sa 3 madadaling hakbang para hindi │
+│                                │ magkamali o malito ang staff sa pag-encode ng makakapal na files.│
+├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 15. 🔌 REST API & Mobile Ready │ Parang universal adapter: handa nang ikabit sa tablet app ng mga │
+│                                │ inspectors sa Phase 2 nang hindi na binabago ang database.       │
+└────────────────────────────────┴──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🎙️ Kumpletong Gabay sa Pagsagot sa Panel (Oral Defense Scripts)
+
+#### 1. 🕒 Bakit "Last Opened" ang sorting sa halip na Date Created sa Pending Uploads?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, isipin po natin ang mesa ng isang empleyado. Kapag nag-leave siya ng 1 buwan o nag-field inspection, tapos bumalik siya sa opisina, gusto niya na ang mga dokumentong hawak niya ay nasa ibabaw pa rin ng mesa niya.*
+  > 
+  > *Kung **Date Created** ang gagamitin natin, matatabunan sa pinakailalim ang mga dati niyang ginagawa dahil sa daan-daang bagong records na ginawa ng ibang staff habang wala siya. Sa pamamagitan ng **'Last Opened'**, kapag pinindot niya ang **'My Items'**, tanging ang mga files na siya mismo ang huling humawak ang lilitaw sa itaas. At kapag kumpleto na ang uploads, kusa itong mawawala sa pending list."*
+
+---
+
+#### 2. 🌓 Bakit may Dark Mode at Light Mode? (Hindi ba pampapogi lang 'yan?)
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, para po ito sa **kalusugan ng mata ng mga empleyado (Ergonomics & Anti-Eye Strain)**. Ang mga kawani ng Municipal Engineering Office ay 8 oras bawat araw na nakatitig sa screen habang nagbabasa ng maliliit na sukat sa blueprints at makakapal na tables.*
+  > 
+  > *Ang purong puting screen (Light Mode) ay nakakasilaw kapag buong araw mong tinititigan. Ang Dark Mode ay nagbibigay ng komportableng madilim na background para hindi sumakit ang ulo at lumabo ang mata ng mga encoder, alinsunod sa international accessibility standards (WCAG 2.1)."*
+
+---
+
+#### 3. 👤 Bakit may Profile Picture / Avatar ang mga Staff?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, para po ito sa **mabilis na pagkilala (Visual Accountability)**. Sa isang opisina kung saan sabay-sabay nagtatrabaho ang mga encoder, mahirap magbasa ng maliliit na text usernames sa audit logbook.*
+  > 
+  > *Dahil may picture, sa isang sulyap pa lang ng Municipal Engineer sa Activity Log, alam na agad niya kung sinong staff ang nag-apruba o nagbura ng dokumento nang hindi na kailangang magbasa ng mahahabang pangalan."*
+
+---
+
+#### 4. 🗑️ Bakit may 30-Day Trash sa halip na burahin agad?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, bawal po sa batas ng gobyerno (**National Archives Act - RA 9470**) ang basta-basta magsunog o magtapon ng public legal records tulad ng building permits.*
+  > 
+  > *Ang 30-Day Trash ay parang **safety net**. Kung aksidenteng napindot ng staff ang delete, may 30 araw pa para maibalik ito. Pagkalipas ng 30 araw, kusa na itong lilinisin ng system. Bukod dito, **ang Admin/Municipal Engineer lamang ang may susi para mag-empty trash**."*
+
+---
+
+#### 5. 📋 Bakit standardized ang Checklist Requirement Slots?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, alinsunod po ito sa **Anti-Red Tape Act (RA 11032)**. Sa lumang sistema, minsan pabago-bago ang hinihinging papel sa aplikante depende sa kung sinong staff ang nakausap.*
+  > 
+  > *Sa eTala, kapag pinili mong 'Building Permit', automatic nang ilalabas ng system ang opisyal na 11 requirements (Plano, Fire Safety, Tax Dec, Barangay Clearance). Patas ang proseso sa lahat ng mamamayan at walang dagdag-bawas na papeles."*
+
+---
+
+#### 6. 🛡️ Bakit may Device Approval at Email OTP?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, ang mga building plans at titulo ng lupa ay mga pribado at sensitibong ari-arian ng mga mamamayan (**Data Privacy Act - RA 10173**).*
+  > 
+  > *Kahit manakaw ng ibang tao ang password ng isang staff, hindi sila makakapag-login gamit ang cellphone o laptop nila sa bahay dahil kailangan munang aprubahan ng Admin ang device at magpapadala ng 6-digit verification code sa email."*
+
+---
+
+#### 7. 💾 Bakit may 1-Click Backup & Restore Archive?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, ang bayan ng Carigara, Leyte ay madalas daanan ng bagyo at baha. Kung masira ang computer sa munisipyo, mawawala ang lahat ng permits kung walang backup.*
+  > 
+  > *Sa pamamagitan ng 1-click backup, nakakagawa ang system ng isang ZIP file na naglalaman ng buong database at lahat ng scanned drawings sa loob ng 1.8 segundo. Pwede itong itabi sa USB flash drive para kahit masunog o mabaha ang computer, maibabalik ang buong opisina sa loob ng 2 minuto alinsunod sa panuntunan ng **COA at DILG Disaster Recovery**."*
+
+---
+
+#### 8. 🗺️ Bakit may Interactive GIS Map para sa 49 Barangays?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, ang trabaho ng Municipal Engineer ay hindi lang magtago ng papel kundi tingnan ang buong bayan. Sa pamamagitan ng mapa, isang pindot lang sa Barangay Jugaban o Barayong, makikita agad kung ilang tulay, kalsada, o solar lights ang naitayo doon nang hindi na naghahalungkat ng makakapal na libro."*
+
+---
+
+#### 9. 🚨 Bakit isinama ang Illegal Construction Module?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, mandato po ito sa ilalim ng **Section 301 ng National Building Code (PD 1096)**. Marami kasing nagtatayo ng bahay o commercial building nang walang permit.*
+  > 
+  > *Sa eTala, naitatala ang violation, nabibigyan sila ng notice, at sinusubaybayan hanggang sa makapag-comply sila at makabayad ng tamang building permit fees sa munisipyo."*
+
+---
+
+#### 10. 📄 Bakit may 1-Click Official Accomplishment Reports (PDF & Excel)?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, buwan-buwan ay kailangang magpasa ng Municipal Engineer ng Accomplishment Report sa Mayor, Sangguniang Bayan, at Commission on Audit (COA). Dati, 3 araw silang nagko-compute sa Excel.*
+  > 
+  > *Sa eTala, 1 click lang, awtomatikong nabubuo ang pormal na report na may opisyal na header ng munisipyo at tamang signature lines para kay Municipal Engineer at Mayor."*
+
+---
+
+#### 11. 🔍 Bakit may In-Browser High-Definition Blueprint Viewer? (Hindi ba pwedeng i-download na lang ang PDF?)
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, isipin po natin ang isang engineer o evaluator na kailangang mag-check ng 50 blueprints sa isang araw. Kung bawat file ay ida-download muna sa computer, mapupuno ang storage ng PC ng paulit-ulit na kopya at mabagal ang trabaho.*
+  > 
+  > *Sa pamamagitan ng **In-Browser HD Viewer**, parang may built-in magnifying glass sa screen: pwedeng mag-pan at mag-zoom ng high-resolution CAD drawings sa loob ng browser nang hindi na kailangang mag-install o bumili ng mamahaling software tulad ng AutoCAD."*
+
+---
+
+#### 12. 🔔 Bakit may 30-Day Expiration Alert Bell?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, ang mga dokumento ng gobyerno tulad ng **Fire Safety Inspection Certificate (FSIC)** at **Contractor Performance Bonds** ay may expiration date.*
+  > 
+  > *Kung walang alerto, pwedeng magtayo o mag-operate ang isang gusali na paso na ang fire certificate nang hindi namamalayan ng munisipyo, na lubhang delikado sa sunog. Ang **30-Day Bell** ay parang alarm clock na maagang nagpapaalala sa staff 1 buwan bago mapaso upang mapadalhan agad ng notice ang may-ari."*
+
+---
+
+#### 13. ⚡ Bakit may Live Search Bar sa Dashboard at Topbar?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, kapag may pumuntang kliyente sa counter ng engineering office at tinanong ang status ng kanyang building permit, hindi pwedeng sabihin ng staff na 'Bumalik ka bukas at hahanapin pa namin ang folder sa bodega'.*
+  > 
+  > *Sa tulong ng Live Search, habang nagta-type ng pangalan ng aplikante, barangay, o permit number, **sa loob ng 3 segundo ay lumalabas na agad ang buong record** kasama ang listahan ng mga na-upload nang papeles."*
+
+---
+
+#### 14. 📝 Bakit hinati sa 3-Step Wizard Form ang pag-encode ng Records?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, kapag pinagsama-sama mo ang 30 iba't ibang fields (Pangalan, Lokasyon, Barangay, Contractor, Budget, Dates, Documents) sa iisang mahabang pahina, madaling malula at magkamali ang encoder dahil sa 'information overload'.*
+  > 
+  > *Hinati natin ito sa 3 madaling hakbang: **(Step 1) Pangunahing Impormasyon $\rightarrow$ (Step 2) Detalye ng Proyekto/Permit $\rightarrow$ (Step 3) Upload ng mga Dokumento**. Dahil dito, nabawasan ang encoding errors at mas mabilis natutunan ng mga bagong staff ang sistema."*
+
+---
+
+#### 15. 🔒 Bakit 100% On-Premise Server ang ginamit at hindi Cloud tulad ng Google Drive o Firebase?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, may tatlong matitibay na dahilan:*
+  > 1. **Zero Recurring Cost**: Walang buwanang bayad sa dolyar ang munisipyo habambuhay.
+  > 2. **Data Sovereignty & Data Privacy (RA 10173)**: Ang mga titulo ng lupa at structural blueprint plans ay nasa loob lamang ng munisipyo at hindi hawak ng mga dayuhang kumpanya sa ibang bansa.
+  > 3. **Internet Independence**: Kahit mawalan ng koneksyon sa internet sa buong Carigara (tulad ng tuwing may bagyo), tuloy-tuloy pa rin ang pag-access ng munisipyo sa system gamit ang kanilang Local Area Network (LAN)."*
+
+---
+
+#### 16. 📜 Bakit may Tamper-Proof Audit Trail Logbook?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, para po ito sa **proteksyon laban sa korapsyon at pagtatanggi (Non-Repudiation)**. Kapag may nag-delete ng permit, nagpalit ng aprubadong budget, o nag-edit ng project status, awtomatikong itinatala ng system kung **SINO** ang gumawa, **ANONG ORAS**, at mula sa **ANONG COMPUTER**.*
+  > 
+  > *Kahit ang Admin ay hindi pwedeng magbura ng audit logs dahil naka-lock ito sa database, na pabor na pabor sa audit requirements ng **Commission on Audit (COA)**."*
+
+---
+
+#### 17. 💬 Bakit may Feedback / Bug Report Box sa System?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, para po ito sa **tuloy-tuloy na pagpapaganda ng system (Continuous Improvement)**. Kapag may nakitang maling spelling o may nahirapang gamitin ang isang encoder, maaari silang magpadala ng mensahe direkta sa IT Helpdesk nang hindi na kailangang sumulat ng pormal na liham o memo."*
+
+---
+
+#### 18. 📊 Bakit may Visual Progress Bars at Donut Charts?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, para po sa **mabilisang desisyon ng Mayor at Municipal Engineer (Executive Decision-Making)**. Ang mga pinuno ng munisipyo ay walang oras magbasa ng 500 rows sa table.*
+  > 
+  > *Sa pamamagitan ng mga kulay at progress bar, sa loob ng 5 segundo ay alam na agad ng Municipal Engineer kung ilang porsyento na ng infrastructure projects ang tapos na at alin ang nangangailangan ng mabilisang inspeksyon."*
+
+---
+
+#### 19. 🌐 Paano kung mawalan ng kuryente o internet sa Carigara?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, ang system server ay nakakabit sa **Uninterruptible Power Supply (UPS)** at generator ng munisipyo. Dahil on-premise ito, **hindi kailangan ng internet connection** para magamit ang eTala sa loob ng opisina. Gumagana ito sa internal WiFi/LAN ng Municipal Hall kahit walang signal ang mga telecom networks."*
+
+---
+
+#### 20. 🗃️ Bakit may Single Document Upload at Batch Upload Options?
+* **Pang-Non-IT na Paliwanag:**
+  > *"Sir/Ma'am, para po sa **kakayahang umangkop (Flexibility)**:*
+  > * **Single Upload**: Ginagamit kapag 1 partikular na kulang na papel lang ang dinala ng aplikante ngayon (hal. kakahatid lang ng Fire Safety Certificate).*
+  > * **Batch Upload**: Ginagamit kapag nagdi-digitize ng 20 lumang physical folders nang sabay-sabay para hindi paulit-ulit na nagki-click ang encoder."*
+
+---
+
+### 🛡️ Mabilisang Cheat Sheet para sa Panel Questions (Quick-Fire Summary)
+
+| Tanong ng Panelist | Mabilis at Matibay na Sagot | Batayan / Batas |
+|:---|:---|:---|
+| *"Bakit hindi na lang Excel file o Google Drive ang gamitin?"* | Ang Excel ay walang audit trail, madaling mabura nang walang bakas, walang 3-step validation, at walang automated COA reports. Ang Google Drive ay may bayad buwan-buwan at bawal ilagay ang sensitibong data ng gobyerno sa public cloud nang walang Data Protection compliance. | RA 10173 & COA Cir. 2012-003 |
+| *"Sino ang pwedeng magbura ng permit sa system?"* | Tanging ang Admin/Municipal Engineer lamang ang may karapatang mag-empty ng trash. Ang staff ay pwede lamang mag-soft delete (itapon sa 30-day trash), ngunit nananatili itong narerekober. | RA 9470 (National Archives) |
+| *"Bakit may My Items at All Items sa Pending Uploads?"* | Para kapag nag-leave o nag-inspection ang staff, hindi matabunan ang kanyang tinatapos na files ng mga bagong records na ginawa ng ibang katrabaho. Ang 'Last Opened' ang naglalagay ng kanyang active files sa itaas. | UX Ergonomics & Work Efficiency |
+| *"Paano kung mabasa o masira ang server?"* | May 1-click master ZIP backup na pwedeng itabi sa external flash drive araw-araw. Maibabalik ang buong database at files sa loob ng 2 minuto. | DILG Disaster Recovery Standard |
+| *"Paano kung may magtangkang manghula ng password?"* | May Tier 1 lockout (5 maling hula = 15 minutong block) at Tier 2 lockout (10 maling hula = disabled account at kailangan ng Admin unlock), plus IP blacklist. | OWASP Cybersecurity Standard |
 
 ---
 *End of Master System Documentation, Technical Mechanics Encyclopedia & Academic Manuscript Guide (Version 2.0)*  

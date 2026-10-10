@@ -57,9 +57,14 @@
                                     <span>Pinpoint Location on Map</span>
                                     <span class="text-muted fw-normal" style="font-size: 0.69rem;">(Tap lot on map to set GPS)</span>
                                 </label>
-                                <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 d-none text-danger fw-semibold" id="flagResetPinBtn" style="font-size: 0.70rem;">
-                                    <i class="fa-solid fa-rotate-left me-1"></i>Clear Pin
-                                </button>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 text-primary fw-semibold d-inline-flex align-items-center gap-1" id="flagDetectLocationBtn" onclick="detectFlagCurrentLocation()" style="font-size: 0.70rem;" title="Detect and pin current GPS location">
+                                        <i class="fa-solid fa-crosshairs"></i><span>Use My Location</span>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 d-none text-danger fw-semibold" id="flagResetPinBtn" style="font-size: 0.70rem;">
+                                        <i class="fa-solid fa-rotate-left me-1"></i>Clear Pin
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Hidden Lat/Lng Inputs -->
@@ -845,6 +850,46 @@
         if (guideText) guideText.textContent = 'Select barangay or click map to drop GPS pin';
         if (guideIcon) guideIcon.className = 'fa-solid fa-crosshairs text-warning';
         if (resetBtn) resetBtn.classList.add('d-none');
+    };
+
+    window.detectFlagCurrentLocation = function () {
+        const detectBtn = document.getElementById('flagDetectLocationBtn');
+        if (!detectBtn) return;
+        const origHtml = detectBtn.innerHTML;
+        detectBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" style="width: 10px; height: 10px;" role="status"></span><span>Detecting…</span>`;
+        detectBtn.disabled = true;
+
+        if (!('geolocation' in navigator)) {
+            if (window.showToast) window.showToast('warning', 'GPS Unavailable', 'Geolocation is not supported by your browser.');
+            detectBtn.innerHTML = origHtml;
+            detectBtn.disabled = false;
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                ensureLeafletLoaded(() => {
+                    if (!window.flagMap) window.initFlagLocationMap();
+                    if (window.flagMap) {
+                        window.flagMap.setView([lat, lng], 17);
+                        window.setFlagLocationPin(lat, lng);
+                    }
+                });
+                detectBtn.innerHTML = origHtml;
+                detectBtn.disabled = false;
+                if (window.showToast) window.showToast('success', 'Location Detected', 'GPS Pin set to your current coordinates.');
+            },
+            (err) => {
+                detectBtn.innerHTML = origHtml;
+                detectBtn.disabled = false;
+                let msg = 'Could not retrieve your GPS location. Please check device location permissions.';
+                if (err.code === 1) msg = 'Location permission was denied. Please allow location access in your browser settings.';
+                if (window.showToast) window.showToast('warning', 'GPS Detection Failed', msg);
+            },
+            { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+        );
     };
 
     function setupFlagModalHandlers() {

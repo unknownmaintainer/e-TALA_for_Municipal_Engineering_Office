@@ -598,7 +598,7 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertEqual(res['Content-Type'], 'application/zip')
         with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
             namelist = zf.namelist()
-            self.assertIn('00_RECORD_SUMMARY.txt', namelist)
+            self.assertIn('RECORD_SUMMARY.txt', namelist)
             self.assertTrue(any('floor_plan' in name.lower() or 'floor' in name.lower() for name in namelist))
 
         # 2. Category ZIP Export
@@ -624,7 +624,7 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertEqual(res['Content-Type'], 'application/zip')
         with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
             namelist = zf.namelist()
-            self.assertTrue(any('00_BARANGAY_SUMMARY.txt' in name for name in namelist))
+            self.assertTrue(any('BARANGAY_SUMMARY.txt' in name for name in namelist))
 
         # 5. Municipal Full Archive ZIP Export
         muni_zip_url = reverse('download_municipal_zip')
@@ -633,7 +633,7 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         self.assertEqual(res['Content-Type'], 'application/zip')
         with zipfile.ZipFile(io.BytesIO(res.content), 'r') as zf:
             namelist = zf.namelist()
-            self.assertTrue(any('00_MUNICIPAL_SUMMARY.txt' in name for name in namelist))
+            self.assertTrue(any('MUNICIPAL_SUMMARY.txt' in name for name in namelist))
 
     def test_delete_user_safely_reassigns_records_and_documents(self):
         from permits.models import EngineeringRecord, Document, Barangay

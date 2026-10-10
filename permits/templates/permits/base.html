@@ -95,6 +95,41 @@
             overflow-y: scroll;
         }
 
+        /* ══ SEAMLESS CROSS-PAGE VIEW TRANSITIONS (Zero Jump / Zero Blink) ══ */
+        @view-transition {
+            navigation: auto;
+        }
+
+        ::view-transition-old(root) {
+            animation: 160ms cubic-bezier(0.16, 1, 0.3, 1) both etalaPageFadeExit;
+        }
+
+        ::view-transition-new(root) {
+            animation: 200ms cubic-bezier(0.16, 1, 0.3, 1) both etalaPageFadeEnter;
+        }
+
+        @keyframes etalaPageFadeExit {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.998);
+            }
+        }
+
+        @keyframes etalaPageFadeEnter {
+            from {
+                opacity: 0;
+                transform: translateY(3px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         /* Instant Root Canvas & Layout Background Colors */
         html.dark-mode,
         html.dark-mode body,
@@ -441,10 +476,49 @@
         .notif-electrical { background: #f3e8ff !important; color: #9333ea !important; }
         .notif-record { background: #dcfce7 !important; color: #16a34a !important; }
 
-        /* ══ INSTANT ROCK-SOLID PAGE RENDERING (No Post-Load Jitter / Aftershock) ═════ */
-        .etala-content {
+        /* ══ UNIVERSAL SMOOTH PAGE / SCREEN ENTRANCE (Fast, Hardware-Accelerated) ══ */
+        @keyframes etalaContentEnter {
+            0% {
+                opacity: 0.88;
+                transform: translateY(3px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .etala-content,
+        #mainContent,
+        .etala-page-body {
+            animation: etalaContentEnter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+            will-change: opacity, transform;
+        }
+
+        /* ══ SMOOTH TAB & PILL SCREEN TRANSITIONS (Zero Jump / Zero Blink) ══ */
+        .tab-pane.fade {
+            transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            transform: translateY(3px);
+            opacity: 0;
+        }
+
+        .tab-pane.fade.show,
+        .tab-pane.fade.active {
+            transform: translateY(0) !important;
             opacity: 1 !important;
-            transform: none !important;
+        }
+
+        .tab-pane-custom {
+            transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        /* ══ SMOOTH ACCORDION & COLLAPSE (Zero Jump) ══ */
+        .collapse {
+            transition: height 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .collapsing {
+            transition: height 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         /* ══ UNIVERSAL CIRCULAR SPINNER LOADING OVERLAY ══════════════════════ */
@@ -592,6 +666,24 @@
             border-radius: 9999px;
         }
 
+        /* ══ UNIVERSAL ZERO-HORIZONTAL-SCROLLBAR FOR DROPDOWNS & FILTER MENUS ══ */
+        .dropdown-menu,
+        .header-filter-dropdown,
+        .dropdown-scroll-list,
+        .barangay-dropdown-list {
+            overflow-x: hidden !important;
+        }
+        .dropdown-menu::-webkit-scrollbar:horizontal,
+        .header-filter-dropdown::-webkit-scrollbar:horizontal,
+        .dropdown-scroll-list::-webkit-scrollbar:horizontal,
+        .barangay-dropdown-list::-webkit-scrollbar:horizontal,
+        .dropdown-menu::-webkit-scrollbar-thumb:horizontal,
+        .header-filter-dropdown::-webkit-scrollbar-thumb:horizontal {
+            display: none !important;
+            height: 0px !important;
+            width: 0px !important;
+        }
+
         /* ─── STICKY TABLE & SCROLL CONTAINMENT (NO OVERLAPPING OR CLIPPING) ─── */
         .table-responsive,
         .table-card-responsive,
@@ -650,6 +742,31 @@
             text-transform: uppercase !important;
             color: #64748b !important;
             opacity: 1 !important;
+        }
+
+        /* ── Table Dropdown Stacking Context Preservation ── */
+        .data-table thead:has(.dropdown-menu.show),
+        .compact-data-table thead:has(.dropdown-menu.show),
+        .table thead:has(.dropdown-menu.show),
+        .table-responsive thead:has(.dropdown-menu.show),
+        .data-table thead tr:has(.dropdown-menu.show),
+        .data-table thead th:has(.dropdown-menu.show),
+        .data-table thead th:has([aria-expanded="true"]),
+        .data-table thead.has-open-dropdown,
+        .data-table thead tr.has-open-dropdown,
+        .data-table thead th.has-open-dropdown,
+        .table-responsive thead.has-open-dropdown,
+        .data-table tbody tr.has-open-dropdown,
+        .data-table td.has-open-dropdown {
+            z-index: 1250 !important;
+        }
+
+        .data-table th .dropdown-menu.show,
+        .compact-data-table th .dropdown-menu.show,
+        .table th .dropdown-menu.show,
+        .header-filter-dropdown.show,
+        .data-table .dropdown-menu.show {
+            z-index: 1300 !important;
         }
 
         /* ── Dark Mode Table System ── */
@@ -1310,6 +1427,22 @@
             background: #ffffff !important;
         }
 
+        .pagination-bar .per-page-select select,
+        .pagination-bar .per-page-select .form-select,
+        .pagination-bar .page-jump input,
+        .pagination-bar .page-jump .form-control,
+        .pagination-bar .pagination .page-link,
+        .pagination-bar .page-btn {
+            height: 30px !important;
+            min-height: 30px !important;
+            max-height: 30px !important;
+            border-radius: 7px !important;
+            font-size: 0.76rem !important;
+            font-weight: 600 !important;
+            box-sizing: border-box !important;
+            vertical-align: middle !important;
+        }
+
         @media (min-width: 768px) {
             .pagination-bar {
                 display: flex !important;
@@ -1381,9 +1514,10 @@
             }
 
             .pagination-bar .per-page-select select {
-                height: 28px !important;
+                height: 30px !important;
                 padding: 2px 20px 2px 8px !important;
                 font-size: 0.74rem !important;
+                border-radius: 7px !important;
             }
 
             .pagination-bar .page-jump {
@@ -1404,14 +1538,14 @@
             }
 
             .pagination-bar .pagination .page-link {
-                min-width: 28px !important;
-                height: 28px !important;
+                min-width: 30px !important;
+                height: 30px !important;
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                padding: 0 6px !important;
+                padding: 0 8px !important;
                 font-size: 0.74rem !important;
-                border-radius: 6px !important;
+                border-radius: 7px !important;
             }
         }
 
@@ -2424,6 +2558,12 @@
         .header-bell-btn:hover .fa-bell {
             animation: etalaBellSwing 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
             transform-origin: top center;
+        }
+
+        .header-bell-btn i,
+        .header-bell-btn span,
+        .header-bell-btn * {
+            pointer-events: none !important;
         }
 
         .header-nav-divider {
@@ -6089,7 +6229,7 @@
             width: 100vw !important;
             height: 100vh !important;
             background: transparent !important;
-            z-index: 1040 !important;
+            z-index: 1030 !important;
             opacity: 0 !important;
             visibility: hidden !important;
             pointer-events: none !important;
@@ -6119,7 +6259,7 @@
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
-            z-index: 1060 !important;
+            z-index: 999999 !important;
             pointer-events: auto !important;
         }
 
@@ -6171,17 +6311,28 @@
             }
         }
 
-        @media (max-width: 576px) {
-            .notification-dropdown-card.dropdown-menu {
+        @media (max-width: 767.98px) {
+            .notification-dropdown-card.dropdown-menu,
+            .dropdown-menu.notification-dropdown-card {
                 position: fixed !important;
                 top: 56px !important;
                 left: 10px !important;
                 right: 10px !important;
                 width: auto !important;
-                max-width: 380px !important;
+                max-width: calc(100vw - 20px) !important;
                 margin-left: auto !important;
-                margin-right: 0 !important;
+                margin-right: auto !important;
                 margin-top: 0 !important;
+                z-index: 999999 !important;
+            }
+
+            .dropdown-menu.notification-dropdown-card.show,
+            .notification-dropdown-card.show {
+                display: flex !important;
+                flex-direction: column !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
             }
 
             .user-profile-dropdown-card {
@@ -6191,6 +6342,7 @@
                 left: auto !important;
                 margin-right: 6px !important;
                 margin-top: 8px !important;
+                z-index: 999999 !important;
             }
         }
 
@@ -7877,6 +8029,64 @@
             height: 0 !important;
         }
 
+        #activeChipsWrapper {
+            overflow: hidden;
+            transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease, margin 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        #activeChipsWrapper.wrapper-collapsing {
+            max-height: 0 !important;
+            opacity: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            pointer-events: none !important;
+        }
+
+        .filter-chip {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 9999px !important;
+            padding: 3px 10px !important;
+            font-size: var(--text-xs) !important;
+            color: #64748b !important;
+            font-weight: 500 !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+            max-width: 450px;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            box-sizing: border-box;
+            transition: max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        opacity 0.20s cubic-bezier(0.16, 1, 0.3, 1),
+                        transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                        padding 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        margin 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                        border-width 0.25s ease,
+                        background-color 0.15s ease,
+                        border-color 0.15s ease !important;
+        }
+
+        .filter-chip.chip-removing {
+            opacity: 0 !important;
+            transform: scale(0.85) translateY(-2px) !important;
+            max-width: 0 !important;
+            min-width: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            margin-left: 0 !important;
+            margin-right: -8px !important;
+            border-left-width: 0 !important;
+            border-right-width: 0 !important;
+            border-color: transparent !important;
+            pointer-events: none !important;
+        }
+
 
 
         @media (max-width: 767.98px) {
@@ -8909,11 +9119,11 @@
                     {% if request.user.role == 'admin' or request.user.role == 'staff' %}
                     <a href="{% url 'archive' %}"
                         class="nav-item {% if active_tab == 'archive' or '/archive/' in request.path %}active{% endif %}"
-                        title="{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}">
+                        title="Trash">
                         <div class="nav-item-content">
                             <i class="fa-solid fa-trash-can"
                                 style="font-size: 15px; width: 20px; text-align: center;"></i>
-                            <span class="nav-label">{% if request.user.role == 'staff' %}My Trash{% else %}Trash{% endif %}</span>
+                            <span class="nav-label">Trash</span>
                         </div>
                     </a>
                     {% endif %}
@@ -9035,7 +9245,7 @@
 
                             <!-- Notifications Bell Dropdown -->
                             <div class="dropdown">
-                                <button class="header-bell-btn position-relative" data-bs-toggle="dropdown" data-bs-display="static"
+                                <button class="header-bell-btn position-relative" data-bs-toggle="dropdown" data-bs-display="static" data-bs-auto-close="outside"
                                     id="notificationBellBtn" type="button" aria-expanded="false" aria-label="Notifications"
                                     title="Notifications">
                                     <i class="fa-solid fa-bell" style="font-size: 16px;"></i>
@@ -9965,30 +10175,34 @@
             } else if (comboLower.includes('cop')) {
                 toastText = 'Copied to clipboard';
             }
-            // 4b. ZIP Archives & Exports
-            else if (comboLower.includes('zip') || comboLower.includes('bundl')) {
-                if (comboLower.includes('fail') || isError) {
-                    toastText = 'Failed to generate ZIP archive';
-                } else if (comboLower.includes('prepar') || comboLower.includes('compil') || comboLower.includes('bundl') || tagLower.includes('info')) {
-                    toastText = 'Preparing ZIP archive...';
-                } else {
-                    toastText = 'ZIP archive ready';
-                }
-            }
-            // 4c. Database Backup & Restore Operations
-            else if (comboLower.includes('backup')) {
+            // 4b. Database Backup & Restore Operations (Must precede generic ZIP export!)
+            else if (comboLower.includes('backup') || comboLower.includes('database dump') || (comboLower.includes('restor') && (comboLower.includes('system') || comboLower.includes('archive') || comboLower.includes('file')))) {
                 if (comboLower.includes('restor')) {
                     if (tagLower.includes('info') || comboLower.includes('process') || comboLower.includes('prepar')) {
-                        toastText = 'Restoring database records...';
+                        toastText = 'Restoring backup...';
+                    } else if (isSuccess) {
+                        toastText = (m && m.length <= 80) ? m : 'Backup restored successfully';
                     } else {
-                        toastText = isSuccess ? 'Database records restored successfully' : 'Database restore failed';
+                        toastText = (m && m.length <= 80) ? m : 'Failed to restore backup';
                     }
                 } else {
                     if (tagLower.includes('info') || comboLower.includes('prepar')) {
                         toastText = 'Preparing backup file...';
+                    } else if (isSuccess) {
+                        toastText = (m && m.length <= 80) ? m : 'Backup downloaded successfully';
                     } else {
-                        toastText = isSuccess ? 'Backup downloaded successfully' : 'Backup download failed';
+                        toastText = (m && m.length <= 80) ? m : 'Backup download failed';
                     }
+                }
+            }
+            // 4c. ZIP Archives & Exports
+            else if (comboLower.includes('zip') || comboLower.includes('bundl')) {
+                if (comboLower.includes('fail') || isError) {
+                    toastText = (m && m.length <= 80) ? m : 'Failed to generate ZIP archive';
+                } else if (comboLower.includes('prepar') || comboLower.includes('compil') || comboLower.includes('bundl') || tagLower.includes('info')) {
+                    toastText = 'Preparing ZIP archive...';
+                } else {
+                    toastText = 'ZIP archive ready';
                 }
             }
             // 4d. General Downloads
@@ -11578,7 +11792,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             document.addEventListener('click', function(e) {
                 // 1. Universal ZIP & Archive Download Toast Trigger
-                const zipBtn = e.target.closest('a[href*="download-zip"], a[href*="download_zip"], a[href*="download_category_zip"], a[href*="download_record_zip"], a[href*="download_barangay_zip"], .zip-download-btn, .zip-export-btn, .btn-export');
+                const zipBtn = e.target.closest('a[href*="download-zip"], a[href*="download_zip"], a[href*="download_category_zip"], a[href*="download_record_zip"], a[href*="download_barangay_zip"], .zip-download-btn, .zip-export-btn');
                 if (zipBtn) {
                     const fileCountAttr = zipBtn.getAttribute('data-file-count');
                     if (fileCountAttr !== null && parseInt(fileCountAttr, 10) === 0) {
@@ -11653,11 +11867,28 @@
                 }
             });
 
-            // ══ SMART AUTO-DROPUP FOR TABLE & CHECKLIST ACTION MENUS ═════════════════════
-            // Auto-flips dropdown upwards ONLY when bottom space is genuinely tight AND room above is ample
+            // ══ SMART AUTO-DROPUP & STACKING CONTEXT FOR TABLE & CHECKLIST MENUS ═══════
             document.addEventListener('show.bs.dropdown', function (e) {
-                const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, .brgy-kebab-btn, [data-bs-toggle="dropdown"]');
+                const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, .brgy-kebab-btn, .header-menu-btn, [data-bs-toggle="dropdown"]');
                 if (!btn) return;
+
+                // Elevate z-index for parent table header/row elements so hover never cuts through open menus
+                const tableCell = btn.closest('th, td');
+                const tableRow = btn.closest('tr');
+                const tableHead = btn.closest('thead');
+                if (tableCell) {
+                    tableCell.classList.add('has-open-dropdown');
+                    tableCell.style.setProperty('z-index', '1250', 'important');
+                }
+                if (tableRow) {
+                    tableRow.classList.add('has-open-dropdown');
+                    tableRow.style.setProperty('z-index', '1250', 'important');
+                }
+                if (tableHead) {
+                    tableHead.classList.add('has-open-dropdown');
+                    tableHead.style.setProperty('z-index', '1250', 'important');
+                }
+
                 const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell, .btn-group');
                 if (!parentDropdown) return;
 
@@ -11728,8 +11959,24 @@
             });
 
             document.addEventListener('hidden.bs.dropdown', function (e) {
-                const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, .brgy-kebab-btn, [data-bs-toggle="dropdown"]');
+                const btn = e.target.closest('.row-action-btn, .checklist-kebab-btn, .brgy-kebab-btn, .header-menu-btn, [data-bs-toggle="dropdown"]');
                 if (btn) {
+                    const tableCell = btn.closest('th, td');
+                    const tableRow = btn.closest('tr');
+                    const tableHead = btn.closest('thead');
+                    if (tableCell) {
+                        tableCell.classList.remove('has-open-dropdown');
+                        tableCell.style.removeProperty('z-index');
+                    }
+                    if (tableRow) {
+                        tableRow.classList.remove('has-open-dropdown');
+                        tableRow.style.removeProperty('z-index');
+                    }
+                    if (tableHead) {
+                        tableHead.classList.remove('has-open-dropdown');
+                        tableHead.style.removeProperty('z-index');
+                    }
+
                     const parentDropdown = btn.closest('.dropdown, .action-dropdown, .action-menu-cell, .btn-group');
                     if (parentDropdown) {
                         parentDropdown.classList.remove('dropup');
@@ -11979,6 +12226,8 @@
                         menu.classList.remove('show');
                     }
                 });
+                document.documentElement.classList.remove('header-dropdown-open');
+                document.body.classList.remove('header-dropdown-open');
             };
 
             // Prefetch links on hover/touch for lightning-fast page transitions
@@ -12305,124 +12554,6 @@
                 });
             }
         })();
-
-        // ── ⚡ SMART RESUME / WELCOME BACK AMBIENT OVERLAY ──
-        {% if user.is_authenticated %}
-        (function() {
-            let lastActiveTime = Date.now();
-            let lastHiddenTime = 0;
-            const TAB_AWAY_THRESHOLD_MS = 60 * 1000;         // 1 minute when switching tabs/minimized
-            const IDLE_STANDBY_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes when page is idle untouched
-            let isShowingResume = false;
-            let standbyTriggered = false;
-
-            // 1. Tab visibility / minimize handling
-            document.addEventListener('visibilitychange', function() {
-                if (document.visibilityState === 'hidden') {
-                    lastHiddenTime = Date.now();
-                } else if (document.visibilityState === 'visible') {
-                    if (lastHiddenTime > 0 && (Date.now() - lastHiddenTime) >= TAB_AWAY_THRESHOLD_MS) {
-                        triggerResumeScreen();
-                    }
-                    lastHiddenTime = 0;
-                    lastActiveTime = Date.now();
-                }
-            });
-
-            window.addEventListener('blur', function() {
-                if (!lastHiddenTime) lastHiddenTime = Date.now();
-            });
-
-            window.addEventListener('focus', function() {
-                if (lastHiddenTime > 0 && (Date.now() - lastHiddenTime) >= TAB_AWAY_THRESHOLD_MS) {
-                    triggerResumeScreen();
-                }
-                lastHiddenTime = 0;
-                lastActiveTime = Date.now();
-            });
-
-            // 2. On-page idle standby tracking (when left open on screen)
-            function recordActivity() {
-                const now = Date.now();
-                if (!isShowingResume) {
-                    if ((now - lastActiveTime) >= IDLE_STANDBY_THRESHOLD_MS && !standbyTriggered) {
-                        standbyTriggered = true;
-                        triggerResumeScreen();
-                    }
-                }
-                lastActiveTime = now;
-            }
-
-            let activityThrottle = null;
-            function onUserAction() {
-                if (!activityThrottle) {
-                    recordActivity();
-                    activityThrottle = setTimeout(() => { activityThrottle = null; }, 2000);
-                }
-            }
-
-            ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
-                window.addEventListener(evt, onUserAction, { passive: true });
-            });
-
-            function triggerResumeScreen() {
-                if (isShowingResume) return;
-                const overlay = document.getElementById('etala-resume-screen');
-                if (!overlay) return;
-
-                isShowingResume = true;
-                overlay.classList.add('active');
-                
-                // Animate progress bar smoothly
-                const progressBar = overlay.querySelector('.etala-resume-progress-fill');
-                if (progressBar) {
-                    progressBar.style.width = '0%';
-                    setTimeout(() => { progressBar.style.width = '100%'; }, 40);
-                }
-
-                // Smoothly dismiss after 1.2s to allow data to refresh
-                setTimeout(function() {
-                    overlay.classList.add('fade-out');
-                    setTimeout(function() {
-                        overlay.classList.remove('active', 'fade-out');
-                        if (progressBar) progressBar.style.width = '0%';
-                        isShowingResume = false;
-                        standbyTriggered = false;
-                        lastActiveTime = Date.now();
-                    }, 350);
-                }, 1200);
-            }
-
-            // Trigger welcome overlay immediately if user just successfully authenticated/logged in
-            {% if show_welcome_transition %}
-            (function() {
-                const overlay = document.getElementById('etala-resume-screen');
-                if (overlay) {
-                    isShowingResume = true;
-                    const progressBar = overlay.querySelector('.etala-resume-progress-fill');
-                    if (progressBar) {
-                        progressBar.style.width = '0%';
-                        setTimeout(() => { progressBar.style.width = '100%'; }, 50);
-                    }
-                    setTimeout(function() {
-                        overlay.classList.remove('initial-login-active');
-                        overlay.classList.add('fade-out');
-                        setTimeout(function() {
-                            overlay.classList.remove('active', 'fade-out');
-                            overlay.style.opacity = '';
-                            overlay.style.visibility = '';
-                            overlay.style.pointerEvents = '';
-                            if (progressBar) progressBar.style.width = '0%';
-                            isShowingResume = false;
-                            standbyTriggered = false;
-                            lastActiveTime = Date.now();
-                        }, 400);
-                    }, 1350);
-                }
-            })();
-            {% endif %}
-        })();
-        {% endif %}
     </script>
 
     {% if user.is_authenticated %}
@@ -12581,6 +12712,142 @@
             display: block !important;
         }
     </style>
+    <script>
+        // ── ⚡ SMART RESUME / WELCOME BACK AMBIENT OVERLAY ──
+        (function() {
+            let lastActiveTime = Date.now();
+            let lastHiddenTime = 0;
+            let isShowingResume = false;
+            let standbyTriggered = false;
+            const TAB_AWAY_THRESHOLD_MS = 20 * 60 * 1000;    // 20 minutes when switching tabs/minimized (Industry Standard)
+            const IDLE_STANDBY_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes when page is idle untouched (Session Security)
+
+            // 1. Tab visibility / minimize handling
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden') {
+                    lastHiddenTime = Date.now();
+                } else if (document.visibilityState === 'visible') {
+                    if (lastHiddenTime > 0 && (Date.now() - lastHiddenTime) >= TAB_AWAY_THRESHOLD_MS) {
+                        triggerResumeScreen();
+                    }
+                    lastHiddenTime = 0;
+                    lastActiveTime = Date.now();
+                }
+            });
+
+            window.addEventListener('blur', function() {
+                if (!lastHiddenTime) lastHiddenTime = Date.now();
+            });
+
+            window.addEventListener('focus', function() {
+                if (lastHiddenTime > 0 && (Date.now() - lastHiddenTime) >= TAB_AWAY_THRESHOLD_MS) {
+                    triggerResumeScreen();
+                }
+                lastHiddenTime = 0;
+                lastActiveTime = Date.now();
+            });
+
+            // 2. On-page idle standby tracking (when left open on screen)
+            function recordActivity() {
+                const now = Date.now();
+                if (!isShowingResume) {
+                    if ((now - lastActiveTime) >= IDLE_STANDBY_THRESHOLD_MS && !standbyTriggered) {
+                        standbyTriggered = true;
+                        triggerResumeScreen();
+                    }
+                }
+                lastActiveTime = now;
+            }
+
+            let activityThrottle = null;
+            function onUserAction() {
+                if (!activityThrottle) {
+                    recordActivity();
+                    activityThrottle = setTimeout(() => { activityThrottle = null; }, 2000);
+                }
+            }
+
+            ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+                window.addEventListener(evt, onUserAction, { passive: true });
+            });
+
+            function triggerResumeScreen() {
+                if (isShowingResume) return;
+                const overlay = document.getElementById('etala-resume-screen');
+                if (!overlay) return;
+
+                isShowingResume = true;
+                overlay.classList.add('active');
+                overlay.style.opacity = '1';
+                overlay.style.visibility = 'visible';
+                overlay.style.pointerEvents = 'auto';
+                
+                // Animate progress bar smoothly
+                const progressBar = overlay.querySelector('.etala-resume-progress-fill');
+                if (progressBar) {
+                    progressBar.style.width = '0%';
+                    setTimeout(() => { progressBar.style.width = '100%'; }, 40);
+                }
+
+                // Smoothly dismiss after 1.2s to allow data to refresh
+                setTimeout(function() {
+                    dismissOverlay(overlay, progressBar);
+                }, 1200);
+            }
+
+            function dismissOverlay(overlay, progressBar) {
+                if (!overlay) return;
+                overlay.classList.remove('initial-login-active');
+                overlay.classList.add('fade-out');
+                setTimeout(function() {
+                    overlay.classList.remove('active', 'fade-out', 'initial-login-active');
+                    overlay.style.opacity = '0';
+                    overlay.style.visibility = 'hidden';
+                    overlay.style.pointerEvents = 'none';
+                    if (progressBar) progressBar.style.width = '0%';
+                    isShowingResume = false;
+                    standbyTriggered = false;
+                    lastActiveTime = Date.now();
+                }, 350);
+            }
+
+            function initWelcomeScreen() {
+                const overlay = document.getElementById('etala-resume-screen');
+                if (!overlay) return;
+                
+                if (overlay.classList.contains('initial-login-active') || overlay.classList.contains('active')) {
+                    isShowingResume = true;
+                    const progressBar = overlay.querySelector('.etala-resume-progress-fill');
+                    if (progressBar) {
+                        progressBar.style.width = '0%';
+                        setTimeout(() => { progressBar.style.width = '100%'; }, 50);
+                    }
+                    setTimeout(function() {
+                        dismissOverlay(overlay, progressBar);
+                    }, 1100);
+
+                    // Failsafe timer (forces close after 2s no matter what)
+                    setTimeout(function() {
+                        if (overlay.classList.contains('active') || overlay.classList.contains('initial-login-active')) {
+                            dismissOverlay(overlay, progressBar);
+                        }
+                    }, 2000);
+                } else {
+                    // Safety cleanup if somehow active without flag
+                    overlay.classList.remove('active', 'initial-login-active', 'fade-out');
+                    overlay.style.opacity = '';
+                    overlay.style.visibility = '';
+                    overlay.style.pointerEvents = '';
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initWelcomeScreen);
+            } else {
+                initWelcomeScreen();
+            }
+        })();
+    </script>
     {% endif %}
 
     {% block extra_js %}{% endblock %}

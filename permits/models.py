@@ -235,13 +235,45 @@ class EngineeringRecord(models.Model):
             return f"{scope} Project" if scope else "Project"
 
     @property
+    def display_title(self):
+        """Returns the clean primary display title (e.g. applicant name for permits, project title for projects)."""
+        if self.is_illegal_construction:
+            return self.title or "Illegal Construction"
+        if self.record_type == 'Permit':
+            if hasattr(self, 'permit_detail') and self.permit_detail and self.permit_detail.applicant_name:
+                app = self.permit_detail.applicant_name.strip()
+                if app and app.lower() not in ['none', 'n/a', 'unknown', '[unpermitted construction discovered]']:
+                    return app
+            if self.title:
+                # If title contains a permit number prefix like "2026-08-003 • eeeee"
+                if ' • ' in self.title:
+                    return self.title.split(' • ', 1)[1].strip()
+                elif ' - ' in self.title and any(c.isdigit() for c in self.title.split(' - ')[0]):
+                    return self.title.split(' - ', 1)[1].strip()
+                return self.title.strip()
+            return self.specific_type_label
+        return self.title or "Untitled Record"
+
+    @property
+    def sort_title_key(self):
+        """Returns normalized lowercase key for alphabetical sorting, ignoring leading brackets/special chars."""
+        t = (self.display_title or '').lower().strip()
+        cleaned = t.lstrip('[\'"{<(#@!~*-_:; ')
+        return cleaned if cleaned else t
+
+    @property
     def latest_update_log(self):
-        """Returns the most recent update/modification AuditLog entry, excluding the initial creation event."""
+        """Returns the most recent update/modification AuditLog entry, excluding initial creation/reporting and non-modification events."""
+        from django.db.models import Q
         AuditLogModel = self._meta.apps.get_model('permits', 'AuditLog')
         return AuditLogModel.objects.filter(
             target_record_id=self.record_id
         ).exclude(
-            action__istartswith='Created'
+            Q(action__istartswith='Created') |
+            Q(action__istartswith='Reported') |
+            Q(action__istartswith='Downloaded') |
+            Q(action__istartswith='Exported') |
+            Q(action__istartswith='Viewed')
         ).select_related('user').order_by('-performed_at').first()
 
     @property
@@ -770,4 +802,25 @@ class SystemFeedback(models.Model):
 
     def __str__(self):
         return f"[{self.get_category_display()}] {self.subject} by {self.sender_name} ({self.created_at:%Y-%m-%d})"
+
+
+# ─── RECORD ACCESS LOG (LAST OPENED TRACKING) ──────────────────────────────
+
+class RecordAccessLog(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='record_accesses')
+    record = models.ForeignKey(EngineeringRecord, on_delete=models.CASCADE, related_name='access_logs')
+    accessed_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        unique_together = ('user', 'record')
+        indexes = [
+            models.Index(fields=['user', '-accessed_at']),
+            models.Index(fields=['record', '-accessed_at']),
+            models.Index(fields=['-accessed_at']),
+        ]
+        ordering = ['-accessed_at']
+
+    def __str__(self):
+        return f"{self.user.username} accessed record #{self.record_id} at {self.accessed_at}"
+
 

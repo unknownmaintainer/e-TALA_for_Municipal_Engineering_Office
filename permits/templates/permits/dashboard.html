@@ -1165,13 +1165,14 @@
         font-weight: 800 !important;
         letter-spacing: 0.6px !important;
         text-transform: uppercase !important;
-        color: #1e3a8a !important;
+        color: #475569 !important;
         background: #ffffff !important;
-        padding: 10px 12px !important;
-        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 9px 12px !important;
+        border-bottom: 1.5px solid #e2e8f0 !important;
         position: sticky !important;
         top: 0 !important;
-        z-index: 10 !important;
+        z-index: 20 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
     }
 
     .compact-data-table thead th:first-child {
@@ -1179,14 +1180,17 @@
     }
 
     .compact-data-table thead th:last-child {
-        padding-right: 16px !important;
+        padding-right: 18px !important;
+        white-space: nowrap !important;
+        text-align: right !important;
     }
 
     .dark-mode .compact-data-table thead th,
     [data-bs-theme="dark"] .compact-data-table thead th {
-        color: #93c5fd !important;
+        color: #94a3b8 !important;
         background: #1e293b !important;
         border-bottom-color: #334155 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
     }
 
     .compact-data-table tbody tr {
@@ -1220,7 +1224,8 @@
     }
 
     .compact-data-table tbody td:last-child {
-        padding-right: 16px !important;
+        padding-right: 18px !important;
+        text-align: right !important;
     }
 
     .dark-mode .compact-data-table tbody td,
@@ -1276,9 +1281,9 @@
     }
 
     .compact-cell-barangay {
-        color: #1d4ed8 !important;
-        font-weight: 600 !important;
-        font-size: 0.82rem !important;
+        color: #334155 !important;
+        font-weight: 550 !important;
+        font-size: 0.8125rem !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
@@ -1287,7 +1292,34 @@
 
     .dark-mode .compact-cell-barangay,
     [data-bs-theme="dark"] .compact-cell-barangay {
-        color: #60a5fa !important;
+        color: #cbd5e1 !important;
+    }
+
+    .compact-cell-created {
+        color: #64748b !important;
+        font-weight: 500 !important;
+        font-size: 0.8125rem !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+
+    .dark-mode .compact-cell-created,
+    [data-bs-theme="dark"] .compact-cell-created {
+        color: #94a3b8 !important;
+    }
+
+    .dark-mode .date-day-month,
+    [data-bs-theme="dark"] .date-day-month {
+        color: #f1f5f9 !important;
+    }
+
+    .dark-mode .date-year,
+    [data-bs-theme="dark"] .date-year {
+        color: #94a3b8 !important;
     }
 
     #checklistScrollArea::-webkit-scrollbar {
@@ -1477,8 +1509,8 @@
                                 <thead>
                                     <tr>
                                         <th style="min-width: 0;" class="col-title-header">RECORD TITLE</th>
-                                        <th class="d-none d-md-table-cell" style="width: 30%;">BARANGAY</th>
-                                        <th class="text-end" style="width: 80px; min-width: 75px;">UPLOADS</th>
+                                        <th class="d-none d-md-table-cell" style="width: 28%; min-width: 85px;">BARANGAY</th>
+                                        <th class="text-end" style="width: 105px; min-width: 100px; padding-right: 18px !important; white-space: nowrap;">LAST OPENED</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1492,7 +1524,12 @@
                                         </td>
                                     </tr>
                                     {% for r in incomplete_list %}
-                                    <tr data-href="{% url 'record_detail' r.record_id %}" class="checklist-row" style="cursor: pointer;" data-is-mine="{% if r.created_by_id == request.user.id %}1{% else %}0{% endif %}">
+                                    <tr data-href="{% url 'record_detail' r.record_id %}" 
+                                        class="checklist-row" 
+                                        style="cursor: pointer;" 
+                                        data-is-mine="{% if r.is_my_item %}1{% else %}0{% endif %}"
+                                        data-all-timestamp="{{ r.office_last_opened|date:'U' }}"
+                                        data-my-timestamp="{% if r.my_last_opened %}{{ r.my_last_opened|date:'U' }}{% else %}0{% endif %}">
                                         <td>
                                             <div class="d-flex flex-column gap-0.5" style="max-width: 100%;">
                                                 <a href="{% url 'record_detail' r.record_id %}" class="compact-cell-title text-decoration-none" style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{% if r.record_type == 'Permit' %}{% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}{{ r.permit_detail.applicant_name }}{% elif r.title and r.title != 'Permit' %}{{ r.title }}{% else %}{{ r.specific_type_label }}{% endif %}{% else %}{{ r.title }}{% endif %}">
@@ -1508,42 +1545,33 @@
                                                         {{ r.title }}
                                                     {% endif %}
                                                 </a>
-                                                <div style="font-size: 0.73rem; color: #64748b; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                    <span>{{ r.specific_type_label }}</span>
+                                                <div class="compact-cell-type" style="font-size: 0.73rem; color: #64748b; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                    {% if r.record_type == 'Project' %}
+                                                        <span>{% if r.project_scope == 'Municipal' %}Municipal Project{% elif r.project_scope == 'Barangay' %}Barangay Project{% elif r.project_scope %}{{ r.project_scope }} Project{% else %}Project{% endif %}</span>
+                                                    {% else %}
+                                                        <span>{{ r.specific_type_label }}</span>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="d-none d-md-table-cell">
+                                        <td class="d-none d-md-table-cell align-middle">
                                             {% if r.barangay %}
-                                            <a href="{% url 'barangay_workspace' r.barangay.barangay_id %}" class="text-decoration-none compact-cell-barangay" title="{{ r.barangay.barangay_name }}">
+                                             <span class="compact-cell-barangay" title="Barangay {{ r.barangay.barangay_name }}">
                                                 {{ r.barangay.barangay_name }}
-                                            </a>
+                                            </span>
                                             {% else %}
                                             <span class="text-muted">—</span>
                                             {% endif %}
                                         </td>
-                                        <td class="text-end">
-                                            {% with stats=r.completion_stats %}
-                                            {% if stats.total > 0 %}
-                                                {% if stats.is_complete %}
-                                                <span class="doc-badge doc-badge-complete" title="All {{ stats.total }} documents uploaded">
-                                                    {{ stats.fulfilled }}/{{ stats.total }}
-                                                </span>
-                                                {% elif stats.fulfilled > 0 %}
-                                                <span class="doc-badge doc-badge-partial" title="{{ stats.fulfilled }}/{{ stats.total }} uploaded">
-                                                    {{ stats.fulfilled }}/{{ stats.total }}
-                                                </span>
-                                                {% else %}
-                                                <span class="doc-badge doc-badge-empty" title="No documents uploaded">
-                                                    0/{{ stats.total }}
-                                                </span>
-                                                {% endif %}
-                                            {% else %}
-                                                <span class="text-muted small">
-                                                    {{ r.documents.count }} files
-                                                </span>
-                                            {% endif %}
-                                            {% endwith %}
+                                        <td class="text-end align-middle" style="padding-right: 18px !important;">
+                                            <div class="date-cell-all d-inline-flex flex-column align-items-end justify-content-center text-end" style="line-height: 1.18;" title="Last opened: {{ r.office_last_opened|date:'F d, Y g:i A' }}">
+                                                <span class="date-day-month" style="font-size: 0.78rem; font-weight: 600; color: #334155; white-space: nowrap;">{{ r.office_last_opened|date:"M d" }}</span>
+                                                <span class="date-year" style="font-size: 0.68rem; font-weight: 500; color: #94a3b8; white-space: nowrap;">{{ r.office_last_opened|date:"Y" }}</span>
+                                            </div>
+                                            <div class="date-cell-my d-none flex-column align-items-end justify-content-center text-end" style="line-height: 1.18;" title="{% if r.my_last_opened %}Last opened by you: {{ r.my_last_opened|date:'F d, Y g:i A' }}{% else %}Created on {{ r.created_at|date:'F d, Y g:i A' }}{% endif %}">
+                                                <span class="date-day-month" style="font-size: 0.78rem; font-weight: 600; color: #334155; white-space: nowrap;">{% if r.my_last_opened %}{{ r.my_last_opened|date:"M d" }}{% else %}{{ r.created_at|date:"M d" }}{% endif %}</span>
+                                                <span class="date-year" style="font-size: 0.68rem; font-weight: 500; color: #94a3b8; white-space: nowrap;">{% if r.my_last_opened %}{{ r.my_last_opened|date:"Y" }}{% else %}{{ r.created_at|date:"Y" }}{% endif %}</span>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -1650,8 +1678,8 @@
     function switchDashboardScope(scope, event) {
         if (event) event.preventDefault();
 
-        const container = document.getElementById('dashboardScopeControl');
-        if (container) {
+        // Sync Desktop & Mobile segmented controls
+        document.querySelectorAll('#dashboardScopeControl, #dashboardScopeControlMobile').forEach(container => {
             container.setAttribute('data-scope', scope);
             container.querySelectorAll('.scope-pill-btn').forEach(btn => {
                 if (btn.getAttribute('data-scope') === scope) {
@@ -1663,7 +1691,7 @@
             if (typeof window.updateSegmentedGlider === 'function') {
                 window.updateSegmentedGlider(container, !event);
             }
-        }
+        });
 
         // Dynamically update the Pending Uploads count badge with smooth micro-bounce
         const countBadge = document.getElementById('pendingUploadsCountBadge');
@@ -1690,7 +1718,8 @@
         }
 
         const scrollArea = document.getElementById('checklistScrollArea');
-        const rows = document.querySelectorAll('.checklist-row');
+        const tbody = document.querySelector('#dashboardChecklistTable tbody');
+        const rows = Array.from(document.querySelectorAll('.checklist-row'));
         const emptyRow = document.getElementById('checklistScopeEmptyRow');
 
         if (scrollArea && event) {
@@ -1700,23 +1729,45 @@
 
         setTimeout(() => {
             let visibleCount = 0;
-            rows.forEach(row => {
-                const isMine = row.getAttribute('data-is-mine') === '1';
-                if (scope === 'my') {
-                    if (isMine) {
+
+            if (tbody && rows.length > 0) {
+                // Re-sort rows according to the chosen scope's timestamp descending
+                rows.sort((a, b) => {
+                    const timeKey = (scope === 'my') ? 'data-my-timestamp' : 'data-all-timestamp';
+                    const timeA = parseInt(a.getAttribute(timeKey) || '0', 10);
+                    const timeB = parseInt(b.getAttribute(timeKey) || '0', 10);
+                    return timeB - timeA;
+                });
+
+                rows.forEach(row => {
+                    const isMine = row.getAttribute('data-is-mine') === '1';
+                    const cellAll = row.querySelector('.date-cell-all');
+                    const cellMy = row.querySelector('.date-cell-my');
+
+                    if (scope === 'my') {
+                        if (isMine) {
+                            row.style.display = '';
+                            visibleCount++;
+                        } else {
+                            row.style.display = 'none';
+                        }
+                        if (cellAll) { cellAll.classList.remove('d-inline-flex'); cellAll.classList.add('d-none'); }
+                        if (cellMy) { cellMy.classList.remove('d-none'); cellMy.classList.add('d-inline-flex'); }
+                    } else {
                         row.style.display = '';
                         visibleCount++;
-                    } else {
-                        row.style.display = 'none';
+                        if (cellAll) { cellAll.classList.remove('d-none'); cellAll.classList.add('d-inline-flex'); }
+                        if (cellMy) { cellMy.classList.remove('d-inline-flex'); cellMy.classList.add('d-none'); }
                     }
-                } else {
-                    row.style.display = '';
-                    visibleCount++;
-                }
-            });
+                    tbody.appendChild(row);
+                });
+            }
 
             if (emptyRow) {
                 emptyRow.style.display = (visibleCount === 0) ? '' : 'none';
+                if (visibleCount === 0 && tbody) {
+                    tbody.appendChild(emptyRow);
+                }
             }
 
             if (scrollArea) {

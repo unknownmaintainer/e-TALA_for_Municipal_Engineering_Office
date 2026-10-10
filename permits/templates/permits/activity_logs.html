@@ -18,7 +18,12 @@
         <!-- Toolbar: Sub-Tabs & Filters (Unified 1-Line Compact Design like Records) -->
         <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
             <input type="hidden" name="tab" id="activeLogTabInput" value="{{ active_log_tab|default:'audit' }}">
+            <input type="hidden" name="date_range" id="dateRangeInput" value="{{ date_filter|default:'all' }}">
+            <input type="hidden" name="action_type" id="actionTypeInput" value="{{ action_type|default:'all' }}">
+            <input type="hidden" name="status" id="statusInput" value="{{ status_filter|default:'all' }}">
+            <input type="hidden" name="per_page" value="{{ per_page|default:'20' }}">
             {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
+
             <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 w-100"
                 style="border-bottom: none !important; max-width: 100%; box-sizing: border-box;">
                 <!-- Left: Category Tabs (Clean Records Style) -->
@@ -43,38 +48,38 @@
                     {% else %}
                     <button type="button"
                         class="filter-tab {% if not action_type or action_type == 'all' %}active{% endif %}"
-                        onclick="filterActionType('all', event)"
+                        onclick="setLogFilter('action_type', 'all')"
                         style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                         All Activities
                     </button>
                     <button type="button"
                         class="filter-tab {% if action_type == 'update' %}active{% endif %}"
-                        onclick="filterActionType('update', event)"
+                        onclick="setLogFilter('action_type', 'update')"
                         style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                         Updated
                     </button>
                     <button type="button"
                         class="filter-tab {% if action_type == 'upload' %}active{% endif %}"
-                        onclick="filterActionType('upload', event)"
+                        onclick="setLogFilter('action_type', 'upload')"
                         style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                         Uploaded
                     </button>
                     <button type="button"
                         class="filter-tab {% if action_type == 'delete' %}active{% endif %}"
-                        onclick="filterActionType('delete', event)"
+                        onclick="setLogFilter('action_type', 'delete')"
                         style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                         Deleted
                     </button>
                     <button type="button"
                         class="filter-tab {% if action_type == 'create' %}active{% endif %}"
-                        onclick="filterActionType('create', event)"
+                        onclick="setLogFilter('action_type', 'create')"
                         style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                         Created
                     </button>
                     {% endif %}
                 </div>
 
-                <!-- Right: Compact Search & Filter Pill -->
+                <!-- Right: Compact Search Pill -->
                 <div class="d-flex align-items-center flex-shrink-0 ms-auto records-search-wrapper">
                     <div class="etala-search-pill-wrapper w-100">
                         <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search logs">
@@ -91,99 +96,59 @@
                         <a href="?tab={{ active_log_tab|default:'audit' }}" id="logClearSearchBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not query %}d-none{% endif %}" title="Clear search">
                             <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
                         </a>
-
-                        <span class="etala-search-pill-divider"></span>
-
-                        <!-- Integrated Filter Toggle Button -->
-                        <button class="etala-search-pill-filter-btn" type="button" data-bs-target="#advancedFiltersCollapse" aria-expanded="false" title="Toggle Filters">
-                            <i class="fa-solid fa-sliders"></i>
-                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Active Filter Chips (if any filter is selected) -->
-            {% if record_id or date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}
-            <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2.5">
-                {% if record_id %}
-                <div class="filter-chip">
-                    <span>Record: <strong>#{{ record_id }}{% if target_rec and target_rec.title %} &bull; {{ target_rec.title|truncatechars:25 }}{% endif %}</strong></span>
-                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}" class="clear-chip-btn" title="View all logs">&times;</a>
-                </div>
-                {% endif %}
-                {% if date_filter and date_filter != 'all' %}
-                <div class="filter-chip">
-                    <span>Date: <strong>
-                        {% if date_filter == 'today' %}Today
-                        {% elif date_filter == '7days' %}Past 7 Days
-                        {% elif date_filter == '30days' %}Past 30 Days
-                        {% else %}{{ date_filter|title }}{% endif %}
-                    </strong></span>
-                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if record_id %}record_id={{ record_id }}&{% endif %}{% if query %}q={{ query }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}date_range=all" class="clear-chip-btn">&times;</a>
-                </div>
-                {% endif %}
-                {% if action_type and action_type != 'all' %}
-                <div class="filter-chip">
-                    <span>Action: <strong>
-                        {% if action_type == 'create' %}Record Created
-                        {% elif action_type == 'update' %}Record Updated
-                        {% elif action_type == 'upload' %}Document Uploaded
-                        {% elif action_type == 'delete' %}Record Deleted
-                        {% else %}{{ action_type|title }}{% endif %}
-                    </strong></span>
-                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if record_id %}record_id={{ record_id }}&{% endif %}{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}action_type=all" class="clear-chip-btn">&times;</a>
-                </div>
-                {% endif %}
-                {% if status_filter and status_filter != 'all' %}
-                <div class="filter-chip">
-                    <span>Status: <strong>
-                        {% if status_filter == 'success' %}Successful Logins
-                        {% elif status_filter == 'failed' %}Failed Attempts
-                        {% else %}{{ status_filter|title }}{% endif %}
-                    </strong></span>
-                    <a href="?tab={{ active_log_tab|default:'audit' }}&{% if record_id %}record_id={{ record_id }}&{% endif %}{% if query %}q={{ query }}&{% endif %}{% if date_filter %}date_range={{ date_filter }}&{% endif %}{% if action_type %}action_type={{ action_type }}&{% endif %}status=all" class="clear-chip-btn">&times;</a>
-                </div>
-                {% endif %}
-                <a href="?tab={{ active_log_tab|default:'audit' }}" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: 0.72rem; padding: 2px 6px;">
-                    Reset All
-                </a>
-            </div>
-            {% endif %}
-
-            <!-- Collapsible Filters Panel (Matching Records Design — Auto-applies on change) -->
-            <div class="collapse {% if date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}show{% endif %}" id="advancedFiltersCollapse">
-                <div class="filter-panel-unified py-2.5 px-3 rounded-3 border">
-                    <div class="row g-2.5 align-items-end">
-                        <div class="col-12 col-sm-6">
-                            <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Date Range</label>
-                            <select name="date_range" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;">
-                                <option value="all" {% if date_filter == 'all' or not date_filter %}selected{% endif %}>All Dates</option>
-                                <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Today</option>
-                                <option value="7days" {% if date_filter == '7days' %}selected{% endif %}>Past 7 Days</option>
-                                <option value="30days" {% if date_filter == '30days' %}selected{% endif %}>Past 30 Days</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-sm-6 {% if active_log_tab == 'login' %}d-none{% endif %}" id="filterColActionType">
-                            <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Action Type</label>
-                            <select name="action_type" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;">
-                                <option value="all" {% if action_type == 'all' or not action_type %}selected{% endif %}>All Actions</option>
-                                <option value="create" {% if action_type == 'create' %}selected{% endif %}>Record Created</option>
-                                <option value="update" {% if action_type == 'update' %}selected{% endif %}>Record Updated</option>
-                                <option value="upload" {% if action_type == 'upload' %}selected{% endif %}>Document Uploaded</option>
-                                <option value="delete" {% if action_type == 'delete' %}selected{% endif %}>Record Deleted</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-sm-6 {% if active_log_tab != 'login' %}d-none{% endif %}" id="filterColLoginStatus">
-                            <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; letter-spacing: 0.4px; text-transform: uppercase;">Login Status</label>
-                            <select name="status" class="form-select form-select-sm filter-dropdown-ajax" style="border-radius: 6px; height: 34px; font-size: 0.78rem;">
-                                <option value="all" {% if status_filter == 'all' or not status_filter %}selected{% endif %}>All Attempts</option>
-                                <option value="success" {% if status_filter == 'success' %}selected{% endif %}>Successful Logins</option>
-                                <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed Attempts</option>
-                                <option value="blocked" {% if status_filter == 'blocked' %}selected{% endif %}>Blocked Devices &amp; Locked Accounts</option>
-                            </select>
-                        </div>
+            <!-- Active Filter Chips (Seamless Container) -->
+            <div id="activeChipsWrapper">
+                {% if record_id or date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}
+                <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2.5">
+                    {% if record_id %}
+                    <div class="filter-chip">
+                        <span>Record: <strong>#{{ record_id }}{% if target_rec and target_rec.title %} &bull; {{ target_rec.title|truncatechars:25 }}{% endif %}</strong></span>
+                        <button type="button" class="clear-chip-btn" onclick="removeLogFilterChipSmooth(this, 'record_id', '')" title="View all logs">&times;</button>
                     </div>
+                    {% endif %}
+                    {% if date_filter and date_filter != 'all' %}
+                    <div class="filter-chip">
+                        <span>Date: <strong>
+                            {% if date_filter == 'today' %}Today
+                            {% elif date_filter == '7days' %}Past 7 Days
+                            {% elif date_filter == '30days' %}Past 30 Days
+                            {% else %}{{ date_filter|title }}{% endif %}
+                        </strong></span>
+                        <button type="button" class="clear-chip-btn" onclick="removeLogFilterChipSmooth(this, 'date_range', 'all')" title="Clear date filter">&times;</button>
+                    </div>
+                    {% endif %}
+                    {% if action_type and action_type != 'all' %}
+                    <div class="filter-chip">
+                        <span>Action: <strong>
+                            {% if action_type == 'create' %}Record Created
+                            {% elif action_type == 'update' %}Record Updated
+                            {% elif action_type == 'upload' %}Document Uploaded
+                            {% elif action_type == 'delete' %}Record Deleted
+                            {% else %}{{ action_type|title }}{% endif %}
+                        </strong></span>
+                        <button type="button" class="clear-chip-btn" onclick="removeLogFilterChipSmooth(this, 'action_type', 'all')" title="Clear action filter">&times;</button>
+                    </div>
+                    {% endif %}
+                    {% if status_filter and status_filter != 'all' %}
+                    <div class="filter-chip">
+                        <span>Status: <strong>
+                            {% if status_filter == 'success' %}Successful Logins
+                            {% elif status_filter == 'failed' %}Failed Attempts
+                            {% elif status_filter == 'blocked' %}Blocked / Restricted
+                            {% else %}{{ status_filter|title }}{% endif %}
+                        </strong></span>
+                        <button type="button" class="clear-chip-btn" onclick="removeLogFilterChipSmooth(this, 'status', 'all')" title="Clear status filter">&times;</button>
+                    </div>
+                    {% endif %}
+                    <a href="javascript:void(0)" onclick="clearAllLogFilters()" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: var(--text-2xs); padding: 2px 6px;">
+                        Reset All
+                    </a>
                 </div>
+                {% endif %}
             </div>
         </form>
 
@@ -192,17 +157,129 @@
             <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
             <div id="log-tab-content-audit" class="tab-pane-custom {% if active_log_tab == 'login' %}d-none{% endif %}">
             {% if log_page_obj %}
-                <div class="table-responsive table-responsive-cards mb-4" style="overflow-x: hidden !important;">
+                <div class="table-responsive table-responsive-cards mb-4" style="overflow-x: auto; overflow-y: visible !important;">
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
                                 {% if request.user.role == 'admin' or record_id %}
                                 <th style="width: 30%;">STAFF MEMBER</th>
-                                <th style="width: 50%;">ACTION &amp; EVENT DETAILS</th>
-                                <th style="width: 20%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th style="width: 50%;">
+                                    <div class="dropdown position-relative d-inline-block">
+                                        <button type="button" class="header-menu-btn {% if action_type and action_type != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Action">
+                                            <span>Action &amp; Event Details</span>
+                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                        </button>
+                                        <div class="dropdown-menu header-filter-dropdown shadow-sm" style="min-width: 170px;">
+                                            <div class="dropdown-header">Filter by Action</div>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not action_type or action_type == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'all')">
+                                                <span>All Actions</span>
+                                                {% if not action_type or action_type == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'create' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'create')">
+                                                <span>Record Created</span>
+                                                {% if action_type == 'create' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'update' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'update')">
+                                                <span>Record Updated</span>
+                                                {% if action_type == 'update' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'upload' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'upload')">
+                                                <span>Document Uploaded</span>
+                                                {% if action_type == 'upload' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'delete' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'delete')">
+                                                <span>Record Deleted</span>
+                                                {% if action_type == 'delete' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th style="width: 20%; text-align: right; white-space: nowrap;">
+                                    <div class="dropdown position-relative d-inline-block">
+                                        <button type="button" class="header-menu-btn {% if date_filter and date_filter != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Date">
+                                            <span>Date &amp; Time</span>
+                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end header-filter-dropdown shadow-sm" style="min-width: 150px;">
+                                            <div class="dropdown-header">Filter by Date</div>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not date_filter or date_filter == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'all')">
+                                                <span>All Dates</span>
+                                                {% if not date_filter or date_filter == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == 'today' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'today')">
+                                                <span>Today</span>
+                                                {% if date_filter == 'today' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '7days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '7days')">
+                                                <span>Past 7 Days</span>
+                                                {% if date_filter == '7days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '30days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '30days')">
+                                                <span>Past 30 Days</span>
+                                                {% if date_filter == '30days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </th>
                                 {% else %}
-                                <th style="width: 78%;">ACTION &amp; EVENT DETAILS</th>
-                                <th style="width: 22%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th style="width: 78%;">
+                                    <div class="dropdown position-relative d-inline-block">
+                                        <button type="button" class="header-menu-btn {% if action_type and action_type != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Action">
+                                            <span>Action &amp; Event Details</span>
+                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                        </button>
+                                        <div class="dropdown-menu header-filter-dropdown shadow-sm" style="min-width: 170px;">
+                                            <div class="dropdown-header">Filter by Action</div>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not action_type or action_type == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'all')">
+                                                <span>All Actions</span>
+                                                {% if not action_type or action_type == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'create' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'create')">
+                                                <span>Record Created</span>
+                                                {% if action_type == 'create' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'update' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'update')">
+                                                <span>Record Updated</span>
+                                                {% if action_type == 'update' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'upload' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'upload')">
+                                                <span>Document Uploaded</span>
+                                                {% if action_type == 'upload' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'delete' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'delete')">
+                                                <span>Record Deleted</span>
+                                                {% if action_type == 'delete' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th style="width: 22%; text-align: right; white-space: nowrap;">
+                                    <div class="dropdown position-relative d-inline-block">
+                                        <button type="button" class="header-menu-btn {% if date_filter and date_filter != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Date">
+                                            <span>Date &amp; Time</span>
+                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end header-filter-dropdown shadow-sm" style="min-width: 150px;">
+                                            <div class="dropdown-header">Filter by Date</div>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not date_filter or date_filter == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'all')">
+                                                <span>All Dates</span>
+                                                {% if not date_filter or date_filter == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == 'today' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'today')">
+                                                <span>Today</span>
+                                                {% if date_filter == 'today' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '7days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '7days')">
+                                                <span>Past 7 Days</span>
+                                                {% if date_filter == '7days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '30days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '30days')">
+                                                <span>Past 30 Days</span>
+                                                {% if date_filter == '30days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </th>
                                 {% endif %}
                             </tr>
                         </thead>
@@ -307,10 +384,10 @@
                         <div class="per-page-select">
                             <span>Show:</span>
                             <select class="form-select form-select-sm" onchange="changePerPage(this.value)">
-                                <option value="10" {% if per_page == 10 or per_page == '10' %}selected{% endif %}>10</option>
-                                <option value="20" {% if per_page == 20 or per_page == '20' %}selected{% endif %}>20</option>
+                                <option value="20" {% if per_page == 20 or per_page == '20' or not per_page %}selected{% endif %}>20</option>
                                 <option value="50" {% if per_page == 50 or per_page == '50' %}selected{% endif %}>50</option>
                                 <option value="100" {% if per_page == 100 or per_page == '100' %}selected{% endif %}>100</option>
+                                <option value="500" {% if per_page == 500 or per_page == '500' %}selected{% endif %}>500</option>
                             </select>
                         </div>
                     </div>
@@ -318,9 +395,9 @@
                     <div class="d-flex align-items-center gap-2 pagination-controls">
                         {% if log_page_obj.paginator.num_pages > 5 %}
                         <!-- Page Jump Input (Desktop Only) -->
-                        <div class="page-jump d-none d-md-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                        <div class="page-jump d-none d-md-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.76rem;">
                             <span>Page:</span>
-                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
+                            <input type="number" class="form-control form-control-sm text-center px-1" style="width: 44px; height: 30px; font-size: 0.76rem; border-radius: 7px;" min="1" max="{{ log_page_obj.paginator.num_pages }}" value="{{ log_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'log_page')">
                             <span>/ {{ log_page_obj.paginator.num_pages }}</span>
                         </div>
                         {% endif %}
@@ -395,13 +472,65 @@
         <div id="log-tab-content-login" class="tab-pane-custom {% if active_log_tab != 'login' %}d-none{% endif %}">
 
             {% if login_page_obj %}
-                <div class="table-responsive table-responsive-cards mb-4" style="overflow-x: hidden !important;">
+                <div class="table-responsive table-responsive-cards mb-4" style="overflow-x: auto; overflow-y: visible !important;">
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
                                 <th style="width: 42%;">STAFF / ACCOUNT ATTEMPTED</th>
-                                <th style="width: 24%;">LOGIN STATUS</th>
-                                <th style="width: 24%; text-align: right; white-space: nowrap;">DATE &amp; TIME</th>
+                                <th style="width: 24%;">
+                                    <div class="dropdown position-relative d-inline-block">
+                                        <button type="button" class="header-menu-btn {% if status_filter and status_filter != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Status">
+                                            <span>Login Status</span>
+                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                        </button>
+                                        <div class="dropdown-menu header-filter-dropdown shadow-sm" style="min-width: 180px;">
+                                            <div class="dropdown-header">Filter Status</div>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not status_filter or status_filter == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('status', 'all')">
+                                                <span>All Attempts</span>
+                                                {% if not status_filter or status_filter == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if status_filter == 'success' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('status', 'success')">
+                                                <span>Successful Logins</span>
+                                                {% if status_filter == 'success' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if status_filter == 'failed' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('status', 'failed')">
+                                                <span>Failed Attempts</span>
+                                                {% if status_filter == 'failed' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if status_filter == 'blocked' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('status', 'blocked')">
+                                                <span>Blocked / Restricted</span>
+                                                {% if status_filter == 'blocked' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th style="width: 24%; text-align: right; white-space: nowrap;">
+                                    <div class="dropdown position-relative d-inline-block">
+                                        <button type="button" class="header-menu-btn {% if date_filter and date_filter != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Date">
+                                            <span>Date &amp; Time</span>
+                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end header-filter-dropdown shadow-sm" style="min-width: 150px;">
+                                            <div class="dropdown-header">Filter by Date</div>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not date_filter or date_filter == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'all')">
+                                                <span>All Dates</span>
+                                                {% if not date_filter or date_filter == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == 'today' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'today')">
+                                                <span>Today</span>
+                                                {% if date_filter == 'today' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '7days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '7days')">
+                                                <span>Past 7 Days</span>
+                                                {% if date_filter == '7days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '30days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '30days')">
+                                                <span>Past 30 Days</span>
+                                                {% if date_filter == '30days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </th>
                                 <th class="text-end" style="width: 10%; min-width: 80px; padding-right: 18px; white-space: nowrap;">ACTION</th>
                             </tr>
                         </thead>
@@ -580,10 +709,10 @@
                         <div class="per-page-select">
                             <span>Show:</span>
                             <select class="form-select form-select-sm" onchange="changePerPage(this.value)">
-                                <option value="10" {% if per_page == 10 or per_page == '10' %}selected{% endif %}>10</option>
-                                <option value="20" {% if per_page == 20 or per_page == '20' %}selected{% endif %}>20</option>
+                                <option value="20" {% if per_page == 20 or per_page == '20' or not per_page %}selected{% endif %}>20</option>
                                 <option value="50" {% if per_page == 50 or per_page == '50' %}selected{% endif %}>50</option>
                                 <option value="100" {% if per_page == 100 or per_page == '100' %}selected{% endif %}>100</option>
+                                <option value="500" {% if per_page == 500 or per_page == '500' %}selected{% endif %}>500</option>
                             </select>
                         </div>
                     </div>
@@ -591,9 +720,9 @@
                     <div class="d-flex align-items-center gap-2 pagination-controls">
                         {% if login_page_obj.paginator.num_pages > 5 %}
                         <!-- Page Jump Input (Desktop Only) -->
-                        <div class="page-jump d-none d-md-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.72rem;">
+                        <div class="page-jump d-none d-md-flex align-items-center gap-1 text-muted me-2" style="font-size: 0.76rem;">
                             <span>Page:</span>
-                            <input type="number" class="form-control form-control-sm text-center px-1 py-0.5" style="width: 44px; height: 26px; font-size: 0.72rem; border-radius: 4px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
+                            <input type="number" class="form-control form-control-sm text-center px-1" style="width: 44px; height: 30px; font-size: 0.76rem; border-radius: 7px;" min="1" max="{{ login_page_obj.paginator.num_pages }}" value="{{ login_page_obj.number }}" onkeypress="if(event.key === 'Enter') jumpToPage(this.value, this.max, 'login_page')">
                             <span>/ {{ login_page_obj.paginator.num_pages }}</span>
                         </div>
                         {% endif %}
@@ -1280,31 +1409,158 @@
         color: #f8fafc;
     }
 
-    #advancedFiltersCollapse {
-        width: 100%;
-        max-width: 100%;
-        margin-top: 6px;
-        margin-bottom: 12px;
-        clear: both;
-        position: relative;
-        overflow: visible;
+    /* ─── Ultra Clean & Flat Table Header Dropdown Buttons ─── */
+    .header-menu-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 3px !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        font-family: inherit !important;
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.4px !important;
+        color: #64748b !important;
+        cursor: pointer !important;
+        transition: color 0.15s ease !important;
+        vertical-align: middle !important;
     }
-    #advancedFiltersCollapse.show {
-        display: block !important;
-        height: auto !important;
-        visibility: visible !important;
+    .header-menu-btn .dropdown-chevron {
+        font-size: 8px !important;
+        opacity: 0.55 !important;
+        margin-left: 2px !important;
+        transition: transform 0.18s ease, opacity 0.15s ease, color 0.15s ease !important;
+        display: inline-block !important;
+        line-height: 1 !important;
+        vertical-align: middle !important;
+    }
+    .header-menu-btn:hover {
+        color: #2563eb !important;
+        background: transparent !important;
+    }
+    .header-menu-btn:hover .dropdown-chevron {
+        opacity: 0.95 !important;
+        color: #2563eb !important;
+    }
+    .header-menu-btn.active,
+    .header-menu-btn[aria-expanded="true"] {
+        color: #2563eb !important;
+        font-weight: 700 !important;
+        background: transparent !important;
+    }
+    .header-menu-btn.active .dropdown-chevron {
         opacity: 1 !important;
+        color: #2563eb !important;
     }
-    #advancedFiltersCollapse .filter-panel-unified {
-        padding: 10px 14px;
-        border-radius: 12px;
-        width: 100%;
-        box-sizing: border-box;
+    .header-menu-btn[aria-expanded="true"] .dropdown-chevron {
+        transform: rotate(180deg) !important;
+        opacity: 1 !important;
+        color: #2563eb !important;
     }
-    #advancedFiltersCollapse .col-12.d-none,
-    #advancedFiltersCollapse .col-sm-6.d-none,
-    #advancedFiltersCollapse .d-none {
-        display: none !important;
+
+    .dark-mode .header-menu-btn,
+    [data-bs-theme="dark"] .header-menu-btn {
+        color: #94a3b8 !important;
+    }
+    .dark-mode .header-menu-btn:hover,
+    [data-bs-theme="dark"] .header-menu-btn:hover {
+        color: #38bdf8 !important;
+    }
+    .dark-mode .header-menu-btn:hover .dropdown-chevron,
+    [data-bs-theme="dark"] .header-menu-btn:hover .dropdown-chevron {
+        color: #38bdf8 !important;
+    }
+    .dark-mode .header-menu-btn.active,
+    .dark-mode .header-menu-btn[aria-expanded="true"],
+    [data-bs-theme="dark"] .header-menu-btn.active,
+    [data-bs-theme="dark"] .header-menu-btn[aria-expanded="true"] {
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+    .dark-mode .header-menu-btn.active .dropdown-chevron,
+    .dark-mode .header-menu-btn[aria-expanded="true"] .dropdown-chevron,
+    [data-bs-theme="dark"] .header-menu-btn.active .dropdown-chevron,
+    [data-bs-theme="dark"] .header-menu-btn[aria-expanded="true"] .dropdown-chevron {
+        color: #38bdf8 !important;
+    }
+
+    /* ── Header Filter Dropdown Styling (Unified) ── */
+    .data-table th .dropdown-menu,
+    .data-table th .header-filter-dropdown,
+    .header-filter-dropdown {
+        border-radius: 8px !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 5px !important;
+        font-size: 0.80rem !important;
+        min-width: 150px !important;
+        margin-top: 4px !important;
+        z-index: 100000 !important;
+        background: #ffffff !important;
+        box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.2), 0 6px 15px -2px rgba(0, 0, 0, 0.12) !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+    }
+    .header-filter-dropdown .dropdown-header {
+        font-size: 0.66rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+        color: #94a3b8 !important;
+        padding: 4px 8px 3px !important;
+    }
+    .header-filter-dropdown .dropdown-item {
+        font-size: 0.80rem !important;
+        font-weight: 450 !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        padding: 5px 8px !important;
+        border-radius: 5px !important;
+        color: #1e293b !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        transition: all 0.12s ease !important;
+        cursor: pointer !important;
+    }
+    .header-filter-dropdown .dropdown-item:hover {
+        background-color: #f1f5f9 !important;
+        color: #2563eb !important;
+    }
+    .header-filter-dropdown .dropdown-item.active {
+        background-color: rgba(37, 99, 235, 0.08) !important;
+        color: #1d4ed8 !important;
+        font-weight: 600 !important;
+    }
+    .dark-mode .header-filter-dropdown,
+    [data-bs-theme="dark"] .header-filter-dropdown {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+        box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.55), 0 6px 16px -2px rgba(0, 0, 0, 0.35) !important;
+    }
+    .dark-mode .header-filter-dropdown .dropdown-header,
+    [data-bs-theme="dark"] .header-filter-dropdown .dropdown-header {
+        color: #64748b !important;
+    }
+    .dark-mode .header-filter-dropdown .dropdown-item,
+    [data-bs-theme="dark"] .header-filter-dropdown .dropdown-item {
+        color: #e2e8f0 !important;
+    }
+    .dark-mode .header-filter-dropdown .dropdown-item:hover,
+    [data-bs-theme="dark"] .header-filter-dropdown .dropdown-item:hover {
+        background-color: #334155 !important;
+        color: #38bdf8 !important;
+    }
+    .dark-mode .header-filter-dropdown .dropdown-item.active,
+    [data-bs-theme="dark"] .header-filter-dropdown .dropdown-item.active {
+        background-color: rgba(56, 189, 248, 0.15) !important;
+        color: #38bdf8 !important;
     }
 
     /* Desktop Only Row Hover (Disabled on Mobile) */
@@ -1384,90 +1640,6 @@
         .content-card:has(#activityLogsTablesWrapper) > .content-card-body,
         .content-card:has(.table-responsive-cards) > .content-card-body {
             padding: 0 !important;
-        }
-
-        #advancedFiltersCollapse {
-            display: none;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            min-height: auto !important;
-            margin-top: 8px !important;
-            margin-bottom: 14px !important;
-            clear: both !important;
-            position: relative !important;
-            overflow: visible !important;
-        }
-
-        #advancedFiltersCollapse.show {
-            display: block !important;
-            height: auto !important;
-            min-height: auto !important;
-            overflow: visible !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-
-        #advancedFiltersCollapse .filter-panel-unified {
-            display: block !important;
-            padding: 12px 14px !important;
-            border-radius: 12px !important;
-            margin: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: auto !important;
-            box-sizing: border-box !important;
-            overflow: visible !important;
-        }
-
-        #advancedFiltersCollapse .row {
-            display: flex !important;
-            flex-direction: column !important;
-            flex-wrap: nowrap !important;
-            gap: 10px !important;
-            margin: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-        }
-
-        #advancedFiltersCollapse .col,
-        #advancedFiltersCollapse .col-12,
-        #advancedFiltersCollapse .col-sm-6 {
-            width: 100% !important;
-            flex: 0 0 100% !important;
-            max-width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-        }
-
-        #advancedFiltersCollapse .col-12.d-none,
-        #advancedFiltersCollapse .col-sm-6.d-none,
-        #advancedFiltersCollapse .d-none {
-            display: none !important;
-        }
-
-        #advancedFiltersCollapse .filter-dropdown-ajax,
-        #advancedFiltersCollapse select.form-select {
-            font-size: 0.78rem !important;
-            height: 34px !important;
-            min-height: 34px !important;
-            border-radius: 7px !important;
-            width: 100% !important;
-            padding: 4px 10px !important;
-            font-weight: 500 !important;
-            box-sizing: border-box !important;
-            display: block !important;
-        }
-
-        #advancedFiltersCollapse label {
-            font-size: 0.68rem !important;
-            margin-bottom: 3px !important;
-            display: block !important;
-            font-weight: 700 !important;
-            letter-spacing: 0.35px !important;
-            text-transform: uppercase !important;
         }
 
         #activityLogsTablesWrapper {
@@ -1648,10 +1820,10 @@
 
     function updateSettingsExportUrl() {
         const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
-        const query = document.querySelector('input[name="q"]')?.value || '';
-        const dateRange = document.querySelector('select[name="date_range"]')?.value || 'all';
-        const actionType = document.querySelector('select[name="action_type"]')?.value || 'all';
-        const statusVal = document.querySelector('select[name="status"]')?.value || 'all';
+        const query = document.getElementById('liveSearchInput')?.value || document.querySelector('input[name="q"]')?.value || '';
+        const dateRange = document.getElementById('dateRangeInput')?.value || document.querySelector('[name="date_range"]')?.value || 'all';
+        const actionType = document.getElementById('actionTypeInput')?.value || document.querySelector('[name="action_type"]')?.value || 'all';
+        const statusVal = document.getElementById('statusInput')?.value || document.querySelector('[name="status"]')?.value || 'all';
         const exportBtn = document.getElementById('exportPdfHeaderBtn');
         if (exportBtn && exportBtn.tagName === 'A') {
             exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + encodeURIComponent(activeTab) + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
@@ -1660,10 +1832,10 @@
 
     function exportActivityLogsPdf(btn) {
         const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
-        const query = document.querySelector('input[name="q"]')?.value || '';
-        const dateRange = document.querySelector('select[name="date_range"]')?.value || 'all';
-        const actionType = document.querySelector('select[name="action_type"]')?.value || 'all';
-        const statusVal = document.querySelector('select[name="status"]')?.value || 'all';
+        const query = document.getElementById('liveSearchInput')?.value || document.querySelector('input[name="q"]')?.value || '';
+        const dateRange = document.getElementById('dateRangeInput')?.value || document.querySelector('[name="date_range"]')?.value || 'all';
+        const actionType = document.getElementById('actionTypeInput')?.value || document.querySelector('[name="action_type"]')?.value || 'all';
+        const statusVal = document.getElementById('statusInput')?.value || document.querySelector('[name="status"]')?.value || 'all';
         const exportUrl = "{% url 'export_activity_logs' %}?tab=" + encodeURIComponent(activeTab) + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
         
         if (window.downloadFileWithToast) {
@@ -1735,16 +1907,39 @@
     }
     window.switchLogTab = switchLogTab;
 
-    function filterActionType(actionVal, event) {
-        if (event) event.preventDefault();
-        const actionSelect = document.querySelector('select[name="action_type"]');
-        if (actionSelect) actionSelect.value = actionVal;
-
+    function setLogFilter(key, val) {
         const form = document.getElementById('activityLogsFilterForm');
         if (form) {
+            let input;
+            if (key === 'action_type') {
+                input = document.getElementById('actionTypeInput') || form.querySelector('input[name="action_type"]');
+            } else if (key === 'date_range') {
+                input = document.getElementById('dateRangeInput') || form.querySelector('input[name="date_range"]');
+            } else if (key === 'status') {
+                input = document.getElementById('statusInput') || form.querySelector('input[name="status"]');
+            } else if (key === 'record_id') {
+                input = form.querySelector('input[name="record_id"]');
+            }
+            if (input) {
+                input.value = val;
+            } else if (val) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = val;
+                form.appendChild(input);
+            }
+            
             const formData = new FormData(form);
-            formData.set('action_type', actionVal);
-            formData.set('log_page', '1');
+            if (key !== 'record_id' && (!val || val === 'all')) {
+                formData.set(key, 'all');
+            }
+            if (key === 'record_id' && !val) {
+                formData.delete('record_id');
+            }
+            formData.delete('log_page');
+            formData.delete('login_page');
+            
             const params = new URLSearchParams(formData);
             const newUrl = window.location.pathname + '?' + params.toString();
             if (window.updateLogsTableAJAX) {
@@ -1753,6 +1948,39 @@
                 window.location.search = params.toString();
             }
         }
+    }
+    window.setLogFilter = setLogFilter;
+
+    function clearAllLogFilters() {
+        const form = document.getElementById('activityLogsFilterForm');
+        if (form) {
+            const tabInput = document.getElementById('activeLogTabInput');
+            const activeTab = tabInput ? tabInput.value : 'audit';
+            const dateInput = document.getElementById('dateRangeInput');
+            if (dateInput) dateInput.value = 'all';
+            const actInput = document.getElementById('actionTypeInput');
+            if (actInput) actInput.value = 'all';
+            const statInput = document.getElementById('statusInput');
+            if (statInput) statInput.value = 'all';
+            const recInput = form.querySelector('input[name="record_id"]');
+            if (recInput) recInput.remove();
+            
+            const searchInput = document.getElementById('liveSearchInput');
+            if (searchInput) searchInput.value = '';
+
+            const newUrl = window.location.pathname + '?tab=' + encodeURIComponent(activeTab);
+            if (window.updateLogsTableAJAX) {
+                window.updateLogsTableAJAX(newUrl);
+            } else {
+                window.location.href = newUrl;
+            }
+        }
+    }
+    window.clearAllLogFilters = clearAllLogFilters;
+
+    function filterActionType(actionVal, event) {
+        if (event) event.preventDefault();
+        setLogFilter('action_type', actionVal);
     }
     window.filterActionType = filterActionType;
 
@@ -1819,9 +2047,8 @@
             if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
             if (logClearBtn) logClearBtn.classList.add('d-none');
             if (tablesWrapper) {
-                tablesWrapper.style.transition = 'opacity 0.12s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1)';
-                tablesWrapper.style.opacity = '0.35';
-                tablesWrapper.style.transform = 'translateY(2px)';
+                tablesWrapper.style.minHeight = `${tablesWrapper.offsetHeight}px`;
+                tablesWrapper.classList.add('table-ajax-loading');
             }
 
             try {
@@ -1835,23 +2062,30 @@
                 const newTablesWrapper = doc.getElementById('activityLogsTablesWrapper');
                 if (tablesWrapper && newTablesWrapper) {
                     tablesWrapper.innerHTML = newTablesWrapper.innerHTML;
+                    tablesWrapper.classList.remove('table-ajax-loading');
+                    tablesWrapper.classList.add('table-ajax-fade-in');
+                    setTimeout(() => {
+                        tablesWrapper.classList.remove('table-ajax-fade-in');
+                        tablesWrapper.style.minHeight = '';
+                    }, 200);
                 }
 
-                // Update active chips container smoothly
-                const newChipsContainer = doc.querySelector('.active-filter-chips');
-                const currentChipsContainer = document.querySelector('.active-filter-chips');
-                if (currentChipsContainer) {
-                    if (newChipsContainer) {
-                        currentChipsContainer.innerHTML = newChipsContainer.innerHTML;
-                    } else {
-                        currentChipsContainer.remove();
-                    }
-                } else if (newChipsContainer) {
-                    const filtersCollapse = document.getElementById('advancedFiltersCollapse');
-                    if (filtersCollapse) {
-                        filtersCollapse.insertAdjacentElement('beforebegin', newChipsContainer);
-                    }
+                // Update active filter chips container seamlessly
+                const newChipsWrapper = doc.getElementById('activeChipsWrapper');
+                const currentChipsWrapper = document.getElementById('activeChipsWrapper');
+                if (currentChipsWrapper && newChipsWrapper) {
+                    currentChipsWrapper.classList.remove('wrapper-collapsing');
+                    currentChipsWrapper.style.maxHeight = '';
+                    currentChipsWrapper.innerHTML = newChipsWrapper.innerHTML;
                 }
+
+                // Sync hidden inputs
+                const docDateInput = doc.getElementById('dateRangeInput');
+                const docActionInput = doc.getElementById('actionTypeInput');
+                const docStatusInput = doc.getElementById('statusInput');
+                if (docDateInput && document.getElementById('dateRangeInput')) document.getElementById('dateRangeInput').value = docDateInput.value;
+                if (docActionInput && document.getElementById('actionTypeInput')) document.getElementById('actionTypeInput').value = docActionInput.value;
+                if (docStatusInput && document.getElementById('statusInput')) document.getElementById('statusInput').value = docStatusInput.value;
 
                 // Sync filter tabs active state accurately
                 try {
@@ -1890,11 +2124,6 @@
             } catch (err) {
                 console.error("AJAX refresh error:", err);
             } finally {
-                if (tablesWrapper) {
-                    tablesWrapper.style.transition = 'opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
-                    tablesWrapper.style.opacity = '1';
-                    tablesWrapper.style.transform = 'translateY(0)';
-                }
                 if (logSearchSpinner) logSearchSpinner.classList.add('d-none');
                 if (logClearBtn) {
                     if (logSearchInput && logSearchInput.value.trim().length > 0) logClearBtn.classList.remove('d-none');
@@ -2015,6 +2244,79 @@
         }
         updateSettingsExportUrl();
     });
+
+    function setLogFilter(filterKey, filterVal) {
+        const form = document.getElementById('activityFilterForm');
+        if (!form) return;
+        const inputMap = {
+            'record_id': 'recordIdInput',
+            'date_range': 'dateRangeInput',
+            'action_type': 'actionTypeInput',
+            'status': 'statusInput'
+        };
+        const targetId = inputMap[filterKey] || filterKey;
+        const targetEl = document.getElementById(targetId) || form.querySelector(`[name="${filterKey}"]`);
+        if (targetEl) {
+            targetEl.value = filterVal;
+        }
+        const formData = new FormData(form);
+        formData.delete('page');
+        formData.delete('login_page');
+        const params = new URLSearchParams(formData);
+        const newUrl = window.location.pathname + '?' + params.toString();
+        if (window.updateLogsTableAJAX) {
+            window.updateLogsTableAJAX(newUrl);
+        } else {
+            window.location.search = params.toString();
+        }
+    }
+    window.setLogFilter = setLogFilter;
+
+    function removeLogFilterChipSmooth(btn, filterName, value) {
+        const chip = btn.closest('.filter-chip');
+        const chipsWrapper = document.getElementById('activeChipsWrapper');
+        if (chip) {
+            const curWidth = chip.getBoundingClientRect().width;
+            chip.style.maxWidth = curWidth + 'px';
+            
+            const allChips = chip.parentElement ? chip.parentElement.querySelectorAll('.filter-chip:not(.chip-removing)') : [];
+            if (allChips.length <= 1 && chipsWrapper) {
+                chipsWrapper.classList.add('wrapper-collapsing');
+            }
+            
+            requestAnimationFrame(() => {
+                chip.classList.add('chip-removing');
+            });
+        }
+        setTimeout(() => {
+            setLogFilter(filterName, value || '');
+        }, 110);
+    }
+    window.removeLogFilterChipSmooth = removeLogFilterChipSmooth;
+
+    function clearAllLogFilters() {
+        const wrapper = document.getElementById('activeChipsWrapper');
+        if (wrapper) wrapper.classList.add('wrapper-collapsing');
+        const form = document.getElementById('activityFilterForm');
+        if (form) {
+            ['date_range', 'action_type', 'status'].forEach(id => {
+                const el = document.getElementById(id + 'Input') || form.querySelector(`[name="${id}"]`);
+                if (el) el.value = 'all';
+            });
+            const recEl = form.querySelector('[name="record_id"]');
+            if (recEl) recEl.value = '';
+            const searchInp = document.getElementById('activityLogSearch');
+            if (searchInp) searchInp.value = '';
+            const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
+            const newUrl = window.location.pathname + `?tab=${encodeURIComponent(activeTab)}`;
+            if (window.updateLogsTableAJAX) {
+                window.updateLogsTableAJAX(newUrl);
+            } else {
+                window.location.href = newUrl;
+            }
+        }
+    }
+    window.clearAllLogFilters = clearAllLogFilters;
 
     function copyAccountIdentifier(text) {
         if (!text) return;
