@@ -10023,9 +10023,17 @@
             border: 1px solid #e2e8f0 !important;
             border-left: 4px solid #0284c7 !important;
             box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+            transition: border-left-color 0.3s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .custom-app-toast.zip-download-toast.toast-variant-success {
+            border-left-color: #10b981 !important;
+        }
+        .custom-app-toast.zip-download-toast.toast-variant-danger {
+            border-left-color: #ef4444 !important;
         }
         .custom-app-toast.zip-download-toast .toast-text-single {
             color: #0f172a !important;
+            font-weight: 500;
         }
         .custom-app-toast.zip-download-toast .toast-status-icon {
             background: #e0f2fe !important;
@@ -10041,6 +10049,14 @@
             border: 1px solid #334155 !important;
             border-left: 4px solid #38bdf8 !important;
             box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
+        }
+        .dark-mode .custom-app-toast.zip-download-toast.toast-variant-success,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast.toast-variant-success {
+            border-left-color: #34d399 !important;
+        }
+        .dark-mode .custom-app-toast.zip-download-toast.toast-variant-danger,
+        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast.toast-variant-danger {
+            border-left-color: #f87171 !important;
         }
         .dark-mode .custom-app-toast.zip-download-toast .toast-text-single,
         [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-text-single {
@@ -10322,38 +10338,224 @@
             }
         });
 
-        window.downloadFileWithToast = function(url, suggestedFilename, options = {}) {
-            const title = options.title || 'Exporting File';
-            const startMsg = options.startMsg || 'Preparing your document, please wait...';
-            const successTitle = options.successTitle || 'Download Started';
-            const successMsg = options.successMsg || 'File sent to your browser downloads.';
-            const btn = options.buttonElement;
+        // ── Unified Modern File Download & Toast Management ──
+        function getDownloadLabels(url, filename, options = {}) {
+            const combined = ((options.title || '') + ' ' + (options.startMsg || '') + ' ' + (filename || '') + ' ' + (url || '')).toLowerCase();
+            if (combined.includes('.xlsx') || combined.includes('excel') || combined.includes('spreadsheet')) {
+                return {
+                    start: options.startMsg || 'Preparing Excel spreadsheet...',
+                    ready: options.successTitle || 'Excel Spreadsheet Ready'
+                };
+            }
+            if (combined.includes('.pdf') || combined.includes('pdf')) {
+                return {
+                    start: options.startMsg || 'Preparing PDF report...',
+                    ready: options.successTitle || 'PDF Report Ready'
+                };
+            }
+            if (combined.includes('backup')) {
+                return {
+                    start: options.startMsg || 'Preparing backup file...',
+                    ready: options.successTitle || 'Backup Ready'
+                };
+            }
+            if (combined.includes('zip') || combined.includes('archive')) {
+                return {
+                    start: options.startMsg || 'Preparing ZIP archive...',
+                    ready: options.successTitle || 'ZIP Archive Ready'
+                };
+            }
+            return {
+                start: options.startMsg || 'Preparing file download...',
+                ready: options.successTitle || 'Download Ready'
+            };
+        }
 
+        function createDownloadToast(startText) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return null;
+
+            container.querySelectorAll('.zip-download-toast').forEach(t => t.remove());
+
+            const toastId = 'dl-toast-' + Date.now();
+            const toastHtml = `
+            <div id="${toastId}" class="custom-app-toast toast-variant-info zip-download-toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex align-items-center" style="padding: 12px 14px; gap: 11px;">
+                    <div class="toast-icon-badge" id="${toastId}-badge" style="background: #0284c7;">
+                        <span class="spinner-border spinner-border-sm text-white" style="width: 14px; height: 14px; border-width: 2px;" role="status"></span>
+                    </div>
+                    <div class="toast-text-single flex-grow-1" id="${toastId}-text" style="min-width: 0;">
+                        ${startText}
+                    </div>
+                    <button type="button" class="toast-close-btn flex-shrink-0 ms-1" onclick="dismissToast('${toastId}')" aria-label="Close">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="toast-progress-track" id="${toastId}-bar" style="background: #0284c7; width: 40%; transition: width 0.3s ease, background 0.3s ease;"></div>
+            </div>
+            `;
+            container.insertAdjacentHTML('beforeend', toastHtml);
+
+            const toastEl = document.getElementById(toastId);
+            const textEl = document.getElementById(`${toastId}-text`);
+            const badgeEl = document.getElementById(`${toastId}-badge`);
+            const barEl = document.getElementById(`${toastId}-bar`);
+
+            let progress = 40;
+            const progressInterval = setInterval(() => {
+                if (progress < 85) {
+                    progress += 10;
+                    if (barEl) barEl.style.width = progress + '%';
+                }
+            }, 500);
+
+            return {
+                setSuccess: function(successText) {
+                    clearInterval(progressInterval);
+                    if (barEl) {
+                        barEl.style.width = '100%';
+                        barEl.style.background = '#10b981';
+                    }
+                    if (badgeEl) {
+                        badgeEl.style.background = '#10b981';
+                        badgeEl.innerHTML = '<i class="fa-solid fa-circle-check text-white" style="font-size: 14px;"></i>';
+                    }
+                    if (textEl) {
+                        textEl.textContent = successText;
+                    }
+                    if (toastEl) {
+                        toastEl.style.borderLeftColor = '#10b981';
+                        toastEl.classList.remove('toast-variant-info', 'toast-variant-danger');
+                        toastEl.classList.add('toast-variant-success');
+                    }
+                    setTimeout(() => {
+                        if (toastEl) dismissToast(toastId);
+                    }, 2800);
+                },
+                setError: function(errorText) {
+                    clearInterval(progressInterval);
+                    if (barEl) {
+                        barEl.style.width = '100%';
+                        barEl.style.background = '#ef4444';
+                    }
+                    if (badgeEl) {
+                        badgeEl.style.background = '#ef4444';
+                        badgeEl.innerHTML = '<i class="fa-solid fa-circle-xmark text-white" style="font-size: 14px;"></i>';
+                    }
+                    if (textEl) {
+                        textEl.textContent = errorText || 'Download failed. Please try again.';
+                    }
+                    if (toastEl) {
+                        toastEl.style.borderLeftColor = '#ef4444';
+                        toastEl.classList.remove('toast-variant-info', 'toast-variant-success');
+                        toastEl.classList.add('toast-variant-danger');
+                    }
+                    setTimeout(() => {
+                        if (toastEl) dismissToast(toastId);
+                    }, 4000);
+                },
+                close: function() {
+                    clearInterval(progressInterval);
+                    if (toastEl) dismissToast(toastId);
+                }
+            };
+        }
+
+        window.downloadFileWithToast = async function(url, suggestedFilename, options = {}) {
+            const labels = getDownloadLabels(url, suggestedFilename, options);
+            const btn = options.buttonElement;
             let originalBtnHtml = '';
+
             if (btn) {
                 btn.disabled = true;
                 originalBtnHtml = btn.innerHTML;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" style="width: 13px; height: 13px;" role="status"></span> Generating...';
-                setTimeout(() => {
+            }
+
+            const toast = createDownloadToast(labels.start);
+
+            let safetyTimer = setTimeout(() => {
+                restoreBtn();
+            }, 35000);
+
+            function restoreBtn() {
+                if (safetyTimer) {
+                    clearTimeout(safetyTimer);
+                    safetyTimer = null;
+                }
+                if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = originalBtnHtml;
-                }, 2200);
+                }
             }
 
-            if (window.showZipDownloadToast) {
-                window.showZipDownloadToast(title, startMsg, successTitle, successMsg);
-            }
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin'
+                });
 
-            // Smooth background download via invisible iframe (never reloads, never jumps, never goes blank!)
-            let downloadFrame = document.getElementById('etalaDownloadIframe');
-            if (!downloadFrame) {
-                downloadFrame = document.createElement('iframe');
-                downloadFrame.id = 'etalaDownloadIframe';
-                downloadFrame.style.display = 'none';
-                document.body.appendChild(downloadFrame);
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('text/html')) {
+                    window.location.href = url;
+                    if (toast) toast.close();
+                    restoreBtn();
+                    return;
+                }
+
+                let dlFilename = suggestedFilename || 'download';
+                const disposition = response.headers.get('Content-Disposition');
+                if (disposition && disposition.includes('filename=')) {
+                    const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (match && match[1]) {
+                        dlFilename = match[1].replace(/['"]/g, '').trim();
+                    }
+                }
+
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = blobUrl;
+                a.download = dlFilename;
+                document.body.appendChild(a);
+                a.click();
+
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(blobUrl);
+                    a.remove();
+                }, 1000);
+
+                if (toast) toast.setSuccess(labels.ready);
+                restoreBtn();
+            } catch (err) {
+                console.warn('Fetch download failed, falling back to iframe:', err);
+                try {
+                    let downloadFrame = document.getElementById('etalaDownloadIframe');
+                    if (!downloadFrame) {
+                        downloadFrame = document.createElement('iframe');
+                        downloadFrame.id = 'etalaDownloadIframe';
+                        downloadFrame.style.display = 'none';
+                        document.body.appendChild(downloadFrame);
+                    }
+                    downloadFrame.src = url;
+                    setTimeout(() => {
+                        if (toast) toast.setSuccess(labels.ready);
+                        restoreBtn();
+                    }, 2500);
+                } catch (fallbackErr) {
+                    if (toast) toast.setError('Download failed. Please try again.');
+                    restoreBtn();
+                }
             }
-            downloadFrame.src = url;
         };
+
+        window.createDownloadToast = createDownloadToast;
     </script>
 
     <!-- Formal Standard Confirmation Modal (Government & Enterprise Balanced Design) -->
@@ -11722,70 +11924,15 @@
     <!-- ══ UNIVERSAL ZIP & EXPORT DOWNLOAD PROGRESS INDICATOR TOAST ═══════════════════ -->
     <script>
         function showZipDownloadToast(title, msg, completedTitle, completedMsg) {
-            const container = document.getElementById('toastContainer');
-            if (!container) return;
-
-            // Remove any existing zip/export toasts first so it never duplicates
-            container.querySelectorAll('.zip-download-toast').forEach(t => t.remove());
-
-            const toastId = 'zip-toast-' + Date.now();
-            const toastHtml = `
-            <div id="${toastId}" class="custom-app-toast toast-variant-info zip-download-toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex align-items-center" style="padding: 12px 14px; gap: 11px;">
-                    <div class="toast-icon-badge" id="${toastId}-badge" style="background: #0284c7;">
-                        <span class="spinner-border spinner-border-sm text-white" style="width: 14px; height: 14px; border-width: 2px;" role="status"></span>
-                    </div>
-                    <div class="toast-text-single flex-grow-1" id="${toastId}-text" style="min-width: 0;">
-                        Preparing ZIP archive...
-                    </div>
-                    <button type="button" class="toast-close-btn flex-shrink-0 ms-1" onclick="dismissToast('${toastId}')" aria-label="Close">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-                <div class="toast-progress-track" id="${toastId}-bar" style="background: #0284c7; width: 30%;"></div>
-            </div>
-            `;
-
-            container.insertAdjacentHTML('beforeend', toastHtml);
-            const toastEl = document.getElementById(toastId);
-            const textEl = document.getElementById(`${toastId}-text`);
-            const badgeEl = document.getElementById(`${toastId}-badge`);
-            const barEl = document.getElementById(`${toastId}-bar`);
-
-            let progress = 30;
-            const interval = setInterval(function() {
-                if (progress < 85) {
-                    progress += 15;
-                    if (barEl) barEl.style.width = progress + '%';
-                } else {
-                    clearInterval(interval);
-                }
-            }, 300);
-
-            setTimeout(function() {
-                clearInterval(interval);
-                if (barEl) {
-                    barEl.style.width = '100%';
-                    barEl.style.background = '#10b981';
-                }
-                if (badgeEl) {
-                    badgeEl.style.background = '#10b981';
-                    badgeEl.innerHTML = '<i class="fa-solid fa-circle-check text-white" style="font-size: 14px;"></i>';
-                }
-                if (textEl) {
-                    textEl.textContent = 'ZIP archive ready';
-                }
-                if (toastEl) {
-                    toastEl.classList.remove('toast-variant-info');
-                    toastEl.classList.add('toast-variant-success');
-                }
-
-                setTimeout(function() {
-                    if (toastEl) {
-                        dismissToast(toastId);
-                    }
-                }, 2800);
-            }, 1800);
+            const startText = msg || title || 'Preparing ZIP archive...';
+            const readyText = completedMsg || completedTitle || 'ZIP archive ready';
+            if (window.createDownloadToast) {
+                const toast = window.createDownloadToast(startText);
+                setTimeout(() => {
+                    if (toast) toast.setSuccess(readyText);
+                }, 3000);
+                return toast;
+            }
         }
         window.showZipDownloadToast = showZipDownloadToast;
 
@@ -11805,7 +11952,14 @@
                         }
                         return false;
                     }
-                    if (window.showZipDownloadToast) {
+                    const href = zipBtn.getAttribute('href');
+                    if (href && href !== '#' && !href.startsWith('javascript:')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (window.downloadFileWithToast) {
+                            window.downloadFileWithToast(href, '', { buttonElement: zipBtn });
+                        }
+                    } else if (window.showZipDownloadToast) {
                         window.showZipDownloadToast();
                     }
                 }
