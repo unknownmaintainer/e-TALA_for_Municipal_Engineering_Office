@@ -109,17 +109,25 @@ flowchart LR
 
 ## Figure 3.3: Project Development Timeline (Gantt Chart)
 
-Figure 3.3 presents the five-month development timeline of the eTala system from June to October. It details the sequential execution of planning, database design, software development, system testing, cloud deployment, and final user evaluation.
+Figure 3.3 illustrates the project development timeline of the eTala system spanning seven (7) months from June to December. It outlines the structured execution of phases under the Software Development Life Cycle (SDLC), ensuring that municipal engineering requirements, system architecture, and stakeholder acceptance are systematically accomplished alongside continuous documentation:
 
-| Tasks / SDLC Phases | June | July | August | September | October |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Planning** | June 1 – 30 | | | | |
-| **Design** | June 15 – 30 | July 1 – 31 | | | |
-| **Development** | | July 1 – 31 | Aug 1 – 31 | Sept 1 – 15 | |
-| **Testing** | | | Aug 15 – 31 | Sept 1 – 30 | |
-| **Deployment** | | | | Sept 15 – 30 | Oct 1 – 15 |
-| **Evaluation** | | | | | Oct 1 – 31 |
-| **Documentation** | Continuous | Continuous | Continuous | Continuous | Continuous |
+1. **Planning (June):** Focused on initial requirements elicitation, problem identification, consultation with the Municipal Engineering Office (MEO) of Carigara, feasibility assessment, and scope definition.
+2. **System Design (July):** Encompassed relational database schema modeling (ERD), system architecture diagrams, data flow diagrams (DFD), use case mapping, and user interface wireframing.
+3. **Software Development (July – October):** Core iterative implementation covering Django backend development, PostgreSQL database logic, interactive Leaflet GIS mapping, document management, and administrative audit trails.
+4. **System Testing (October):** Conducted in parallel with the final development stage, covering functional testing, unit testing, cross-device responsiveness verification, and security testing (2FA/OTP and authorization controls).
+5. **Deployment (November):** Involved cloud server provisioning, production database configuration, domain setup, SSL security hardening, and municipal staging deployment.
+6. **Evaluation (December):** User acceptance testing (UAT) and usability assessment conducted with designated Municipal Engineering Office personnel and stakeholders using standardized evaluation metrics.
+7. **Documentation (June – December):** Maintained continuously across all project phases to produce technical architecture specifications, user manuals, and the formal research manuscript.
+
+| Tasks / SDLC Phases | June | July | August | September | October | November | December |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Planning** | June 1 – 30 | | | | | | |
+| **Design** | | July 1 – 31 | | | | | |
+| **Development** | | July 1 – 31 | Aug 1 – 31 | Sept 1 – 30 | Oct 1 – 31 | | |
+| **Testing** | | | | | Oct 1 – 31 | | |
+| **Deployment** | | | | | | Nov 1 – 30 | |
+| **Evaluation** | | | | | | | Dec 1 – 31 |
+| **Documentation** | Continuous | Continuous | Continuous | Continuous | Continuous | Continuous | Continuous |
 
 **Figure 3.3. Project Development Timeline (Gantt Chart)**
 

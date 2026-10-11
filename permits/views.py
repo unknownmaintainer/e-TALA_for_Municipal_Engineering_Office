@@ -1626,6 +1626,7 @@ def records_browse_view(request):
     records = filter_engineering_records(
         unfiltered_base,
         record_type=record_type,
+        project_scope=project_scope,
         illegal_filter=None
     )
     if selected_scope == 'my':
@@ -1726,8 +1727,6 @@ def illegal_constructions_view(request):
     """
     base_records = EngineeringRecord.objects.exclude(status='archived').filter(
         is_illegal_construction=True
-    ).exclude(
-        illegal_compliance_status='resolved'
     ).select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     ).prefetch_related(
@@ -1738,7 +1737,7 @@ def illegal_constructions_view(request):
     query = request.GET.get('q', '').strip()
     barangay_id = request.GET.get('barangay', '')
     year = request.GET.get('year', '')
-    stage_filter = request.GET.get('stage', 'active').strip()  # 'active', 'unresolved', 'pending_permit', 'resolved', 'all'
+    stage_filter = request.GET.get('stage', 'all').strip()  # 'all', 'unresolved', 'resolved'
 
     # Filter base
     qs = base_records

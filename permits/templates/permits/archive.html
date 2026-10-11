@@ -673,44 +673,42 @@
     .mobile-archive-item {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 11px 12px;
-        min-height: 56px;
-        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        gap: 12px;
+        padding: 12px 14px;
+        min-height: 52px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
         background: #ffffff;
         text-align: left !important;
         cursor: pointer;
-        transition: background-color 0.15s ease;
+        transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
         -webkit-tap-highlight-color: transparent;
-        overflow: visible !important;
+        overflow: hidden !important;
         position: relative !important;
-    }
-    .mobile-archive-item:first-child {
-        border-top-left-radius: 14px;
-        border-top-right-radius: 14px;
-    }
-    .mobile-archive-item:last-child {
-        border-bottom: none;
-        border-bottom-left-radius: 14px;
-        border-bottom-right-radius: 14px;
     }
     .mobile-archive-item:hover {
         background: #f8fafc;
+        border-color: #cbd5e1;
     }
     .mobile-archive-item:active {
         background: rgba(148, 163, 184, 0.12);
+        transform: scale(0.99);
     }
     .dark-mode .mobile-archive-item,
     [data-bs-theme="dark"] .mobile-archive-item {
         background: #1e293b !important;
-        border-bottom-color: rgba(51, 65, 85, 0.6) !important;
+        border-color: #334155 !important;
         color: #f8fafc !important;
     }
     .dark-mode .mobile-archive-item:hover,
+    [data-bs-theme="dark"] .mobile-archive-item:hover {
+        background: #24344d !important;
+        border-color: #475569 !important;
+    }
     .dark-mode .mobile-archive-item:active,
-    [data-bs-theme="dark"] .mobile-archive-item:hover,
     [data-bs-theme="dark"] .mobile-archive-item:active {
         background: #26354a !important;
+        transform: scale(0.99);
     }
     .mobile-record-icon.trash {
         background: rgba(220, 38, 38, 0.08);
@@ -822,7 +820,7 @@
                         </th>
 
                         <!-- TITLE Column Header (Sort Dropdown) -->
-                        <th style="width: 50%; min-width: 220px;">
+                        <th style="width: 36%; min-width: 170px;">
                             <div class="dropdown position-relative d-inline-block">
                                 <button type="button" class="header-menu-btn {% if current_sort == 'title_asc' or current_sort == 'title_desc' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Sort by Title">
                                     <span>Title</span>
@@ -843,10 +841,10 @@
                         </th>
 
                         <!-- TYPE Column Header (Clean Plain Text) -->
-                        <th style="width: 26%; min-width: 140px;">Type</th>
+                        <th class="text-center" style="width: 34%; min-width: 160px;">Type</th>
 
                         <!-- RETENTION Column Header (Sort Dropdown) -->
-                        <th class="text-end" style="width: 24%; min-width: 130px; padding-right: 20px;">
+                        <th class="text-end" style="width: 30%; min-width: 150px; padding-right: 20px;">
                             <div class="dropdown position-relative d-inline-block">
                                 <button type="button" class="header-menu-btn {% if current_sort == 'retention_asc' or current_sort == 'retention_desc' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Sort by Retention">
                                     <span>Retention</span>
@@ -902,7 +900,7 @@
                                 {% endif %}
                             </div>
                         </td>
-                        <td data-label="Type" style="white-space: nowrap; text-align: left;">
+                        <td class="text-center" data-label="Type" style="white-space: nowrap; text-align: center;">
                             {% if record.is_illegal_construction %}
                             <span class="tag tag-permit fw-semibold" style="font-size: 0.78rem;">Building Violation</span>
                             {% elif record.record_type == 'Permit' %}
@@ -941,46 +939,48 @@
         </div>
 
         <!-- Mobile Card List View -->
-        <div class="mobile-archive-list d-block d-md-none">
-            {% for record in page_obj %}
-            <div class="mobile-archive-item" data-href="{% url 'record_detail' record.record_id %}">
-                <div class="d-flex align-items-center me-1 flex-shrink-0" onclick="event.stopPropagation();">
-                    <input type="checkbox" class="form-check-input trash-row-checkbox trash-checkbox" value="{{ record.record_id }}" data-title="{{ record.display_title }}" onchange="updateSelectionBar()" onclick="event.stopPropagation();">
-                </div>
-                <div class="mobile-record-icon trash flex-shrink-0">
-                    <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
-                </div>
-                <div class="mobile-archive-content flex-grow-1 min-w-0">
-                    <div class="mobile-archive-title text-truncate">
-                        {{ record.display_title }}
+        <div class="mobile-archive-list d-block d-md-none p-2">
+            <div class="d-flex flex-column gap-2">
+                {% for record in page_obj %}
+                <div class="mobile-archive-item" data-href="{% url 'record_detail' record.record_id %}">
+                    <div class="d-flex align-items-center me-1 flex-shrink-0" onclick="event.stopPropagation();">
+                        <input type="checkbox" class="form-check-input trash-row-checkbox trash-checkbox" value="{{ record.record_id }}" data-title="{{ record.display_title }}" onchange="updateSelectionBar()" onclick="event.stopPropagation();">
                     </div>
-                    <div class="mobile-archive-meta mt-1">
-                        {% if record.is_illegal_construction %}
-                        <span class="tag tag-permit text-truncate" style="font-size: 0.70rem; padding: 1px 6px;">Building Violation</span>
-                        {% else %}
-                        <span class="tag {% if record.record_type == 'Permit' %}tag-permit{% else %}tag-project{% endif %} text-truncate" style="font-size: 0.70rem; padding: 1px 6px;" title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
-                        {% endif %}
-                        
-                        {% if record.trash_days_remaining <= 7 %}
-                        <span class="badge bg-danger-subtle text-danger d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: none; border-radius: 6px; white-space: nowrap;">
-                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 8px;"></i>
-                            <span>{{ record.trash_days_remaining }}d left</span>
-                        </span>
-                        {% elif record.trash_days_remaining <= 20 %}
-                        <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: none; border-radius: 6px; white-space: nowrap;">
-                            <i class="fa-regular fa-clock" style="font-size: 8px;"></i>
-                            <span>{{ record.trash_days_remaining }}d left</span>
-                        </span>
-                        {% else %}
-                        <span class="badge d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: none; border-radius: 6px; white-space: nowrap;">
-                            <i class="fa-regular fa-clock" style="font-size: 8px;"></i>
-                            <span>{{ record.trash_days_remaining }}d left</span>
-                        </span>
-                        {% endif %}
+                    <div class="mobile-record-icon trash flex-shrink-0">
+                        <i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>
+                    </div>
+                    <div class="mobile-archive-content flex-grow-1 min-w-0">
+                        <div class="mobile-archive-title text-truncate">
+                            {{ record.display_title }}
+                        </div>
+                        <div class="mobile-archive-meta mt-1">
+                            {% if record.is_illegal_construction %}
+                            <span class="tag tag-permit text-truncate" style="font-size: 0.70rem; padding: 1px 6px;">Building Violation</span>
+                            {% else %}
+                            <span class="tag {% if record.record_type == 'Permit' %}tag-permit{% else %}tag-project{% endif %} text-truncate" style="font-size: 0.70rem; padding: 1px 6px;" title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
+                            {% endif %}
+                            
+                            {% if record.trash_days_remaining <= 7 %}
+                            <span class="badge bg-danger-subtle text-danger d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: none; border-radius: 6px; white-space: nowrap;">
+                                <i class="fa-solid fa-triangle-exclamation" style="font-size: 8px;"></i>
+                                <span>{{ record.trash_days_remaining }}d left</span>
+                            </span>
+                            {% elif record.trash_days_remaining <= 20 %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; border: none; border-radius: 6px; white-space: nowrap;">
+                                <i class="fa-regular fa-clock" style="font-size: 8px;"></i>
+                                <span>{{ record.trash_days_remaining }}d left</span>
+                            </span>
+                            {% else %}
+                            <span class="badge d-inline-flex align-items-center gap-1 flex-shrink-0" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(100, 116, 139, 0.12); color: #64748b; border: none; border-radius: 6px; white-space: nowrap;">
+                                <i class="fa-regular fa-clock" style="font-size: 8px;"></i>
+                                <span>{{ record.trash_days_remaining }}d left</span>
+                            </span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
 
         <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
