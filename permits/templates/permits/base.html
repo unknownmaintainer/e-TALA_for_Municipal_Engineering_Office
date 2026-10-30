@@ -12488,6 +12488,11 @@
     </script>
 
     <script>
+        function getNotificationCsrfToken() {
+            var match = document.cookie ? document.cookie.split('; ').find(row => row.startsWith('csrftoken=')) : null;
+            return match ? match.split('=')[1] : '';
+        }
+
         /* ══ NOTIFICATION UNREAD / ITEM READ / DISMISS ENGINE ══ */
         function markItemAsRead(element, url) {
             if (!element) return;
@@ -12517,8 +12522,8 @@
                 // Send beacon fallback for reliable instant persistence before page navigation
                 try {
                     if (id && navigator.sendBeacon) {
-                        const csrftoken = (document.cookie.split('; ').find(row => row.startsWith('csrftoken=')) || '').split('=')[1];
-                        const blob = new Blob([JSON.stringify({ action_type: 'mark_read', notification_id: id })], { type: 'application/json' });
+                        var beaconToken = getNotificationCsrfToken();
+                        var blob = new Blob([JSON.stringify({ action_type: 'mark_read', notification_id: id })], { type: 'application/json' });
                         navigator.sendBeacon('/notifications/action/', blob);
                     }
                 } catch(e) {}
@@ -12565,12 +12570,12 @@
 
         function syncNotifToServer(actionType, notifId, notifIds) {
             try {
-                const csrftoken = (document.cookie.split('; ').find(row => row.startsWith('csrftoken=')) || '').split('=')[1];
+                var serverToken = getNotificationCsrfToken();
                 fetch('/notifications/action/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': csrftoken || '',
+                        'X-CSRFToken': serverToken || '',
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
