@@ -8,32 +8,60 @@
     <script>
         // ⚡ CRITICAL ZERO-BLINK / ZERO-FOUC INITIALIZATION (Executes before any CSS loads)
         (function() {
+            var root = document.documentElement;
+            // Lock all CSS transitions to 0s during initial page load & DOM parsing so late <style> blocks never animate
+            root.classList.add('etala-theme-switching');
+
             var isDark = localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
             if (isDark) {
-                document.documentElement.classList.add('dark-mode');
-                document.documentElement.setAttribute('data-bs-theme', 'dark');
-                document.documentElement.style.colorScheme = 'dark';
-                document.documentElement.style.backgroundColor = '#0b1329';
+                root.classList.add('dark-mode');
+                root.setAttribute('data-bs-theme', 'dark');
+                root.style.colorScheme = 'dark';
+                root.style.backgroundColor = '#0b1329';
             } else {
-                document.documentElement.classList.remove('dark-mode');
-                document.documentElement.setAttribute('data-bs-theme', 'light');
-                document.documentElement.style.colorScheme = 'light';
-                document.documentElement.style.backgroundColor = '#f8fafc';
+                root.classList.remove('dark-mode');
+                root.setAttribute('data-bs-theme', 'light');
+                root.style.colorScheme = 'light';
+                root.style.backgroundColor = '#f8fafc';
             }
             if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 768) {
-                document.documentElement.classList.add('sidebar-is-collapsed');
+                root.classList.add('sidebar-is-collapsed');
+            }
+
+            function releaseInitialThemeLock() {
+                requestAnimationFrame(function() {
+                    setTimeout(function() {
+                        if (!window._etalaThemeSwitchTimer) {
+                            root.classList.remove('etala-theme-switching');
+                            if (document.body) document.body.classList.remove('etala-theme-switching');
+                        }
+                    }, 80);
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', releaseInitialThemeLock, { once: true });
+            } else {
+                releaseInitialThemeLock();
             }
         })();
 
-        // ⚡ PERFECTLY SYNCHRONIZED THEME SWITCH (ZERO CONTAINER DELAY)
+        // ⚡ PERFECTLY SYNCHRONIZED THEME SWITCH (ZERO CONTAINER / BUTTON / FIELD DELAY)
         window.applyTheme = function(theme) {
             const isDark = theme === 'dark';
             const root = document.documentElement;
             const body = document.body;
 
-            // Freeze individual container CSS transitions so 100% of containers paint in the exact same frame
-            root.classList.add('etala-theme-switching');
+            if (window._etalaThemeSwitchTimer) {
+                clearTimeout(window._etalaThemeSwitchTimer);
+                window._etalaThemeSwitchTimer = null;
+            }
 
+            // 1. Freeze 100% of CSS transitions across all containers, buttons, and fields BEFORE mutating theme classes
+            root.classList.add('etala-theme-switching');
+            if (body) body.classList.add('etala-theme-switching');
+            void root.offsetHeight;
+
+            // 2. Mutate theme state synchronously on root and body
             if (isDark) {
                 root.classList.add('dark-mode');
                 root.setAttribute('data-bs-theme', 'dark');
@@ -58,19 +86,26 @@
                 }
             }
 
-            // Force synchronous style & layout flush so all cards/tables/headers flip together simultaneously
-            void root.offsetHeight;
-
             try { localStorage.setItem('theme', theme); } catch(e) {}
             if (window.dispatchEvent) {
                 window.dispatchEvent(new CustomEvent('etala-theme-changed', { detail: { theme: theme } }));
             }
 
-            requestAnimationFrame(function() {
+            // 3. Force synchronous style & layout flush across document so every container/button/field snaps in the exact same frame
+            void root.offsetHeight;
+            if (body) {
+                void body.offsetHeight;
+                void window.getComputedStyle(body).backgroundColor;
+            }
+
+            // 4. Hold transition freeze across paint frames so nested/overflow/table subtrees never trigger delayed transitions
+            window._etalaThemeSwitchTimer = setTimeout(function() {
                 requestAnimationFrame(function() {
                     root.classList.remove('etala-theme-switching');
+                    if (document.body) document.body.classList.remove('etala-theme-switching');
+                    window._etalaThemeSwitchTimer = null;
                 });
-            });
+            }, 120);
         };
 
         window.toggleTheme = function() {
@@ -79,21 +114,21 @@
         };
     </script>
     <style>
-        /* ══ ZERO-DELAY SYNCHRONIZED THEME SWITCHING (NO LAGGING CONTAINERS) ══ */
-        html.etala-theme-switching,
-        html.etala-theme-switching *,
-        html.etala-theme-switching *::before,
-        html.etala-theme-switching *::after {
+        /* ══ ZERO-DELAY SYNCHRONIZED THEME SWITCHING (UNBEATABLE 6-ID SPECIFICITY) ══ */
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6),
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) *,
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) *::before,
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) *::after {
             transition: none !important;
+            transition-property: none !important;
             transition-duration: 0s !important;
             transition-delay: 0s !important;
         }
 
-        html.etala-theme-switching .theme-switch-thumb,
-        html.etala-theme-switching .theme-switch-track,
-        html.etala-theme-switching .track-icon-sun,
-        html.etala-theme-switching .track-icon-moon {
-            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.22s ease, opacity 0.22s ease !important;
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) .theme-switch-thumb {
+            transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.3, 1) !important;
+            transition-property: transform !important;
+            transition-duration: 0.16s !important;
         }
 
         /* ══ NATIVE CROSS-DOCUMENT VIEW TRANSITIONS (ZERO-BLINK SIDEBAR) ══════ */
@@ -577,7 +612,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=115">
-    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=117">
+    <link rel="stylesheet" href="{% static 'css/etala.css' %}?v=118">
     <style>
         .notification-icon-wrapper {
             width: 36px;
@@ -2150,7 +2185,6 @@
         .filter-panel-unified {
             background: #f8fafc !important;
             border: 1px solid #e2e8f0 !important;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
         }
 
         .dark-mode .filter-panel-unified,
@@ -2169,7 +2203,7 @@
             background-color: #ffffff !important;
             color: #1e293b !important;
             border-color: #cbd5e1 !important;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease !important;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
             cursor: pointer !important;
         }
 
@@ -8701,7 +8735,7 @@
             font-size: 0.86rem !important;
             color: #1e293b !important;
             background-color: #ffffff !important;
-            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
         }
 
         .form-control:hover,
@@ -13534,7 +13568,23 @@
             }
         };
     </script>
-    
+    <style>
+        /* ══ FINAL CASCADE GUARD: ATOMIC ZERO-DELAY THEME SWITCH ACROSS ALL CHILD TEMPLATES ══ */
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6),
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) *,
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) *::before,
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) *::after {
+            transition: none !important;
+            transition-property: none !important;
+            transition-duration: 0s !important;
+            transition-delay: 0s !important;
+        }
+        html.etala-theme-switching:not(#_1):not(#_2):not(#_3):not(#_4):not(#_5):not(#_6) .theme-switch-thumb {
+            transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.3, 1) !important;
+            transition-property: transform !important;
+            transition-duration: 0.16s !important;
+        }
+    </style>
 </body>
 
 </html>
