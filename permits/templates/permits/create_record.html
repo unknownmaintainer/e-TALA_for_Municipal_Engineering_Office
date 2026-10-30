@@ -179,11 +179,13 @@
                                         <div class="form-text text-truncate" style="font-size:0.71rem; color:#94a3b8; margin-top:2px;">Official project turn-over date.</div>
                                     </div>
 
-                                    <!-- Conditional: Other Funding Source -->
+                                    <!-- Conditional: Specify Funding Source (NGO / Others) -->
                                     <div class="col-12" id="fundingOtherWrapper" style="display:none;">
-                                        <label class="form-label fw-semibold text-muted small mb-1">Specify Other Funding Source</label>
-                                        <input type="text" name="funding_source_other" id="fundingOtherInput" class="form-control rounded-3 form-control-standard" placeholder="Specify fund source...">
+                                        <label for="fundingOtherInput" class="form-label fw-semibold text-muted small mb-1" data-funding-specify-label>Specify Other Funding Source</label>
+                                        <input type="text" name="funding_source_other" id="fundingOtherInput" class="form-control rounded-3 form-control-standard" placeholder="Specify fund source..." maxlength="255" autocomplete="off">
+                                        <div class="invalid-feedback" data-funding-specify-feedback>Please specify the funding source.</div>
                                     </div>
+                                    {% include 'permits/includes/_funding_specify.html' %}
 
                                     <!-- Row 4: Description / Remarks -->
                                     <div class="col-12">
@@ -590,16 +592,18 @@ if (projDescriptionInput) {
     });
 }
 
-// Funding source other toggle
+// Funding source specify toggle (NGO / Others) — shared logic in includes/_funding_specify.html
 if (fundingSourceSelect) {
     fundingSourceSelect.addEventListener('change', function() {
-        if (this.value === 'Others') {
-            fundingOtherWrapper.style.display = 'block';
-            fundingOtherInput.required = true;
-        } else {
-            fundingOtherWrapper.style.display = 'none';
-            fundingOtherInput.required = false;
+        if (window.etalaSyncFundingSpecify) {
+            window.etalaSyncFundingSpecify(this.value, fundingOtherWrapper);
         }
+        buildSummary();
+    });
+}
+if (fundingOtherInput) {
+    fundingOtherInput.addEventListener('input', function() {
+        this.classList.remove('is-invalid');
         buildSummary();
     });
 }
@@ -886,7 +890,9 @@ function buildSummary() {
         if (projectCostInput.value) {
             cost = '₱ ' + parseFloat(projectCostInput.value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
-        funding = fundingSourceSelect.value === 'Others' ? (fundingOtherInput.value.trim() || 'Others') : (fundingSourceSelect.value || 'LGU General Fund');
+        const fundVal = fundingSourceSelect.value || 'LGU General Fund';
+        const fundSpecified = fundingOtherInput ? fundingOtherInput.value.trim() : '';
+        funding = ((fundVal === 'NGO' || fundVal === 'Others') && fundSpecified) ? `${fundVal} (${fundSpecified})` : fundVal;
     }
 
     let bName = '—';

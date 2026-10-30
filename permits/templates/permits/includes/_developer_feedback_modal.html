@@ -1,0 +1,500 @@
+<!-- ══ GLOBAL DEVELOPER FEEDBACK MODAL (Accessible Everywhere) ═══════════════ -->
+<div class="modal fade" id="developerFeedbackModal" tabindex="-1" aria-labelledby="developerFeedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            
+            <div class="modal-header px-3.5 py-2.5 border-bottom d-flex align-items-center justify-content-between" style="background: var(--gray-50, #f8fafc);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(2, 132, 199, 0.1); color: #0284c7;">
+                        <i class="fa-solid fa-envelope-open-text" style="font-size: 14px;"></i>
+                    </div>
+                    <h5 class="modal-title fw-bold text-dark mb-0" id="developerFeedbackModalLabel" style="font-size: 0.95rem;">Send System Feedback</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="globalDeveloperFeedbackForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="category" id="globalFeedbackCategoryInput" value="general">
+
+                <div class="modal-body px-3.5 py-3">
+                    
+                    <div id="globalFeedbackAlertBox" class="alert d-none py-2 px-2.5 mb-2.5" style="font-size: 0.78rem; border-radius: 8px;"></div>
+
+                    <!-- Clean 5-Star Experience Rating (Rock-Solid & Zero Jumping, Pure Smooth Color Transition) -->
+                    <div class="mb-3 text-center rounded-3 position-relative" id="globalStarRatingCard" style="background: var(--gray-50, #f8fafc); border: 1px solid #e2e8f0; height: 76px; min-height: 76px; max-height: 76px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; overflow: hidden; padding: 10px 14px;">
+                        <input type="hidden" name="rating" id="globalFeedbackRatingInput" value="">
+                        <div class="d-inline-flex align-items-center justify-content-center gap-1.5 mb-1" id="globalStarRatingGroup" style="user-select: none; -webkit-user-select: none; line-height: 1; height: 32px;">
+                            <button type="button" class="global-star-btn" data-val="1" title="1 - Very Poor" draggable="false">
+                                <i class="fa-solid fa-star global-star-icon text-muted"></i>
+                            </button>
+                            <button type="button" class="global-star-btn" data-val="2" title="2 - Poor" draggable="false">
+                                <i class="fa-solid fa-star global-star-icon text-muted"></i>
+                            </button>
+                            <button type="button" class="global-star-btn" data-val="3" title="3 - Average" draggable="false">
+                                <i class="fa-solid fa-star global-star-icon text-muted"></i>
+                            </button>
+                            <button type="button" class="global-star-btn" data-val="4" title="4 - Good" draggable="false">
+                                <i class="fa-solid fa-star global-star-icon text-muted"></i>
+                            </button>
+                            <button type="button" class="global-star-btn" data-val="5" title="5 - Excellent" draggable="false">
+                                <i class="fa-solid fa-star global-star-icon text-muted"></i>
+                            </button>
+                        </div>
+                        <div class="position-relative w-100 d-flex align-items-center justify-content-center" style="height: 18px; min-height: 18px; max-height: 18px; line-height: 18px; overflow: hidden;">
+                            <span class="text-muted" id="globalRatingLabelText" style="font-size: 0.76rem; font-weight: 600; line-height: 18px; white-space: nowrap; transition: color 0.15s ease;">Rate your system experience</span>
+                            <button type="button" class="btn btn-link btn-sm text-danger p-0 text-decoration-none" id="globalClearRatingBtn" style="position: absolute; right: 12px; font-size: 0.70rem; font-weight: 600; line-height: 18px; opacity: 0; visibility: hidden; transition: opacity 0.15s ease, visibility 0.15s ease;" title="Clear rating">Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Message Details -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label for="globalFeedbackMessage" class="form-label fw-semibold text-dark mb-0" style="font-size: 0.78rem;">Message Details</label>
+                            <span class="text-muted" id="globalMessageCharCount" style="font-size: 0.68rem;">0 / 1000</span>
+                        </div>
+                        <textarea class="form-control" id="globalFeedbackMessage" name="message" rows="3" placeholder="Describe your feedback, suggestions, or comments..." maxlength="1000" style="font-size: 0.82rem; border-radius: 8px; padding: 10px 12px; line-height: 1.45;"></textarea>
+                    </div>
+
+                    <!-- Screenshot / Image Upload Dropzone -->
+                    <div class="mb-1">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label fw-semibold text-dark mb-0" style="font-size: 0.78rem;">
+                                <i class="fa-solid fa-camera text-primary me-1"></i>Attach Screenshot <span class="text-muted fw-normal">(Optional)</span>
+                            </label>
+                        </div>
+                        
+                        <div id="globalAttachmentDropzone" class="p-2.5 border border-dashed rounded-3 text-center" style="cursor: pointer; background: #f8fafc; border-color: #cbd5e1; transition: all 0.15s ease;">
+                            <input type="file" id="globalFeedbackAttachment" name="attachment" accept="image/*, .png, .jpg, .jpeg, .webp, .gif" class="d-none">
+                            
+                            <div id="globalAttachmentPlaceholder" class="d-flex align-items-center justify-content-center gap-2 py-0.5 text-muted" style="font-size: 0.75rem;">
+                                <i class="fa-solid fa-cloud-arrow-up text-primary" style="font-size: 14px;"></i>
+                                <span><strong>Click or drag image</strong> to attach screenshot</span>
+                            </div>
+                            
+                            <div id="globalAttachmentPreviewWrapper" class="d-none d-flex align-items-center justify-content-between gap-2 p-1.5 bg-white rounded-2 border">
+                                <div class="d-flex align-items-center gap-2.5 min-w-0">
+                                    <img id="globalAttachmentThumbnail" src="#" alt="Preview" style="width: 38px; height: 38px; border-radius: 6px; object-fit: cover; border: 1px solid #cbd5e1;" class="flex-shrink-0">
+                                    <div class="text-start min-w-0">
+                                        <div id="globalAttachmentFileName" class="fw-semibold text-dark text-truncate" style="font-size: 0.76rem; max-width: 220px;">screenshot.png</div>
+                                        <div id="globalAttachmentFileSize" class="text-muted" style="font-size: 0.68rem;">0 KB</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm text-muted p-0 d-flex align-items-center justify-content-center flex-shrink-0" id="globalRemoveAttachmentBtn" title="Remove screenshot" style="width: 24px; height: 24px; background: transparent !important; border: none !important;">
+                                    <i class="fa-solid fa-xmark" style="font-size: 15px; color: #94a3b8;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer px-4 py-3 border-top" style="background: #f8fafc; border-color: #f1f5f9 !important;">
+                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" class="btn btn-light border fw-semibold d-inline-flex align-items-center justify-content-center w-100" data-bs-dismiss="modal" style="height: 40px; border-radius: 9px; font-size: 0.85rem; background: #ffffff; color: #475569;">Cancel</button>
+                        <button type="submit" class="btn btn-primary fw-semibold shadow-sm d-inline-flex align-items-center justify-content-center gap-2 w-100" id="globalSubmitFeedbackBtn" style="height: 40px; border-radius: 9px; font-size: 0.85rem; background: #0284c7; border: none;">
+                            <span id="globalSubmitFeedbackSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" style="width: 13px; height: 13px;"></span>
+                            <i class="fa-solid fa-paper-plane" id="globalSubmitFeedbackIcon" style="font-size: 13px;"></i>
+                            <span id="globalSubmitFeedbackText">Submit Feedback</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Global Feedback Styles - 100% Rock Solid, Zero Movement/Jumping */
+    .global-star-btn {
+        width: 34px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        touch-action: manipulation;
+        padding: 0;
+        margin: 0;
+        transform: none !important; /* Zero jumping */
+    }
+    .global-star-btn:hover,
+    .global-star-btn:active,
+    .global-star-btn:focus {
+        transform: none !important; /* Prevent any jumping on hover or active */
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    .global-star-icon {
+        font-size: 24px;
+        pointer-events: none;
+        color: #cbd5e1;
+        display: inline-block;
+        line-height: 1;
+        transform: none !important;
+        transition: color 0.15s ease, filter 0.15s ease;
+    }
+    .global-star-btn.star-active .global-star-icon {
+        color: #f59e0b !important;
+        filter: drop-shadow(0 2px 4px rgba(245, 158, 11, 0.35));
+    }
+
+    /* Dark Mode Support */
+    .dark-mode #developerFeedbackModal .modal-content,
+    [data-bs-theme="dark"] #developerFeedbackModal .modal-content {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+    }
+    .dark-mode #developerFeedbackModal .modal-header,
+    .dark-mode #developerFeedbackModal .modal-footer,
+    [data-bs-theme="dark"] #developerFeedbackModal .modal-header,
+    [data-bs-theme="dark"] #developerFeedbackModal .modal-footer {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode #globalStarRatingCard,
+    [data-bs-theme="dark"] #globalStarRatingCard {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode #globalFeedbackMessage,
+    [data-bs-theme="dark"] #globalFeedbackMessage {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+        color: #f8fafc !important;
+    }
+    .dark-mode #globalAttachmentDropzone,
+    [data-bs-theme="dark"] #globalAttachmentDropzone {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+    }
+    .dark-mode #globalAttachmentPreviewWrapper,
+    [data-bs-theme="dark"] #globalAttachmentPreviewWrapper {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+</style>
+
+<script>
+(function() {
+    function initGlobalFeedbackModal() {
+        const form = document.getElementById('globalDeveloperFeedbackForm');
+        if (!form || form.dataset.initialized) return;
+        form.dataset.initialized = 'true';
+
+        const alertBox = document.getElementById('globalFeedbackAlertBox');
+        const submitBtn = document.getElementById('globalSubmitFeedbackBtn');
+        const submitSpinner = document.getElementById('globalSubmitFeedbackSpinner');
+        const submitIcon = document.getElementById('globalSubmitFeedbackIcon');
+        const submitText = document.getElementById('globalSubmitFeedbackText');
+
+        const messageInput = document.getElementById('globalFeedbackMessage');
+        const messageCount = document.getElementById('globalMessageCharCount');
+
+        const dropzone = document.getElementById('globalAttachmentDropzone');
+        const fileInput = document.getElementById('globalFeedbackAttachment');
+        const placeholder = document.getElementById('globalAttachmentPlaceholder');
+        const previewWrapper = document.getElementById('globalAttachmentPreviewWrapper');
+        const thumbnail = document.getElementById('globalAttachmentThumbnail');
+        const fileName = document.getElementById('globalAttachmentFileName');
+        const fileSize = document.getElementById('globalAttachmentFileSize');
+        const removeBtn = document.getElementById('globalRemoveAttachmentBtn');
+
+        const ratingInput = document.getElementById('globalFeedbackRatingInput');
+        const starBtns = document.querySelectorAll('.global-star-btn');
+        const ratingLabelText = document.getElementById('globalRatingLabelText');
+        const clearRatingBtn = document.getElementById('globalClearRatingBtn');
+        const starDescriptions = {
+            '1': '1 Star · Very Poor',
+            '2': '2 Stars · Poor',
+            '3': '3 Stars · Average',
+            '4': '4 Stars · Good',
+            '5': '5 Stars · Excellent'
+        };
+
+        let activeRating = 0;
+
+        // Rock-Solid Pure-Click Rating (Zero Movement, Zero Layout Jump)
+        function setRating(rating) {
+            activeRating = rating;
+            if (ratingInput) {
+                ratingInput.value = rating > 0 ? rating : '';
+            }
+
+            starBtns.forEach(btn => {
+                const val = parseInt(btn.getAttribute('data-val'), 10);
+                const icon = btn.querySelector('.global-star-icon');
+                if (!icon) return;
+
+                if (val <= rating) {
+                    btn.classList.add('star-active');
+                    icon.style.color = '#f59e0b';
+                    icon.classList.remove('text-muted');
+                } else {
+                    btn.classList.remove('star-active');
+                    icon.style.color = '#cbd5e1';
+                    icon.classList.add('text-muted');
+                }
+            });
+
+            if (rating > 0) {
+                if (ratingLabelText) {
+                    ratingLabelText.textContent = starDescriptions[rating] || `${rating} Stars`;
+                    ratingLabelText.style.color = '#d97706';
+                }
+                if (clearRatingBtn) {
+                    clearRatingBtn.style.opacity = '1';
+                    clearRatingBtn.style.visibility = 'visible';
+                }
+            } else {
+                if (ratingLabelText) {
+                    ratingLabelText.textContent = 'Rate your system experience';
+                    ratingLabelText.style.color = '#94a3b8';
+                }
+                if (clearRatingBtn) {
+                    clearRatingBtn.style.opacity = '0';
+                    clearRatingBtn.style.visibility = 'hidden';
+                }
+            }
+        }
+
+        // Pure Click Listeners (Prevent Native Dragging or Movement)
+        starBtns.forEach(btn => {
+            btn.setAttribute('draggable', 'false');
+            btn.addEventListener('dragstart', (e) => e.preventDefault());
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const clickedVal = parseInt(this.getAttribute('data-val'), 10);
+                // If user clicks the currently selected star again, toggle it off smoothly
+                if (activeRating === clickedVal) {
+                    setRating(0);
+                } else {
+                    setRating(clickedVal);
+                }
+            });
+        });
+
+        if (clearRatingBtn) {
+            clearRatingBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                setRating(0);
+            });
+        }
+
+
+        if (messageInput && messageCount) {
+            messageInput.addEventListener('input', function() {
+                messageCount.textContent = `${this.value.length} / 1000`;
+            });
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            const allowedExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
+            const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedExts.includes(fileExt) && !file.type.startsWith('image/')) {
+                showAlert('Invalid format. Please upload PNG, JPG, WEBP, or GIF.', 'warning');
+                resetAttachment();
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showAlert('File is too large. Maximum size is 10MB.', 'warning');
+                resetAttachment();
+                return;
+            }
+
+            if (fileName) fileName.textContent = file.name || 'screenshot.png';
+            if (fileSize) fileSize.textContent = formatBytes(file.size);
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (thumbnail) thumbnail.src = e.target.result;
+                if (placeholder) placeholder.classList.add('d-none');
+                if (previewWrapper) previewWrapper.classList.remove('d-none');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        if (dropzone && fileInput) {
+            dropzone.addEventListener('click', function(e) {
+                if (e.target !== removeBtn && !removeBtn?.contains(e.target)) {
+                    fileInput.click();
+                }
+            });
+
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    handleFile(this.files[0]);
+                } else {
+                    resetAttachment();
+                }
+            });
+
+            dropzone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropzone.style.borderColor = '#0284c7';
+                dropzone.style.background = '#e0f2fe';
+            });
+
+            dropzone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                dropzone.style.borderColor = '#cbd5e1';
+                dropzone.style.background = '#f8fafc';
+            });
+
+            dropzone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropzone.style.borderColor = '#cbd5e1';
+                dropzone.style.background = '#f8fafc';
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    resetAttachment();
+                });
+            }
+        }
+
+        // Global Paste (Ctrl+V) Screenshot Support inside Modal
+        const modalEl = document.getElementById('developerFeedbackModal');
+        if (modalEl) {
+            modalEl.addEventListener('paste', function(e) {
+                const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+                if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const blob = items[i].getAsFile();
+                        const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+                        const file = new File([blob], `screenshot_${timestamp}.png`, { type: blob.type });
+                        
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        if (fileInput) fileInput.files = dataTransfer.files;
+                        handleFile(file);
+                        e.preventDefault();
+                        break;
+                    }
+                }
+            });
+        }
+
+        function resetAttachment() {
+            if (fileInput) fileInput.value = '';
+            if (thumbnail) thumbnail.src = '#';
+            if (placeholder) placeholder.classList.remove('d-none');
+            if (previewWrapper) previewWrapper.classList.add('d-none');
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = messageInput ? messageInput.value.trim() : '';
+            const hasAttachment = fileInput && fileInput.files && fileInput.files.length > 0;
+
+            if (!message && !hasAttachment && activeRating === 0) {
+                showAlert('Please provide a star rating, message, or screenshot.', 'warning');
+                if (messageInput) messageInput.focus();
+                return;
+            }
+
+            if (submitBtn) submitBtn.disabled = true;
+            if (submitSpinner) submitSpinner.classList.remove('d-none');
+            if (submitIcon) submitIcon.classList.add('d-none');
+            if (submitText) submitText.textContent = 'Sending...';
+            hideAlert();
+
+            const formData = new FormData(form);
+
+            fetch("{% url 'submit_system_feedback' %}", {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (submitBtn) submitBtn.disabled = false;
+                if (submitSpinner) submitSpinner.classList.add('d-none');
+                if (submitIcon) submitIcon.classList.remove('d-none');
+                if (submitText) submitText.textContent = 'Submit Feedback';
+
+                if (data.status === 'success') {
+                    showAlert(data.message || 'Maraming salamat! Your feedback has been submitted.', 'success');
+                    if (window.showToast) {
+                        window.showToast('success', 'Feedback Sent', data.message || 'Maraming salamat! Your feedback has been submitted.');
+                    }
+                    form.reset();
+                    resetAttachment();
+                    setRating(0);
+                    setTimeout(() => {
+                        const modalEl = document.getElementById('developerFeedbackModal');
+                        if (modalEl && window.bootstrap) {
+                            const modal = bootstrap.Modal.getInstance(modalEl);
+                            if (modal) modal.hide();
+                        }
+                        hideAlert();
+                    }, 1800);
+                } else {
+                    showAlert(data.message || 'Unable to submit feedback. Please try again.', 'danger');
+                    if (window.showToast) {
+                        window.showToast('error', 'Feedback Error', data.message || 'Unable to submit feedback.');
+                    }
+                }
+            })
+            .catch(() => {
+                if (submitBtn) submitBtn.disabled = false;
+                if (submitSpinner) submitSpinner.classList.add('d-none');
+                if (submitIcon) submitIcon.classList.remove('d-none');
+                if (submitText) submitText.textContent = 'Submit Feedback';
+                showAlert('An unexpected network error occurred.', 'danger');
+            });
+        });
+
+        function showAlert(msg, type) {
+            if (!alertBox) return;
+            alertBox.className = `alert alert-${type} py-2 px-2.5 mb-2.5`;
+            alertBox.textContent = msg;
+            alertBox.classList.remove('d-none');
+        }
+
+        function hideAlert() {
+            if (!alertBox) return;
+            alertBox.classList.add('d-none');
+            alertBox.textContent = '';
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGlobalFeedbackModal);
+    } else {
+        initGlobalFeedbackModal();
+    }
+})();
+</script>
+

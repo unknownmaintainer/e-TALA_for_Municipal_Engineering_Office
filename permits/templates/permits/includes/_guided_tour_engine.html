@@ -1,0 +1,562 @@
+<!-- ══════════════════════════════════════════════════════════
+     eTala Guided Tour Engine (Interactive Product Tour)
+     Supports live system tours on /dashboard/, /records/, etc.
+     ══════════════════════════════════════════════════════════ -->
+<div id="etalaTourContainer" style="display: none;">
+    <!-- Floating Tour Tooltip Card -->
+    <div id="etalaTourTooltip" class="etala-tour-popover" role="dialog" aria-modal="true">
+        <div class="etala-tour-arrow" id="etalaTourArrow"></div>
+        <div class="etala-tour-header">
+            <div class="d-flex align-items-center gap-2">
+                <span class="etala-tour-badge" id="etalaTourStepBadge">Step 1 of 4</span>
+                <span class="etala-tour-module-tag" id="etalaTourModuleTag">TUTORIAL</span>
+            </div>
+            <button type="button" class="etala-tour-close-btn" onclick="exitEtalaTour()" title="Exit Tutorial (Esc)">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="etala-tour-body">
+            <h5 class="etala-tour-title" id="etalaTourTitle">Step Title</h5>
+            <p class="etala-tour-desc" id="etalaTourDesc">Clear, simple instruction for the user.</p>
+            <div class="etala-tour-tip" id="etalaTourTip">
+                <i class="fa-solid fa-lightbulb text-warning me-1.5"></i>
+                <span id="etalaTourTipText">Helpful tip.</span>
+            </div>
+            <div class="etala-tour-action-hint">
+                <i class="fa-solid fa-hand-pointer text-primary me-1.5"></i>
+                <span>Click the highlighted item or click <strong>Next</strong>.</span>
+            </div>
+        </div>
+
+        <div class="etala-tour-footer">
+            <button type="button" class="btn btn-sm btn-link text-muted text-decoration-none px-1" onclick="exitEtalaTour()" style="font-size: 0.78rem;">
+                Exit Tutorial
+            </button>
+            <div class="d-flex align-items-center gap-1.5">
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="etalaTourPrevBtn" onclick="prevEtalaTourStep()" style="font-size: 0.78rem;">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Prev
+                </button>
+                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3.5 fw-bold" id="etalaTourNextBtn" onclick="nextEtalaTourStep()" style="font-size: 0.78rem;">
+                    Next <i class="fa-solid fa-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Tour Highlight Pulse ── */
+.etala-tour-highlight {
+    outline: 3.5px solid #2563eb !important;
+    outline-offset: 4px !important;
+    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.3), 0 8px 24px rgba(37, 99, 235, 0.25) !important;
+    border-radius: 8px !important;
+    animation: etalaTourPulseRing 1.5s infinite alternate ease-in-out !important;
+    position: relative !important;
+    z-index: 1040 !important;
+}
+
+@keyframes etalaTourPulseRing {
+    from { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25); }
+    to { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0.45); }
+}
+
+/* ── Floating Tour Popover ── */
+.etala-tour-popover {
+    position: absolute;
+    z-index: 1050;
+    width: 350px;
+    max-width: calc(100vw - 32px);
+    background: #ffffff;
+    border: 1.5px solid #2563eb;
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 20px 40px -8px rgba(0, 40, 85, 0.35);
+    animation: tourFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: top 0.25s ease, left 0.25s ease;
+}
+.dark-mode .etala-tour-popover {
+    background: #0f172a;
+    border-color: #3b82f6;
+    color: #f1f5f9;
+}
+
+@keyframes tourFadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.etala-tour-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    border-left: 1.5px solid #2563eb;
+    border-top: 1.5px solid #2563eb;
+    transform: rotate(45deg);
+}
+.dark-mode .etala-tour-arrow {
+    background: #0f172a;
+    border-color: #3b82f6;
+}
+
+.etala-tour-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.etala-tour-badge {
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+.dark-mode .etala-tour-badge {
+    background: rgba(37, 99, 235, 0.25);
+    color: #93c5fd;
+}
+
+.etala-tour-module-tag {
+    font-size: 0.65rem;
+    font-weight: 750;
+    color: #64748b;
+    letter-spacing: 0.04em;
+}
+
+.etala-tour-close-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+}
+.etala-tour-close-btn:hover { color: #ef4444; }
+
+.etala-tour-title {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 4px;
+    letter-spacing: -0.2px;
+}
+.dark-mode .etala-tour-title { color: #f8fafc; }
+
+.etala-tour-desc {
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.45;
+    margin-bottom: 8px;
+}
+.dark-mode .etala-tour-desc { color: #cbd5e1; }
+
+.etala-tour-tip {
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 0.74rem;
+    color: #92400e;
+    margin-bottom: 8px;
+}
+.dark-mode .etala-tour-tip {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #fde68a;
+}
+
+.etala-tour-action-hint {
+    background: #f0fdf4;
+    border: 1px dashed #86efac;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+    color: #166534;
+    margin-bottom: 10px;
+}
+.dark-mode .etala-tour-action-hint {
+    background: rgba(22, 163, 74, 0.15);
+    border-color: rgba(22, 163, 74, 0.3);
+    color: #86efac;
+}
+
+.etala-tour-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 8px;
+}
+.dark-mode .etala-tour-footer { border-top-color: #334155; }
+</style>
+
+<script>
+// Master System Tours Catalog (Points to REAL eTala DOM Elements)
+const ETALA_LIVE_TOURS = {
+    1: {
+        id: 1,
+        title: 'TUTORIAL 1: GETTING STARTED & DASHBOARD',
+        steps: [
+            {
+                selector: '.dashboard-stats-grid, .actual-stats-row',
+                title: '1. Check Summary Cards',
+                desc: 'Look at the 3 summary cards at the top. They show total active projects & permits, illegal constructions, and active staff.',
+                tip: 'These statistics update immediately when a new project is encoded or a document is uploaded.',
+                placement: 'bottom'
+            },
+            {
+                selector: '.sidebar-nav, #sidebar, .actual-nav-list',
+                title: '2. Left Sidebar Navigation',
+                desc: 'Use the left sidebar to navigate between Dashboard, Records Management, 49 Barangays Map, Reports, and Trash.',
+                tip: 'On mobile or tablet screens, tap the three-line hamburger menu to reveal this sidebar.',
+                placement: 'right'
+            },
+            {
+                selector: '.sidebar-new-record-btn, a[href*="records/new"], .btn-add',
+                title: '3. Click "+ New Record"',
+                desc: 'Whenever you need to encode a new municipal project, barangay civil works, or building permit, click this blue button.',
+                tip: 'This opens the 3-step encoding wizard.',
+                placement: 'right'
+            },
+            {
+                selector: '.table-responsive, #pendingUploadsTable, .actual-card',
+                title: '4. Pending Uploads Worklist',
+                desc: 'This table shows projects waiting for required blueprints or clearances. Click any title to open its document checklist.',
+                tip: 'You can switch between "My Items" and "All Items" to focus on records assigned to you.',
+                placement: 'top'
+            }
+        ]
+    },
+    2: {
+        id: 2,
+        title: 'TUTORIAL 2: ADDING A RECORD',
+        steps: [
+            {
+                selector: '.step-wizard-bar, .etala-page-title',
+                title: '1. The 3-Step Wizard',
+                desc: 'eTala guides you through 3 simple steps: 1) Classification, 2) Category Type, and 3) Record Details.',
+                tip: 'You can navigate back to previous steps anytime using the wizard bar.',
+                placement: 'bottom'
+            },
+            {
+                selector: '.category-card, input[name="category"]',
+                title: '2. Select Project Classification',
+                desc: 'Choose Municipal Project (town infrastructure), Barangay Project (local community civil works), or Permit Record (building permits).',
+                tip: 'Selecting the right category automatically loads the correct MEO document checklist.',
+                placement: 'bottom'
+            },
+            {
+                selector: 'form button[type="submit"], input[name="title"], input[name="applicant_name"]',
+                title: '3. Fill Required Information',
+                desc: 'Enter the Project Title or Applicant Name, select the Barangay from Carigara’s 49 barangays, and specify the budget.',
+                tip: 'Ensure the Project Title matches the official Program of Work (POW).',
+                placement: 'top'
+            },
+            {
+                selector: 'button[type="submit"], .btn-primary',
+                title: '4. Save Official Record',
+                desc: 'Click "Save Official Record". The system generates an official Record ID and opens its document checklist.',
+                tip: 'Your record is now securely archived and ready for blueprint attachments.',
+                placement: 'top'
+            }
+        ]
+    },
+    3: {
+        id: 3,
+        title: 'TUTORIAL 3: UPLOADING DOCUMENTS',
+        steps: [
+            {
+                selector: '#tab-checklist, a[href*="checklist"], .nav-tabs',
+                title: '1. Document Checklist Tab',
+                desc: 'Click the "MEO Document Checklist" tab to view statutory documentary requirements.',
+                tip: 'Requirements are grouped into clean categories like Architectural, Structural, and Clearances.',
+                placement: 'bottom'
+            },
+            {
+                selector: '.checklist-item, .table tr',
+                title: '2. Check Pending Requirements',
+                desc: 'Amber badges show documents that still need to be attached. Green badges indicate fulfilled, verified files.',
+                tip: 'Missing requirements are kept at the top for quick attention.',
+                placement: 'bottom'
+            },
+            {
+                selector: 'button[data-bs-target*="upload"], .btn-upload, a[href*="upload"]',
+                title: '3. Click Upload PDF',
+                desc: 'Click the Upload button on any row to select the signed PDF scan from your computer.',
+                tip: 'Supported files include PDF blueprints and clear JPG/PNG scans.',
+                placement: 'left'
+            },
+            {
+                selector: 'a[href*="preview"], .btn-view, .btn-outline-secondary',
+                title: '4. Instant In-Browser Preview',
+                desc: 'Click "View PDF" to inspect blueprints directly in your web browser without needing Adobe Acrobat.',
+                tip: 'You can zoom, rotate, and print blueprints directly from the viewer.',
+                placement: 'left'
+            }
+        ]
+    },
+    4: {
+        id: 4,
+        title: 'TUTORIAL 4: SEARCH & 49 BARANGAYS MAP',
+        steps: [
+            {
+                selector: '#spotlightSearchBtn, input[type="search"], .search-input',
+                title: '1. Fast Global Search',
+                desc: 'Press Ctrl + K or click the search box to find any project, permit number, or barangay in 0.1 seconds.',
+                tip: 'You do not need to press Enter—results update live as you type.',
+                placement: 'bottom'
+            },
+            {
+                selector: '#toggleMapBtn, .map-container, #carigaraMap',
+                title: '2. Interactive 49 Barangays Map',
+                desc: 'Click "Barangays" in the sidebar to open the interactive map of Carigara with Google Satellite terrain imagery.',
+                tip: 'Switching to satellite view helps engineers inspect topography and road access.',
+                placement: 'bottom'
+            },
+            {
+                selector: '.brgy-card, .pin-3d-container, .leaflet-marker-icon',
+                title: '3. Click Location Markers',
+                desc: 'Click any barangay pin on the map to open that barangay’s project drawer and inspect its civil works.',
+                tip: 'You can download all documents for that barangay with one click.',
+                placement: 'top'
+            }
+        ]
+    },
+    5: {
+        id: 5,
+        title: 'TUTORIAL 5: REPORTS & TRASH RECOVERY',
+        steps: [
+            {
+                selector: 'form, .report-card, .btn-export',
+                title: '1. Export Accomplishment Reports',
+                desc: 'Click "Reports" in the sidebar to generate official summary sheets for municipal projects and COA audits.',
+                tip: 'Export directly to Excel (.xlsx) for spreadsheets or PDF for printing.',
+                placement: 'bottom'
+            },
+            {
+                selector: '.audit-trail-table, table, .table-responsive',
+                title: '2. Immutable Activity Audit Log',
+                desc: 'Inspect the activity log to see who uploaded files, who edited records, and who logged in with user timestamps.',
+                tip: 'The audit trail ensures complete transparency and accountability.',
+                placement: 'top'
+            },
+            {
+                selector: 'a[href*="trash"], .trash-table, .btn-restore',
+                title: '3. 30-Day Trash & Recycle Bin',
+                desc: 'If a record is accidentally deleted, open "Trash" in the sidebar and click "Restore" to bring it back.',
+                tip: 'Deleted files are safely kept for 30 days before permanent purging.',
+                placement: 'top'
+            }
+        ]
+    }
+};
+
+let activeEtalaTour = null;
+let activeTourStepIndex = 0;
+
+function startEtalaTour(tourId) {
+    const tour = ETALA_LIVE_TOURS[tourId];
+    if (!tour) return;
+
+    activeEtalaTour = tour;
+    activeTourStepIndex = 0;
+
+    const container = document.getElementById('etalaTourContainer');
+    if (container) container.style.display = 'block';
+
+    renderLiveTourStep();
+}
+
+function renderLiveTourStep() {
+    if (!activeEtalaTour) return;
+
+    const step = activeEtalaTour.steps[activeTourStepIndex];
+    if (!step) return;
+
+    // Clear previous highlight
+    document.querySelectorAll('.etala-tour-highlight').forEach(el => el.classList.remove('etala-tour-highlight'));
+
+    // Find target in current DOM
+    let targetEl = null;
+    const selectors = step.selector.split(',').map(s => s.trim());
+    for (const sel of selectors) {
+        targetEl = document.querySelector(sel);
+        if (targetEl) break;
+    }
+
+    if (targetEl) {
+        targetEl.classList.add('etala-tour-highlight');
+        try {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch(e) {}
+        positionLiveTourPopover(targetEl, step.placement);
+    } else {
+        // Fallback: center in screen if target not found
+        centerLiveTourPopover();
+    }
+
+    // Update Popover content
+    document.getElementById('etalaTourStepBadge').innerText = `Step ${activeTourStepIndex + 1} of ${activeEtalaTour.steps.length}`;
+    document.getElementById('etalaTourModuleTag').innerText = activeEtalaTour.title;
+    document.getElementById('etalaTourTitle').innerText = step.title;
+    document.getElementById('etalaTourDesc').innerText = step.desc;
+    document.getElementById('etalaTourTipText').innerText = step.tip;
+
+    // Buttons
+    document.getElementById('etalaTourPrevBtn').disabled = (activeTourStepIndex === 0);
+    const nextBtn = document.getElementById('etalaTourNextBtn');
+    if (activeTourStepIndex === activeEtalaTour.steps.length - 1) {
+        nextBtn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Finish Tutorial';
+        nextBtn.classList.remove('btn-primary');
+        nextBtn.classList.add('btn-success');
+    } else {
+        nextBtn.innerHTML = 'Next <i class="fa-solid fa-arrow-right ms-1"></i>';
+        nextBtn.classList.remove('btn-success');
+        nextBtn.classList.add('btn-primary');
+    }
+
+    // Notify parent if inside iframe
+    if (window.parent && window.parent !== window) {
+        try {
+            window.parent.postMessage({
+                type: 'etala-tour-step',
+                tourId: activeEtalaTour.id,
+                stepIndex: activeTourStepIndex,
+                totalSteps: activeEtalaTour.steps.length
+            }, '*');
+        } catch(e) {}
+    }
+}
+
+function nextEtalaTourStep() {
+    if (!activeEtalaTour) return;
+    if (activeTourStepIndex < activeEtalaTour.steps.length - 1) {
+        activeTourStepIndex++;
+        renderLiveTourStep();
+    } else {
+        exitEtalaTour(true);
+    }
+}
+
+function prevEtalaTourStep() {
+    if (activeTourStepIndex > 0) {
+        activeTourStepIndex--;
+        renderLiveTourStep();
+    }
+}
+
+function exitEtalaTour(completed) {
+    document.querySelectorAll('.etala-tour-highlight').forEach(el => el.classList.remove('etala-tour-highlight'));
+    const container = document.getElementById('etalaTourContainer');
+    if (container) container.style.display = 'none';
+
+    if (completed && activeEtalaTour) {
+        try {
+            let done = JSON.parse(localStorage.getItem('etala_completed_tutorials') || '[]');
+            if (!done.includes(activeEtalaTour.id)) {
+                done.push(activeEtalaTour.id);
+                localStorage.setItem('etala_completed_tutorials', JSON.stringify(done));
+            }
+        } catch(e) {}
+    }
+
+    // Remove tour param from URL without reload
+    if (window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('tour');
+        window.history.replaceState({}, '', url.toString());
+    }
+
+    activeEtalaTour = null;
+}
+
+function positionLiveTourPopover(targetEl, preferredPlacement) {
+    const popover = document.getElementById('etalaTourTooltip');
+    const arrow = document.getElementById('etalaTourArrow');
+    if (!popover || !arrow || !targetEl) return;
+
+    const tRect = targetEl.getBoundingClientRect();
+    const pWidth = 350;
+    const pHeight = 220;
+    const margin = 14;
+
+    let top = 0;
+    let left = 0;
+
+    arrow.style.top = '';
+    arrow.style.bottom = '';
+    arrow.style.left = '';
+    arrow.style.right = '';
+
+    const pageScrollY = window.scrollY || window.pageYOffset;
+    const pageScrollX = window.scrollX || window.pageXOffset;
+
+    if (preferredPlacement === 'bottom' || window.innerWidth < 768) {
+        top = tRect.bottom + pageScrollY + margin;
+        left = tRect.left + pageScrollX + (tRect.width / 2) - (pWidth / 2);
+        arrow.style.top = '-6px';
+        arrow.style.left = 'calc(50% - 6px)';
+    } else if (preferredPlacement === 'top') {
+        top = tRect.top + pageScrollY - pHeight - margin;
+        left = tRect.left + pageScrollX + (tRect.width / 2) - (pWidth / 2);
+        arrow.style.bottom = '-6px';
+        arrow.style.left = 'calc(50% - 6px)';
+    } else if (preferredPlacement === 'right') {
+        top = tRect.top + pageScrollY + (tRect.height / 2) - (pHeight / 2);
+        left = tRect.right + pageScrollX + margin;
+        arrow.style.left = '-6px';
+        arrow.style.top = 'calc(50% - 6px)';
+    } else { // left
+        top = tRect.top + pageScrollY + (tRect.height / 2) - (pHeight / 2);
+        left = tRect.left + pageScrollX - pWidth - margin;
+        arrow.style.right = '-6px';
+        arrow.style.top = 'calc(50% - 6px)';
+    }
+
+    // Clamp within viewport
+    const minLeft = pageScrollX + 10;
+    const maxLeft = pageScrollX + window.innerWidth - pWidth - 10;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+
+    popover.style.top = `${top}px`;
+    popover.style.left = `${left}px`;
+}
+
+function centerLiveTourPopover() {
+    const popover = document.getElementById('etalaTourTooltip');
+    if (!popover) return;
+    const pWidth = 350;
+    const pHeight = 220;
+    const pageScrollY = window.scrollY || window.pageYOffset;
+    const pageScrollX = window.scrollX || window.pageXOffset;
+
+    popover.style.top = `${pageScrollY + (window.innerHeight / 2) - (pHeight / 2)}px`;
+    popover.style.left = `${pageScrollX + (window.innerWidth / 2) - (pWidth / 2)}px`;
+}
+
+// Auto-start tour if ?tour=X is in URL
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const tourParam = params.get('tour');
+    if (tourParam && ETALA_LIVE_TOURS[tourParam]) {
+        setTimeout(() => startEtalaTour(parseInt(tourParam, 10)), 350);
+    }
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    if (!activeEtalaTour) return;
+    if (e.key === 'ArrowRight' || e.key === 'Enter') {
+        nextEtalaTourStep();
+    } else if (e.key === 'ArrowLeft') {
+        prevEtalaTourStep();
+    } else if (e.key === 'Escape') {
+        exitEtalaTour();
+    }
+});
+</script>

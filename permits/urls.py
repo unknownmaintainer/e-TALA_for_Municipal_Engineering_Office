@@ -41,6 +41,10 @@ urlpatterns = [
     path('reset-password/', views.reset_password_view, name='reset_password'),
     path('preview-toasts/', views.toast_preview_view, name='preview_toasts'),
     path('toast-preview/', views.toast_preview_view, name='toast_preview_alias'),
+    path('user-manual/', views.user_manual_view, name='user_manual'),
+    path('manual/', views.user_manual_view, name='user_manual_alias'),
+    path('user-manual/video-stream/', views.user_manual_video_stream, name='user_manual_video_stream'),
+    path('manual/video/', views.user_manual_video_stream, name='user_manual_video_alias'),
 
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),
@@ -107,7 +111,8 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile'),
     path('users/<int:user_id>/avatar/', views.serve_user_avatar_view, name='serve_user_avatar'),
     path('about/', views.about_system_view, name='about_system'),
-    path('about/feedback/', views.submit_system_feedback, name='submit_system_feedback'),
+    path('feedback/submit/', views.submit_system_feedback, name='submit_system_feedback'),
+    path('about/feedback/', views.submit_system_feedback),
     path('users/', views.users_view, name='users'),
     path('settings/', views.settings_view, name='settings'),
     path('settings/user/<int:user_id>/toggle-active/', views.toggle_user_active_view, name='toggle_user_active'),

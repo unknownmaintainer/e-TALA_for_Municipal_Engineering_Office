@@ -26,55 +26,44 @@
     <div class="content-card-body p-3.5 d-flex flex-column gap-1" style="font-size: 0.84rem;">
         
         <!-- Record ID -->
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-hashtag text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Record ID</span>
             </div>
-            <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive font-monospace text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="#{{ record.record_id }}">
                 #{{ record.record_id }}
             </div>
         </div>
 
         <!-- Type / Classification -->
-        {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
-            <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
-                <i class="fa-solid fa-file-contract text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
-                <span>Permit Type</span>
-            </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4 d-inline-flex align-items-center gap-1.5" style="font-size: 0.88rem; line-height: 1.35;">
-                <i class="fa-solid fa-certificate text-success" style="font-size: 12px;"></i>
-                <span>{{ record.permit_detail.permit_type|default:"Building Permit" }} (Resolved)</span>
-            </div>
-        </div>
-        {% elif record.is_illegal_construction %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        {% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' %}
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-triangle-exclamation text-danger opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Violation Type</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4 d-inline-flex align-items-center gap-1.5" style="font-size: 0.88rem; line-height: 1.35;">
-                <span>{% if record.permit_detail and record.permit_detail.permit_type and record.permit_detail.permit_type != 'Violation Report' %}{{ record.permit_detail.permit_type }}{% else %}No Building Permit{% endif %}</span>
+            <div class="fw-bold title-text-adaptive text-truncate ps-4 d-inline-flex align-items-center gap-1.5" style="font-size: 0.88rem; line-height: 1.35;" title="{% if record.permit_detail and record.permit_detail.permit_type and record.permit_detail.permit_type != 'Violation Report' %}{{ record.permit_detail.permit_type }}{% else %}No Building Permit{% endif %}">
+                <span class="text-truncate">{% if record.permit_detail and record.permit_detail.permit_type and record.permit_detail.permit_type != 'Violation Report' %}{{ record.permit_detail.permit_type }}{% else %}No Building Permit{% endif %}</span>
             </div>
         </div>
         {% elif record.record_type == 'Project' %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-diagram-project text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Project Type</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.specific_type_label }}">
                 {{ record.specific_type_label }}
             </div>
         </div>
         {% else %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-file-contract text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Permit Type</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.specific_type_label }}">
                 {{ record.specific_type_label }}
             </div>
         </div>
@@ -82,22 +71,22 @@
 
         <!-- Applicant / Property Owner (or Title if general) -->
         {% if record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>{% if record.is_illegal_construction %}Property Owner{% else %}Applicant Name{% endif %}</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.permit_detail.applicant_name }}">
                 {{ record.permit_detail.applicant_name }}
             </div>
         </div>
         {% elif record.is_illegal_construction %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-user text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Property Owner</span>
             </div>
-            <div class="text-muted fst-italic ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="text-muted fst-italic text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="Under Investigation">
                 Under Investigation
             </div>
         </div>
@@ -105,22 +94,22 @@
 
         <!-- Permit No. or Violation Status -->
         {% if not record.is_illegal_construction and record.permit_detail and record.permit_detail.permit_number %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-id-card text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Permit No.</span>
             </div>
-            <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive font-monospace text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.permit_detail.permit_number }}">
                 {{ record.permit_detail.permit_number }}
             </div>
         </div>
         {% elif record.is_illegal_construction and record.permit_detail and record.permit_detail.permit_number %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-id-card text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Issued Permit No.</span>
             </div>
-            <div class="fw-bold title-text-adaptive font-monospace text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive font-monospace text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.permit_detail.permit_number }}">
                 {{ record.permit_detail.permit_number }}
             </div>
         </div>
@@ -128,12 +117,12 @@
 
         <!-- Building Type (Permits) -->
         {% if record.permit_detail and record.permit_detail.building_type %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-building text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Building Type</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.permit_detail.get_building_type_display|default:record.permit_detail.building_type }}">
                 {{ record.permit_detail.get_building_type_display|default:record.permit_detail.building_type }}
             </div>
         </div>
@@ -141,12 +130,12 @@
 
         <!-- Date Inspected (Violations) -->
         {% if record.is_illegal_construction and record.illegal_compliance_status != 'resolved' and record.date_started %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-magnifying-glass text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Date Inspected</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.date_started|date:'M d, Y' }}">
                 {{ record.date_started|date:"M d, Y" }}
             </div>
         </div>
@@ -154,12 +143,12 @@
 
         <!-- Date Issued (Permits) -->
         {% if record.permit_detail and record.permit_detail.date_issued %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-calendar-check text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Date Issued</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.permit_detail.date_issued|date:'M d, Y' }}">
                 {{ record.permit_detail.date_issued|date:"M d, Y" }}
             </div>
         </div>
@@ -167,12 +156,12 @@
 
         <!-- Date Completed (Projects) -->
         {% if record.record_type == 'Project' and record.date_completed %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-calendar-check text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Date Completed</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.date_completed|date:'M d, Y' }}">
                 {{ record.date_completed|date:"M d, Y" }}
             </div>
         </div>
@@ -180,12 +169,12 @@
 
         <!-- Project Budget -->
         {% if record.project_detail and record.project_detail.project_cost %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-sack-dollar text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Project Budget</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="₱ {{ record.project_detail.project_cost|intcomma }}">
                 ₱ {{ record.project_detail.project_cost|intcomma }}
             </div>
         </div>
@@ -193,57 +182,57 @@
 
         <!-- Funding Source -->
         {% if record.project_detail and record.project_detail.funding_source %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-building-columns text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Funding Source</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                {{ record.project_detail.funding_source }}
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.project_detail.funding_source_display }}">
+                {{ record.project_detail.funding_source_display }}
             </div>
         </div>
         {% endif %}
 
         <!-- Contractor -->
         {% if record.project_detail and record.project_detail.contractor %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-helmet-safety text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Contractor</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.project_detail.contractor }}">
                 {{ record.project_detail.contractor }}
             </div>
         </div>
         {% endif %}
 
         <!-- Barangay -->
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-location-dot text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Barangay</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ record.barangay.barangay_name|default:'Unassigned' }}">
                 {{ record.barangay.barangay_name|default:"Unassigned" }}
             </div>
         </div>
 
         <!-- Created / Encoded By -->
-        <div class="py-1.5 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1.5 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-user-pen text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Created / Encoded By</span>
             </div>
-            <div class="fw-bold title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
+            <div class="fw-bold title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{% if record.created_by %}{{ record.created_by.full_name|default:record.created_by.username }}{% else %}Staff / System{% endif %}">
                 {% if record.created_by %}
                     {{ record.created_by.full_name|default:record.created_by.username }}
                     {% if record.created_by.designation %}
-                    <span class="text-muted fw-normal d-block" style="font-size: 0.73rem;">{{ record.created_by.designation }}</span>
+                    <span class="text-muted fw-normal d-block text-truncate" style="font-size: 0.73rem;" title="{{ record.created_by.designation }}">{{ record.created_by.designation }}</span>
                     {% endif %}
                 {% else %}
                     Staff / System
                 {% endif %}
-                <span class="text-muted fw-normal d-block" style="font-size: 0.73rem; margin-top: 1px;">
+                <span class="text-muted fw-normal d-block text-truncate" style="font-size: 0.73rem; margin-top: 1px;">
                     <i class="fa-regular fa-calendar-plus me-1"></i>{{ record.created_at|date:"M d, Y • h:i A" }}
                 </span>
             </div>
@@ -252,17 +241,17 @@
         <!-- Last Updated (Only displayed when actual modifications/edits were made after creation) -->
         {% with last_edit=record.latest_update_log %}
         {% if last_edit and last_edit.user %}
-        <div class="py-1 border-bottom d-flex flex-column gap-0.5">
+        <div class="py-1 border-bottom d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-clock-rotate-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Last Updated</span>
             </div>
-            <div class="title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.35;">
-                <span class="fw-bold d-block">{{ last_edit.user.full_name|default:last_edit.user.username }}</span>
+            <div class="title-text-adaptive text-truncate ps-4" style="font-size: 0.88rem; line-height: 1.35;" title="{{ last_edit.user.full_name|default:last_edit.user.username }}">
+                <span class="fw-bold d-block text-truncate">{{ last_edit.user.full_name|default:last_edit.user.username }}</span>
                 {% if last_edit.user.designation %}
-                <span class="text-muted fw-normal d-block" style="font-size: 0.73rem;">{{ last_edit.user.designation }}</span>
+                <span class="text-muted fw-normal d-block text-truncate" style="font-size: 0.73rem;" title="{{ last_edit.user.designation }}">{{ last_edit.user.designation }}</span>
                 {% endif %}
-                <span class="text-muted fw-normal d-block" style="font-size: 0.73rem; margin-top: 1px;">
+                <span class="text-muted fw-normal d-block text-truncate" style="font-size: 0.73rem; margin-top: 1px;">
                     <i class="fa-regular fa-clock me-1"></i>{{ last_edit.performed_at|date:"M d, Y • h:i A" }}
                 </span>
             </div>
@@ -273,12 +262,12 @@
         <!-- Remarks / Notes -->
         {% with cleaned_desc=record.description|clean_resolved_description:record %}
         {% if cleaned_desc %}
-        <div class="py-1 d-flex flex-column gap-0.5">
+        <div class="py-1 d-flex flex-column gap-0.5 min-w-0">
             <div class="d-flex align-items-center gap-2 text-muted" style="font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;">
                 <i class="fa-solid fa-align-left text-primary opacity-75 flex-shrink-0" style="width: 14px; font-size: 0.74rem;"></i>
                 <span>Remarks / Notes</span>
             </div>
-            <div class="title-text-adaptive text-break ps-4" style="font-size: 0.88rem; line-height: 1.4; font-weight: 500;">
+            <div class="title-text-adaptive ps-4 etala-truncate-3" style="font-size: 0.88rem; line-height: 1.4; font-weight: 500;" title="{{ cleaned_desc }}">
                 {{ cleaned_desc|linebreaksbr }}
             </div>
         </div>

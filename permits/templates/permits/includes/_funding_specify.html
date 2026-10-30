@@ -1,0 +1,93 @@
+{% comment %}
+  Shared "Specify Funding Source" behavior for NGO / Others.
+  Usage:
+    - Add data-funding-specify-target="<wrapperId>" to the funding_source <select>.
+    - Wrapper must contain an <input> and an element with [data-funding-specify-label].
+  The input stays free-text; the NGO datalist only offers quick suggestions.
+{% endcomment %}
+<datalist id="etalaNgoSuggestions">
+    <option value="Philippine Red Cross"></option>
+    <option value="Caritas Philippines"></option>
+    <option value="Rise and Rebuild International Foundation"></option>
+    <option value="World Vision Philippines"></option>
+    <option value="Plan International Philippines"></option>
+    <option value="Habitat for Humanity Philippines"></option>
+    <option value="Gawad Kalinga"></option>
+    <option value="Tzu Chi Foundation"></option>
+    <option value="Rotary Club"></option>
+    <option value="Lions Club"></option>
+</datalist>
+
+<script>
+(function () {
+    const SPECIFY_CONFIG = {
+        'NGO': {
+            label: 'Specify NGO Name / Organization',
+            placeholder: 'e.g. Philippine Red Cross, Caritas, World Vision...',
+            feedback: 'Please specify the NGO name.',
+            list: 'etalaNgoSuggestions'
+        },
+        'Others': {
+            label: 'Specify Other Funding Source',
+            placeholder: 'Specify other funding source...',
+            feedback: 'Please specify the funding source.',
+            list: null
+        }
+    };
+
+    function syncFundingSpecify(value, wrapper) {
+        if (!wrapper) return;
+        const input = wrapper.querySelector('input');
+        const label = wrapper.querySelector('[data-funding-specify-label]');
+        const feedback = wrapper.querySelector('[data-funding-specify-feedback]');
+        const cfg = SPECIFY_CONFIG[value];
+        if (!input) return;
+
+        if (!cfg) {
+            wrapper.style.display = 'none';
+            input.required = false;
+            input.classList.remove('is-invalid');
+            return;
+        }
+
+        // Switching between NGO <-> Others: clear the old, unrelated value
+        if (wrapper.dataset.specifyKind && wrapper.dataset.specifyKind !== value) {
+            input.value = '';
+        }
+        wrapper.dataset.specifyKind = value;
+
+        wrapper.style.display = 'block';
+        input.required = true;
+        input.placeholder = cfg.placeholder;
+        if (label) label.textContent = cfg.label;
+        if (feedback) feedback.textContent = cfg.feedback;
+        if (cfg.list) {
+            input.setAttribute('list', cfg.list);
+        } else {
+            input.removeAttribute('list');
+        }
+    }
+
+    window.etalaSyncFundingSpecify = syncFundingSpecify;
+
+    function init() {
+        document.querySelectorAll('select[data-funding-specify-target]').forEach(function (select) {
+            const wrapper = document.getElementById(select.dataset.fundingSpecifyTarget);
+            if (!wrapper || select.dataset.fundingSpecifyBound) return;
+            select.dataset.fundingSpecifyBound = '1';
+            // Initial state (also covers re-rendered forms after validation errors)
+            wrapper.dataset.specifyKind = select.value || '';
+            syncFundingSpecify(select.value, wrapper);
+            select.addEventListener('change', function () {
+                syncFundingSpecify(this.value, wrapper);
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>

@@ -121,6 +121,32 @@ def log_audit(user, action, target_record_id=None, request=None):
     )
 
 
+def log_error(user, action, target_record_id=None, request=None, error=None):
+    """
+    Explicitly logs critical errors, failed operations, or security exceptions into AuditLog
+    so administrators are immediately aware when system errors occur.
+    """
+    if not action:
+        return
+    msg = str(action).strip()
+    if not msg.lower().startswith(("error:", "failed:", "system error:")):
+        msg = f"System Error: {msg}"
+    if error:
+        err_str = str(error).strip()
+        if err_str:
+            if len(err_str) > 120:
+                err_str = err_str[:117] + "..."
+            msg = f"{msg} ({err_str})"
+    ip = get_client_ip(request) if request else None
+    actual_user = user if (user and hasattr(user, 'is_authenticated') and user.is_authenticated) else None
+    AuditLog.objects.create(
+        user=actual_user,
+        action=msg,
+        target_record_id=target_record_id,
+        ip_address=ip
+    )
+
+
 def log_record_access(user, record):
     """
     Updates the per-user 'Last Opened' timestamp for the given record.
@@ -403,6 +429,11 @@ def login_view(request):
         if user is not None:
             if not user.is_active:
                 LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
+                try:
+                    from django.core.cache import cache
+                    cache.clear()
+                except Exception:
+                    pass
                 messages.error(request, "This account has been deactivated.")
                 return render(request, 'permits/login.html')
 
@@ -500,6 +531,11 @@ def verify_otp_view(request):
         # Check maximum retry attempts (5 max)
         if attempts >= 5:
             LoginAttempt.objects.create(email_attempted=user.email or user.username, success=False, ip_address=get_client_ip(request))
+            try:
+                from django.core.cache import cache
+                cache.clear()
+            except Exception:
+                pass
             for k in ['2fa_user_id', '2fa_otp', '2fa_expiry', '2fa_attempts', '2fa_device_name', '2fa_ip', '2fa_remember_me', '2fa_login_input', '2fa_sent_at']:
                 request.session.pop(k, None)
             messages.error(request, "Too many failed attempts. Please sign in again.")
@@ -563,6 +599,11 @@ def verify_otp_view(request):
         else:
             ip_address = request.session.get('2fa_ip', get_client_ip(request))
             LoginAttempt.objects.create(email_attempted=user.email or user.username, success=False, ip_address=ip_address)
+            try:
+                from django.core.cache import cache
+                cache.clear()
+            except Exception:
+                pass
             request.session['2fa_attempts'] = attempts + 1
             remaining = 5 - (attempts + 1)
             messages.error(request, f"Invalid 6-digit verification code. {remaining} attempt(s) remaining.")
@@ -954,7 +995,7 @@ def dashboard_view(request):
     total_permits = records.filter(record_type='Permit').count()
     total_municipal = records.filter(record_type='Project', project_scope='Municipal').count()
     total_barangay = records.filter(record_type='Project', project_scope='Barangay').count()
-    total_documents = Document.objects.filter(engineering_record__isnull=False).count()
+    total_documents = Document.objects.filter(engineering_record__isnull=False).exclude(engineering_record__status='archived').count()
     total_archived = EngineeringRecord.objects.filter(status='archived').count()
     total_records = total_permits + total_municipal + total_barangay
     if total_records < records.count():
@@ -1127,7 +1168,7 @@ def dashboard_view(request):
     chart_year_counts = [y['count'] for y in years_query]
 
     # 2. Permit Distribution
-    permit_query = PermitDetail.objects.values('permit_type').annotate(count=Count('id')).order_by('-count')
+    permit_query = PermitDetail.objects.filter(engineering_record__in=records).values('permit_type').annotate(count=Count('id')).order_by('-count')
     chart_permits = [p['permit_type'] for p in permit_query]
     chart_permit_counts = [p['count'] for p in permit_query]
 
@@ -1310,6 +1351,7 @@ def barangays_view(request):
                     )
                     cache.delete('global_total_barangays_count')
                     cache.delete('total_barangays_count')
+                    cache.delete('global_all_barangays_list')
                     log_audit(request.user, f"Created Barangay '{b.barangay_name}'", request=request)
                     messages.success(request, f"Barangay '{b.barangay_name}' has been created successfully.")
             return redirect('barangays')
@@ -1335,6 +1377,7 @@ def barangays_view(request):
                     barangay.save()
                     cache.delete('global_total_barangays_count')
                     cache.delete('total_barangays_count')
+                    cache.delete('global_all_barangays_list')
                     log_audit(request.user, f"Updated Barangay '{name}'", request=request)
                     messages.success(request, f"Barangay '{name}' updated successfully.")
             return redirect('barangays')
@@ -1351,6 +1394,7 @@ def barangays_view(request):
                     barangay.delete()
                     cache.delete('global_total_barangays_count')
                     cache.delete('total_barangays_count')
+                    cache.delete('global_all_barangays_list')
                     log_audit(request.user, f"Deleted Barangay '{name}'", request=request)
                     messages.success(request, f"Barangay '{name}' deleted successfully.")
             return redirect('barangays')
@@ -1358,7 +1402,7 @@ def barangays_view(request):
     sort = request.GET.get('sort', 'a-z').strip().lower()
     query = request.GET.get('q', '').strip()
 
-    master_filter = ~Q(engineering_records__status='archived') & Q(engineering_records__is_illegal_construction=False)
+    master_filter = ~Q(engineering_records__status='archived') & (Q(engineering_records__is_illegal_construction=False) | Q(engineering_records__is_illegal_construction=True, engineering_records__illegal_compliance_status='resolved'))
 
     base_qs = Barangay.objects.annotate(
         total_records=Count('engineering_records', filter=master_filter),
@@ -1367,7 +1411,11 @@ def barangays_view(request):
     )
 
     if query:
-        filtered_qs = base_qs.filter(barangay_name__icontains=query)
+        import re
+        clean_brgy_q = re.sub(r'^(?:barangay|brgy\.?|bgy\.?)\s+', '', query.strip(), flags=re.IGNORECASE).strip()
+        if clean_brgy_q.lower() in ('barangay', 'brgy', 'brgy.', 'bgy', 'bgy.'):
+            clean_brgy_q = ''
+        filtered_qs = base_qs.filter(barangay_name__icontains=clean_brgy_q) if clean_brgy_q else base_qs
     else:
         filtered_qs = base_qs
 
@@ -1401,12 +1449,7 @@ def barangay_workspace_view(request, barangay_id):
         'requirements__requirement_item', 'requirements__document'
     )
 
-    # Stats
-    total_permits = records.filter(record_type='Permit', is_illegal_construction=False).count()
-    total_projects = records.filter(record_type='Project').count()
-    total_violations = records.filter(is_illegal_construction=True).count()
     total_documents = Document.objects.filter(engineering_record__barangay=barangay).exclude(engineering_record__status='archived').count()
-    total_records = records.count()
 
     # Filter parameters
     tab = request.GET.get('tab', 'all').strip()
@@ -1417,35 +1460,28 @@ def barangay_workspace_view(request, barangay_id):
     upload_status = request.GET.get('upload_status', '').strip()
     sort = request.GET.get('sort', '').strip()
 
-    # Year choices available for this barangay
-    year_choices = list(records.exclude(year__isnull=True).values_list('year', flat=True).distinct().order_by('-year'))
+    # Year choices (full municipal archive range 1995 to current year, consistent with Records Management)
+    year_choices = get_year_choices()
 
-    filtered_records = filter_engineering_records(
+    # 1. Apply non-tab filters first so tab & header counts dynamically reflect active filters
+    base_filtered = filter_engineering_records(
         records,
         query=query,
         status=status_filter,
         year=year,
-        illegal_filter=None
+        illegal_filter='all'
     )
-
-    # Tab filter
-    if tab == 'permits':
-        filtered_records = filtered_records.filter(record_type='Permit', is_illegal_construction=False)
-    elif tab == 'projects':
-        filtered_records = filtered_records.filter(record_type='Project')
-    elif tab == 'violations':
-        filtered_records = filtered_records.filter(is_illegal_construction=True)
 
     # Specific Type filter
     if type_filter:
         if type_filter.lower() == 'municipal':
-            filtered_records = filtered_records.filter(record_type='Project', project_scope='Municipal')
+            base_filtered = base_filtered.filter(record_type='Project', project_scope='Municipal')
         elif type_filter.lower() == 'barangay':
-            filtered_records = filtered_records.filter(record_type='Project', project_scope='Barangay')
+            base_filtered = base_filtered.filter(record_type='Project', project_scope='Barangay')
         elif type_filter.lower() == 'violation':
-            filtered_records = filtered_records.filter(is_illegal_construction=True)
+            base_filtered = base_filtered.filter(Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved'))
         else:
-            filtered_records = filtered_records.filter(
+            base_filtered = base_filtered.filter(
                 Q(permit_detail__permit_type__iexact=type_filter) |
                 Q(project_detail__project_type__iexact=type_filter) |
                 Q(record_type__iexact=type_filter)
@@ -1453,11 +1489,29 @@ def barangay_workspace_view(request, barangay_id):
 
     # Upload Status filter (Complete vs Incomplete)
     if upload_status == 'complete':
-        complete_ids = [r.record_id for r in filtered_records if r.completion_stats['is_complete']]
-        filtered_records = filtered_records.filter(record_id__in=complete_ids)
+        complete_ids = [r.record_id for r in base_filtered if r.completion_stats['is_complete']]
+        base_filtered = base_filtered.filter(record_id__in=complete_ids)
     elif upload_status == 'incomplete':
-        incomplete_ids = [r.record_id for r in filtered_records if not r.completion_stats['is_complete']]
-        filtered_records = filtered_records.filter(record_id__in=incomplete_ids)
+        incomplete_ids = [r.record_id for r in base_filtered if not r.completion_stats['is_complete']]
+        base_filtered = base_filtered.filter(record_id__in=incomplete_ids)
+
+    # 2. Compute Dynamic Stats for Tabs & Header Pills (Regularized violations count as official Permits; only unresolved count as Active Violations)
+    valid_permit_q = Q(record_type='Permit') & (Q(is_illegal_construction=False) | Q(is_illegal_construction=True, illegal_compliance_status='resolved'))
+    active_violation_q = Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')
+
+    total_permits = base_filtered.filter(valid_permit_q).count()
+    total_projects = base_filtered.filter(record_type='Project').count()
+    total_violations = base_filtered.filter(active_violation_q).count()
+    total_records = base_filtered.count()
+
+    # 3. Apply Tab filter
+    filtered_records = base_filtered
+    if tab == 'permits':
+        filtered_records = filtered_records.filter(valid_permit_q)
+    elif tab == 'projects':
+        filtered_records = filtered_records.filter(record_type='Project')
+    elif tab == 'violations':
+        filtered_records = filtered_records.filter(active_violation_q)
 
     # Multi-Column Sorting
     if sort == 'title_asc':
@@ -1578,7 +1632,7 @@ def records_browse_view(request):
         return redirect(f"{url}?{qstr}" if qstr else url)
 
     base_records = EngineeringRecord.objects.exclude(status='archived').filter(
-        is_illegal_construction=False
+        Q(is_illegal_construction=False) | Q(is_illegal_construction=True, illegal_compliance_status='resolved')
     ).select_related(
         'barangay', 'created_by', 'permit_detail', 'project_detail'
     ).prefetch_related(
@@ -1608,6 +1662,15 @@ def records_browse_view(request):
         illegal_filter=None
     )
 
+    # Apply Upload Status filter (Complete vs Incomplete) before tab counts so tabs reflect upload filter
+    upload_status = request.GET.get('upload_status', '').strip()
+    if upload_status == 'complete':
+        complete_ids = [r.record_id for r in unfiltered_base if r.completion_stats['is_complete']]
+        unfiltered_base = unfiltered_base.filter(record_id__in=complete_ids)
+    elif upload_status == 'incomplete':
+        incomplete_ids = [r.record_id for r in unfiltered_base if not r.completion_stats['is_complete']]
+        unfiltered_base = unfiltered_base.filter(record_id__in=incomplete_ids)
+
     # Scope resolution
     selected_scope = resolve_scope(request)
     my_scope_count = unfiltered_base.filter(created_by=request.user).count() if request.user.is_authenticated else 0
@@ -1631,15 +1694,6 @@ def records_browse_view(request):
     )
     if selected_scope == 'my':
         records = records.filter(created_by=request.user)
-
-    # 4. Apply Upload Status filter (Complete vs Incomplete)
-    upload_status = request.GET.get('upload_status', '').strip()
-    if upload_status == 'complete':
-        complete_ids = [r.record_id for r in records if r.completion_stats['is_complete']]
-        records = records.filter(record_id__in=complete_ids)
-    elif upload_status == 'incomplete':
-        incomplete_ids = [r.record_id for r in records if not r.completion_stats['is_complete']]
-        records = records.filter(record_id__in=incomplete_ids)
 
     # 5. Apply Multi-Column Sorting
     sort = request.GET.get('sort', '').strip()
@@ -1738,29 +1792,44 @@ def illegal_constructions_view(request):
     barangay_id = request.GET.get('barangay', '')
     year = request.GET.get('year', '')
     stage_filter = request.GET.get('stage', 'all').strip()  # 'all', 'unresolved', 'resolved'
+    upload_status = request.GET.get('upload_status', '').strip()
 
     # Filter base
     qs = base_records
     if query:
         q_clean = str(query).strip()
-        tokens = [t for t in q_clean.split() if t]
+        raw_tokens = [t for t in q_clean.split() if t]
+        brgy_prefixes = {'brgy', 'brgy.', 'bgy', 'bgy.', 'barangay'}
+        if len(raw_tokens) > 1:
+            tokens = [t for t in raw_tokens if t.lower() not in brgy_prefixes] or raw_tokens
+        else:
+            tokens = raw_tokens
         for token in tokens:
-            token_lower = token.lower()
+            token_clean = token.lstrip('#') or token
+            token_lower = token_clean.lower()
             token_filter = (
-                Q(title__icontains=token) |
-                Q(description__icontains=token) |
-                Q(barangay__barangay_name__icontains=token) |
-                Q(permit_detail__applicant_name__icontains=token) |
-                Q(permit_detail__permit_number__icontains=token) |
-                Q(permit_detail__permit_type__icontains=token) |
-                Q(permit_detail__building_type__icontains=token) |
-                Q(permit_detail__remarks__icontains=token)
+                Q(title__icontains=token_clean) |
+                Q(description__icontains=token_clean) |
+                Q(barangay__barangay_name__icontains=token_clean) |
+                Q(permit_detail__applicant_name__icontains=token_clean) |
+                Q(permit_detail__permit_number__icontains=token_clean) |
+                Q(permit_detail__permit_type__icontains=token_clean) |
+                Q(permit_detail__building_type__icontains=token_clean) |
+                Q(permit_detail__remarks__icontains=token_clean)
             )
+            if token_lower in ('barangay', 'brgy', 'brgy.', 'bgy', 'bgy.'):
+                token_filter |= Q(barangay__isnull=False)
+            elif token_lower in ('unresolved', 'open'):
+                token_filter |= Q(illegal_compliance_status='unresolved')
+            elif token_lower in ('resolved', 'regularized', 'complied'):
+                token_filter |= Q(illegal_compliance_status='resolved')
             # 4-Digit Year token matching (e.g. 2024, 2025, 2026)
-            if token.isdigit() and len(token) == 4:
-                year_val = int(token)
+            if token_clean.isdigit() and len(token_clean) == 4:
+                year_val = int(token_clean)
                 if 1900 <= year_val <= 2100:
                     token_filter |= Q(year=year_val) | Q(created_at__year=year_val) | Q(date_started__year=year_val)
+            elif token.startswith('#') and token_clean.isdigit():
+                token_filter |= Q(record_id=int(token_clean))
             
             qs = qs.filter(token_filter)
         qs = qs.distinct()
@@ -1772,6 +1841,14 @@ def illegal_constructions_view(request):
             qs = qs.filter(year=int(year))
         except (ValueError, TypeError):
             qs = qs.filter(year=year)
+
+    # Upload Status filter (Complete vs Incomplete) before tab counts so tabs reflect upload filter
+    if upload_status == 'complete':
+        complete_ids = [r.record_id for r in qs if r.completion_stats['is_complete']]
+        qs = qs.filter(record_id__in=complete_ids)
+    elif upload_status == 'incomplete':
+        incomplete_ids = [r.record_id for r in qs if not r.completion_stats['is_complete']]
+        qs = qs.filter(record_id__in=incomplete_ids)
 
     selected_scope = resolve_scope(request)
     my_scope_count = qs.filter(created_by=request.user).count() if request.user.is_authenticated else 0
@@ -1816,6 +1893,14 @@ def illegal_constructions_view(request):
         records = records.order_by('year', '-created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: r.year or 0)
     elif sort == 'year_desc':
         records = records.order_by('-year', '-created_at') if hasattr(records, 'order_by') else sorted(records, key=lambda r: r.year or 0, reverse=True)
+    elif sort == 'uploads_desc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (-r.completion_stats['pct'], -r.completion_stats['fulfilled'], -r.created_at.timestamp() if r.created_at else 0))
+        records = rec_list
+    elif sort == 'uploads_asc':
+        rec_list = list(records)
+        rec_list.sort(key=lambda r: (r.completion_stats['pct'], r.completion_stats['fulfilled'], -r.created_at.timestamp() if r.created_at else 0))
+        records = rec_list
     else:
         if hasattr(records, 'order_by'):
             records = records.order_by('-created_at')
@@ -1826,7 +1911,7 @@ def illegal_constructions_view(request):
     page_obj = paginator.get_page(request.GET.get('page'))
 
     year_choices = get_year_choices()
-    active_filters_count = sum(1 for val in [barangay_id, year, ('my' if selected_scope == 'my' else '')] if val)
+    active_filters_count = sum(1 for val in [barangay_id, year, upload_status, ('my' if selected_scope == 'my' else '')] if val)
 
     context = {
         'per_page': per_page,
@@ -1847,6 +1932,7 @@ def illegal_constructions_view(request):
         'all_scope_count': all_scope_count,
         'selected_barangay': barangay_id,
         'selected_year': year,
+        'selected_upload_status': upload_status,
         'year_choices': year_choices,
         'permit_types': PermitDetail.PERMIT_TYPE_CHOICES,
         'building_types': PermitDetail.BUILDING_TYPE_CHOICES,
@@ -2029,6 +2115,17 @@ def record_create_step3_view(request):
             if not date_issued_val:
                 return return_error_with_data("Date Issued is required for permit records.")
             title = permit_number + ' — ' + applicant_name
+            # Auto-sync year from permit number prefix or date_issued
+            m_num = re.search(r'(?:^|BP-)(\d{4})-', permit_number)
+            if m_num:
+                year = int(m_num.group(1))
+            elif date_issued_val:
+                try:
+                    from datetime import datetime
+                    di_obj = datetime.strptime(date_issued_val, '%Y-%m-%d').date() if isinstance(date_issued_val, str) else date_issued_val
+                    year = di_obj.year
+                except Exception:
+                    pass
         else:
             title = sanitize_input(request.POST.get('title', '')).strip()
             contractor_val = sanitize_input(request.POST.get('contractor', '')).strip()
@@ -2104,7 +2201,7 @@ def record_create_step3_view(request):
             chosen_subtype = request.POST.get('project_type', subtype) or subtype
             project_status = 'Completed'
             funding_val = sanitize_input(request.POST.get('funding_source', 'LGU General Fund')).strip()
-            funding_other_val = sanitize_input(request.POST.get('funding_source_other', '')).strip() if funding_val == 'Others' else ''
+            funding_other_val = sanitize_input(request.POST.get('funding_source_other', '')).strip() if funding_val in ProjectDetail.SPECIFY_FUNDING_SOURCES else ''
 
             if record.date_completed:
                 try:
@@ -2277,7 +2374,10 @@ def record_create_view(request):
                             'active_tab': 'records',
                         })
                     date_issued_val = parsed_di
-                    if not year:
+                    m_num = re.search(r'(?:^|BP-)(\d{4})-', permit_number)
+                    if m_num:
+                        year = int(m_num.group(1))
+                    else:
                         year = date_issued_val.year
                 except (ValueError, TypeError):
                     pass
@@ -2434,7 +2534,7 @@ def record_create_view(request):
                 engineering_record=record,
                 project_type=subtype,
                 funding_source=funding_src,
-                funding_source_other=funding_other if funding_src == 'Others' else '',
+                funding_source_other=funding_other if funding_src in ProjectDetail.SPECIFY_FUNDING_SOURCES else '',
                 contractor=contractor_val,
                 project_cost=project_cost_val,
                 project_status='Completed',
@@ -2520,11 +2620,15 @@ def record_detail_view(request, record_id):
     completion = record.completion_stats
 
     # Non-checklist documents (uploaded without a slot)
-    supporting_docs = record.documents.filter(
-        requirement_item__isnull=True
-    ).exclude(
-        document_type="Incident Evidence"
-    ).order_by('-uploaded_at')
+    # Violations only have Incident Evidence documents; additional/supporting docs are only for regular records
+    if record.is_illegal_construction:
+        supporting_docs = Document.objects.none()
+    else:
+        supporting_docs = record.documents.filter(
+            requirement_item__isnull=True
+        ).exclude(
+            document_type="Incident Evidence"
+        ).order_by('-uploaded_at')
 
     incident_evidence_docs = record.documents.filter(
         document_type="Incident Evidence"
@@ -2604,14 +2708,13 @@ def record_detail_view(request, record_id):
             parent_reqs.append(req)
 
     # Smart Sorting: Pending/missing requirements appear first at the top,
-    # and completed/fulfilled requirements move to the bottom.
+    # and within status they are sorted alphabetically (A-Z) by default.
     for parent_id in sub_reqs_by_parent:
         sub_reqs_by_parent[parent_id] = sorted(
             sub_reqs_by_parent[parent_id],
             key=lambda s: (
                 2 if (s.is_fulfilled and s.document) else (1 if s.is_waived else 0),
-                s.requirement_item.order or 99,
-                s.requirement_item.name
+                clean_req_sort_key(s.requirement_item.name)
             )
         )
 
@@ -2742,6 +2845,14 @@ def record_detail_view(request, record_id):
     return render(request, 'permits/record_detail.html', context)
 
 
+def clean_req_sort_key(name):
+    """Sort key for requirement names: strips codes like '(a.1)' and lowercases."""
+    import re
+    if not name:
+        return ''
+    return re.sub(r'\s*\([a-z]\.\d+\)', '', str(name)).strip().lower()
+
+
 @login_required
 def record_requirement_detail_view(request, record_id, req_id):
     """Dedicated workspace page for managing a specific requirement category or folder."""
@@ -2777,8 +2888,7 @@ def record_requirement_detail_view(request, record_id, req_id):
             sub_reqs,
             key=lambda s: (
                 2 if (s.is_fulfilled and s.document) else (1 if s.is_waived else 0),
-                s.requirement_item.order or 99,
-                s.requirement_item.name
+                clean_req_sort_key(s.requirement_item.name)
             )
         )
 
@@ -3376,7 +3486,11 @@ def record_edit_view(request, record_id):
                             if parsed_d > timezone.localdate():
                                 messages.error(request, "Date Issued cannot be in the future.")
                                 return redirect('edit_record', record_id=record.record_id)
-                            record.year = parsed_d.year
+                            m_num = re.search(r'(?:^|BP-)(\d{4})-', new_permit_num) if new_permit_num else None
+                            if m_num:
+                                record.year = int(m_num.group(1))
+                            else:
+                                record.year = parsed_d.year
                             record.date_started = None  # Clear any legacy date_started on permit records
                         except (ValueError, TypeError):
                             pass
@@ -3421,7 +3535,7 @@ def record_edit_view(request, record_id):
 
             detail.project_type = new_subtype
             detail.funding_source = funding_src
-            detail.funding_source_other = funding_other if funding_src == 'Others' else ''
+            detail.funding_source_other = funding_other if funding_src in ProjectDetail.SPECIFY_FUNDING_SOURCES else ''
             detail.contractor = contractor_val
             detail.project_cost = parse_decimal_safely(request.POST.get('project_cost'))
             detail.project_status = 'Completed'
@@ -3692,33 +3806,33 @@ def get_lgu_document_filename(doc):
         if rec.is_illegal_construction:
             app = rec.permit_detail.applicant_name.strip() if hasattr(rec, 'permit_detail') and rec.permit_detail and rec.permit_detail.applicant_name else ""
             if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null', 'under investigation']:
-                root_folder = sanitize_zip_name(app, max_len=25).replace(" ", "_")
+                root_folder = sanitize_zip_name(app, max_len=35)
             else:
-                root_folder = sanitize_zip_name(rec.title or "Violation", max_len=25).replace(" ", "_")
+                root_folder = sanitize_zip_name(rec.title or "Violation", max_len=35)
         elif rec.record_type == 'Permit':
             app = rec.permit_detail.applicant_name.strip() if hasattr(rec, 'permit_detail') and rec.permit_detail and rec.permit_detail.applicant_name else ""
             if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null']:
-                root_folder = sanitize_zip_name(app, max_len=25).replace(" ", "_")
+                root_folder = sanitize_zip_name(app, max_len=35)
             else:
-                root_folder = sanitize_zip_name(rec.title or "Permit", max_len=25).replace(" ", "_")
+                root_folder = sanitize_zip_name(rec.title or "Permit", max_len=35)
         else:
-            root_folder = sanitize_zip_name(rec.title or "Project", max_len=25).replace(" ", "_")
+            root_folder = sanitize_zip_name(rec.title or "Project", max_len=35)
 
     req_item = doc.requirement_item
     if req_item:
         clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
         clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-        item_file_name = sanitize_zip_name(clean_item_name, max_len=30).replace(" ", "_")
+        item_file_name = sanitize_zip_name(clean_item_name, max_len=45)
     elif doc.document_type:
         clean_type = re.sub(r'\s*\([^\)]*\)', '', doc.document_type).strip()
         clean_type = re.sub(r'^\d+[\s_.-]*', '', clean_type).strip()
-        item_file_name = sanitize_zip_name(clean_type, max_len=30).replace(" ", "_")
+        item_file_name = sanitize_zip_name(clean_type, max_len=45)
     else:
         base_raw, _ = os.path.splitext(os.path.basename(str(raw_fname)))
-        item_file_name = sanitize_zip_name(base_raw, max_len=30).replace(" ", "_")
+        item_file_name = sanitize_zip_name(base_raw, max_len=45)
 
     if root_folder and root_folder.lower() not in item_file_name.lower():
-        final_name = f"{root_folder}_{item_file_name}{clean_ext}"
+        final_name = f"{root_folder} - {item_file_name}{clean_ext}"
     else:
         final_name = f"{item_file_name}{clean_ext}"
 
@@ -4300,13 +4414,34 @@ def archive_view(request):
 
     records = base_qs
     if query or record_type or barangay_id or year:
-        records = filter_engineering_records(
-            records,
-            query=query,
-            record_type=record_type,
-            barangay_id=barangay_id,
-            year=year
-        )
+        if record_type == 'Permit':
+            records = records.filter(record_type='Permit', is_illegal_construction=False)
+            records = filter_engineering_records(
+                records,
+                query=query,
+                record_type='',
+                barangay_id=barangay_id,
+                year=year,
+                illegal_filter='all'
+            )
+        elif record_type == 'Illegal':
+            records = filter_engineering_records(
+                records,
+                query=query,
+                record_type='Illegal',
+                barangay_id=barangay_id,
+                year=year,
+                illegal_filter='all'
+            )
+        else:
+            records = filter_engineering_records(
+                records,
+                query=query,
+                record_type=record_type,
+                barangay_id=barangay_id,
+                year=year,
+                illegal_filter='all'
+            )
 
     # High-accuracy sorting
     if sort == 'title_asc':
@@ -4328,7 +4463,7 @@ def archive_view(request):
     # Calculate counts for banner & expiring soon badge
     total_trash_count = len(records) if isinstance(records, list) else records.count()
     expiring_soon_count = sum(1 for r in records if r.is_trash_expiring_soon)
-    active_filters_count = sum(1 for v in [record_type, barangay_id, year] if v)
+    active_filters_count = sum(1 for v in [barangay_id, year] if v)
 
     per_page = get_per_page(request, 20)
     paginator = Paginator(records, per_page)
@@ -4337,11 +4472,18 @@ def archive_view(request):
     barangays = Barangay.objects.all().order_by('barangay_name')
     year_choices = get_year_choices()
 
-    # Category Tab Counts
-    all_trash_count = base_qs.count()
-    permits_trash_count = base_qs.filter(record_type='Permit', is_illegal_construction=False).count()
-    projects_trash_count = base_qs.filter(record_type='Project').count()
-    illegal_trash_count = base_qs.filter(is_illegal_construction=True).count()
+    # Category Tab Counts (dynamically filtered by query, barangay, and year)
+    unfiltered_trash_base = filter_engineering_records(
+        base_qs,
+        query=query,
+        barangay_id=barangay_id,
+        year=year,
+        illegal_filter='all'
+    ) if (query or barangay_id or year) else base_qs
+    all_trash_count = unfiltered_trash_base.count()
+    permits_trash_count = unfiltered_trash_base.filter(record_type='Permit', is_illegal_construction=False).count()
+    projects_trash_count = unfiltered_trash_base.filter(record_type='Project').count()
+    illegal_trash_count = unfiltered_trash_base.filter(is_illegal_construction=True).count()
 
     context = {
         'per_page': per_page,
@@ -4448,10 +4590,10 @@ def search_view(request):
         'documents', 'requirements__requirement_item', 'requirements__document'
     )
 
-    # Filter by query search
-    records = filter_engineering_records(records, query=query)
+    # Filter by query search and non-tab filters first
+    records = filter_engineering_records(records, query=query, barangay_id=barangay_id, year=year, status=status)
 
-    # Calculate tab counts BEFORE applying record_type filter to preserve query total tab counts
+    # Calculate tab counts BEFORE applying record_type filter to preserve filtered total tab counts
     base_counts_records = records
     all_count = base_counts_records.count()
     municipal_count = base_counts_records.filter(record_type='Project', project_scope='Municipal').count()
@@ -4459,8 +4601,9 @@ def search_view(request):
     permits_count = base_counts_records.filter(record_type='Permit').count()
     illegal_count = base_counts_records.filter(is_illegal_construction=True).count()
 
-    # Apply remaining dropdown filters
-    records = filter_engineering_records(records, record_type=record_type, barangay_id=barangay_id, year=year, status=status)
+    # Apply category tab filter
+    if record_type:
+        records = filter_engineering_records(records, record_type=record_type)
 
     per_page = get_per_page(request, 20)
     paginator = Paginator(records, per_page)
@@ -4497,8 +4640,14 @@ def reports_view(request):
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("Only authorized staff and Administrators can view summary reports.")
 
-    from django.db.models import Sum, Count, Q
+    from django.db.models import Sum, Count, Q, Value, DecimalField
+    valid_permit_q = Q(record_type='Permit') & (Q(is_illegal_construction=False) | Q(is_illegal_construction=True, illegal_compliance_status='resolved'))
+    master_record_q = Q(record_type='Project') | valid_permit_q
+    from django.db.models.functions import Coalesce
+    from decimal import Decimal
+    from django.http import JsonResponse
     import calendar
+    from datetime import datetime
 
     # 1. Get filter parameters
     selected_record_type = request.GET.get('record_type', '').strip()
@@ -4509,6 +4658,158 @@ def reports_view(request):
     selected_month = request.GET.get('month', '').strip()
     selected_status = request.GET.get('status', '').strip()
     search_query = request.GET.get('q', '').strip()
+    date_from_str = request.GET.get('date_from', '').strip()
+    date_to_str = request.GET.get('date_to', '').strip()
+
+    valid_date_from = None
+    valid_date_to = None
+    if date_from_str:
+        try:
+            valid_date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            valid_date_from = None
+
+    if date_to_str:
+        try:
+            valid_date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            valid_date_to = None
+
+    # Helper for grouping funding sources into 3 primary categories (Barangay / Municipal / NGO)
+    def categorize_funding_source(funding_src, scope=''):
+        fs = (funding_src or '').lower().strip()
+        sc = (scope or '').lower().strip()
+        if 'barangay' in fs or (sc == 'barangay' and not any(k in fs for k in ['dpwh', 'provincial', 'national', 'deped', 'doh', 'dilg', 'ngo', 'private'])):
+            return 'Barangay Funding'
+        elif any(k in fs for k in ['lgu', '20%', 'ldrrm', 'trust', 'municipal']) or (sc == 'municipal' and not any(k in fs for k in ['dpwh', 'provincial', 'national', 'deped', 'doh', 'dilg', 'ngo', 'private'])):
+            return 'Municipal Funding'
+        else:
+            return 'NGO & Other External Funding'
+
+    # ── ACTION: AJAX endpoint for Clickable Modal Breakdown (Requirement 2) ──
+    if request.GET.get('action') == 'get_barangay_projects':
+        target_b_id = request.GET.get('barangay_id', '').strip()
+        target_scope = request.GET.get('scope', '').strip()  # 'Municipal', 'Barangay', 'Permits'
+        target_month = request.GET.get('month', '').strip()
+        target_year = request.GET.get('year', '').strip()
+
+        modal_records = EngineeringRecord.objects.all().select_related('barangay', 'project_detail', 'permit_detail')
+        if target_b_id:
+            modal_records = modal_records.filter(barangay_id=target_b_id)
+        if search_query and not target_b_id:
+            modal_records = modal_records.filter(barangay__barangay_name__icontains=search_query)
+
+        if selected_status:
+            modal_records = modal_records.filter(status=selected_status)
+        else:
+            modal_records = modal_records.exclude(status='archived')
+
+        if selected_quarter in ['Q1', '1']:
+            modal_records = modal_records.filter(created_at__month__in=[1, 2, 3])
+        elif selected_quarter in ['Q2', '2']:
+            modal_records = modal_records.filter(created_at__month__in=[4, 5, 6])
+        elif selected_quarter in ['Q3', '3']:
+            modal_records = modal_records.filter(created_at__month__in=[7, 8, 9])
+        elif selected_quarter in ['Q4', '4']:
+            modal_records = modal_records.filter(created_at__month__in=[10, 11, 12])
+
+        eff_year = target_year or selected_year
+        if eff_year:
+            modal_records = modal_records.filter(year=eff_year)
+
+        eff_month = target_month or selected_month
+        if eff_month and eff_month.isdigit():
+            modal_records = modal_records.filter(created_at__month=int(eff_month))
+
+        # Apply date filters based on Date Completed
+        if valid_date_from and valid_date_to:
+            modal_records = modal_records.filter(
+                Q(record_type='Project', date_completed__range=(valid_date_from, valid_date_to)) |
+                Q(record_type='Permit', permit_detail__date_issued__range=(valid_date_from, valid_date_to)) |
+                Q(record_type='Permit', permit_detail__date_issued__isnull=True, created_at__date__range=(valid_date_from, valid_date_to))
+            )
+        elif valid_date_from:
+            modal_records = modal_records.filter(
+                Q(record_type='Project', date_completed__gte=valid_date_from) |
+                Q(record_type='Permit', permit_detail__date_issued__gte=valid_date_from) |
+                Q(record_type='Permit', permit_detail__date_issued__isnull=True, created_at__date__gte=valid_date_from)
+            )
+        elif valid_date_to:
+            modal_records = modal_records.filter(
+                Q(record_type='Project', date_completed__lte=valid_date_to) |
+                Q(record_type='Permit', permit_detail__date_issued__lte=valid_date_to) |
+                Q(record_type='Permit', permit_detail__date_issued__isnull=True, created_at__date__lte=valid_date_to)
+            )
+
+
+
+        if target_scope == 'Municipal':
+            modal_records = modal_records.filter(record_type='Project', project_scope='Municipal')
+        elif target_scope == 'Barangay':
+            modal_records = modal_records.filter(record_type='Project', project_scope='Barangay')
+        elif target_scope == 'Permits':
+            modal_records = modal_records.filter(valid_permit_q)
+        else:
+            modal_records = modal_records.filter(master_record_q)
+
+        modal_records = modal_records.order_by('-date_completed', '-created_at')
+
+        b_name = "Carigara"
+        if target_b_id:
+            b_obj = Barangay.objects.filter(barangay_id=target_b_id).first()
+            if b_obj:
+                b_name = b_obj.barangay_name
+        elif search_query:
+            b_obj = Barangay.objects.filter(barangay_name__icontains=search_query).first()
+            if b_obj:
+                b_name = b_obj.barangay_name
+
+        if eff_month and eff_month.isdigit() and int(eff_month) in range(1, 13):
+            m_title = calendar.month_name[int(eff_month)]
+            b_name = f"{b_name} ({m_title})" 
+
+        project_items = []
+        total_budget_accum = Decimal('0.00')
+        for rec in modal_records:
+            pd = getattr(rec, 'project_detail', None)
+            pm = getattr(rec, 'permit_detail', None)
+
+            if rec.record_type == 'Project':
+                cat_name = pd.get_project_type_display() if (pd and hasattr(pd, 'get_project_type_display')) else (pd.project_type if pd else f"{rec.project_scope} Project")
+                raw_c = pd.contractor.strip() if (pd and pd.contractor) else ''
+                contractor_display = raw_c if raw_c else "By Administration"
+                funding_display = pd.funding_source_display if pd else "—"
+                cost_num = pd.project_cost if (pd and pd.project_cost is not None) else Decimal('0.00')
+                date_c_display = rec.date_completed.strftime('%B %d, %Y') if rec.date_completed else (f"Year {rec.year}" if rec.year else "—")
+            else:  # Permit
+                cat_name = f"{pm.get_permit_type_display() if (pm and hasattr(pm, 'get_permit_type_display')) else (pm.permit_type if pm else 'Building')} Permit"
+                contractor_display = "—"
+                funding_display = "Private / Self-Funded"
+                cost_num = Decimal('0.00')
+                date_c_display = pm.date_issued.strftime('%B %d, %Y') if (pm and pm.date_issued) else (f"Year {rec.year}" if rec.year else "—")
+
+            total_budget_accum += cost_num
+            project_items.append({
+                'id': rec.record_id,
+                'name': rec.title,
+                'category': cat_name,
+                'contractor': contractor_display,
+                'funding_source': funding_display,
+                'budget': float(cost_num),
+                'budget_formatted': f"₱{cost_num:,.2f}",
+                'date_completed': date_c_display,
+                'url': reverse('record_detail', args=[rec.record_id]),
+            })
+
+        return JsonResponse({
+            'status': 'success',
+            'barangay_name': b_name,
+            'scope': target_scope or 'All',
+            'count': len(project_items),
+            'total_budget': float(total_budget_accum),
+            'total_budget_formatted': f"₱{total_budget_accum:,.2f}",
+            'projects': project_items
+        })
 
     # 2. Start with base queryset
     base_records = EngineeringRecord.objects.all()
@@ -4517,8 +4818,14 @@ def reports_view(request):
     tab_base_records = base_records
     if selected_barangay:
         tab_base_records = tab_base_records.filter(barangay_id=selected_barangay)
+    clean_report_q = ''
     if search_query:
-        tab_base_records = tab_base_records.filter(barangay__barangay_name__icontains=search_query)
+        import re
+        clean_report_q = re.sub(r'^(?:barangay|brgy\.?|bgy\.?)\s+', '', search_query.strip(), flags=re.IGNORECASE).strip()
+        if clean_report_q.lower() in ('barangay', 'brgy', 'brgy.', 'bgy', 'bgy.'):
+            clean_report_q = ''
+        if clean_report_q:
+            tab_base_records = tab_base_records.filter(barangay__barangay_name__icontains=clean_report_q)
     if selected_year:
         tab_base_records = tab_base_records.filter(year=selected_year)
     if selected_quarter in ['Q1', '1']:
@@ -4533,11 +4840,33 @@ def reports_view(request):
         tab_base_records = tab_base_records.filter(created_at__month=int(selected_month))
     if selected_status:
         tab_base_records = tab_base_records.filter(status=selected_status)
+    else:
+        tab_base_records = tab_base_records.exclude(status='archived')
 
-    all_count = tab_base_records.filter(Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False)).count()
+    # Optional Date Completed Range filter
+    if valid_date_from and valid_date_to:
+        tab_base_records = tab_base_records.filter(
+            Q(record_type='Project', date_completed__range=(valid_date_from, valid_date_to)) |
+            Q(record_type='Permit', permit_detail__date_issued__range=(valid_date_from, valid_date_to)) |
+            Q(record_type='Permit', permit_detail__date_issued__isnull=True, created_at__date__range=(valid_date_from, valid_date_to))
+        )
+    elif valid_date_from:
+        tab_base_records = tab_base_records.filter(
+            Q(record_type='Project', date_completed__gte=valid_date_from) |
+            Q(record_type='Permit', permit_detail__date_issued__gte=valid_date_from) |
+            Q(record_type='Permit', permit_detail__date_issued__isnull=True, created_at__date__gte=valid_date_from)
+        )
+    elif valid_date_to:
+        tab_base_records = tab_base_records.filter(
+            Q(record_type='Project', date_completed__lte=valid_date_to) |
+            Q(record_type='Permit', permit_detail__date_issued__lte=valid_date_to) |
+            Q(record_type='Permit', permit_detail__date_issued__isnull=True, created_at__date__lte=valid_date_to)
+        )
+
+    all_count = tab_base_records.filter(master_record_q).count()
     municipal_count = tab_base_records.filter(record_type='Project', project_scope='Municipal').count()
     barangay_count = tab_base_records.filter(record_type='Project', project_scope='Barangay').count()
-    permits_count = tab_base_records.filter(record_type='Permit', is_illegal_construction=False).count()
+    permits_count = tab_base_records.filter(valid_permit_q).count()
 
     # Apply category filters to records queryset (for export and table-specific filtering)
     records = tab_base_records
@@ -4549,11 +4878,11 @@ def reports_view(request):
             if selected_project_scope:
                 records = records.filter(project_scope=selected_project_scope)
         else:
-            records = records.filter(record_type=selected_record_type, is_illegal_construction=False)
+            records = records.filter(record_type=selected_record_type).filter(Q(is_illegal_construction=False) | Q(is_illegal_construction=True, illegal_compliance_status='resolved'))
 
     barangays = Barangay.objects.all().order_by('barangay_name')
-    if search_query:
-        all_barangays_filtered = barangays.filter(barangay_name__icontains=search_query)
+    if clean_report_q:
+        all_barangays_filtered = barangays.filter(barangay_name__icontains=clean_report_q)
     else:
         all_barangays_filtered = barangays
 
@@ -4588,33 +4917,33 @@ def reports_view(request):
             m_name = calendar.month_name[int(selected_month)]
             doc_title = f"MONTHLY ENGINEERING ACCOMPLISHMENT REPORT &mdash; {m_name.upper()} {selected_year}"
             doc_subtitle = f"Accomplishments for {m_name} {selected_year} &bull; {location_label}"
-            file_suffix = f"Accomplishment_Report_{m_name}_{selected_year}"
+            file_suffix = f"Accomplishment Report ({m_name} {selected_year})"
         elif selected_month and selected_month.isdigit():
             m_name = calendar.month_name[int(selected_month)]
             doc_title = f"MONTHLY ENGINEERING ACCOMPLISHMENT REPORT &mdash; {m_name.upper()}"
             doc_subtitle = f"Accomplishments for Month of {m_name} (All Years) &bull; {location_label}"
-            file_suffix = f"Accomplishment_Report_{m_name}_All_Years"
+            file_suffix = f"Accomplishment Report ({m_name} All Years)"
             if target_brgy_name:
-                file_suffix += f"_{target_brgy_name.replace(' ', '_')}"
+                file_suffix += f" - Brgy {target_brgy_name}"
             elif search_query:
-                file_suffix += f"_{search_query.replace(' ', '_')}"
+                file_suffix += f" - {search_query}"
         elif selected_year:
             doc_title = f"ANNUAL ENGINEERING ACCOMPLISHMENT REPORT &mdash; {selected_year}"
             doc_subtitle = f"Accomplishments for Year {selected_year} &bull; {location_label}"
-            file_suffix = f"Accomplishment_Report_{selected_year}"
+            file_suffix = f"Accomplishment Report ({selected_year})"
             if target_brgy_name:
-                file_suffix += f"_{target_brgy_name.replace(' ', '_')}"
+                file_suffix += f" - Brgy {target_brgy_name}"
         else:
             doc_title = "ENGINEERING ACCOMPLISHMENT SUMMARY REPORT"
             if target_brgy_name:
                 doc_subtitle = f"All Engineering Accomplishments &bull; {location_label}"
-                file_suffix = f"Accomplishment_Report_All_Years_{target_brgy_name.replace(' ', '_')}"
+                file_suffix = f"Accomplishment Report (Brgy {target_brgy_name})"
             elif search_query:
                 doc_subtitle = f"Accomplishments Filtered by \"{search_query}\" &bull; Carigara"
-                file_suffix = f"Accomplishment_Report_{search_query.replace(' ', '_')}"
+                file_suffix = f"Accomplishment Report ({search_query})"
             else:
                 doc_subtitle = "All Engineering Accomplishments across 49 Barangays of Carigara"
-                file_suffix = "Accomplishment_Report_All_Barangays"
+                file_suffix = "Accomplishment Report (All Barangays)"
 
         clean_sub_text = doc_subtitle.replace('&mdash;', '—').replace('&bull;', '•')
         clean_doc_title = doc_title.replace('&mdash;', '—').replace('&bull;', '•')
@@ -4622,72 +4951,103 @@ def reports_view(request):
 
         # Pre-compute metrics for KPI block (used in both Excel and PDF)
         projects_cnt = records.filter(record_type='Project').count()
-        permits_cnt = records.filter(record_type='Permit', is_illegal_construction=False).count()
+        permits_cnt = records.filter(valid_permit_q).count()
         total_rec_cnt = projects_cnt + permits_cnt
         violations_cnt = records.filter(is_illegal_construction=True).count()
         resolved_violations_cnt = records.filter(is_illegal_construction=True, illegal_compliance_status='resolved').count()
         active_violations_cnt = violations_cnt - resolved_violations_cnt
-        total_budget_sum = records.filter(record_type='Project').aggregate(s=Sum('project_detail__project_cost'))['s'] or 0
+        total_budget_sum = records.filter(record_type='Project').aggregate(
+            s=Coalesce(Sum('project_detail__project_cost'), Value(Decimal('0.00'), output_field=DecimalField()))
+        )['s'] or Decimal('0.00')
 
         muni_p_cnt = records.filter(record_type='Project', project_scope='Municipal').count()
         brgy_p_cnt = records.filter(record_type='Project', project_scope='Barangay').count()
-        bldg_perm_cnt = records.filter(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='Building').count()
-        elec_perm_cnt = records.filter(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='Electrical').count()
-        occ_perm_cnt = records.filter(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='Occupancy').count()
+        bldg_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iexact='Building').count()
+        elec_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iexact='Electrical').count()
+        occ_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iexact='Occupancy').count()
 
         is_single_barangay = bool(target_brgy_name)
 
         if is_single_barangay:
             if selected_year and selected_year.isdigit():
-                # Specific Year selected: show months (Jan - Dec or filtered month)
+                # When a specific month is selected for a barangay, break down day-by-day (Araw ng Buwan)
                 if selected_month and selected_month.isdigit():
-                    months_to_show = [int(selected_month)]
-                elif selected_quarter in ['Q1', '1']:
-                    months_to_show = [1, 2, 3]
-                elif selected_quarter in ['Q2', '2']:
-                    months_to_show = [4, 5, 6]
-                elif selected_quarter in ['Q3', '3']:
-                    months_to_show = [7, 8, 9]
-                elif selected_quarter in ['Q4', '4']:
-                    months_to_show = [10, 11, 12]
+                    s_month = int(selected_month)
+                    s_year = int(selected_year)
+                    _, num_days = calendar.monthrange(s_year, s_month)
+
+                    d_stats_qs = records.values('created_at__day').annotate(
+                        proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                        muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                        brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                        perm_cnt=Count('record_id', filter=valid_permit_q),
+                        viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                        budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+                        tot_cnt=Count('record_id', filter=master_record_q)
+                    )
+                    d_stats_map = {row['created_at__day']: row for row in d_stats_qs}
+
+                    export_table_rows = []
+                    for seq_idx, d_num in enumerate(range(1, num_days + 1), 1):
+                        row = d_stats_map.get(d_num, {})
+                        export_table_rows.append({
+                            'seq': seq_idx,
+                            'label': f"{calendar.month_name[s_month]} {d_num:02d}, {s_year}",
+                            'muni_proj_cnt': row.get('muni_proj_cnt', 0),
+                            'brgy_proj_cnt': row.get('brgy_proj_cnt', 0),
+                            'perm_cnt': row.get('perm_cnt', 0),
+                            'viol_cnt': row.get('viol_cnt', 0),
+                            'tot_cnt': row.get('tot_cnt', 0),
+                            'budget_sum': row.get('budget_sum') or Decimal('0.00'),
+                        })
+                    period_header_label = "DATE / PERIOD"
                 else:
-                    months_to_show = list(range(1, 13))
+                    if selected_quarter in ['Q1', '1']:
+                        months_to_show = [1, 2, 3]
+                    elif selected_quarter in ['Q2', '2']:
+                        months_to_show = [4, 5, 6]
+                    elif selected_quarter in ['Q3', '3']:
+                        months_to_show = [7, 8, 9]
+                    elif selected_quarter in ['Q4', '4']:
+                        months_to_show = [10, 11, 12]
+                    else:
+                        months_to_show = list(range(1, 13))
 
-                m_stats_qs = records.values('created_at__month').annotate(
-                    proj_cnt=Count('record_id', filter=Q(record_type='Project')),
-                    muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
-                    brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-                    perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
-                    viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-                    budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-                    tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
-                )
-                m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+                    m_stats_qs = records.values('created_at__month').annotate(
+                        proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                        muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                        brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                        perm_cnt=Count('record_id', filter=valid_permit_q),
+                        viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                        budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+                        tot_cnt=Count('record_id', filter=master_record_q)
+                    )
+                    m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
 
-                export_table_rows = []
-                for seq_idx, m_num in enumerate(months_to_show, 1):
-                    row = m_stats_map.get(m_num, {})
-                    export_table_rows.append({
-                        'seq': seq_idx,
-                        'label': calendar.month_name[m_num],
-                        'muni_proj_cnt': row.get('muni_proj_cnt', 0),
-                        'brgy_proj_cnt': row.get('brgy_proj_cnt', 0),
-                        'perm_cnt': row.get('perm_cnt', 0),
-                        'viol_cnt': row.get('viol_cnt', 0),
-                        'tot_cnt': row.get('tot_cnt', 0),
-                        'budget_sum': row.get('budget_sum') or 0,
-                    })
-                period_header_label = "MONTH / PERIOD"
+                    export_table_rows = []
+                    for seq_idx, m_num in enumerate(months_to_show, 1):
+                        row = m_stats_map.get(m_num, {})
+                        export_table_rows.append({
+                            'seq': seq_idx,
+                            'label': calendar.month_name[m_num],
+                            'muni_proj_cnt': row.get('muni_proj_cnt', 0),
+                            'brgy_proj_cnt': row.get('brgy_proj_cnt', 0),
+                            'perm_cnt': row.get('perm_cnt', 0),
+                            'viol_cnt': row.get('viol_cnt', 0),
+                            'tot_cnt': row.get('tot_cnt', 0),
+                            'budget_sum': row.get('budget_sum') or Decimal('0.00'),
+                        })
+                    period_header_label = "MONTH / PERIOD"
             else:
                 # All Years selected: show Year-by-Year breakdown
                 y_stats_qs = records.values('year').annotate(
                     proj_cnt=Count('record_id', filter=Q(record_type='Project')),
                     muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
                     brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-                    perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                    perm_cnt=Count('record_id', filter=valid_permit_q),
                     viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-                    budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-                    tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+                    budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+                    tot_cnt=Count('record_id', filter=master_record_q)
                 ).order_by('-year')
                 y_stats_map = {row['year']: row for row in y_stats_qs if row['year']}
 
@@ -4708,7 +5068,7 @@ def reports_view(request):
                         'perm_cnt': row.get('perm_cnt', 0),
                         'viol_cnt': row.get('viol_cnt', 0),
                         'tot_cnt': row.get('tot_cnt', 0),
-                        'budget_sum': row.get('budget_sum') or 0,
+                        'budget_sum': row.get('budget_sum') or Decimal('0.00'),
                     })
                 period_header_label = "YEAR / PERIOD"
         else:
@@ -4718,10 +5078,10 @@ def reports_view(request):
                 proj_cnt=Count('record_id', filter=Q(record_type='Project')),
                 muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
                 brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                perm_cnt=Count('record_id', filter=valid_permit_q),
                 viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+                budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+                tot_cnt=Count('record_id', filter=master_record_q)
             )
             b_stats_map = {row['barangay_id']: row for row in b_stats_qs}
             all_barangays = all_barangays_filtered
@@ -4738,8 +5098,61 @@ def reports_view(request):
                     'perm_cnt': b_stat.get('perm_cnt', 0),
                     'viol_cnt': b_stat.get('viol_cnt', 0),
                     'tot_cnt': b_stat.get('tot_cnt', 0),
-                    'budget_sum': b_stat.get('budget_sum') or 0,
+                    'budget_sum': b_stat.get('budget_sum') or Decimal('0.00'),
                 })
+
+        # Pre-query all projects for the "Project List" export and Funding Source Subtotals (Requirement 3)
+        export_projects_qs = records.filter(record_type='Project').select_related('barangay', 'project_detail').order_by('barangay__barangay_name', '-date_completed', '-created_at')
+
+        # Calculate Funding Source Subtotals
+        funding_subtotals = {
+            'Barangay Funding': {
+                'label': 'Barangay Funding (Barangay Fund)',
+                'count': 0,
+                'budget': Decimal('0.00')
+            },
+            'Municipal Funding': {
+                'label': 'Municipal Funding (LGU General Fund / 20% Dev / LDRRM / Trust Fund)',
+                'count': 0,
+                'budget': Decimal('0.00')
+            },
+            'NGO & Other External Funding': {
+                'label': 'NGO & Other External Funding (NGO / Private / National / Others)',
+                'count': 0,
+                'budget': Decimal('0.00')
+            },
+        }
+
+        project_export_list = []
+        grand_total_projects_budget = Decimal('0.00')
+        grand_total_projects_count = 0
+
+        for p_idx, p_rec in enumerate(export_projects_qs, 1):
+            pd = getattr(p_rec, 'project_detail', None)
+            p_cat = pd.get_project_type_display() if (pd and hasattr(pd, 'get_project_type_display')) else (pd.project_type if pd else f"{p_rec.project_scope} Project")
+            raw_c = pd.contractor.strip() if (pd and pd.contractor) else ''
+            p_contractor = raw_c if raw_c else "By Administration"
+            p_funding = pd.funding_source_display if pd else "—"
+            p_cost = pd.project_cost if (pd and pd.project_cost is not None) else Decimal('0.00')
+            p_date_c = p_rec.date_completed.strftime('%B %d, %Y') if p_rec.date_completed else (f"Year {p_rec.year}" if p_rec.year else "—")
+
+            funding_group = categorize_funding_source(pd.funding_source if pd else '', p_rec.project_scope)
+            funding_subtotals[funding_group]['count'] += 1
+            funding_subtotals[funding_group]['budget'] += p_cost
+
+            grand_total_projects_budget += p_cost
+            grand_total_projects_count += 1
+
+            project_export_list.append({
+                'seq': p_idx,
+                'barangay': p_rec.barangay.barangay_name if p_rec.barangay else "—",
+                'name': p_rec.title,
+                'category': p_cat,
+                'contractor': p_contractor,
+                'funding_source': p_funding,
+                'budget': p_cost,
+                'date_completed': p_date_c,
+            })
 
         if export_format == 'excel':
             import openpyxl
@@ -4747,6 +5160,7 @@ def reports_view(request):
             from django.http import HttpResponse
 
             wb = openpyxl.Workbook()
+            # ── Sheet 1: Accomplishment Report (Summary) ───────────────────
             ws = wb.active
             ws.title = "Accomplishment Report"
             ws.views.sheetView[0].showGridLines = True
@@ -4819,7 +5233,7 @@ def reports_view(request):
             ws.merge_cells('E8:F8')
             ws['E8'] = active_violations_cnt
             ws.merge_cells('G8:H8')
-            ws['G8'] = total_budget_sum
+            ws['G8'] = float(total_budget_sum)
 
             for cell_id in ['A8', 'C8', 'E8', 'G8']:
                 ws[cell_id].font = Font(name='Segoe UI', size=11, bold=True, color=NAVY_HEX)
@@ -4864,7 +5278,7 @@ def reports_view(request):
                 pm_c = row_data['perm_cnt']
                 v_c = row_data['viol_cnt']
                 t_c = row_data['tot_cnt']
-                b_sum = row_data['budget_sum']
+                b_sum = float(row_data['budget_sum'])
 
                 row_idx = 11 + seq_idx
                 ws.row_dimensions[row_idx].height = 20
@@ -4931,7 +5345,7 @@ def reports_view(request):
             c_tot.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
             c_tot.alignment = Alignment(horizontal='center', vertical='center')
 
-            c_bud = ws.cell(row=tot_row_idx, column=8, value=total_budget_sum)
+            c_bud = ws.cell(row=tot_row_idx, column=8, value=float(total_budget_sum))
             c_bud.font = Font(name='Segoe UI', size=10, bold=True, color='15803D')
             c_bud.alignment = Alignment(horizontal='right', vertical='center')
             c_bud.number_format = '₱#,##0.00'
@@ -4955,14 +5369,166 @@ def reports_view(request):
             ws.column_dimensions['G'].width = 13
             ws.column_dimensions['H'].width = 24
 
+            # ── Sheet 2: Project List with Funding Subtotals (Requirement 3) ────
+            ws_p = wb.create_sheet(title="Project List")
+            ws_p.views.sheetView[0].showGridLines = True
+
+            ws_p.merge_cells('A1:H1')
+            ws_p['A1'] = "REPUBLIC OF THE PHILIPPINES • PROVINCE OF LEYTE • MUNICIPALITY OF CARIGARA"
+            ws_p['A1'].font = Font(name='Segoe UI', size=9, bold=True, color='475569')
+            ws_p['A1'].alignment = Alignment(horizontal='center', vertical='center')
+
+            ws_p.merge_cells('A2:H2')
+            ws_p['A2'] = "OFFICE OF THE MUNICIPAL ENGINEER • INFRASTRUCTURE PROJECT LIST"
+            ws_p['A2'].font = Font(name='Segoe UI', size=12, bold=True, color=NAVY_HEX)
+            ws_p['A2'].alignment = Alignment(horizontal='center', vertical='center')
+
+            ws_p.merge_cells('A3:H3')
+            ws_p['A3'] = f"Listing of Completed Projects &bull; {clean_sub_text}".replace('&bull;', '•')
+            ws_p['A3'].font = Font(name='Segoe UI', size=9, italic=True, color=TEXT_MUTED)
+            ws_p['A3'].alignment = Alignment(horizontal='center', vertical='center')
+
+            p_headers = ["#", "BARANGAY", "PROJECT NAME", "CATEGORY", "CONTRACTOR", "FUNDING SOURCE", "BUDGET / COST (₱)", "DATE COMPLETED"]
+            p_head_row = 5
+            ws_p.row_dimensions[p_head_row].height = 24
+
+            for col_i, h_text in enumerate(p_headers, 1):
+                c = ws_p.cell(row=p_head_row, column=col_i, value=h_text)
+                c.font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
+                c.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
+                c.alignment = Alignment(horizontal='center' if col_i in [1, 8] else ('right' if col_i == 7 else 'left'), vertical='center')
+                c.border = thin_border
+
+            curr_p_row = p_head_row
+            for p_item in project_export_list:
+                curr_p_row += 1
+                ws_p.row_dimensions[curr_p_row].height = 20
+                row_fill = PatternFill(start_color=SLATE_LIGHT, end_color=SLATE_LIGHT, fill_type='solid') if (p_item['seq'] % 2 == 0) else None
+
+                c1 = ws_p.cell(row=curr_p_row, column=1, value=p_item['seq'])
+                c1.alignment = Alignment(horizontal='center', vertical='center')
+                c1.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+
+                c2 = ws_p.cell(row=curr_p_row, column=2, value=p_item['barangay'])
+                c2.alignment = Alignment(horizontal='left', vertical='center')
+                c2.font = Font(name='Segoe UI', size=9.5, bold=True, color=TEXT_DARK)
+
+                c3 = ws_p.cell(row=curr_p_row, column=3, value=p_item['name'])
+                c3.alignment = Alignment(horizontal='left', vertical='center')
+                c3.font = Font(name='Segoe UI', size=9, color=TEXT_DARK)
+
+                c4 = ws_p.cell(row=curr_p_row, column=4, value=p_item['category'])
+                c4.alignment = Alignment(horizontal='left', vertical='center')
+                c4.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+
+                c5 = ws_p.cell(row=curr_p_row, column=5, value=p_item['contractor'])
+                c5.alignment = Alignment(horizontal='left', vertical='center')
+                c5.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+
+                c6 = ws_p.cell(row=curr_p_row, column=6, value=p_item['funding_source'])
+                c6.alignment = Alignment(horizontal='left', vertical='center')
+                c6.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+
+                c7 = ws_p.cell(row=curr_p_row, column=7, value=float(p_item['budget']))
+                c7.alignment = Alignment(horizontal='right', vertical='center')
+                c7.font = Font(name='Segoe UI', size=9.5, bold=True, color='15803D')
+                c7.number_format = '₱#,##0.00'
+
+                c8 = ws_p.cell(row=curr_p_row, column=8, value=p_item['date_completed'])
+                c8.alignment = Alignment(horizontal='center', vertical='center')
+                c8.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+
+                for col_i in range(1, 9):
+                    cell = ws_p.cell(row=curr_p_row, column=col_i)
+                    cell.border = thin_border
+                    if row_fill:
+                        cell.fill = row_fill
+
+            # Subtotals by Funding Source Section
+            sub_start_row = curr_p_row + 3
+            ws_p.merge_cells(start_row=sub_start_row, start_column=1, end_row=sub_start_row, end_column=4)
+            lbl_top = ws_p.cell(row=sub_start_row, column=1, value="PROJECT BUDGET SUB-TOTALS BY FUNDING SOURCE")
+            lbl_top.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            lbl_top.alignment = Alignment(horizontal='left', vertical='center')
+
+            sub_headers = ["#", "FUNDING SOURCE CATEGORY", "PROJECTS COUNT", "SUBTOTAL BUDGET (₱)"]
+            sub_head_idx = sub_start_row + 1
+            ws_p.row_dimensions[sub_head_idx].height = 22
+
+            for c_i, h_txt in enumerate(sub_headers, 1):
+                c = ws_p.cell(row=sub_head_idx, column=c_i, value=h_txt)
+                c.font = Font(name='Segoe UI', size=9, bold=True, color='FFFFFF')
+                c.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
+                c.alignment = Alignment(horizontal='center' if c_i in [1, 3] else ('right' if c_i == 4 else 'left'), vertical='center')
+                c.border = thin_border
+
+            sub_order = ['Barangay Funding', 'Municipal Funding', 'NGO & Other External Funding']
+            sub_row_tracker = sub_head_idx
+
+            for s_idx, s_key in enumerate(sub_order, 1):
+                sub_row_tracker += 1
+                s_data = funding_subtotals[s_key]
+                ws_p.row_dimensions[sub_row_tracker].height = 20
+
+                c1 = ws_p.cell(row=sub_row_tracker, column=1, value=s_idx)
+                c1.alignment = Alignment(horizontal='center', vertical='center')
+                c1.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+
+                c2 = ws_p.cell(row=sub_row_tracker, column=2, value=s_data['label'])
+                c2.alignment = Alignment(horizontal='left', vertical='center')
+                c2.font = Font(name='Segoe UI', size=9.5, bold=True, color=TEXT_DARK)
+
+                c3 = ws_p.cell(row=sub_row_tracker, column=3, value=s_data['count'])
+                c3.alignment = Alignment(horizontal='center', vertical='center')
+                c3.font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
+
+                c4 = ws_p.cell(row=sub_row_tracker, column=4, value=float(s_data['budget']))
+                c4.alignment = Alignment(horizontal='right', vertical='center')
+                c4.font = Font(name='Segoe UI', size=9.5, bold=True, color='15803D')
+                c4.number_format = '₱#,##0.00'
+
+                for col_i in range(1, 5):
+                    ws_p.cell(row=sub_row_tracker, column=col_i).border = thin_border
+
+            # Grand Total Subtotals Row
+            sub_row_tracker += 1
+            ws_p.row_dimensions[sub_row_tracker].height = 24
+            ws_p.cell(row=sub_row_tracker, column=1, value="")
+            tot_sub_lbl = ws_p.cell(row=sub_row_tracker, column=2, value="TOTAL ALL FUNDING SOURCES")
+            tot_sub_lbl.font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
+            tot_sub_lbl.alignment = Alignment(horizontal='left', vertical='center')
+
+            c_tot_cnt = ws_p.cell(row=sub_row_tracker, column=3, value=grand_total_projects_count)
+            c_tot_cnt.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_tot_cnt.alignment = Alignment(horizontal='center', vertical='center')
+
+            c_tot_bud = ws_p.cell(row=sub_row_tracker, column=4, value=float(grand_total_projects_budget))
+            c_tot_bud.font = Font(name='Segoe UI', size=10, bold=True, color='15803D')
+            c_tot_bud.alignment = Alignment(horizontal='right', vertical='center')
+            c_tot_bud.number_format = '₱#,##0.00'
+
+            for col_i in range(1, 5):
+                cell = ws_p.cell(row=sub_row_tracker, column=col_i)
+                cell.border = double_bottom_border
+                cell.fill = PatternFill(start_color='EEF2F6', end_color='EEF2F6', fill_type='solid')
+
+            ws_p.column_dimensions['A'].width = 6
+            ws_p.column_dimensions['B'].width = 24
+            ws_p.column_dimensions['C'].width = 38
+            ws_p.column_dimensions['D'].width = 24
+            ws_p.column_dimensions['E'].width = 26
+            ws_p.column_dimensions['F'].width = 26
+            ws_p.column_dimensions['G'].width = 24
+            ws_p.column_dimensions['H'].width = 18
+
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="eTala_{file_suffix}.xlsx"'
+            response['Content-Disposition'] = f'attachment; filename="eTala {file_suffix}.xlsx"'
             wb.save(response)
             return response
 
         elif export_format == 'pdf':
             from reportlab.lib.pagesizes import A4
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image, KeepTogether
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image, KeepTogether, PageBreak
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib import colors
             from reportlab.pdfgen import canvas
@@ -5236,12 +5802,120 @@ def reports_view(request):
 
             t.setStyle(TableStyle(t_style_cmds))
             story.append(t)
+
+            # ── SECTION 2 (PDF): PROJECT LIST & FUNDING SUB-TOTALS (Requirement 3) ──
+            if project_export_list:
+                story.append(PageBreak())
+
+                proj_h_style = ParagraphStyle('PH', fontName=bold_font, fontSize=11, leading=13, alignment=1, textColor=NAVY)
+                proj_sub_style = ParagraphStyle('PS', fontName=main_font, fontSize=8, leading=10, alignment=1, textColor=SLATE_MUTED)
+
+                story.append(Paragraph("<b>INFRASTRUCTURE PROJECT ACCOMPLISHMENT LIST</b>", proj_h_style))
+                story.append(Spacer(1, 2))
+                story.append(Paragraph(f"Detailed list of completed infrastructure projects &bull; {clean_sub_text}", proj_sub_style))
+                story.append(Spacer(1, 6))
+
+                # Project List Table (Total width = 523.27)
+                p_col_widths = [18, 62, 118, 65, 75, 65, 62, 58.27]
+                p_table_data = [[
+                    Paragraph("#", header_center_style),
+                    Paragraph("BARANGAY", header_cell_style),
+                    Paragraph("PROJECT NAME", header_cell_style),
+                    Paragraph("CATEGORY", header_cell_style),
+                    Paragraph("CONTRACTOR", header_cell_style),
+                    Paragraph("FUNDING SOURCE", header_cell_style),
+                    Paragraph("BUDGET (₱)", header_right_style),
+                    Paragraph("DATE COMPLETED", header_center_style),
+                ]]
+
+                for p_item in project_export_list:
+                    p_table_data.append([
+                        Paragraph(str(p_item['seq']), cell_muted_center),
+                        Paragraph(f"<b>{p_item['barangay']}</b>", cell_style),
+                        Paragraph(p_item['name'], cell_style),
+                        Paragraph(p_item['category'], cell_style),
+                        Paragraph(p_item['contractor'], cell_style),
+                        Paragraph(p_item['funding_source'], cell_style),
+                        Paragraph(f"₱ {p_item['budget']:,.2f}", cell_right),
+                        Paragraph(p_item['date_completed'], cell_center),
+                    ])
+
+                pt = Table(p_table_data, colWidths=p_col_widths, repeatRows=1)
+                pt_style_cmds = [
+                    ('BACKGROUND', (0, 0), (-1, 0), NAVY),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, 0), 3.5),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 3.5),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+                ]
+                for r_i in range(1, len(p_table_data)):
+                    bg = colors.HexColor('#F8FAFC') if r_i % 2 == 0 else colors.HexColor('#FFFFFF')
+                    pt_style_cmds.append(('BACKGROUND', (0, r_i), (-1, r_i), bg))
+                    pt_style_cmds.append(('TOPPADDING', (0, r_i), (-1, r_i), 2.2))
+                    pt_style_cmds.append(('BOTTOMPADDING', (0, r_i), (-1, r_i), 2.2))
+
+                pt.setStyle(TableStyle(pt_style_cmds))
+                story.append(pt)
+
+                # Subtotals by Funding Source Table
+                story.append(Spacer(1, 10))
+                sub_title_style = ParagraphStyle('SubTitle', fontName=bold_font, fontSize=9, leading=11, textColor=NAVY)
+                story.append(Paragraph("<b>PROJECT BUDGET SUB-TOTALS BY FUNDING SOURCE</b>", sub_title_style))
+                story.append(Spacer(1, 4))
+
+                sub_widths = [24, 250, 100, 149.27]
+                sub_table_data = [[
+                    Paragraph("#", header_center_style),
+                    Paragraph("FUNDING SOURCE CATEGORY", header_cell_style),
+                    Paragraph("PROJECTS COUNT", header_center_style),
+                    Paragraph("SUBTOTAL BUDGET (₱)", header_right_style),
+                ]]
+
+                sub_order = ['Barangay Funding', 'Municipal Funding', 'NGO & Other External Funding']
+                for s_i, s_k in enumerate(sub_order, 1):
+                    s_d = funding_subtotals[s_k]
+                    sub_table_data.append([
+                        Paragraph(str(s_i), cell_muted_center),
+                        Paragraph(f"<b>{s_d['label']}</b>", cell_style),
+                        Paragraph(str(s_d['count']), cell_center),
+                        Paragraph(f"₱ {s_d['budget']:,.2f}", cell_right),
+                    ])
+
+                sub_table_data.append([
+                    Paragraph("", tot_label_style),
+                    Paragraph("TOTAL ALL FUNDING SOURCES", tot_label_style),
+                    Paragraph(str(grand_total_projects_count), tot_center_style),
+                    Paragraph(f"₱ {grand_total_projects_budget:,.2f}", tot_right_style),
+                ])
+
+                sub_t = Table(sub_table_data, colWidths=sub_widths, repeatRows=1)
+                sub_t_style_cmds = [
+                    ('BACKGROUND', (0, 0), (-1, 0), NAVY),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, 0), 3.5),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 3.5),
+                    ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#E2E8F0')),
+                    ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#F1F5F9')),
+                    ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor('#94A3B8')),
+                    ('LINEBELOW', (0, -1), (-1, -1), 1.5, NAVY),
+                    ('TOPPADDING', (0, -1), (-1, -1), 3.5),
+                    ('BOTTOMPADDING', (0, -1), (-1, -1), 3.5),
+                ]
+                for s_r in range(1, len(sub_table_data) - 1):
+                    bg = colors.HexColor('#F8FAFC') if s_r % 2 == 0 else colors.HexColor('#FFFFFF')
+                    sub_t_style_cmds.append(('BACKGROUND', (0, s_r), (-1, s_r), bg))
+                    sub_t_style_cmds.append(('TOPPADDING', (0, s_r), (-1, s_r), 2.2))
+                    sub_t_style_cmds.append(('BOTTOMPADDING', (0, s_r), (-1, s_r), 2.2))
+
+                sub_t.setStyle(TableStyle(sub_t_style_cmds))
+                story.append(sub_t)
+
             doc.build(story, canvasmaker=NumberedCanvas)
             pdf_data = buffer.getvalue()
             buffer.close()
 
             response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="eTala_{file_suffix}.pdf"'
+            response['Content-Disposition'] = f'attachment; filename="eTala {file_suffix}.pdf"'
             response.write(pdf_data)
             return response
 
@@ -5250,15 +5924,17 @@ def reports_view(request):
     total_projects = projects_qs.count()
     municipal_projects_count = projects_qs.filter(project_scope='Municipal').count()
     barangay_projects_count = projects_qs.filter(project_scope='Barangay').count()
-    total_projects_budget = projects_qs.aggregate(total_cost=Sum('project_detail__project_cost'))['total_cost'] or 0
-    
+    total_projects_budget = projects_qs.aggregate(
+        total_cost=Coalesce(Sum('project_detail__project_cost'), Value(Decimal('0.00'), output_field=DecimalField()))
+    )['total_cost'] or Decimal('0.00')
+
     # 2. Official Permit Status Metrics (Excluding Illegal / Unpermitted Constructions)
-    permits_qs = records.filter(record_type='Permit', is_illegal_construction=False)
+    permits_qs = records.filter(valid_permit_q)
     total_permits = permits_qs.count()
     total_count = total_projects + total_permits
-    total_active = records.exclude(status='archived').filter(Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False)).count()
+    total_active = records.exclude(status='archived').filter(master_record_q).count()
     total_archived = records.filter(status='archived', is_illegal_construction=False).count()
-    
+
     permit_type_counts = permits_qs.values('permit_detail__permit_type').annotate(cnt=Count('record_id'))
     permit_type_map = {row['permit_detail__permit_type'].lower(): row['cnt'] for row in permit_type_counts if row['permit_detail__permit_type']}
     building_permits_count = permit_type_map.get('building', 0)
@@ -5283,6 +5959,12 @@ def reports_view(request):
             active_filters.append(f"Barangay: {barangay_obj.barangay_name}")
     if selected_year:
         active_filters.append(f"Year: {selected_year}")
+    if valid_date_from and valid_date_to:
+        active_filters.append(f"Completed: {valid_date_from.strftime('%b %d, %Y')} – {valid_date_to.strftime('%b %d, %Y')}")
+    elif valid_date_from:
+        active_filters.append(f"Completed From: {valid_date_from.strftime('%b %d, %Y')}")
+    elif valid_date_to:
+        active_filters.append(f"Completed To: {valid_date_to.strftime('%b %d, %Y')}")
     if selected_status:
         status_name = dict([('active', 'Ongoing / Active'), ('completed', 'Completed'), ('pending', 'Pending')]).get(selected_status, selected_status)
         active_filters.append(f"Status: {status_name}")
@@ -5299,11 +5981,10 @@ def reports_view(request):
     annual_summary_year = int(selected_year) if (selected_year and selected_year.isdigit()) else today_date.year
     annual_permits_count = 0
     annual_projects_count = 0
-    annual_total_budget = 0
+    annual_total_budget = Decimal('0.00')
     annual_summary_records = []
 
-    # Monthly breakdown for reports (scalable: only include covered months up to current month for active year)
-    import calendar
+    # Monthly breakdown for reports
     current_year = today_date.year
     try:
         req_year = int(selected_year) if selected_year else current_year
@@ -5320,10 +6001,10 @@ def reports_view(request):
     # High-Performance Single-Query Monthly Aggregation
     m_stats_qs = records.values('created_at__month').annotate(
         proj_cnt=Count('record_id', filter=Q(record_type='Project')),
-        perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+        perm_cnt=Count('record_id', filter=valid_permit_q),
         viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-        budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-        tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+        budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+        tot_cnt=Count('record_id', filter=master_record_q)
     )
     m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
 
@@ -5337,71 +6018,112 @@ def reports_view(request):
             'permits_count': row.get('perm_cnt', 0),
             'violations_count': row.get('viol_cnt', 0),
             'total_count': row.get('tot_cnt', 0),
-            'budget_total': row.get('budget_sum') or 0
+            'budget_total': row.get('budget_sum') or Decimal('0.00')
         })
 
     # High-Performance Single-Query Barangay / Monthly Aggregation
     target_brgy_name = None
+    target_brgy_id = None
     if selected_barangay:
         b_obj_found = Barangay.objects.filter(barangay_id=selected_barangay).first()
         if b_obj_found:
             target_brgy_name = b_obj_found.barangay_name
+            target_brgy_id = b_obj_found.barangay_id
     elif search_query and all_barangays_filtered.count() == 1:
-        target_brgy_name = all_barangays_filtered.first().barangay_name
+        first_b = all_barangays_filtered.first()
+        target_brgy_name = first_b.barangay_name
+        target_brgy_id = first_b.barangay_id
 
     is_single_barangay = bool(target_brgy_name)
 
     if is_single_barangay:
         if selected_year and selected_year.isdigit():
             if selected_month and selected_month.isdigit():
-                months_to_show = [int(selected_month)]
-            elif selected_quarter in ['Q1', '1']:
-                months_to_show = [1, 2, 3]
-            elif selected_quarter in ['Q2', '2']:
-                months_to_show = [4, 5, 6]
-            elif selected_quarter in ['Q3', '3']:
-                months_to_show = [7, 8, 9]
-            elif selected_quarter in ['Q4', '4']:
-                months_to_show = [10, 11, 12]
+                s_month = int(selected_month)
+                s_year = int(selected_year)
+                _, num_days = calendar.monthrange(s_year, s_month)
+
+                d_stats_qs = tab_base_records.values('created_at__day').annotate(
+                    proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                    muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                    brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                    perm_cnt=Count('record_id', filter=valid_permit_q),
+                    viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                    budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+                    tot_cnt=Count('record_id', filter=master_record_q)
+                )
+                d_stats_map = {row['created_at__day']: row for row in d_stats_qs}
+
+                barangay_summary_list = []
+                for d_num in range(1, num_days + 1):
+                    row = d_stats_map.get(d_num, {})
+                    barangay_summary_list.append({
+                        'label': f"{calendar.month_name[s_month]} {d_num:02d}, {s_year}",
+                        'is_month': True,
+                        'day_num': d_num,
+                        'month_num': s_month,
+                        'barangay_id': target_brgy_id,
+                        'barangay_name': target_brgy_name,
+                        'projects_count': row.get('proj_cnt', 0),
+                        'municipal_projects_count': row.get('muni_proj_cnt', 0),
+                        'barangay_projects_count': row.get('brgy_proj_cnt', 0),
+                        'permits_count': row.get('perm_cnt', 0),
+                        'violations_count': row.get('viol_cnt', 0),
+                        'total_count': row.get('tot_cnt', 0),
+                        'budget_total': row.get('budget_sum') or Decimal('0.00')
+                    })
+                period_header_label = "DATE / PERIOD"
             else:
-                months_to_show = list(range(1, 13))
+                if selected_quarter in ['Q1', '1']:
+                    months_to_show = [1, 2, 3]
+                elif selected_quarter in ['Q2', '2']:
+                    months_to_show = [4, 5, 6]
+                elif selected_quarter in ['Q3', '3']:
+                    months_to_show = [7, 8, 9]
+                elif selected_quarter in ['Q4', '4']:
+                    months_to_show = [10, 11, 12]
+                else:
+                    months_to_show = list(range(1, 13))
 
-            m_stats_qs = tab_base_records.values('created_at__month').annotate(
-                proj_cnt=Count('record_id', filter=Q(record_type='Project')),
-                muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
-                brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
-                viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
-            )
-            m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
+                m_stats_qs = tab_base_records.values('created_at__month').annotate(
+                    proj_cnt=Count('record_id', filter=Q(record_type='Project')),
+                    muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
+                    brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
+                    perm_cnt=Count('record_id', filter=valid_permit_q),
+                    viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                    budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+                    tot_cnt=Count('record_id', filter=master_record_q)
+                )
+                m_stats_map = {row['created_at__month']: row for row in m_stats_qs}
 
-            barangay_summary_list = []
-            for m_num in months_to_show:
-                row = m_stats_map.get(m_num, {})
-                barangay_summary_list.append({
-                    'label': calendar.month_name[m_num],
-                    'is_month': True,
-                    'projects_count': row.get('proj_cnt', 0),
-                    'municipal_projects_count': row.get('muni_proj_cnt', 0),
-                    'barangay_projects_count': row.get('brgy_proj_cnt', 0),
-                    'permits_count': row.get('perm_cnt', 0),
-                    'violations_count': row.get('viol_cnt', 0),
-                    'total_count': row.get('tot_cnt', 0),
-                    'budget_total': row.get('budget_sum') or 0
-                })
-            period_header_label = "MONTH / PERIOD"
+                barangay_summary_list = []
+                for m_num in months_to_show:
+                    row = m_stats_map.get(m_num, {})
+                    barangay_summary_list.append({
+                        'label': calendar.month_name[m_num],
+                        'is_month': True,
+                        'month_num': m_num,
+                        'barangay_id': target_brgy_id,
+                        'barangay_name': target_brgy_name,
+                        'projects_count': row.get('proj_cnt', 0),
+                        'municipal_projects_count': row.get('muni_proj_cnt', 0),
+                        'barangay_projects_count': row.get('brgy_proj_cnt', 0),
+                        'permits_count': row.get('perm_cnt', 0),
+                        'violations_count': row.get('viol_cnt', 0),
+                        'total_count': row.get('tot_cnt', 0),
+                        'budget_total': row.get('budget_sum') or Decimal('0.00')
+                    })
+                period_header_label = "MONTH / PERIOD"
         else:
             # All Years selected: Show Year-by-Year breakdown for this barangay
             y_stats_qs = tab_base_records.values('year').annotate(
                 proj_cnt=Count('record_id', filter=Q(record_type='Project')),
                 muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
                 brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-                perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
+                perm_cnt=Count('record_id', filter=valid_permit_q),
                 viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-                budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-                tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+                budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+                tot_cnt=Count('record_id', filter=master_record_q)
             ).order_by('-year')
             y_stats_map = {row['year']: row for row in y_stats_qs if row['year']}
 
@@ -5417,13 +6139,16 @@ def reports_view(request):
                 barangay_summary_list.append({
                     'label': f"Year {y_num}" if selected_month else str(y_num),
                     'is_month': True,
+                    'year_num': y_num,
+                    'barangay_id': target_brgy_id,
+                    'barangay_name': target_brgy_name,
                     'projects_count': row.get('proj_cnt', 0),
                     'municipal_projects_count': row.get('muni_proj_cnt', 0),
                     'barangay_projects_count': row.get('brgy_proj_cnt', 0),
                     'permits_count': row.get('perm_cnt', 0),
                     'violations_count': row.get('viol_cnt', 0),
                     'total_count': row.get('tot_cnt', 0),
-                    'budget_total': row.get('budget_sum') or 0
+                    'budget_total': row.get('budget_sum') or Decimal('0.00')
                 })
             period_header_label = "YEAR / PERIOD"
     else:
@@ -5432,14 +6157,14 @@ def reports_view(request):
             proj_cnt=Count('record_id', filter=Q(record_type='Project')),
             muni_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Municipal')),
             brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
-            perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False)),
-            bldg_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='building')),
-            occ_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='occupancy')),
-            fenc_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='fencing')),
-            elec_perm_cnt=Count('record_id', filter=Q(record_type='Permit', is_illegal_construction=False, permit_detail__permit_type__iexact='electrical')),
+            perm_cnt=Count('record_id', filter=valid_permit_q),
+            bldg_perm_cnt=Count('record_id', filter=valid_permit_q & Q(permit_detail__permit_type__iexact='building')),
+            occ_perm_cnt=Count('record_id', filter=valid_permit_q & Q(permit_detail__permit_type__iexact='occupancy')),
+            fenc_perm_cnt=Count('record_id', filter=valid_permit_q & Q(permit_detail__permit_type__iexact='fencing')),
+            elec_perm_cnt=Count('record_id', filter=valid_permit_q & Q(permit_detail__permit_type__iexact='electrical')),
             viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
-            budget_sum=Sum('project_detail__project_cost', filter=Q(record_type='Project')),
-            tot_cnt=Count('record_id', filter=Q(record_type='Project') | Q(record_type='Permit', is_illegal_construction=False))
+            budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
+            tot_cnt=Count('record_id', filter=master_record_q)
         )
         b_stats_map = {row['barangay_id']: row for row in b_stats_qs}
 
@@ -5447,7 +6172,10 @@ def reports_view(request):
         for b in barangays:
             row = b_stats_map.get(b.barangay_id, {})
             barangay_summary_list.append({
+                'label': b.barangay_name,
                 'barangay': b,
+                'barangay_id': b.barangay_id,
+                'barangay_name': b.barangay_name,
                 'is_month': False,
                 'projects_count': row.get('proj_cnt', 0),
                 'municipal_projects_count': row.get('muni_proj_cnt', 0),
@@ -5459,7 +6187,7 @@ def reports_view(request):
                 'electrical_permits_count': row.get('elec_perm_cnt', 0),
                 'violations_count': row.get('viol_cnt', 0),
                 'total_count': row.get('tot_cnt', 0),
-                'budget_total': row.get('budget_sum') or 0
+                'budget_total': row.get('budget_sum') or Decimal('0.00')
             })
 
     # Determine future month / period helper
@@ -5536,6 +6264,10 @@ def reports_view(request):
         'selected_month': selected_month,
         'selected_status': selected_status,
         'selected_month_name': selected_month_name,
+        'date_from': date_from_str if valid_date_from else '',
+        'date_to': date_to_str if valid_date_to else '',
+        'valid_date_from': valid_date_from,
+        'valid_date_to': valid_date_to,
         'is_future_period': is_future_period,
         'current_month_num': today_date.month,
         'current_month_name': calendar.month_name[today_date.month],
@@ -5652,10 +6384,15 @@ def activity_logs_view(request):
             audit_logs = audit_logs.filter(rec_q)
         else:
             audit_logs = audit_logs.filter(Q(target_record_id=record_id) | Q(action__icontains=record_id))
-    elif query:
-        audit_logs = audit_logs.filter(
-            Q(action__icontains=query) | Q(user__username__icontains=query) | Q(user__full_name__icontains=query) | Q(user__email__icontains=query)
-        )
+    if query:
+        for token in [t for t in query.split() if t]:
+            audit_logs = audit_logs.filter(
+                Q(action__icontains=token) |
+                Q(user__username__icontains=token) |
+                Q(user__full_name__icontains=token) |
+                Q(user__email__icontains=token) |
+                Q(user__designation__icontains=token)
+            )
 
     # Date Range Filter
     date_filter = (request.GET.get('date_range') or request.GET.get('date_filter') or 'all').strip()
@@ -5666,6 +6403,31 @@ def activity_logs_view(request):
         audit_logs = audit_logs.filter(performed_at__gte=now - timedelta(days=7))
     elif date_filter == '30days':
         audit_logs = audit_logs.filter(performed_at__gte=now - timedelta(days=30))
+
+    # Quick category counts for intuitive, user-friendly segmented tabs
+    base_logs = audit_logs
+    cat_counts = {
+        'all': base_logs.count(),
+        'update': base_logs.filter(
+            Q(action__icontains='updated') | Q(action__icontains='modified') |
+            Q(action__icontains='edited') | Q(action__icontains='regularized') |
+            Q(action__icontains='restored') | Q(action__icontains='status')
+        ).count(),
+        'upload': base_logs.filter(Q(action__icontains='uploaded') | Q(action__icontains='document')).count(),
+        'create': base_logs.filter(
+            Q(action__icontains='created') | Q(action__icontains='added') |
+            Q(action__icontains='encoded') | Q(action__icontains='flagged')
+        ).count(),
+        'delete': base_logs.filter(
+            Q(action__icontains='deleted') | Q(action__icontains='removed') |
+            Q(action__icontains='archived') | Q(action__icontains='trash')
+        ).count(),
+        'error': base_logs.filter(
+            Q(action__icontains='error') | Q(action__icontains='failed') |
+            Q(action__icontains='restricted') | Q(action__icontains='blocked') |
+            Q(action__icontains='locked') | Q(action__icontains='denied')
+        ).count(),
+    }
 
     # Action Type Filter
     action_type = request.GET.get('action_type', 'all').strip()
@@ -5687,6 +6449,12 @@ def activity_logs_view(request):
             Q(action__icontains='deleted') | Q(action__icontains='removed') |
             Q(action__icontains='archived') | Q(action__icontains='trash')
         )
+    elif action_type == 'error':
+        audit_logs = audit_logs.filter(
+            Q(action__icontains='error') | Q(action__icontains='failed') |
+            Q(action__icontains='restricted') | Q(action__icontains='blocked') |
+            Q(action__icontains='locked') | Q(action__icontains='denied')
+        )
 
     per_page = get_per_page(request, 20)
     audit_paginator = Paginator(audit_logs, per_page)
@@ -5694,13 +6462,17 @@ def activity_logs_view(request):
 
     # Determine active tab first for high-performance lazy querying
     active_log_tab = request.GET.get('tab', '').strip()
-    if not active_log_tab:
-        if request.GET.get('login_page') or (request.GET.get('status') and request.GET.get('status') != 'all'):
-            active_log_tab = 'login'
-        else:
-            active_log_tab = 'audit'
+    if request.user.role != 'admin' and not request.user.is_superuser:
+        # Staff users only see the municipal record audit trail
+        active_log_tab = 'audit'
+    else:
+        if not active_log_tab:
+            if request.GET.get('login_page') or (request.GET.get('status') and request.GET.get('status') != 'all'):
+                active_log_tab = 'login'
+            else:
+                active_log_tab = 'audit'
 
-    # 2. Login History Attempts (Lazy-loaded only when admin views Login tab)
+    # 2. Login History Attempts (Accessible exclusively to Administrators)
     login_page_obj = None
     status_filter = 'all'
     blocked_ips = []
@@ -5711,8 +6483,9 @@ def activity_logs_view(request):
     total_locked_accounts = 0
     total_rejected_devices = 0
     total_security_restrictions = 0
+    login_counts = {}
 
-    if request.user.role == 'admin' and active_log_tab == 'login':
+    if active_log_tab == 'login' and (request.user.role == 'admin' or request.user.is_superuser):
         user_map = {}
         all_users = list(CustomUser.objects.all())
         for u in all_users:
@@ -5738,9 +6511,23 @@ def activity_logs_view(request):
 
         login_attempts = LoginAttempt.objects.all().order_by('-timestamp')
         if query:
-            login_attempts = login_attempts.filter(
-                Q(email_attempted__icontains=query) | Q(ip_address__icontains=query)
-            )
+            for token in [t for t in query.split() if t]:
+                t_lower = token.lower()
+                matched_identifiers = []
+                for u in all_users:
+                    if (u.full_name and t_lower in u.full_name.lower()) or (u.username and t_lower in u.username.lower()) or (u.email and t_lower in u.email.lower()) or (u.designation and t_lower in u.designation.lower()):
+                        if u.email:
+                            matched_identifiers.append(u.email)
+                        if u.username:
+                            matched_identifiers.append(u.username)
+                tok_q = Q(email_attempted__icontains=token) | Q(ip_address__icontains=token)
+                if matched_identifiers:
+                    tok_q |= Q(email_attempted__in=matched_identifiers)
+                if t_lower in ('success', 'succeeded', 'successful'):
+                    tok_q |= Q(success=True)
+                elif t_lower in ('failed', 'fail', 'failure'):
+                    tok_q |= Q(success=False)
+                login_attempts = login_attempts.filter(tok_q)
 
         if date_filter == 'today':
             login_attempts = login_attempts.filter(timestamp__date=now.date())
@@ -5748,6 +6535,15 @@ def activity_logs_view(request):
             login_attempts = login_attempts.filter(timestamp__gte=now - timedelta(days=7))
         elif date_filter == '30days':
             login_attempts = login_attempts.filter(timestamp__gte=now - timedelta(days=30))
+
+        login_counts = {
+            'all': login_attempts.count(),
+            'success': login_attempts.filter(success=True).count(),
+            'failed': login_attempts.filter(success=False).count(),
+            'blocked': LoginAttempt.objects.filter(
+                Q(ip_address__in=blocked_ips) | Q(email_attempted__in=inactive_user_identifiers)
+            ).count(),
+        }
 
         status_filter = request.GET.get('status', 'all').strip()
         if status_filter == 'success':
@@ -5765,9 +6561,7 @@ def activity_logs_view(request):
         total_rejected_devices = UserDevice.objects.filter(status='rejected').count()
         total_security_restrictions = total_blocked_ips + total_locked_accounts + total_rejected_devices
 
-        blocked_attempts_count = LoginAttempt.objects.filter(
-            Q(ip_address__in=blocked_ips) | Q(email_attempted__in=inactive_user_identifiers)
-        ).count()
+        blocked_attempts_count = login_counts['blocked']
 
         login_paginator = Paginator(login_attempts, per_page)
         login_page_obj = login_paginator.get_page(request.GET.get('login_page'))
@@ -5814,6 +6608,8 @@ def activity_logs_view(request):
         'record_id': record_id,
         'highlight_log_id': highlight_log_id,
         'target_rec': target_rec,
+        'cat_counts': cat_counts,
+        'login_counts': login_counts,
     }
     return render(request, 'permits/activity_logs.html', context)
 
@@ -6171,7 +6967,7 @@ def export_activity_logs_view(request):
     pdf_bytes = buffer.getvalue()
     buffer.close()
 
-    filename = f"eTala_Activity_Logs_{tab}_{now_pst.strftime('%Y%m%d_%H%M')}.pdf"
+    filename = f"eTala Activity Logs ({tab.capitalize()} - {now_pst.strftime('%Y-%m-%d')}).pdf"
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     log_audit(request.user, f"Exported {tab.capitalize()} Activity Logs to PDF", request=request)
@@ -6802,9 +7598,34 @@ def settings_view(request):
             backup_format = request.POST.get('backup_format', 'full_zip').strip().lower()
 
             try:
+                from pathlib import Path
+                local_now = timezone.localtime(timezone.now())
+                timestamp_str = local_now.strftime('%Y%m%d_%H%M%S')
+                db_filename = f"etala_db_{timestamp_str}.json"
+
                 if backup_format == 'full_zip':
                     zip_buffer, filename, total_records, media_count = export_full_system_zip(user=request.user)
-                    response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+                    zip_bytes = zip_buffer.getvalue()
+                    log_audit(request.user, f"Exported complete municipal archive backup ({filename})", request=request)
+
+                    def _sync_export_to_cloud(z_bytes, db_name):
+                        try:
+                            from permits.storage import SupabaseStorage
+                            with zipfile.ZipFile(io.BytesIO(z_bytes), 'r') as zf:
+                                db_json_bytes = zf.read('database/etala_database.json')
+                            s = SupabaseStorage()
+                            if s._is_configured():
+                                s._upload_to_supabase_worker(f"backups/{db_name}", db_json_bytes)
+                            db_local_path = Path(settings.BASE_DIR) / 'backups' / 'database' / db_name
+                            db_local_path.parent.mkdir(parents=True, exist_ok=True)
+                            with open(db_local_path, 'wb') as f:
+                                f.write(db_json_bytes)
+                        except Exception as exc:
+                            logger.warning(f"Could not sync export to Supabase: {exc}")
+
+                    threading.Thread(target=_sync_export_to_cloud, args=(zip_bytes, db_filename), daemon=True).start()
+
+                    response = HttpResponse(zip_bytes, content_type="application/zip")
                     response['Content-Disposition'] = f'attachment; filename="{filename}"'
                     response['Access-Control-Expose-Headers'] = 'Content-Disposition'
                     return response
@@ -6826,14 +7647,31 @@ def settings_view(request):
                         json_data = serializers.serialize('json', all_objects, indent=2)
                     except Exception:
                         json_data = json.dumps([json.loads(serializers.serialize('json', [o]))[0] for o in all_objects if o], indent=2)
+
+                    db_bytes = json_data.encode('utf-8')
+                    def _sync_json_to_cloud(j_bytes, db_name):
+                        try:
+                            from permits.storage import SupabaseStorage
+                            s = SupabaseStorage()
+                            if s._is_configured():
+                                s._upload_to_supabase_worker(f"backups/{db_name}", j_bytes)
+                            db_local_path = Path(settings.BASE_DIR) / 'backups' / 'database' / db_name
+                            db_local_path.parent.mkdir(parents=True, exist_ok=True)
+                            with open(db_local_path, 'wb') as f:
+                                f.write(j_bytes)
+                        except Exception as exc:
+                            logger.warning(f"Could not sync JSON export to Supabase: {exc}")
+
+                    threading.Thread(target=_sync_json_to_cloud, args=(db_bytes, db_filename), daemon=True).start()
+
                     response = HttpResponse(json_data, content_type="application/json")
-                    local_now = timezone.localtime(timezone.now())
-                    filename = f"eTala_Backup_{local_now.strftime('%Y-%m-%d_%I.%M%p')}.json"
+                    filename = f"eTala Backup {local_now.strftime('%Y-%m-%d %I.%M%p')}.json"
                     response['Content-Disposition'] = f'attachment; filename="{filename}"'
                     response['Access-Control-Expose-Headers'] = 'Content-Disposition'
                     return response
             except Exception as e:
                 logger.error(f"Failed to generate backup: {e}", exc_info=True)
+                log_error(request.user, "Database Backup Failed", request=request, error=e)
                 is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
                 if is_ajax:
                     return JsonResponse({'success': False, 'error': f"Could not create backup: {str(e)}"}, status=500)
@@ -6849,6 +7687,7 @@ def settings_view(request):
                     f"{res['new_files_synced']} new media files synced to vault."
                 )
             else:
+                log_error(request.user, "Automated Backup Failed", request=request, error=res.get('error'))
                 messages.error(request, "Failed to run automated backup.")
             return redirect('settings')
 
@@ -6862,6 +7701,7 @@ def settings_view(request):
             if res.get('success'):
                 messages.success(request, "Backup restored successfully.")
             else:
+                log_error(request.user, "System Archive Restore Failed", request=request, error=res.get('error'))
                 messages.error(request, res.get('error', 'Could not restore backup file.'))
 
             return redirect(f"{reverse('settings')}?tab=backup")
@@ -7167,12 +8007,20 @@ def users_view(request):
 
     query = request.GET.get('q', '').strip()
     if query:
-        users_base = users_base.filter(
-            Q(full_name__icontains=query) |
-            Q(username__icontains=query) |
-            Q(email__icontains=query) |
-            Q(designation__icontains=query)
-        )
+        for token in [t for t in query.split() if t]:
+            t_lower = token.lower()
+            u_q = (
+                Q(full_name__icontains=token) |
+                Q(username__icontains=token) |
+                Q(email__icontains=token) |
+                Q(designation__icontains=token) |
+                Q(role__icontains=token)
+            )
+            if t_lower == 'active':
+                u_q |= Q(is_active=True)
+            elif t_lower in ('inactive', 'deactivated'):
+                u_q |= Q(is_active=False)
+            users_base = users_base.filter(u_q)
 
     per_page = get_per_page(request, 20)
     paginator = Paginator(users_base, per_page)
@@ -7306,8 +8154,8 @@ def download_category_zip_view(request, record_id, req_id):
     record_short = get_record_export_name(record, include_location=False)
     import re
     clean_raw_parent = re.sub(r'^\d+[\s_.-]*', '', parent_req.requirement_item.name).strip()
-    clean_parent = sanitize_zip_name(clean_raw_parent, max_len=30).replace(" ", "_")
-    filename = f"{record_short}_{clean_parent}.zip"
+    clean_parent = sanitize_zip_name(clean_raw_parent, max_len=35)
+    filename = f"{record_short} - {clean_parent}.zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -7348,28 +8196,28 @@ def download_slot_zip_view(request, record_id, item_id):
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
                 raw_name = doc.file_name or f"document_{doc.document_id}.pdf"
-                clean_raw = sanitize_file_name(raw_name, max_name_len=50).replace(" ", "_")
+                clean_raw = sanitize_file_name(raw_name, max_name_len=45)
                 if total_docs > 1:
-                    final_name = f"{idx:02d}_{clean_raw}"
+                    final_name = f"{idx:02d} {clean_raw}"
                 else:
                     final_name = clean_raw
                 
-                count = 1
+                count = 2
                 orig_final = final_name
                 while final_name in used_names:
                     parts = orig_final.rsplit('.', 1)
                     if len(parts) == 2:
-                        final_name = f"{parts[0]}_{count}.{parts[1]}"
+                        final_name = f"{parts[0]} (Part {count}).{parts[1]}"
                     else:
-                        final_name = f"{orig_final}_{count}"
+                        final_name = f"{orig_final} (Part {count})"
                     count += 1
                 used_names.add(final_name)
                 zf.writestr(final_name, file_data)
 
     record_short = get_record_export_name(record, include_location=False)
     clean_raw_item = re.sub(r'^\d+[\s_.-]*', '', req_item.name).strip()
-    clean_item = sanitize_zip_name(clean_raw_item, max_len=30).replace(" ", "_")
-    filename = f"{record_short}_{clean_item}.zip"
+    clean_item = sanitize_zip_name(clean_raw_item, max_len=35)
+    filename = f"{record_short} - {clean_item}.zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -7393,8 +8241,8 @@ def download_barangay_zip_view(request, barangay_id):
 
     try:
         buffer = build_barangay_zip_buffer(barangay, _get_document_stream, user=request.user)
-        clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30).replace(" ", "_")
-        filename = f"{clean_b_name}.zip"
+        clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=35)
+        filename = f"Brgy {clean_b_name} - Engineering Records.zip"
         val = buffer.getvalue()
         response = HttpResponse(val, content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -7421,7 +8269,7 @@ def download_municipal_zip_view(request):
 
     buffer = build_municipal_zip_buffer(_get_document_stream, user=request.user)
     today_str = timezone.now().strftime('%Y-%m-%d')
-    filename = f"Carigara_Engineering_Records_{today_str}.zip"
+    filename = f"Carigara Engineering Records ({today_str}).zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -7530,6 +8378,7 @@ def batch_upload_documents_view(request, record_id):
 
         except Exception as e:
             logger.error(f"Batch upload transaction failed: {e}")
+            log_error(request.user, f"Batch Upload Failed: {record.title}", target_record_id=record.record_id, request=request, error=e)
             messages.error(request, f"Batch upload failed: {e}")
             return redirect('record_detail', record_id=record.record_id)
 
@@ -7590,20 +8439,55 @@ def permanent_delete_record_view(request, record_id):
 
 @login_required
 def about_system_view(request):
-    """Dedicated About & System Specifications Page for eTala Engineering Portal."""
+    """Redirect legacy About URL directly to the User Manual & System Guide."""
+    return redirect('user_manual')
+
+
+@login_required
+def user_manual_view(request):
+    """Interactive Graphical User Manual & Guided Tutorial for eTala."""
     total_records = EngineeringRecord.objects.exclude(status='archived').count()
     total_barangays = Barangay.objects.count()
-    total_users = CustomUser.objects.filter(is_active=True).count()
+    user_role = getattr(request.user, 'role', 'staff')
+    
+    # Allow URL preview parameter (e.g. /user-manual/?role=staff)
+    param_role = request.GET.get('role') or request.GET.get('mode')
+    active_role = param_role if param_role in ['admin', 'staff'] else user_role
 
     context = {
         'total_records': total_records,
         'total_barangays': total_barangays,
-        'total_users': total_users,
-        'system_version': '2.4.0 (2026 Production Release)',
-        'lgu_name': 'Municipal Engineering Office of Carigara, Leyte',
-        'active_tab': 'about_system',
+        'system_version': '2.4.0',
+        'lgu_name': 'Municipal Engineering Office — Carigara, Leyte',
+        'page_title': 'Interactive Guided Tutorial | eTala',
+        'user_role': active_role,
+        'real_user_role': user_role,
+        'is_admin': user_role == 'admin',
+        'active_role': active_role,
     }
-    return render(request, 'permits/about.html', context)
+    return render(request, 'permits/user_manual.html', context)
+
+
+@login_required
+def user_manual_video_stream(request):
+    """Streams the official high-resolution system walkthrough video."""
+    local_asset = settings.BASE_DIR / 'assets' / 'etala_system_walkthrough.webp'
+    brain_path = r"C:\Users\Dion\.gemini\antigravity-ide\brain\34927c3e-df6e-4a8d-ab69-a404a73e2fd7\etala_system_video_walkthrough_1792171657666.webp"
+    
+    if not local_asset.exists() and os.path.exists(brain_path):
+        import shutil
+        try:
+            shutil.copyfile(brain_path, local_asset)
+        except Exception:
+            pass
+
+    target_file = local_asset if local_asset.exists() else brain_path
+    if os.path.exists(str(target_file)):
+        response = FileResponse(open(target_file, 'rb'), content_type='image/webp')
+        response['Cache-Control'] = 'public, max-age=86400'
+        return response
+
+    raise Http404("Video walkthrough recording not found.")
 
 
 @login_required
@@ -7639,14 +8523,19 @@ def submit_system_feedback(request):
 
     # Smart fallback for optional subject and message
     if not subject:
-        cat_display = dict(SystemFeedback.CATEGORY_CHOICES).get(category, 'Feedback')
-        subject = f"{cat_display} from {sender_name}"
+        if rating_val := request.POST.get('rating', '').strip():
+            subject = f"Feedback ({rating_val}★) from {sender_name}"
+        else:
+            cat_display = dict(SystemFeedback.CATEGORY_CHOICES).get(category, 'Feedback')
+            subject = f"{cat_display} from {sender_name}"
 
     if not message:
         if attachment_file:
             message = "Screenshot/image feedback submitted by user."
+        elif request.POST.get('rating', '').strip():
+            message = f"User experience rating: {request.POST.get('rating', '').strip()} / 5 stars."
         else:
-            return JsonResponse({'status': 'error', 'message': 'Please enter a message or attach a screenshot.'}, status=400)
+            return JsonResponse({'status': 'error', 'message': 'Please provide a star rating, message, or screenshot.'}, status=400)
 
     raw_rating = request.POST.get('rating', '').strip()
     rating = None
@@ -7879,33 +8768,12 @@ def quick_search_api_view(request):
     if not q or len(q) < 1:
         return JsonResponse({'results': []})
 
-    # Spotlight Search: Strictly search visible identifying fields
-    search_filter = (
-        Q(title__icontains=q) |
-        Q(permit_detail__applicant_name__icontains=q) |
-        Q(permit_detail__permit_number__icontains=q) |
-        Q(barangay__barangay_name__icontains=q) |
-        Q(project_detail__contractor__icontains=q) |
-        Q(permit_detail__permit_type__icontains=q) |
-        Q(project_detail__project_type__icontains=q) |
-        Q(permit_detail__building_type__icontains=q)
-    )
-
-    # 4-Digit Year matching (e.g. 2024, 2025, 2026)
-    if q.isdigit() and len(q) == 4:
-        year_val = int(q)
-        if 1900 <= year_val <= 2100:
-            search_filter |= (
-                Q(year=year_val) |
-                Q(created_at__year=year_val) |
-                Q(date_started__year=year_val) |
-                Q(date_completed__year=year_val)
-            )
-
-    records = EngineeringRecord.objects.filter(
-        search_filter
-    ).exclude(
-        status='archived'
+    # Spotlight Search: Use unified multi-token search engine across all active records (Permits, Projects, Violations)
+    base_spotlight_qs = EngineeringRecord.objects.exclude(status='archived')
+    records = filter_engineering_records(
+        base_spotlight_qs,
+        query=q,
+        illegal_filter='all'
     ).select_related(
         'barangay', 'permit_detail', 'project_detail'
     ).order_by('-record_id')[:10]
@@ -7915,7 +8783,7 @@ def quick_search_api_view(request):
         icon = "fa-solid fa-file-lines"
         theme_class = "theme-permit"
         type_label = r.specific_type_label or "Permit"
-        display_title = r.title or (r.permit_detail.permit_number if (r.permit_detail and r.permit_detail.permit_number) else "Engineering Record")
+        display_title = r.display_title
         meta_items = []
 
         if r.is_illegal_construction:

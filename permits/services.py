@@ -224,26 +224,26 @@ def save_office_settings(office_name, municipality, province):
 # ─── RECORD ZIP ARCHIVE GENERATION SERVICE ───────────────────────────────────
 
 def sanitize_zip_name(raw_name, max_len=80):
-    """Sanitizes raw string and caps length cleanly at word boundaries for safe ZIP paths & filenames."""
+    """Sanitizes raw string using clean spaces (no underscores) and caps length cleanly at word boundaries."""
     if not raw_name:
-        return "item"
-    cleaned = "".join(c for c in str(raw_name) if c.isalnum() or c in (' ', '_', '-')).strip()
-    cleaned = re.sub(r'[\s_]+', '_', cleaned).strip('_')
+        return "Item"
+    # Keep alphanumeric, spaces, hyphens, parentheses, periods, ampersands, and hash (#)
+    cleaned = "".join(c for c in str(raw_name) if c.isalnum() or c in (' ', '-', '#', '(', ')', '.', '&')).strip()
+    cleaned = re.sub(r'[\s_]+', ' ', cleaned).strip(' -')
     if len(cleaned) > max_len:
-        # Avoid breaking words in half
         trimmed = cleaned[:max_len]
-        if '_' in trimmed:
-            last_us = trimmed.rfind('_')
-            if last_us > 25:
-                trimmed = trimmed[:last_us]
-        cleaned = trimmed.strip('_')
-    return cleaned or "item"
+        if ' ' in trimmed:
+            last_sp = trimmed.rfind(' ')
+            if last_sp > 20:
+                trimmed = trimmed[:last_sp]
+        cleaned = trimmed.strip(' -')
+    return cleaned or "Item"
 
 
 def sanitize_file_name(raw_filename, max_name_len=80):
-    """Sanitizes filename and extension, preserving complete words."""
+    """Sanitizes filename and extension using clean spaces, preserving complete words."""
     if not raw_filename:
-        return "document"
+        return "Document"
     name_part, ext_part = os.path.splitext(os.path.basename(str(raw_filename)))
     clean_name = sanitize_zip_name(name_part, max_len=max_name_len)
     clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip()
@@ -252,116 +252,50 @@ def sanitize_file_name(raw_filename, max_name_len=80):
 
 def get_record_export_name(record, include_location=False):
     """
-    Generates an ultra-clear, descriptive, and human-readable folder/file name for record exports.
-    Tells the user:
-      1. KANINO (Applicant / Owner / Violator / Contractor)
-      2. ANO (Permit Type / Project Scope / Stop Order)
-      3. REFERENCE/WHEN (Permit #, Year)
-      4. SAAN (Barangay, when requested)
-      
-    Examples:
-      - Juan_Dela_Cruz_Building_Permit_BP-2023-014
-      - Road_Concreting_Sitio_Baybay_Infra_Project_2024
-      - Unpermitted_Commercial_Building_Stop_Order_Brgy_Barugohay
-      - Violation_Mardion_Fuerte_Stop_Order
+    Generates a crystal-clear, concise, and non-confusing name for record exports without underscores.
+    Format:
+      - Permit: "Permit - [Applicant Name] (#[Permit Number])"
+      - Project: "Project - [Project Title]"
+      - Violation: "Violation - [Owner / Structure Name] (#[Notice Number])"
+    If include_location is True, appends "(Brgy [Name])" where helpful.
     """
+    loc_suffix = f" (Brgy {sanitize_zip_name(record.barangay.barangay_name, max_len=25)})" if (include_location and record.barangay) else ""
+
     # 1. ILLEGAL CONSTRUCTIONS & VIOLATIONS
-    if record.is_illegal_construction:
-        # If regularized / converted, format exactly like a normal permit (clean naming, no status suffix)
-        if record.illegal_compliance_status == 'resolved':
-            app = ""
-            if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
-                app = record.permit_detail.applicant_name.strip()
-            if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null']:
-                base_slug = sanitize_zip_name(app, max_len=50).replace(" ", "_")
-            else:
-                base_slug = sanitize_zip_name(record.title or "Permit", max_len=60).replace(" ", "_")
-            
-            permit_type = record.specific_type_label or "Building_Permit"
-            clean_type = sanitize_zip_name(permit_type, max_len=40).replace(" ", "_")
-            if clean_type.lower() not in base_slug.lower():
-                base_slug = f"{base_slug}_{clean_type}"
-            if record.year and str(record.year) not in base_slug:
-                base_slug = f"{base_slug}_{record.year}"
-            if include_location and record.barangay:
-                b_name = sanitize_zip_name(record.barangay.barangay_name, max_len=35).replace(" ", "_")
-                base_slug = f"{base_slug}_Brgy_{b_name}"
-            return base_slug
-
-        # Active Stop Order / Violation
-        violator = ""
-        if hasattr(record, 'permit_detail') and record.permit_detail and record.permit_detail.applicant_name:
-            app = record.permit_detail.applicant_name.strip()
+    if record.is_illegal_construction and record.illegal_compliance_status != 'resolved':
+        pnum = ""
+        owner = ""
+        if hasattr(record, 'permit_detail') and record.permit_detail:
+            pnum = (record.permit_detail.permit_number or '').strip()
+            app = (record.permit_detail.applicant_name or '').strip()
             if app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null', 'under investigation']:
-                violator = sanitize_zip_name(app, max_len=50).replace(" ", "_")
+                owner = sanitize_zip_name(app, max_len=45)
         
-        raw_title = (record.title or "").strip()
-        clean_title = sanitize_zip_name(raw_title, max_len=60).replace(" ", "_") if raw_title else ""
-        
-        if violator:
-            base_slug = violator
-        elif clean_title:
-            base_slug = clean_title
-        else:
-            base_slug = "Unpermitted_Structure"
+        name = owner or sanitize_zip_name(record.display_title or "Unpermitted Structure", max_len=45)
+        if pnum:
+            return f"Violation - {name} (#{pnum})"
+        return f"Violation - {name}{loc_suffix}"
 
-        if include_location:
-            status_suffix = "Stop_Order"
-            if record.illegal_compliance_status == 'pending_permit':
-                status_suffix = "Permit_Pending"
-            base_slug = f"{base_slug}_{status_suffix}"
-            if record.barangay:
-                b_name = sanitize_zip_name(record.barangay.barangay_name, max_len=35).replace(" ", "_")
-                base_slug = f"{base_slug}_Brgy_{b_name}"
-        return base_slug
-
-    # 2. STANDARD PERMITS
+    # 2. STANDARD PERMITS & REGULARIZED PERMITS
     elif record.record_type == 'Permit':
+        pnum = ""
         applicant = ""
         if hasattr(record, 'permit_detail') and record.permit_detail:
-            app = record.permit_detail.applicant_name.strip()
+            pnum = (record.permit_detail.permit_number or '').strip()
+            app = (record.permit_detail.applicant_name or '').strip()
             if app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null']:
-                applicant = sanitize_zip_name(app, max_len=50).replace(" ", "_")
+                applicant = sanitize_zip_name(app, max_len=45)
 
-        raw_title = (record.title or "").strip()
-        clean_title = sanitize_zip_name(raw_title, max_len=60).replace(" ", "_") if raw_title else ""
-
-        if applicant:
-            base_slug = applicant
-        elif clean_title:
-            base_slug = clean_title
-        else:
-            base_slug = "Permit_Record"
-
-        if include_location:
-            permit_type = record.specific_type_label or "Building_Permit"
-            clean_type = sanitize_zip_name(permit_type, max_len=40).replace(" ", "_")
-            if clean_type.lower() not in base_slug.lower():
-                base_slug = f"{base_slug}_{clean_type}"
-            if record.year and str(record.year) not in base_slug:
-                base_slug = f"{base_slug}_{record.year}"
-            if record.barangay:
-                b_name = sanitize_zip_name(record.barangay.barangay_name, max_len=35).replace(" ", "_")
-                base_slug = f"{base_slug}_Brgy_{b_name}"
-        return base_slug
+        name = applicant or sanitize_zip_name(record.display_title or "Permit Record", max_len=45)
+        if pnum:
+            return f"Permit - {name} (#{pnum})"
+        return f"Permit - {name}{loc_suffix}"
 
     # 3. INFRASTRUCTURE PROJECTS
     else:
-        raw_title = (record.title or "Infra_Project").strip()
-        clean_title = sanitize_zip_name(raw_title, max_len=60).replace(" ", "_")
-        base_slug = clean_title or "Infra_Project"
-
-        if include_location:
-            proj_type = record.specific_type_label or "Infra_Project"
-            clean_proj_type = sanitize_zip_name(proj_type, max_len=40).replace(" ", "_")
-            if clean_proj_type.lower() not in base_slug.lower():
-                base_slug = f"{base_slug}_{clean_proj_type}"
-            if record.year and str(record.year) not in base_slug:
-                base_slug = f"{base_slug}_{record.year}"
-            if record.barangay:
-                b_name = sanitize_zip_name(record.barangay.barangay_name, max_len=35).replace(" ", "_")
-                base_slug = f"{base_slug}_Brgy_{b_name}"
-        return base_slug
+        title = record.display_title or record.title or "Infrastructure Project"
+        clean_title = sanitize_zip_name(title, max_len=55)
+        return f"Project - {clean_title}{loc_suffix}"
 
 
 def get_document_group_folder(doc, record):
@@ -379,42 +313,42 @@ def get_document_group_folder(doc, record):
     # 1. ILLEGAL CONSTRUCTIONS & VIOLATIONS
     if record.is_illegal_construction:
         if any(k in combined for k in ['inspection', 'spot', 'site inspection', 'gps', 'geotag', 'investigation', 'discovery']):
-            return "01_Inspection"
+            return "01 Inspection"
         if any(k in combined for k in ['violation', 'stop order', 'stoppage', 'notice', 'demolition', 'cease', 'summons', 'citation']):
-            return "02_Violation_and_Orders"
+            return "02 Violation and Orders"
         if any(k in combined for k in ['compliance', 'response', 'hearing', 'minutes', 'explanation', 'undertaking', 'commitment']):
-            return "03_Compliance"
+            return "03 Compliance"
         if any(k in combined for k in ['regularization', 'retroactive', 'penalty', 'official permit', 'as-built', 'approved permit']):
-            return "04_Regularization"
-        return "05_Supporting_Evidence"
+            return "04 Regularization"
+        return "05 Supporting Evidence"
 
     # 2. INFRASTRUCTURE PROJECTS (Municipal / Barangay Infra)
     elif record.record_type == 'Project':
         if any(k in combined for k in ['planning', 'feasibility', 'pow', 'program of work', 'program of works', 'detailed engineering', 'ded', 'concept', 'project brief']):
-            return "01_Planning"
+            return "01 Planning"
         if any(k in combined for k in ['procurement', 'bid', 'bidding', 'philgeps', 'bac', 'abstract', 'eligibility', 'invitation to bid', 'itb', 'post-qualification']):
-            return "02_Procurement"
+            return "02 Procurement"
         if any(k in combined for k in ['contract', 'award', 'noa', 'notice of award', 'ntp', 'notice to proceed', 'performance bond', 'agreement']):
-            return "03_Contract_and_Award"
+            return "03 Contract and Award"
         if any(k in combined for k in ['construction', 'progress', 'billing', 'statement of work', 's-curve', 'site photo', 'picture', 'variation', 'change order', 'time extension', 'inspection report']):
-            return "04_Construction"
+            return "04 Construction"
         if any(k in combined for k in ['completion', 'turnover', 'turn-over', 'acceptance', 'warranty', 'certificate of completion', 'final inspection', 'final billing', 'completion report', 'acceptance report']):
-            return "05_Completion"
-        return "06_Other_Supporting_Documents"
+            return "05 Completion"
+        return "06 Other Supporting Documents"
 
     # 3. PERMITS (Building, Electrical, Plumbing, Fencing, Demolition, Occupancy, etc.)
     else:
         if any(k in combined for k in ['application', 'form', 'unified', 'dti', 'sec', 'affidavit', 'ownership', 'title', 'tax dec', 'deed', 'lease', 'contract of lease', 'lot', 'land']):
-            return "01_Application"
+            return "01 Application"
         if any(k in combined for k in ['plan', 'blueprint', 'architectural', 'structural plan', 'electrical plan', 'plumbing plan', 'sanitary plan', 'mechanical plan', 'electronics plan', 'specifications', 'bill of materials', 'bom', 'cost estimate', 'specs']):
-            return "02_Plans_and_Specifications"
+            return "02 Plans and Specifications"
         if any(k in combined for k in ['clearance', 'certificate', 'fsec', 'fsic', 'fire', 'zoning', 'barangay clearance', 'locational', 'environmental', 'ecc', 'dpwh', 'caap', 'resolution']):
-            return "03_Clearances_and_Certifications"
+            return "03 Clearances and Certifications"
         if any(k in combined for k in ['technical', 'structural analysis', 'geotechnical', 'soil', 'seismic', 'calculation', 'design computation', 'boring', 'load test']):
-            return "04_Technical_Documents"
+            return "04 Technical Documents"
         if any(k in combined for k in ['receipt', 'official receipt', 'payment', 'assessment', 'tax receipt', 'order of payment', 'fee', 'or']):
-            return "05_Payments_and_Receipts"
-        return "06_Other_Supporting_Documents"
+            return "05 Payments and Receipts"
+        return "06 Other Supporting Documents"
 
 
 def generate_record_summary_text(record, user=None):
@@ -540,8 +474,8 @@ def generate_record_summary_text(record, user=None):
     group_idx = 1
 
     for group in sorted_groups:
-        clean_gname = re.sub(r'^\d+[\s_.-]*', '', group['name']).replace(' ', '_')
-        folder_label = f"0{group_idx}_{clean_gname}" if group_idx < 10 else f"{group_idx}_{clean_gname}"
+        clean_gname = re.sub(r'^\d+[\s_.-]*', '', group['name']).strip()
+        folder_label = f"0{group_idx} {clean_gname}" if group_idx < 10 else f"{group_idx} {clean_gname}"
         lines.append(f"📁 {folder_label}/")
         for idx, item in enumerate(group['items']):
             is_last = (idx == len(group['items']) - 1)
@@ -691,8 +625,8 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
         sorted_groups = sorted(parent_groups.items(), key=lambda x: x[1]['sequence'])
         group_folder_map = {}
         for g_idx, (p_id, p_info) in enumerate(sorted_groups, start=1):
-            clean_gname = re.sub(r'^\d+[\s_.-]*', '', p_info['name']).replace(' ', '_')
-            group_folder_map[p_id] = f"0{g_idx}_{clean_gname}" if g_idx < 10 else f"{g_idx}_{clean_gname}"
+            clean_gname = re.sub(r'^\d+[\s_.-]*', '', p_info['name']).strip()
+            group_folder_map[p_id] = f"0{g_idx} {clean_gname}" if g_idx < 10 else f"{g_idx} {clean_gname}"
 
         # 2. Add all documents
         for doc in record.documents.select_related('requirement_item', 'requirement_item__parent'):
@@ -719,24 +653,26 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
                     if req_item:
                         clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
                         clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                        item_file_name = sanitize_zip_name(clean_item_name, max_len=40).replace(" ", "_") + clean_ext
+                        item_file_name = sanitize_zip_name(clean_item_name, max_len=45) + clean_ext
 
                         if req_item.parent_id and req_item.parent_id in group_folder_map:
                             folder_prefix = group_folder_map[req_item.parent_id]
                             file_path = f"{folder_prefix}/{item_file_name}"
-                    else:
-                        clean_extra = sanitize_file_name(raw_fname, max_name_len=40).replace(" ", "_")
-                        if doc.document_type == "Incident Evidence" or (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'):
-                            file_path = f"Incident_Evidence/{clean_extra}"
                         else:
-                            file_path = f"Supporting_Documents/{clean_extra}"
+                            file_path = item_file_name
+                    else:
+                        clean_extra = sanitize_file_name(raw_fname, max_name_len=45)
+                        if doc.document_type == "Incident Evidence" or (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'):
+                            file_path = f"Incident Evidence/{clean_extra}"
+                        else:
+                            file_path = f"Supporting Documents/{clean_extra}"
 
                     # Prevent duplicate zip path collisions & handle multi-file numbering cleanly
                     orig_path = file_path
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p}_Part_{counter}{ext_p}"
+                        file_path = f"{base_p} (Part {counter}){ext_p}"
                         counter += 1
                     used_paths.add(file_path)
 
@@ -786,14 +722,14 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                         clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
                         clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req.requirement_item.name).strip()
                         clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                        item_file_name = sanitize_zip_name(clean_item_name, max_len=40).replace(" ", "_") + clean_ext
+                        item_file_name = sanitize_zip_name(clean_item_name, max_len=45) + clean_ext
                         file_path = item_file_name
 
                         orig_path = file_path
                         counter = 2
                         while file_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            file_path = f"{base_p}_Part_{counter}{ext_p}"
+                            file_path = f"{base_p} (Part {counter}){ext_p}"
                             counter += 1
                         used_paths.add(file_path)
                         processed_doc_ids.add(req.document.document_id)
@@ -816,14 +752,14 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
                     raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
-                    clean_doc_fname = sanitize_file_name(raw_fname, max_name_len=45).replace(" ", "_")
+                    clean_doc_fname = sanitize_file_name(raw_fname, max_name_len=45)
                     file_path = clean_doc_fname
 
                     orig_path = file_path
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p}_Part_{counter}{ext_p}"
+                        file_path = f"{base_p} (Part {counter}){ext_p}"
                         counter += 1
                     used_paths.add(file_path)
                     processed_doc_ids.add(doc.document_id)
@@ -852,7 +788,7 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
         └── 04_Illegal_Constructions/
     """
     buffer = io.BytesIO()
-    clean_b_name = sanitize_zip_name(barangay.barangay_name, max_len=30).replace(" ", "_")
+    clean_b_name = f"Barangay {sanitize_zip_name(barangay.barangay_name, max_len=30)}"
     records = EngineeringRecord.objects.filter(barangay=barangay).exclude(status='archived').prefetch_related(
         'documents__requirement_item__parent'
     )
@@ -864,18 +800,18 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
     for record in records:
         base_name = get_record_export_name(record, include_location=False)
         section = (
-            "04_Illegal_Constructions" if record.is_illegal_construction else
-            ("03_Building_Permits" if record.record_type == 'Permit' else
-             ("01_Municipal_Projects" if record.project_scope == 'Municipal' else "02_Barangay_Projects"))
+            "04 Illegal Constructions" if record.is_illegal_construction else
+            ("03 Building Permits" if record.record_type == 'Permit' else
+             ("01 Municipal Projects" if record.project_scope == 'Municipal' else "02 Barangay Projects"))
         )
         unique_key = f"{section}/{base_name}"
         if unique_key in assigned_folders:
-            suffix_label = f"Case-{record.record_id}" if record.is_illegal_construction else f"Rec-{record.record_id}"
-            base_name = f"{base_name}_{suffix_label}"
+            suffix_label = f"Case #{record.record_id}" if record.is_illegal_construction else f"Rec #{record.record_id}"
+            base_name = f"{base_name} ({suffix_label})"
             unique_key = f"{section}/{base_name}"
             counter = 2
             while unique_key in assigned_folders:
-                base_name = f"{base_name}_{counter}"
+                base_name = f"{base_name} ({counter})"
                 unique_key = f"{section}/{base_name}"
                 counter += 1
         assigned_folders.add(unique_key)
@@ -919,8 +855,8 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
             sorted_groups = sorted(parent_groups.items(), key=lambda x: x[1]['sequence'])
             group_folder_map = {}
             for g_idx, (p_id, p_info) in enumerate(sorted_groups, start=1):
-                clean_gname = re.sub(r'^\d+[\s_.-]*', '', p_info['name']).replace(' ', '_')
-                group_folder_map[p_id] = f"0{g_idx}_{clean_gname}" if g_idx < 10 else f"{g_idx}_{clean_gname}"
+                clean_gname = re.sub(r'^\d+[\s_.-]*', '', p_info['name']).strip()
+                group_folder_map[p_id] = f"0{g_idx} {clean_gname}" if g_idx < 10 else f"{g_idx} {clean_gname}"
 
             for doc in record.documents.all():
                 try:
@@ -946,7 +882,7 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
                         if req_item:
                             clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
                             clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                            item_file_name = sanitize_zip_name(clean_item_name, max_len=40).replace(" ", "_") + clean_ext
+                            item_file_name = sanitize_zip_name(clean_item_name, max_len=45) + clean_ext
 
                             if req_item.parent_id and req_item.parent_id in group_folder_map:
                                 folder_prefix = group_folder_map[req_item.parent_id]
@@ -954,17 +890,17 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
                             else:
                                 folder_path = f"{rec_prefix}/{item_file_name}"
                         else:
-                            clean_extra = sanitize_file_name(raw_fname, max_name_len=50).replace(" ", "_")
+                            clean_extra = sanitize_file_name(raw_fname, max_name_len=50)
                             if doc.document_type == "Incident Evidence" or (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'):
-                                folder_path = f"{rec_prefix}/Incident_Evidence/{clean_extra}"
+                                folder_path = f"{rec_prefix}/Incident Evidence/{clean_extra}"
                             else:
-                                folder_path = f"{rec_prefix}/Supporting_Documents/{clean_extra}"
+                                folder_path = f"{rec_prefix}/Supporting Documents/{clean_extra}"
 
                         orig_path = folder_path
                         counter = 2
                         while folder_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            folder_path = f"{base_p}_Part_{counter}{ext_p}"
+                            folder_path = f"{base_p} (Part {counter}){ext_p}"
                             counter += 1
                         used_paths.add(folder_path)
 
@@ -1003,17 +939,17 @@ def build_municipal_zip_buffer(stream_getter_func, user=None):
             "=" * 80,
         ]
         for b in barangays:
-            summary_lines.append(f"📁 {sanitize_zip_name(b.barangay_name).replace(' ', '_')}/")
+            summary_lines.append(f"📁 Barangay {sanitize_zip_name(b.barangay_name)}/")
         summary_lines.extend(["", "=" * 80, "Generated by eTala for Carigara Engineering Office Records.", "=" * 80, ""])
 
-        zip_file.writestr(f"Carigara_Engineering_Records_{today_str}/MUNICIPAL_SUMMARY.txt", "\n".join(summary_lines).encode('utf-8'))
+        zip_file.writestr(f"Carigara Engineering Records ({today_str})/MUNICIPAL_SUMMARY.txt", "\n".join(summary_lines).encode('utf-8'))
 
         for b in barangays:
             b_buf = build_barangay_zip_buffer(b, stream_getter_func, user=user)
             with zipfile.ZipFile(b_buf, 'r') as b_zip:
                 for item_name in b_zip.namelist():
                     b_data = b_zip.read(item_name)
-                    dest_path = f"Carigara_Engineering_Records_{today_str}/{item_name}"
+                    dest_path = f"Carigara Engineering Records ({today_str})/{item_name}"
                     if dest_path not in used_paths:
                         zip_file.writestr(dest_path, b_data)
                         used_paths.add(dest_path)
@@ -1135,7 +1071,7 @@ def build_activity_logs_csv_rows(tab, query, date_filter, action_type, current_u
                     item.email_attempted or "Unknown",
                     "SUCCESSFUL" if item.success else "FAILED"
                 ]
-        return f"eTala_Login_Attempts_{now.strftime('%Y%m%d_%H%M')}.csv", row_generator()
+        return f"eTala Login Attempts ({now.strftime('%Y-%m-%d')}).csv", row_generator()
     else:
         qs = AuditLog.objects.all().select_related('user').exclude(
             Q(action__iexact='Logged out') |
@@ -1180,7 +1116,7 @@ def build_activity_logs_csv_rows(tab, query, date_filter, action_type, current_u
                     item.action,
                     item.target_record_id or "—"
                 ]
-        return f"eTala_Audit_Trail_{now.strftime('%Y%m%d_%H%M')}.csv", row_generator()
+        return f"eTala Audit Trail ({now.strftime('%Y-%m-%d')}).csv", row_generator()
 
 
 # ─── REUSABLE RECORD FILTER SERVICE ──────────────────────────────────────────
@@ -1192,34 +1128,54 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
     qs = base_qs
     if query:
         q_clean = str(query).strip()
-        tokens = [t for t in q_clean.split() if t]
+        raw_tokens = [t for t in q_clean.split() if t]
+        brgy_prefixes = {'brgy', 'brgy.', 'bgy', 'bgy.', 'barangay'}
+        if len(raw_tokens) > 1:
+            tokens = [t for t in raw_tokens if t.lower() not in brgy_prefixes] or raw_tokens
+        else:
+            tokens = raw_tokens
         
         # Build composite multi-term AND query for maximum search accuracy
         for token in tokens:
-            token_lower = token.lower()
+            token_clean = token.lstrip('#') or token
+            token_lower = token_clean.lower()
             
-            # Primary visible fields
+            # Primary visible fields aligned with what the user sees in the table and detail views
             primary_token_q = (
-                Q(title__icontains=token) |
-                Q(barangay__barangay_name__icontains=token) |
-                Q(permit_detail__permit_number__icontains=token) |
-                Q(permit_detail__applicant_name__icontains=token) |
-                Q(project_detail__contractor__icontains=token) |
-                Q(permit_detail__permit_type__icontains=token) |
-                Q(project_detail__project_type__icontains=token) |
-                Q(permit_detail__building_type__icontains=token)
+                # Title & Description (Project Title, Structure Name, or Permit Title)
+                Q(title__icontains=token_clean) |
+                Q(description__icontains=token_clean) |
+                # Applicant / Property Owner Name (for permits & violations)
+                Q(permit_detail__applicant_name__icontains=token_clean) |
+                # Permit Number & Remarks
+                Q(permit_detail__permit_number__icontains=token_clean) |
+                Q(permit_detail__remarks__icontains=token_clean) |
+                # Contractor & Funding Source
+                Q(project_detail__contractor__icontains=token_clean) |
+                Q(project_detail__funding_source__icontains=token_clean) |
+                Q(project_detail__funding_source_other__icontains=token_clean) |
+                # Classifications & Scope
+                Q(permit_detail__permit_type__icontains=token_clean) |
+                Q(project_detail__project_type__icontains=token_clean) |
+                Q(permit_detail__building_type__icontains=token_clean) |
+                Q(project_scope__icontains=token_clean) |
+                # Barangay Location
+                Q(barangay__barangay_name__icontains=token_clean)
             )
 
-            # For tokens with 4 or more chars, also search secondary body/hidden fields
-            if len(token) >= 4:
-                token_filter = primary_token_q | (
-                    Q(description__icontains=token) |
-                    Q(permit_detail__remarks__icontains=token) |
-                    Q(project_detail__funding_source__icontains=token) |
-                    Q(project_detail__funding_source_other__icontains=token)
-                )
-            else:
-                token_filter = primary_token_q
+            token_filter = primary_token_q
+            
+            # Module / Record Type & Scope Keywords
+            if token_lower in ['permit', 'permits']:
+                token_filter |= Q(record_type='Permit')
+            elif token_lower in ['project', 'projects']:
+                token_filter |= Q(record_type='Project')
+            elif token_lower in ['municipal', 'muni']:
+                token_filter |= Q(project_scope__iexact='Municipal')
+            elif token_lower in ['barangay', 'brgy', 'brgy.', 'bgy', 'bgy.']:
+                token_filter |= Q(project_scope__iexact='Barangay') | Q(barangay__isnull=False)
+            elif token_lower in ['violation', 'violations', 'illegal']:
+                token_filter |= Q(is_illegal_construction=True)
             
             # High-Accuracy Status Keyword Matching (Matches true database status)
             if token_lower == 'issued':
@@ -1228,23 +1184,20 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
                 token_filter |= Q(status='pending')
             elif token_lower in ['ongoing', 'progress']:
                 token_filter |= Q(record_type='Project', status__in=['active', 'in_progress'])
-            elif token_lower == 'completed':
+            elif token_lower in ['completed', 'archived']:
                 token_filter |= Q(record_type='Project', status='completed')
-            elif token_lower == 'regularized':
+            elif token_lower in ['regularized', 'complied', 'resolved']:
                 token_filter |= Q(is_illegal_construction=True, illegal_compliance_status='resolved')
-            elif token_lower == 'unresolved':
+            elif token_lower in ['unresolved', 'open']:
                 token_filter |= Q(is_illegal_construction=True, illegal_compliance_status='unresolved')
             
-            # 4-Digit Year token matching (e.g. 2024, 2025, 2026)
-            if token.isdigit() and len(token) == 4:
-                year_val = int(token)
+            # 4-Digit Year token matching (strictly matches the record's official year shown in the YEAR column)
+            if token_clean.isdigit() and len(token_clean) == 4:
+                year_val = int(token_clean)
                 if 1900 <= year_val <= 2100:
-                    token_filter |= (
-                        Q(year=year_val) |
-                        Q(created_at__year=year_val) |
-                        Q(date_started__year=year_val) |
-                        Q(date_completed__year=year_val)
-                    )
+                    token_filter |= Q(year=year_val)
+            elif token.startswith('#') and token_clean.isdigit():
+                token_filter |= Q(record_id=int(token_clean))
             
             qs = qs.filter(token_filter)
 
@@ -1288,6 +1241,9 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
         qs = qs.filter(is_illegal_construction=True)
     elif illegal_filter in ['unresolved', 'pending_permit', 'resolved']:
         qs = qs.filter(is_illegal_construction=True, illegal_compliance_status=illegal_filter)
+    elif illegal_filter in ['all', 'include_all', 'include']:
+        # Keep all records, do not exclude active violations (used in Barangay Workspace, exports, etc.)
+        pass
     else:
         # Only regularized (resolved) illegal constructions appear in Master Records.
         # Unresolved and pending_permit cases remain exclusively in the Illegal Constructions module.
@@ -1522,9 +1478,9 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
             }
 
     local_now = timezone.localtime(now)
-    timestamp_str = local_now.strftime('%Y-%m-%d_%I.%M%p')
-    zip_filename = f"eTala_Backup_{timestamp_str}.zip"
-    db_filename = f"eTala_Backup_{timestamp_str}.json"
+    timestamp_str = local_now.strftime('%Y%m%d_%H%M%S')
+    db_filename = f"etala_db_{timestamp_str}.json"
+    zip_filename = f"eTala Backup {local_now.strftime('%Y-%m-%d %I.%M%p')}.zip"
 
     if not target_dir:
         env_path = os.getenv('BACKUP_STORAGE_PATH', '').strip()
@@ -1546,16 +1502,42 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
     db_file_path = db_dir / db_filename
     zip_file_path = base_backup_dir / zip_filename
 
-    # 1. Generate Full Municipal Archive (.ZIP) containing database and physical documents
+    # 1. Generate Structured Database JSON Snapshot
+    from .models import (
+        Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
+        EngineeringRecord, PermitDetail, ProjectDetail, Document,
+        RecordRequirement, Record, AuditLog, LoginAttempt, BlockedIP, UserDevice
+    )
+    models_to_backup = [
+        Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
+        EngineeringRecord, PermitDetail, ProjectDetail, Document,
+        RecordRequirement, Record, AuditLog, LoginAttempt, BlockedIP, UserDevice
+    ]
+    serialized_entries = []
+    for model_cls in models_to_backup:
+        try:
+            qs = list(model_cls.objects.all())
+            if qs:
+                raw_json = serializers.serialize('json', qs)
+                serialized_entries.extend(json.loads(raw_json))
+        except Exception as e:
+            logger.warning(f"Could not serialize model {model_cls.__name__}: {e}")
+
+    db_json_bytes = json.dumps(serialized_entries, indent=2).encode('utf-8')
+    if not dry_run:
+        with open(db_file_path, 'wb') as f:
+            f.write(db_json_bytes)
+
+    # 2. Generate Full Municipal Archive (.ZIP) containing database and physical documents
     zip_buffer, _, total_records, total_media_files = export_full_system_zip(user=user)
     zip_bytes = zip_buffer.getvalue()
 
     if not dry_run:
-        # Save complete .ZIP archive snapshot locally
+        # Save complete .ZIP archive snapshot locally in the backup vault
         with open(zip_file_path, 'wb') as f:
             f.write(zip_bytes)
 
-    # 2. Smart Incremental Media Sync (Excluding developer feedback screenshots, backups, temp files)
+    # 3. Smart Incremental Media Sync (Excluding developer feedback screenshots, backups, temp files)
     EXCLUDED_MEDIA_DIRS = {'backups', 'feedback_attachments', 'temp_uploads', '.tmp', '__pycache__'}
     new_files_synced = 0
     media_root = Path(settings.MEDIA_ROOT)
@@ -1591,38 +1573,42 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
                         shutil.copy2(src_path, dest_path)
                     new_files_synced += 1
 
-    # 3. Auto-purge old snapshots exceeding retention period
+    # 4. Auto-purge old snapshots exceeding retention period
     purged_snapshots = 0
     cutoff_time = now - timedelta(days=retention_days)
 
     if base_backup_dir.exists():
-        old_archives = list(base_backup_dir.glob('eTala_Backup_*.zip')) + list(base_backup_dir.glob('*.zip'))
+        old_archives = set(base_backup_dir.glob('*.zip'))
         for old_archive in old_archives:
             try:
+                if not old_archive.exists():
+                    continue
                 file_mtime = datetime.datetime.fromtimestamp(old_archive.stat().st_mtime, tz=datetime.timezone.utc)
                 if file_mtime < cutoff_time:
                     if not dry_run:
-                        old_archive.unlink()
+                        old_archive.unlink(missing_ok=True)
                     purged_snapshots += 1
             except Exception as e:
                 logger.warning(f"Error checking/deleting old backup archive {old_archive}: {e}")
 
     if db_dir.exists():
-        old_files = list(db_dir.glob('eTala_Backup_*.json')) + list(db_dir.glob('etala_db_*.json'))
+        old_files = set(db_dir.glob('eTala_Backup_*.json')) | set(db_dir.glob('etala_db_*.json'))
         for old_file in old_files:
             try:
+                if not old_file.exists():
+                    continue
                 file_mtime = datetime.datetime.fromtimestamp(old_file.stat().st_mtime, tz=datetime.timezone.utc)
                 if file_mtime < cutoff_time:
                     if not dry_run:
-                        old_file.unlink()
+                        old_file.unlink(missing_ok=True)
                     purged_snapshots += 1
             except Exception as e:
                 logger.warning(f"Error checking/deleting old backup file {old_file}: {e}")
 
-    # 4. Audit Log
+    # 5. Audit Log
     if not dry_run:
         try:
-            log_msg = f"Automated System Backup: {zip_filename} ({total_records} records, {total_media_files} media files packaged, {purged_snapshots} expired snapshots cleaned)"
+            log_msg = f"Automated System Backup: {db_filename} ({total_records} records, {total_media_files} media files packaged, {purged_snapshots} expired snapshots cleaned)"
             AuditLog.objects.create(
                 user=user,
                 action=log_msg
@@ -1630,23 +1616,34 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
         except Exception as e:
             logger.error(f"Audit log error during auto-backup: {e}")
 
-    # 5. Optional Supabase Cloud Sync (Uploads Complete .ZIP Archive)
+    # 6. Guaranteed Supabase Cloud Sync
     supabase_synced = False
     supabase_url = getattr(settings, 'SUPABASE_URL', None) or os.getenv('SUPABASE_URL')
     supabase_key = getattr(settings, 'SUPABASE_KEY', None) or os.getenv('SUPABASE_KEY')
     if supabase_url and supabase_key and not dry_run:
         try:
-            from .storage import SupabaseStorage
+            from .storage import SupabaseStorage, sync_all_local_files_to_supabase
             from django.core.files.base import ContentFile
             bucket = getattr(settings, 'SUPABASE_BUCKET_NAME', 'etala-documents')
             sup_storage = SupabaseStorage(bucket_name=bucket)
             if sup_storage._is_configured():
-                # Upload full .ZIP archive to Supabase cloud vault
-                sup_storage.save(f"backups/{zip_filename}", ContentFile(zip_bytes))
-                supabase_synced = True
-                logger.info(f"Successfully uploaded Full Backup Archive {zip_filename} to Supabase bucket '{bucket}'.")
+                # 1. ALWAYS upload the clean database snapshot JSON (~1MB) to Supabase cloud vault
+                uploaded = sup_storage._upload_to_supabase_worker(f"backups/{db_filename}", db_json_bytes)
+                if uploaded:
+                    supabase_synced = True
+                    logger.info(f"Successfully uploaded Database Snapshot {db_filename} to Supabase bucket '{bucket}'.")
+
+                # 2. Upload .ZIP archive only if within Supabase single-file size limit (< 45MB)
+                if len(zip_bytes) < 45 * 1024 * 1024:
+                    sup_storage._upload_to_supabase_worker(f"backups/{zip_filename}", zip_bytes)
+                    logger.info(f"Successfully uploaded Full Backup Archive {zip_filename} to Supabase bucket '{bucket}'.")
+                else:
+                    logger.info(f"Full Archive {zip_filename} ({len(zip_bytes)/(1024*1024):.1f}MB) preserved in local vault (exceeds Supabase 50MB single-file limit).")
+
+                # 3. Cloud-sync any uploaded document files that are missing from Supabase
+                sync_all_local_files_to_supabase()
         except Exception as e:
-            logger.warning(f"Could not upload backup archive to Supabase: {e}")
+            logger.warning(f"Could not upload backup to Supabase: {e}")
 
     return {
         'success': True,
@@ -1689,14 +1686,49 @@ def get_latest_backup_info(target_dir=None):
     ).order_by('-performed_at').first()
 
     last_time = latest_log.performed_at if latest_log else None
+    backup_type = None
+    if latest_log:
+        act = (latest_log.action or '').lower()
+        if 'automated' in act:
+            backup_type = 'Auto'
+        elif 'export' in act or 'manual' in act or 'download' in act:
+            backup_type = 'Manual'
+        elif 'restore' in act:
+            backup_type = 'Restore'
+
+    # Check physical backup files for latest timestamp
+    newest_physical_time = None
+    if base_backup_dir.exists():
+        for f in base_backup_dir.glob('eTala_Backup_*.zip'):
+            try:
+                mtime = datetime.datetime.fromtimestamp(f.stat().st_mtime, tz=datetime.timezone.utc)
+                if not newest_physical_time or mtime > newest_physical_time:
+                    newest_physical_time = mtime
+            except Exception:
+                pass
+    if db_dir.exists():
+        for f in db_dir.glob('etala_db_*.json'):
+            try:
+                mtime = datetime.datetime.fromtimestamp(f.stat().st_mtime, tz=datetime.timezone.utc)
+                if not newest_physical_time or mtime > newest_physical_time:
+                    newest_physical_time = mtime
+            except Exception:
+                pass
+
+    effective_time = last_time
+    if newest_physical_time and (not effective_time or newest_physical_time > effective_time):
+        effective_time = newest_physical_time
+        if not backup_type:
+            backup_type = 'Auto'
 
     # Count physical files if available
     total_snapshots = len(list(db_dir.glob('etala_db_*.json'))) if db_dir.exists() else 0
     total_synced_media = sum(1 for _ in media_dir.rglob('*') if _.is_file()) if media_dir.exists() else 0
 
     return {
-        'last_backup_time': last_time,
-        'last_backup_str': timezone.localtime(last_time).strftime('%b %d, %Y - %I:%M %p') if last_time else 'No backup yet',
+        'last_backup_time': effective_time,
+        'last_backup_str': timezone.localtime(effective_time).strftime('%b %d, %Y - %I:%M %p') if effective_time else 'No backup yet',
+        'backup_type': backup_type,
         'total_snapshots': total_snapshots,
         'total_synced_media': total_synced_media,
         'backup_dir': str(base_backup_dir),
@@ -1728,8 +1760,8 @@ def export_full_system_zip(user=None):
 
     now = timezone.now()
     local_now = timezone.localtime(now)
-    timestamp_str = local_now.strftime('%Y-%m-%d_%I.%M%p')
-    filename = f"eTala_Backup_{timestamp_str}.zip"
+    timestamp_str = local_now.strftime('%Y-%m-%d %I.%M%p')
+    filename = f"eTala Backup {timestamp_str}.zip"
 
     # 1. Serialize all essential municipal database models
     models_to_backup = [
@@ -1960,6 +1992,14 @@ def restore_full_system_archive(uploaded_file, user=None):
             )
         except Exception:
             pass
+
+    # Sync restored media files to Supabase in background
+    try:
+        from .storage import sync_all_local_files_to_supabase
+        import threading
+        threading.Thread(target=sync_all_local_files_to_supabase, daemon=True).start()
+    except Exception:
+        pass
 
     return {
         'success': True,

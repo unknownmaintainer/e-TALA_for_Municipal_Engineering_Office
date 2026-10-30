@@ -53,10 +53,22 @@ flowchart TD
 
 ## Figure 3.2: Use Case Diagram
 
-Figure 3.2 outlines the operational functions assigned to Engineering Staff and the Municipal Engineer in the eTala system. Engineering Staff handle record encoding, document uploads, map viewing, violation logging, and report generation, while the Municipal Engineer has full access to all operational tasks plus exclusive controls for user accounts, audit logs, and record restorations.
+Figure 3.2 outlines the operational functions assigned to Engineering Staff and the Municipal Engineer in the eTala system. Engineering Staff handle record encoding, document uploads, map viewing, violation logging, report generation, moving records to Trash, and restoring records within the 30-day retention window. The Municipal Engineer has full access to all operational tasks plus exclusive administrative controls for user account management, system audit logs, and full database backups.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Arial, sans-serif', 'fontSize': '12px'}}}%%
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'fontFamily': 'Arial, sans-serif',
+    'fontSize': '11px'
+  },
+  'flowchart': {
+    'nodeSpacing': 7,
+    'rankSpacing': 38,
+    'padding': 3,
+    'subGraphTitleMargin': {'top': 4, 'bottom': 4}
+  }
+}}%%
 flowchart LR
     Staff["Engineering Staff"]
 
@@ -71,21 +83,22 @@ flowchart LR
             UC5(["Log Violations"])
             UC6(["Generate Reports"])
             UC7(["Move to Trash"])
+            UC8(["Restore Records"])
         end
 
         subgraph AdminOps [" Administration "]
             direction TB
-            UC8(["Restore Records"])
             UC9(["Manage User Accounts"])
             UC10(["View Audit Logs"])
+            UC11(["Backup Database"])
         end
     end
 
     Admin["Municipal Engineer"]
 
-    Staff --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7
-    UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 --- Admin
-    UC8 & UC9 & UC10 --- Admin
+    Staff --- UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8
+    UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 --- Admin
+    UC9 & UC10 & UC11 --- Admin
 
     classDef staffStyle fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1,font-weight:bold;
     classDef adminStyle fill:#0f2b5c,stroke:#091e42,stroke-width:2px,color:#ffffff,font-weight:bold;
@@ -96,8 +109,8 @@ flowchart LR
 
     class Staff staffStyle;
     class Admin adminStyle;
-    class UC1,UC2,UC3,UC4,UC5,UC6,UC7 ucOps;
-    class UC8,UC9,UC10 ucAdmin;
+    class UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8 ucOps;
+    class UC9,UC10,UC11 ucAdmin;
     class System systemBox;
     class Ops,AdminOps subBox;
     linkStyle default stroke:#475569,stroke-width:1.3px;

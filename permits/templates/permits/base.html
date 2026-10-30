@@ -25,12 +25,14 @@
             }
         })();
 
-        // ⚡ PERFECTLY SYNCHRONIZED THEME SWITCH (View Transitions API)
-        // Uses the browser's View Transitions API to capture a pixel-perfect
+        // ⚡ PERFECTLY SYNCHRONIZED THEME SWITCH (ZERO CONTAINER DELAY)
         window.applyTheme = function(theme) {
             const isDark = theme === 'dark';
             const root = document.documentElement;
             const body = document.body;
+
+            // Freeze individual container CSS transitions so 100% of containers paint in the exact same frame
+            root.classList.add('etala-theme-switching');
 
             if (isDark) {
                 root.classList.add('dark-mode');
@@ -55,10 +57,20 @@
                     body.style.backgroundColor = '#f8fafc';
                 }
             }
+
+            // Force synchronous style & layout flush so all cards/tables/headers flip together simultaneously
+            void root.offsetHeight;
+
             try { localStorage.setItem('theme', theme); } catch(e) {}
             if (window.dispatchEvent) {
                 window.dispatchEvent(new CustomEvent('etala-theme-changed', { detail: { theme: theme } }));
             }
+
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    root.classList.remove('etala-theme-switching');
+                });
+            });
         };
 
         window.toggleTheme = function() {
@@ -67,6 +79,23 @@
         };
     </script>
     <style>
+        /* ══ ZERO-DELAY SYNCHRONIZED THEME SWITCHING (NO LAGGING CONTAINERS) ══ */
+        html.etala-theme-switching,
+        html.etala-theme-switching *,
+        html.etala-theme-switching *::before,
+        html.etala-theme-switching *::after {
+            transition: none !important;
+            transition-duration: 0s !important;
+            transition-delay: 0s !important;
+        }
+
+        html.etala-theme-switching .theme-switch-thumb,
+        html.etala-theme-switching .theme-switch-track,
+        html.etala-theme-switching .track-icon-sun,
+        html.etala-theme-switching .track-icon-moon {
+            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.22s ease, opacity 0.22s ease !important;
+        }
+
         /* ══ NATIVE CROSS-DOCUMENT VIEW TRANSITIONS (ZERO-BLINK SIDEBAR) ══════ */
         @view-transition {
             navigation: auto;
@@ -443,6 +472,496 @@
             background-color: #334155 !important;
             color: #f87171 !important;
         }
+        /* ══ ZERO-SCROLLBAR, ZERO-JUMP USER PROFILE DROPDOWN (BUTTER-SMOOTH) ══ */
+        .user-profile-dropdown-card,
+        .dropdown-menu.user-profile-dropdown-card {
+            width: 252px !important;
+            min-width: 252px !important;
+            max-width: 252px !important;
+            max-height: none !important;
+            height: auto !important;
+            overflow: visible !important;
+            overflow-y: visible !important;
+            overflow-x: hidden !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            margin-right: 0 !important;
+            margin-top: 8px !important;
+            border-radius: 14px !important;
+            box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.16), 0 4px 12px -2px rgba(15, 23, 42, 0.08) !important;
+            transform-origin: top right !important;
+        }
+
+        .user-profile-dropdown-card::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        .user-profile-dropdown-card .user-profile-menu-list {
+            overflow: visible !important;
+            max-height: none !important;
+            height: auto !important;
+            gap: 2px !important;
+        }
+
+        .user-profile-dropdown-card .dropdown-item,
+        .user-profile-dropdown-card .user-profile-menu-link {
+            padding: 8px 12px !important;
+            font-size: 0.83rem !important;
+            line-height: 1.25 !important;
+            border-radius: 8px !important;
+            transition: background-color 0.15s ease, color 0.15s ease !important;
+        }
+
+        /* ══ ORIGINAL ETALA SIDEBAR DESIGN SYSTEM (MOCKUP ACCURACY) ══ */
+        .brand-text-col {
+            display: flex !important;
+            flex-direction: column !important;
+            min-width: 0 !important;
+            line-height: 1.15 !important;
+            flex: 1 !important;
+        }
+
+        .brand-title .brand-e {
+            color: #00d2ff !important;
+            font-size: 1.55rem !important;
+            font-weight: 800 !important;
+            letter-spacing: -0.3px !important;
+            text-shadow: 0 0 16px rgba(0, 210, 255, 0.55) !important;
+        }
+
+        .brand-title .brand-tala {
+            color: #ffffff !important;
+            font-size: 1.55rem !important;
+            font-weight: 800 !important;
+            letter-spacing: -0.5px !important;
+        }
+
+        .brand-subline-1 {
+            color: #8da6c8 !important;
+            font-size: 0.53rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.7px !important;
+            text-transform: uppercase !important;
+            white-space: nowrap !important;
+            line-height: 1.25 !important;
+            display: block !important;
+        }
+
+        .brand-subline-2 {
+            color: #5d7596 !important;
+            font-size: 0.49rem !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.9px !important;
+            text-transform: uppercase !important;
+            white-space: nowrap !important;
+            line-height: 1.25 !important;
+            margin-top: 2px !important;
+            display: block !important;
+        }
+
+        .nav-item .nav-icon {
+            font-size: 15px !important;
+            width: 20px !important;
+            text-align: center !important;
+            margin-right: 10px !important;
+            flex-shrink: 0 !important;
+            transition: color 0.2s ease !important;
+        }
+
+        .nav-item .nav-chevron {
+            display: none !important;
+            opacity: 0 !important;
+            font-size: 11px !important;
+            color: #648ab8 !important;
+            margin-left: auto !important;
+            flex-shrink: 0 !important;
+        }
+
+        .nav-item.active .nav-chevron {
+            display: inline-flex !important;
+            opacity: 1 !important;
+            transform: translateX(0) !important;
+            color: #00d2ff !important;
+            font-size: 11px !important;
+            margin-left: auto !important;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(14, 75, 175, 0.72) 0%, rgba(10, 55, 130, 0.55) 100%) !important;
+            border-left: 3.5px solid #00d2ff !important;
+            border-radius: 4px 10px 10px 4px !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+        }
+
+        .nav-item.active .nav-icon {
+            color: #00d2ff !important;
+            filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.75)) !important;
+        }
+
+        .nav-item.active .nav-chevron {
+            opacity: 1 !important;
+            transform: translateX(0) !important;
+            color: #00d2ff !important;
+        }
+
+        .sidebar-divider-wrap {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            padding: 14px 10px 6px 10px !important;
+            margin-top: 4px !important;
+        }
+
+        .sidebar-divider-text {
+            color: #537093 !important;
+            font-size: 0.66rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 1.1px !important;
+            text-transform: uppercase !important;
+            white-space: nowrap !important;
+        }
+
+        .sidebar-divider-line {
+            flex: 1 !important;
+            height: 1px !important;
+            background: linear-gradient(90deg, rgba(83, 112, 147, 0.45) 0%, rgba(83, 112, 147, 0.05) 100%) !important;
+        }
+
+        /* Collapsed mode hiding */
+        .etala-sidebar.collapsed .brand-subline-1,
+        .etala-sidebar.collapsed .brand-subline-2,
+        .etala-sidebar.collapsed .sidebar-divider-line,
+        .etala-sidebar.collapsed .nav-chevron,
+        html.sidebar-is-collapsed .brand-subline-1,
+        html.sidebar-is-collapsed .brand-subline-2,
+        html.sidebar-is-collapsed .sidebar-divider-line,
+        html.sidebar-is-collapsed .nav-chevron {
+            display: none !important;
+            opacity: 0 !important;
+        }
+
+
+        /* Centered Logo in Collapsed State */
+        .etala-sidebar.collapsed .sidebar-header,
+        #sidebar.collapsed .sidebar-header,
+        html.sidebar-is-collapsed .sidebar-header {
+            justify-content: center !important;
+            padding: 16px 0 !important;
+            cursor: pointer !important;
+        }
+
+        .etala-sidebar.collapsed .brand-left,
+        #sidebar.collapsed .brand-left,
+        html.sidebar-is-collapsed .brand-left {
+            justify-content: center !important;
+            width: 100% !important;
+            margin: 0 auto !important;
+        }
+
+        .brand-logo-circle:hover {
+            transform: scale(1.06) !important;
+            box-shadow: 0 0 22px rgba(0, 210, 255, 0.65) !important;
+        }
+
+
+        /* ══════════════════════════════════════════════════════════════════════
+           PERFECTLY CENTERED COLLAPSED SIDEBAR & ULTRA-SMOOTH 60FPS TRANSITION
+           ══════════════════════════════════════════════════════════════════════ */
+        .etala-sidebar,
+        #sidebar {
+            width: 260px;
+            min-width: 72px;
+            transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: width;
+            overflow-x: hidden !important;
+        }
+
+        .etala-main {
+            margin-left: 260px;
+            transition: margin-left 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: margin-left;
+        }
+
+        html.sidebar-is-collapsed .etala-sidebar,
+        html.sidebar-is-collapsed #sidebar,
+        .etala-sidebar.collapsed,
+        #sidebar.collapsed {
+            width: 72px !important;
+            min-width: 72px !important;
+            max-width: 72px !important;
+        }
+
+        html.sidebar-is-collapsed .etala-main,
+        .etala-sidebar.collapsed ~ .etala-main,
+        #sidebar.collapsed ~ .etala-main {
+            margin-left: 72px !important;
+        }
+
+        /* ── 1. Perfectly Centered Logo Header in Collapsed State ── */
+        .etala-sidebar.collapsed .sidebar-header,
+        #sidebar.collapsed .sidebar-header,
+        html.sidebar-is-collapsed .sidebar-header {
+            width: 72px !important;
+            height: 76px !important;
+            min-height: 76px !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+
+        .etala-sidebar.collapsed .sidebar-brand,
+        #sidebar.collapsed .sidebar-brand,
+        html.sidebar-is-collapsed .sidebar-brand {
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .etala-sidebar.collapsed .brand-left,
+        #sidebar.collapsed .brand-left,
+        html.sidebar-is-collapsed .brand-left {
+            width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0 !important;
+        }
+
+        .etala-sidebar.collapsed .brand-logo-circle,
+        #sidebar.collapsed .brand-logo-circle,
+        html.sidebar-is-collapsed .brand-logo-circle {
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
+            margin: 0 auto !important;
+            display: block !important;
+            flex-shrink: 0 !important;
+            border: 2.5px solid rgba(255, 255, 255, 0.9) !important;
+            box-shadow: 0 0 16px rgba(0, 180, 255, 0.45) !important;
+            transform: none !important;
+        }
+
+        /* Completely Hide Text & Sublines in Collapsed State */
+        .etala-sidebar.collapsed .brand-text-col,
+        .etala-sidebar.collapsed .brand-title,
+        .etala-sidebar.collapsed .brand-subline-1,
+        .etala-sidebar.collapsed .brand-subline-2,
+        #sidebar.collapsed .brand-text-col,
+        #sidebar.collapsed .brand-title,
+        #sidebar.collapsed .brand-subline-1,
+        #sidebar.collapsed .brand-subline-2,
+        html.sidebar-is-collapsed .brand-text-col,
+        html.sidebar-is-collapsed .brand-title,
+        html.sidebar-is-collapsed .brand-subline-1,
+        html.sidebar-is-collapsed .brand-subline-2 {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+        }
+
+        /* ── 2. Perfectly Centered New Record Button ── */
+        .etala-sidebar.collapsed .sidebar-new-record-wrap,
+        #sidebar.collapsed .sidebar-new-record-wrap,
+        html.sidebar-is-collapsed .sidebar-new-record-wrap {
+            width: 100% !important;
+            padding: 14px 0 8px 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .etala-sidebar.collapsed .sidebar-new-record-btn,
+        #sidebar.collapsed .sidebar-new-record-btn,
+        html.sidebar-is-collapsed .sidebar-new-record-btn {
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            max-width: 44px !important;
+            min-height: 44px !important;
+            max-height: 44px !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0 !important;
+        }
+
+        .etala-sidebar.collapsed .sidebar-new-record-btn i,
+        #sidebar.collapsed .sidebar-new-record-btn i,
+        html.sidebar-is-collapsed .sidebar-new-record-btn i {
+            margin: 0 !important;
+            font-size: 18px !important;
+        }
+
+        .etala-sidebar.collapsed .new-record-label,
+        #sidebar.collapsed .new-record-label,
+        html.sidebar-is-collapsed .new-record-label {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            opacity: 0 !important;
+        }
+
+        /* ── 3. Perfectly Centered Nav Items & Icons ── */
+        .etala-sidebar.collapsed .sidebar-nav,
+        #sidebar.collapsed .sidebar-nav,
+        html.sidebar-is-collapsed .sidebar-nav {
+            padding: 6px 0 60px 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        .etala-sidebar.collapsed .nav-section,
+        #sidebar.collapsed .nav-section,
+        html.sidebar-is-collapsed .nav-section {
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+        }
+
+        .etala-sidebar.collapsed .nav-item,
+        #sidebar.collapsed .nav-item,
+        html.sidebar-is-collapsed .nav-item {
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            max-width: 44px !important;
+            min-height: 44px !important;
+            max-height: 44px !important;
+            padding: 0 !important;
+            margin: 4px auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 10px !important;
+            border: 1px solid transparent !important;
+            position: relative !important;
+        }
+
+        .etala-sidebar.collapsed .nav-item-content,
+        #sidebar.collapsed .nav-item-content,
+        html.sidebar-is-collapsed .nav-item-content {
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            gap: 0 !important;
+        }
+
+        .etala-sidebar.collapsed .nav-item .nav-icon,
+        #sidebar.collapsed .nav-item .nav-icon,
+        html.sidebar-is-collapsed .nav-item .nav-icon,
+        .etala-sidebar.collapsed .nav-item i,
+        #sidebar.collapsed .nav-item i,
+        html.sidebar-is-collapsed .nav-item i {
+            margin: 0 auto !important;
+            margin-right: 0 !important;
+            padding: 0 !important;
+            text-align: center !important;
+            width: 20px !important;
+            height: 20px !important;
+            font-size: 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+        }
+
+        .etala-sidebar.collapsed .nav-label,
+        .etala-sidebar.collapsed .nav-chevron,
+        #sidebar.collapsed .nav-label,
+        #sidebar.collapsed .nav-chevron,
+        html.sidebar-is-collapsed .nav-label,
+        html.sidebar-is-collapsed .nav-chevron {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+
+        /* ── 4. Clean Tools & System Divider in Collapsed State (No Spilling Text!) ── */
+        .etala-sidebar.collapsed .sidebar-divider-wrap,
+        #sidebar.collapsed .sidebar-divider-wrap,
+        html.sidebar-is-collapsed .sidebar-divider-wrap {
+            width: 100% !important;
+            padding: 10px 0 !important;
+            margin: 4px auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .etala-sidebar.collapsed .sidebar-divider-text,
+        #sidebar.collapsed .sidebar-divider-text,
+        html.sidebar-is-collapsed .sidebar-divider-text {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            opacity: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .etala-sidebar.collapsed .sidebar-divider-line,
+        #sidebar.collapsed .sidebar-divider-line,
+        html.sidebar-is-collapsed .sidebar-divider-line {
+            display: block !important;
+            width: 28px !important;
+            height: 1px !important;
+            margin: 0 auto !important;
+            flex: none !important;
+            background: rgba(255, 255, 255, 0.16) !important;
+        }
+
+        /* Active Glow State in Collapsed Mode */
+        .etala-sidebar.collapsed .nav-item.active,
+        #sidebar.collapsed .nav-item.active,
+        html.sidebar-is-collapsed .nav-item.active {
+            background: linear-gradient(135deg, rgba(14, 75, 175, 0.75) 0%, rgba(10, 55, 130, 0.6) 100%) !important;
+            border: 1px solid rgba(0, 210, 255, 0.65) !important;
+            box-shadow: 0 0 16px rgba(0, 210, 255, 0.35) !important;
+            border-left: 1px solid rgba(0, 210, 255, 0.65) !important;
+            border-radius: 10px !important;
+        }
+
+        .etala-sidebar.collapsed .nav-item.active i,
+        #sidebar.collapsed .nav-item.active i,
+        html.sidebar-is-collapsed .nav-item.active i {
+            color: #00d2ff !important;
+            filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.8)) !important;
+        }
+
     </style>
     <title>{% block title %}Dashboard | eTala{% endblock %}</title>
     <link rel="icon" type="image/png" href="{% static 'carigara_logo.png' %}">
@@ -954,6 +1473,16 @@
         .user-profile-menu-icon-blue {
             background: rgba(2, 132, 199, 0.1) !important;
             color: #0284c7 !important;
+        }
+
+        .user-profile-menu-icon-green {
+            background: rgba(16, 185, 129, 0.12) !important;
+            color: #10b981 !important;
+        }
+
+        .user-profile-menu-icon-cyan {
+            background: rgba(6, 182, 212, 0.12) !important;
+            color: #06b6d4 !important;
         }
 
         .user-profile-menu-icon-red {
@@ -9043,41 +9572,568 @@
         [data-bs-theme="dark"] .user-profile-dropdown-card .text-dark {
             color: #f8fafc !important;
         }
+
+        /* ══════════════════════════════════════════════════════════════════════
+           CONSISTENT, COMPACT, & BUTTER-SMOOTH SIDEBAR SYSTEM (REFERENCE MATCH)
+           ══════════════════════════════════════════════════════════════════════ */
+        .etala-sidebar,
+        #sidebar {
+            width: 260px;
+            min-width: 72px;
+            background: linear-gradient(180deg, #0b1528 0%, #091224 100%) !important;
+            transition: width 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: width;
+            overflow-x: hidden !important;
+        }
+
+        .etala-main {
+            margin-left: 260px;
+            transition: margin-left 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: margin-left;
+        }
+
+        /* ── EXPANDED STATE (Matches Reference Screenshot Exactly) ── */
+        .etala-sidebar .sidebar-header,
+        #sidebar .sidebar-header {
+            height: 78px !important;
+            min-height: 78px !important;
+            max-height: 78px !important;
+            padding: 16px 16px 8px 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            background: transparent !important;
+            border-bottom: none !important;
+            cursor: pointer !important;
+            transition: padding 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .etala-sidebar .brand-left,
+        #sidebar .brand-left {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            width: 100% !important;
+        }
+
+        .etala-sidebar .brand-logo-circle,
+        #sidebar .brand-logo-circle {
+            width: 48px !important;
+            height: 48px !important;
+            min-width: 48px !important;
+            min-height: 48px !important;
+            border-radius: 50% !important;
+            border: 2px solid rgba(255, 255, 255, 0.92) !important;
+            box-shadow: 0 0 18px rgba(0, 195, 255, 0.45) !important;
+            transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .etala-sidebar .sidebar-new-record-wrap,
+        #sidebar .sidebar-new-record-wrap {
+            padding: 8px 16px 12px 16px !important;
+            transition: padding 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .etala-sidebar .sidebar-new-record-btn,
+        #sidebar .sidebar-new-record-btn {
+            height: 42px !important;
+            min-height: 42px !important;
+            border-radius: 10px !important;
+            background: linear-gradient(180deg, #0088ff 0%, #0062ff 100%) !important;
+            box-shadow: 0 4px 20px rgba(0, 128, 255, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+            transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .etala-sidebar .sidebar-nav,
+        #sidebar .sidebar-nav {
+            padding: 4px 14px 60px 14px !important;
+            transition: padding 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .etala-sidebar .nav-item,
+        #sidebar .nav-item {
+            margin: 2px 0 !important;
+            padding: 0 14px !important;
+            height: 42px !important;
+            min-height: 42px !important;
+            width: 100% !important;
+            border-radius: 8px !important;
+            background: transparent !important;
+            border: 1px solid transparent !important;
+            display: flex !important;
+            align-items: center !important;
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .etala-sidebar .nav-item-content,
+        #sidebar .nav-item-content {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            width: 100% !important;
+            height: 100% !important;
+            gap: 0 !important;
+        }
+
+        .etala-sidebar .nav-item i.nav-icon,
+        #sidebar .nav-item i.nav-icon {
+            width: 20px !important;
+            min-width: 20px !important;
+            height: 20px !important;
+            margin-right: 12px !important;
+            margin-left: 0 !important;
+            font-size: 15px !important;
+            color: #94a3b8 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            flex-shrink: 0 !important;
+        }
+
+        .etala-sidebar .nav-item .nav-label,
+        #sidebar .nav-item .nav-label {
+            color: #cbd5e1 !important;
+            font-size: 0.86rem !important;
+            font-weight: 600 !important;
+            white-space: nowrap !important;
+        }
+
+        .etala-sidebar .nav-item i.nav-chevron,
+        #sidebar .nav-item i.nav-chevron {
+            display: none !important;
+            opacity: 0 !important;
+            width: auto !important;
+            min-width: 0 !important;
+            height: auto !important;
+            margin-left: auto !important;
+            margin-right: 0 !important;
+            font-size: 10px !important;
+            color: #7dd3fc !important;
+        }
+
+        .etala-sidebar .nav-item.active,
+        #sidebar .nav-item.active {
+            background: linear-gradient(90deg, rgba(0, 150, 255, 0.28) 0%, rgba(0, 95, 215, 0.10) 100%) !important;
+            border: 1px solid rgba(0, 180, 255, 0.22) !important;
+            border-left: 3.5px solid #00d2ff !important;
+            border-radius: 6px 10px 10px 6px !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22) !important;
+        }
+
+        .etala-sidebar .nav-item.active .nav-label,
+        #sidebar .nav-item.active .nav-label {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+
+        .etala-sidebar .nav-item.active i.nav-icon,
+        #sidebar .nav-item.active i.nav-icon {
+            color: #00d2ff !important;
+            filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.7)) !important;
+        }
+
+        .etala-sidebar .nav-item.active i.nav-chevron,
+        #sidebar .nav-item.active i.nav-chevron {
+            display: inline-flex !important;
+            opacity: 0.85 !important;
+            width: auto !important;
+            min-width: 0 !important;
+            margin-left: auto !important;
+            margin-right: 0 !important;
+            font-size: 10px !important;
+            color: #7dd3fc !important;
+        }
+
+        .etala-sidebar .sidebar-divider-wrap,
+        #sidebar .sidebar-divider-wrap {
+            padding: 12px 6px 6px 6px !important;
+            margin: 4px 0 !important;
+            transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        /* ── COLLAPSED STATE (Clean Centered Icons, No Module Box, Smooth Morph) ── */
+        html.sidebar-is-collapsed .etala-sidebar,
+        html.sidebar-is-collapsed #sidebar,
+        .etala-sidebar.collapsed,
+        #sidebar.collapsed {
+            width: 72px !important;
+            min-width: 72px !important;
+            max-width: 72px !important;
+            overflow-x: hidden !important;
+        }
+
+        html.sidebar-is-collapsed .etala-main,
+        .etala-sidebar.collapsed ~ .etala-main,
+        #sidebar.collapsed ~ .etala-main {
+            margin-left: 72px !important;
+        }
+
+        /* 1. Header & Brand Seal Centering — Seamless No-Border Top */
+        html.sidebar-is-collapsed .sidebar-header,
+        .etala-sidebar.collapsed .sidebar-header,
+        #sidebar.collapsed .sidebar-header {
+            width: 72px !important;
+            height: 78px !important;
+            min-height: 78px !important;
+            max-height: 78px !important;
+            padding: 16px 0 8px 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: transparent !important;
+            border-bottom: none !important;
+            cursor: pointer !important;
+        }
+
+        html.sidebar-is-collapsed .sidebar-brand,
+        .etala-sidebar.collapsed .sidebar-brand,
+        #sidebar.collapsed .sidebar-brand,
+        html.sidebar-is-collapsed .brand-left,
+        .etala-sidebar.collapsed .brand-left,
+        #sidebar.collapsed .brand-left {
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0 !important;
+        }
+
+        html.sidebar-is-collapsed .brand-logo-circle,
+        .etala-sidebar.collapsed .brand-logo-circle,
+        #sidebar.collapsed .brand-logo-circle {
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
+            margin: 0 auto !important;
+            display: block !important;
+            flex-shrink: 0 !important;
+            border-radius: 50% !important;
+            border: 2px solid rgba(255, 255, 255, 0.92) !important;
+            box-shadow: 0 0 16px rgba(0, 195, 255, 0.45) !important;
+            transform: none !important;
+        }
+
+        html.sidebar-is-collapsed .brand-text-col,
+        .etala-sidebar.collapsed .brand-text-col,
+        #sidebar.collapsed .brand-text-col,
+        html.sidebar-is-collapsed .brand-title,
+        .etala-sidebar.collapsed .brand-title,
+        #sidebar.collapsed .brand-title,
+        html.sidebar-is-collapsed .brand-subline-1,
+        .etala-sidebar.collapsed .brand-subline-1,
+        #sidebar.collapsed .brand-subline-1,
+        html.sidebar-is-collapsed .brand-subline-2,
+        .etala-sidebar.collapsed .brand-subline-2,
+        #sidebar.collapsed .brand-subline-2,
+        html.sidebar-is-collapsed .sidebar-collapse-btn,
+        .etala-sidebar.collapsed .sidebar-collapse-btn,
+        #sidebar.collapsed .sidebar-collapse-btn {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            pointer-events: none !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+        }
+
+        /* 2. New Record Button Centering — Exact Vertical Baseline */
+        html.sidebar-is-collapsed .sidebar-new-record-wrap,
+        .etala-sidebar.collapsed .sidebar-new-record-wrap,
+        #sidebar.collapsed .sidebar-new-record-wrap {
+            width: 72px !important;
+            padding: 8px 0 12px 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        html.sidebar-is-collapsed .sidebar-new-record-btn,
+        .etala-sidebar.collapsed .sidebar-new-record-btn,
+        #sidebar.collapsed .sidebar-new-record-btn {
+            width: 42px !important;
+            height: 42px !important;
+            min-width: 42px !important;
+            max-width: 42px !important;
+            min-height: 42px !important;
+            max-height: 42px !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            border-radius: 11px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0 !important;
+            background: linear-gradient(180deg, #0088ff 0%, #0062ff 100%) !important;
+            box-shadow: 0 4px 16px rgba(0, 128, 255, 0.45) !important;
+        }
+
+        html.sidebar-is-collapsed .sidebar-new-record-btn i,
+        .etala-sidebar.collapsed .sidebar-new-record-btn i,
+        #sidebar.collapsed .sidebar-new-record-btn i {
+            margin: 0 auto !important;
+            padding: 0 !important;
+            font-size: 17px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: auto !important;
+            text-align: center !important;
+        }
+
+        html.sidebar-is-collapsed .new-record-label,
+        .etala-sidebar.collapsed .new-record-label,
+        #sidebar.collapsed .new-record-label {
+            display: none !important;
+            opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            visibility: hidden !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+        }
+
+        /* 3. Navigation Rail & Items — NO BOX When Compressed, Pure Centered Icons */
+        html.sidebar-is-collapsed .sidebar-nav,
+        .etala-sidebar.collapsed .sidebar-nav,
+        #sidebar.collapsed .sidebar-nav {
+            width: 72px !important;
+            padding: 4px 0 50px 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            overflow-x: hidden !important;
+        }
+
+        html.sidebar-is-collapsed .nav-section,
+        .etala-sidebar.collapsed .nav-section,
+        #sidebar.collapsed .nav-section {
+            width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+        }
+
+        html.sidebar-is-collapsed .nav-item,
+        .etala-sidebar.collapsed .nav-item,
+        #sidebar.collapsed .nav-item,
+        html.sidebar-is-collapsed .nav-item:hover,
+        .etala-sidebar.collapsed .nav-item:hover,
+        #sidebar.collapsed .nav-item:hover,
+        html.sidebar-is-collapsed .nav-item.active,
+        .etala-sidebar.collapsed .nav-item.active,
+        #sidebar.collapsed .nav-item.active {
+            width: 44px !important;
+            height: 42px !important;
+            min-width: 44px !important;
+            max-width: 44px !important;
+            min-height: 42px !important;
+            max-height: 42px !important;
+            margin: 2px auto !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: transparent !important;
+            border: none !important;
+            border-left: none !important;
+            box-shadow: none !important;
+            border-radius: 10px !important;
+            position: relative !important;
+            transform: none !important;
+            box-sizing: border-box !important;
+        }
+
+        html.sidebar-is-collapsed .nav-item-content,
+        .etala-sidebar.collapsed .nav-item-content,
+        #sidebar.collapsed .nav-item-content {
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0 !important;
+        }
+
+        html.sidebar-is-collapsed .nav-item i.nav-icon,
+        .etala-sidebar.collapsed .nav-item i.nav-icon,
+        #sidebar.collapsed .nav-item i.nav-icon {
+            margin: 0 auto !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding: 0 !important;
+            width: 22px !important;
+            height: 22px !important;
+            min-width: 22px !important;
+            min-height: 22px !important;
+            font-size: 17px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            flex-shrink: 0 !important;
+            color: #94a3b8 !important;
+            transition: color 0.18s ease, transform 0.18s ease, filter 0.18s ease !important;
+        }
+
+        html.sidebar-is-collapsed .nav-item:hover i.nav-icon,
+        .etala-sidebar.collapsed .nav-item:hover i.nav-icon,
+        #sidebar.collapsed .nav-item:hover i.nav-icon {
+            color: #ffffff !important;
+            transform: scale(1.12) !important;
+        }
+
+        html.sidebar-is-collapsed .nav-item.active i.nav-icon,
+        .etala-sidebar.collapsed .nav-item.active i.nav-icon,
+        #sidebar.collapsed .nav-item.active i.nav-icon {
+            color: #00d2ff !important;
+            filter: drop-shadow(0 0 10px rgba(0, 210, 255, 0.8)) !important;
+            margin: 0 auto !important;
+        }
+
+        /* High-specificity hide for label & chevron so chevron NEVER pushes icon left */
+        html.sidebar-is-collapsed .nav-item .nav-label,
+        html.sidebar-is-collapsed .nav-item i.nav-chevron,
+        html.sidebar-is-collapsed .nav-item.active i.nav-chevron,
+        .etala-sidebar.collapsed .nav-item .nav-label,
+        .etala-sidebar.collapsed .nav-item i.nav-chevron,
+        .etala-sidebar.collapsed .nav-item.active i.nav-chevron,
+        #sidebar.collapsed .nav-item .nav-label,
+        #sidebar.collapsed .nav-item i.nav-chevron,
+        #sidebar.collapsed .nav-item.active i.nav-chevron {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            pointer-events: none !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+        }
+
+        /* 4. Tools & System Divider — Clean Centered Line */
+        html.sidebar-is-collapsed .sidebar-divider-wrap,
+        .etala-sidebar.collapsed .sidebar-divider-wrap,
+        #sidebar.collapsed .sidebar-divider-wrap {
+            width: 72px !important;
+            padding: 12px 0 6px 0 !important;
+            margin: 4px auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        html.sidebar-is-collapsed .sidebar-divider-text,
+        .etala-sidebar.collapsed .sidebar-divider-text,
+        #sidebar.collapsed .sidebar-divider-text {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            pointer-events: none !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+        }
+
+        html.sidebar-is-collapsed .sidebar-divider-line,
+        .etala-sidebar.collapsed .sidebar-divider-line,
+        #sidebar.collapsed .sidebar-divider-line {
+            display: block !important;
+            width: 28px !important;
+            height: 1px !important;
+            margin: 0 auto !important;
+            flex: none !important;
+            background: rgba(255, 255, 255, 0.18) !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        /* 5. Hide blueprint art watermark when collapsed */
+        html.sidebar-is-collapsed .sidebar-blueprint-art,
+        .etala-sidebar.collapsed .sidebar-blueprint-art,
+        #sidebar.collapsed .sidebar-blueprint-art {
+            display: none !important;
+        }
     </style>
     {% block extra_css %}{% endblock %}
+
+
+
 </head>
 
 <body>
+    <script>
+        (function() {
+            var root = document.documentElement;
+            if (root.classList.contains('dark-mode')) {
+                document.body.classList.add('dark-mode');
+                document.body.setAttribute('data-bs-theme', 'dark');
+                document.body.style.colorScheme = 'dark';
+                document.body.style.backgroundColor = '#0b1329';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.body.setAttribute('data-bs-theme', 'light');
+                document.body.style.colorScheme = 'light';
+                document.body.style.backgroundColor = '#f8fafc';
+            }
+        })();
+    </script>
     {% if request.user.is_authenticated %}
     <div class="etala-layout">
         <!-- ═══════════════════════════════════════════
              COLLAPSIBLE LEFT SIDEBAR (eTala Reference)
              ═══════════════════════════════════════════ -->
         <aside class="etala-sidebar" id="sidebar">
+            <script>
+                if (document.documentElement.classList.contains('sidebar-is-collapsed')) {
+                    document.getElementById('sidebar').classList.add('collapsed');
+                }
+            </script>
             <!-- Sidebar Header: Official Carigara Emblem & eTala Brand -->
-            <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand" onclick="handleBrandClick(event)" title="eTala">
-                    <div class="brand-left">
+                        <!-- Sidebar Header: Official Carigara Emblem & eTala Brand (Click Logo/Header to Extend/Compress) -->
+            <div class="sidebar-header" id="sidebarHeader" onclick="toggleSidebar(event)" role="button" tabindex="0" title="Click to collapse / expand sidebar (Ctrl+B)" style="cursor: pointer; user-select: none;">
+                <div class="sidebar-brand">
+                    <div class="brand-left d-flex align-items-center gap-2.5">
                         <img src="{% static 'carigara_logo.png' %}" alt="Official Seal of Municipality of Carigara"
                             class="brand-logo-circle"
-                            style="width: 36px !important; height: 36px !important; min-width: 36px !important; min-height: 36px !important; border-radius: 50% !important; object-fit: cover !important; display: block !important;">
-                        <div class="brand-title">
-                            <span class="brand-e">e</span><span class="brand-tala">Tala</span>
+                            style="border-radius: 50%; object-fit: cover; display: block; cursor: pointer;">
+                        <div class="brand-text-col">
+                            <div class="brand-title">
+                                <span class="brand-e">e</span><span class="brand-tala">Tala</span>
+                            </div>
+                            <span class="brand-subline-1">MUNICIPAL ENGINEERING OFFICE</span>
+                            <span class="brand-subline-2">CARIGARA, LEYTE</span>
                         </div>
                     </div>
-                </a>
-                <button type="button" class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebar(event)" title="Collapse sidebar (Ctrl+B)"
-                    aria-label="Toggle sidebar">
-                    <i class="fa-solid fa-angles-left" id="collapseIcon" style="font-size: 14px;"></i>
-                </button>
+                </div>
             </div>
 
             <!-- New Record Button (Matching Reference Design) -->
             {% if request.user.role == 'admin' or request.user.role == 'staff' %}
-            <div class="sidebar-new-record-wrap px-3 pt-3 pb-1">
+            <div class="sidebar-new-record-wrap">
                 <a href="{% url 'create_step1' %}"
-                    class="sidebar-new-record-btn d-flex align-items-center justify-content-center gap-2 w-100 py-2.5 px-3 text-white text-decoration-none rounded-3 fw-bold"
-                    style="background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%); font-size: 0.88rem; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); transition: all 0.2s ease;">
+                    class="sidebar-new-record-btn d-flex align-items-center justify-content-center gap-2 w-100 text-white text-decoration-none fw-bold"
+                    style="background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%); font-size: 0.88rem; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);">
                     <i class="fa-solid fa-circle-plus" style="font-size: 15px;"></i>
                     <span class="new-record-label">New Record</span>
                 </a>
@@ -9091,8 +10147,9 @@
                         class="nav-item {% if active_tab == 'dashboard' %}active{% endif %}"
                         title="Dashboard">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-house" style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-house nav-icon"></i>
                             <span class="nav-label">Dashboard</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
 
@@ -9101,9 +10158,9 @@
                         class="nav-item {% if active_tab == 'records' or active_tab == 'municipal' or active_tab == 'permits' or active_tab == 'search' %}active{% endif %}"
                         title="Records">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-folder-open"
-                                style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-folder-open nav-icon"></i>
                             <span class="nav-label">Records</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
 
@@ -9112,9 +10169,9 @@
                         class="nav-item {% if active_tab == 'barangays' %}active{% endif %}"
                         title="Barangays">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-location-dot"
-                                style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-location-dot nav-icon"></i>
                             <span class="nav-label">Barangays</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
 
@@ -9123,15 +10180,16 @@
                         class="nav-item {% if active_tab == 'illegal' or active_tab == 'illegal_constructions' %}active{% endif %}"
                         title="Illegal Constructions">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-triangle-exclamation"
-                                style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-triangle-exclamation nav-icon"></i>
                             <span class="nav-label">Illegal Constructions</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
 
                     <!-- Tools & System Divider -->
-                    <div class="sidebar-divider-label">
-                        <span class="nav-label">Tools &amp; System</span>
+                    <div class="sidebar-divider-wrap">
+                        <span class="sidebar-divider-text">TOOLS &amp; SYSTEM</span>
+                        <div class="sidebar-divider-line"></div>
                     </div>
 
                     <!-- Reports -->
@@ -9140,9 +10198,9 @@
                         class="nav-item {% if active_tab == 'reports' or '/reports/' in request.path %}active{% endif %}"
                         title="Reports">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-chart-column"
-                                style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-chart-column nav-icon"></i>
                             <span class="nav-label">Reports</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
                     {% endif %}
@@ -9153,8 +10211,9 @@
                         class="nav-item {% if active_tab == 'users' or '/users/' in request.path %}active{% endif %}"
                         title="Users">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-users" style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-users nav-icon"></i>
                             <span class="nav-label">Users</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
                     {% endif %}
@@ -9165,9 +10224,9 @@
                         class="nav-item {% if active_tab == 'archive' or '/archive/' in request.path %}active{% endif %}"
                         title="Trash">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-trash-can"
-                                style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-trash-can nav-icon"></i>
                             <span class="nav-label">Trash</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
                     {% endif %}
@@ -9178,8 +10237,9 @@
                         class="nav-item {% if active_tab == 'settings' or '/settings/' in request.path %}active{% endif %}"
                         title="Backup">
                         <div class="nav-item-content">
-                            <i class="fa-solid fa-cloud-arrow-down" style="font-size: 15px; width: 20px; text-align: center;"></i>
+                            <i class="fa-solid fa-cloud-arrow-down nav-icon"></i>
                             <span class="nav-label">Backup</span>
+                            <i class="fa-solid fa-chevron-right nav-chevron"></i>
                         </div>
                     </a>
                     {% endif %}
@@ -9281,11 +10341,7 @@
                                 </span>
                             </button>
 
-                            <!-- Quick Help & User Guide Button -->
-                            <button class="header-help-btn" type="button" onclick="openQuickHelpModal();" title="Quick Help & Guide (Press ?)" aria-label="Help Guide"
-                                style="background: transparent; border: none; padding: 6px; border-radius: 9px; cursor: pointer; color: #64748b; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; transition: all 0.2s ease;">
-                                <i class="fa-regular fa-circle-question" style="font-size: 16px;"></i>
-                            </button>
+                            
 
                             <!-- Notifications Bell Dropdown -->
                             <div class="dropdown">
@@ -9428,11 +10484,7 @@
                                         {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                     </div>
                                     {% else %}
-                                    <img src="" alt=""
-                                        loading="eager" decoding="async"
-                                        class="header-avatar-img w-100 h-100 d-none"
-                                        style="object-fit: cover;"
-                                        onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
+                                    
                                     <div class="header-avatar-initials w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white"
                                         style="background: #064e3b; font-size: 0.80rem;">
                                         {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
@@ -9463,11 +10515,7 @@
                                             {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
                                         </div>
                                         {% else %}
-                                        <img src="" alt=""
-                                            loading="eager" decoding="async"
-                                            class="dropdown-avatar-img w-100 h-100 d-none"
-                                            style="object-fit: cover;"
-                                            onerror="this.classList.add('d-none'); if(this.nextElementSibling){ this.nextElementSibling.classList.remove('d-none'); this.nextElementSibling.classList.add('d-flex'); }">
+                                        
                                         <div class="dropdown-avatar-initials w-100 h-100 d-flex align-items-center justify-content-center fw-bold text-white"
                                             style="background: #064e3b; font-size: 0.82rem;">
                                             {{ request.user.full_name|default:request.user.username|slice:":1"|upper }}
@@ -9492,11 +10540,17 @@
                                         </div>
                                         <span class="user-profile-menu-text">User Profile</span>
                                     </a>
-                                    <a href="{% url 'about_system' %}" class="dropdown-item user-profile-menu-link">
-                                        <div class="user-profile-menu-icon user-profile-menu-icon-blue">
-                                            <i class="fa-solid fa-circle-info"></i>
+                                    <a href="{% url 'user_manual' %}" class="dropdown-item user-profile-menu-link">
+                                        <div class="user-profile-menu-icon user-profile-menu-icon-green">
+                                            <i class="fa-solid fa-book-open"></i>
                                         </div>
-                                        <span class="user-profile-menu-text">About eTala</span>
+                                        <span class="user-profile-menu-text">User Tutorial & Guide</span>
+                                    </a>
+                                    <a href="javascript:void(0)" onclick="if(window.openFeedbackModal){window.openFeedbackModal();}else{var el=document.getElementById('developerFeedbackModal');if(el&&window.bootstrap){bootstrap.Modal.getOrCreateInstance(el).show();}}" class="dropdown-item user-profile-menu-link">
+                                        <div class="user-profile-menu-icon user-profile-menu-icon-cyan">
+                                            <i class="fa-solid fa-paper-plane"></i>
+                                        </div>
+                                        <span class="user-profile-menu-text">Send Feedback</span>
                                     </a>
 
                                     <hr class="dropdown-divider my-1" style="width: 100% !important; margin: 4px 0 !important; border-color: rgba(226, 232, 240, 0.8) !important;">
@@ -11463,55 +12517,19 @@
                 // Send beacon fallback for reliable instant persistence before page navigation
                 try {
                     if (id && navigator.sendBeacon) {
-                        const csrftoken = (document.cookie.split('; ').find(row => row.startsWith('csrftoken=')) || '').split('=')[1];
-                        const blob = new Blob([JSON.stringify({ action_type: 'mark_read', notification_id: id })], { type: 'application/json' });
-                        navigator.sendBeacon('/notifications/action/', blob);
-                    }
-                } catch (e) {}
-
-                // Check if target URL is on the same page
-                try {
-                    const currentUrl = new URL(window.location.href);
-                    const targetUrl = new URL(url, window.location.origin);
-
-                    if (currentUrl.pathname === targetUrl.pathname && !url.includes('tab=')) {
-                        // Same page destination: update browser query string and trigger immediate highlight
-                        window.history.pushState({}, '', targetUrl.toString());
-                        if (typeof window.handleDocumentDeepLink === 'function') {
-                            window.handleDocumentDeepLink();
-                        } else {
-                            window.location.href = url;
-                        }
-                        return;
-                    }
-                } catch (err) {
-                    // Fallback to standard redirect
-                }
-
-                setTimeout(() => {
-                    window.location.href = url;
-                }, 100);
-            }
+                        const csrftoken = (document.cookie.split('; ').find(row =
+                localStorage.setItem('etala_read_notifs', JSON.stringify(list));
+            } catch(e) {}
         }
-
-        function getNotifStorageKeys() {
-            const uid = '{{ request.user.id|default:"guest" }}';
-            return {
-                readKey: 'etala_read_notifs_' + uid,
-                deletedKey: 'etala_deleted_notifs_' + uid
-            };
-        }
-        function getReadNotifs() {
-            const { readKey } = getNotifStorageKeys();
+        function getDeletedNotifs() {
+            const { deletedKey } = getNotifStorageKeys();
             try {
-                const val = localStorage.getItem(readKey) || localStorage.getItem('etala_read_notifs');
+                const val = localStorage.getItem(deletedKey) || localStorage.getItem('etala_deleted_notifs');
                 return val ? JSON.parse(val) : [];
             } catch(e) { return []; }
         }
-        function setReadNotifs(list) {
-            const { readKey } = getNotifStorageKeys();
-            try {
-                localStorage.setItem(readKey, JSON.stringify(list));
+        function setDeletedNotifs(list) {
+       
                 localStorage.setItem('etala_read_notifs', JSON.stringify(list));
             } catch(e) {}
         }
@@ -12653,7 +13671,8 @@
     <!-- Global Spotlight Quick Search & Quick Help Modals -->
     {% if request.user.is_authenticated %}
     {% include 'permits/includes/_spotlight_search_modal.html' %}
-    {% include 'permits/includes/_quick_help_modal.html' %}
+    {% include 'permits/includes/_developer_feedback_modal.html' %}
+    {% include 'permits/includes/_guided_tour_engine.html' %}
     {% endif %}
 
     <!-- ══ GLOBAL UNIFIED SEARCHBAR ENHANCEMENTS ══ -->
@@ -13050,6 +14069,16 @@
     {% endif %}
 
     {% block extra_js %}{% endblock %}
+
+    <script>
+        window.openDeveloperFeedbackModal = window.openFeedbackModal = function() {
+            var el = document.getElementById('developerFeedbackModal');
+            if (el && window.bootstrap && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(el).show();
+            }
+        };
+    </script>
+    
 </body>
 
-</html>
+</html>

@@ -154,6 +154,19 @@
         border: none !important;
     }
 
+    /* ── Dropdown Menu & Dividers ── */
+    .dropdown-menu .dropdown-divider {
+        border-top: 1px solid rgba(226, 232, 240, 0.9) !important;
+        margin: 4px 0 !important;
+        opacity: 1 !important;
+    }
+
+    .dark-mode .dropdown-menu .dropdown-divider,
+    [data-bs-theme="dark"] .dropdown-menu .dropdown-divider {
+        border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+        opacity: 1 !important;
+    }
+
     /* ── Active Personnel Badge Toolbar (High Contrast) ── */
     .active-operators-badge {
         background: #ffffff !important;
@@ -642,7 +655,7 @@
             background: transparent !important;
         }
 
-        #usersTableContainer .user-row-item-tr td[data-label="Status & Actions"] {
+        #usersTableContainer .user-row-item-tr td[data-label="Status"] {
             flex: 0 0 auto !important;
             display: inline-flex !important;
             align-items: center !important;
@@ -651,19 +664,20 @@
             background: transparent !important;
         }
 
-        #usersTableContainer .user-row-item-tr td[data-label="Status & Actions"] .d-flex {
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 6px !important;
-            justify-content: flex-start !important;
+        #usersTableContainer .user-row-item-tr td[data-label="Actions"] {
+            position: absolute !important;
+            top: 13px !important;
+            right: 13px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
             background: transparent !important;
+            width: auto !important;
         }
 
         /* Position Three-Dots Menu at top right of the card */
         #usersTableContainer .user-row-item-tr .dropdown {
-            position: absolute !important;
-            top: 13px !important;
-            right: 13px !important;
+            position: static !important;
         }
 
         #usersTableContainer .row-action-btn {
@@ -822,9 +836,10 @@
         <table class="data-table mb-0" style="width: 100%; table-layout: fixed;">
             <thead>
                 <tr>
-                    <th style="min-width: 250px; width: 38%;">STAFF MEMBER</th>
-                    <th class="text-center" style="min-width: 160px; width: 32%;">ROLE</th>
-                    <th class="text-end" style="min-width: 160px; width: 30%;">STATUS & ACTIONS</th>
+                    <th style="min-width: 240px; width: 40%;">STAFF MEMBER</th>
+                    <th class="text-center" style="min-width: 140px; width: 24%;">ROLE</th>
+                    <th class="text-center" style="min-width: 130px; width: 22%;">STATUS</th>
+                    <th class="text-end" style="min-width: 80px; width: 14%;">ACTIONS</th>
                 </tr>
             </thead>
             <tbody>
@@ -873,107 +888,112 @@
                     <!-- Col 2: Role Badge -->
                     <td class="text-center" data-label="Role" style="vertical-align: middle; white-space: nowrap;">
                         {% if u.role == 'admin' %}
-                        <span class="badge-role-admin">
-                            <i class="fa-solid fa-shield-halved" style="font-size: 10px;"></i> Administrator
-                        </span>
+                        <span class="badge-role-admin">Administrator</span>
                         {% else %}
-                        <span class="badge-role-staff">
-                            <i class="fa-solid fa-user" style="font-size: 10px;"></i> Staff Personnel
-                        </span>
+                        <span class="badge-role-staff">Staff Personnel</span>
                         {% endif %}
                     </td>
 
-                    <!-- Col 4: Status & Actions -->
-                    <td class="text-end" data-label="Status & Actions"
+                    <!-- Col 3: Status Indicator -->
+                    <td class="text-center" data-label="Status"
                         style="vertical-align: middle; white-space: nowrap;">
-                        <div class="d-flex align-items-center justify-content-end gap-2.5" style="white-space: nowrap;">
-                            {% if u.is_active %}
-                            <span class="user-status-pill status-active" title="Account is Active">
-                                <i class="fa-solid fa-circle-check"></i> Active
-                            </span>
-                            {% else %}
-                            <span class="user-status-pill status-inactive" title="Account is Inactive">
-                                <i class="fa-solid fa-circle-xmark"></i> Inactive
-                            </span>
-                            {% endif %}
+                        {% if u.is_active %}
+                        <span class="user-status-pill status-active" title="Account is Active">Active</span>
+                        {% else %}
+                        <span class="user-status-pill status-inactive" title="Account is Inactive">Inactive</span>
+                        {% endif %}
+                    </td>
 
-                            <!-- Action Dropdown -->
-                            <div class="dropdown" onclick="event.stopPropagation();">
-                                <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
-                                    aria-expanded="false" data-bs-auto-close="true" title="More Actions">
-                                    <i class="fa-solid fa-ellipsis-vertical text-muted" style="font-size: 13px;"></i>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border p-1"
-                                    style="border-radius: 12px; font-size: 0.82rem; min-width: 180px; z-index: 99999;"
-                                    onclick="event.stopPropagation();">
-                                    <li>
+                    <!-- Col 4: Actions Dropdown -->
+                    <td class="text-end" data-label="Actions"
+                        style="vertical-align: middle; white-space: nowrap;">
+                        <div class="dropdown d-inline-block" onclick="event.stopPropagation();">
+                            <button type="button" class="row-action-btn" data-bs-toggle="dropdown"
+                                aria-expanded="false" data-bs-auto-close="true" title="More Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-muted" style="font-size: 13px;"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border p-1"
+                                style="border-radius: 12px; font-size: 0.82rem; min-width: 185px; z-index: 99999;"
+                                onclick="event.stopPropagation();">
+                                <!-- Tier 1: General Account Management (Neutral Slate Icons) -->
+                                <li>
+                                    <button type="button"
+                                        class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2"
+                                        data-id="{{ u.id }}" data-name="{{ u.full_name|default:u.username }}"
+                                        data-email="{{ u.email }}" data-role="{{ u.role }}"
+                                        data-designation="{{ u.designation|default:'' }}"
+                                        data-is-self="{% if u.id == request.user.id %}true{% else %}false{% endif %}"
+                                        onclick="openEditModal(this.dataset.id, this.dataset.name, this.dataset.email, this.dataset.role, this.dataset.designation, this.dataset.isSelf === 'true')">
+                                        <i class="fa-solid fa-pen-to-square text-muted"
+                                            style="font-size: 12px; width: 14px;"></i>
+                                        <span>Edit Profile</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button"
+                                        class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2"
+                                        data-id="{{ u.id }}" data-name="{{ u.full_name|default:u.username }}"
+                                        onclick="openResetModal(this.dataset.id, this.dataset.name)">
+                                        <i class="fa-solid fa-key text-muted"
+                                            style="font-size: 12px; width: 14px;"></i>
+                                        <span>Reset Password</span>
+                                    </button>
+                                </li>
+
+                                {% if u != request.user %}
+                                <!-- Divider: Safe -> Status -->
+                                <li>
+                                    <hr class="dropdown-divider my-1">
+                                </li>
+
+                                <!-- Tier 2: Status Toggle (Reversible) -->
+                                <li>
+                                    <form method="POST" action="{% url 'users' %}" class="m-0"
+                                        id="toggleUserForm-{{ u.id }}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="toggle_status">
+                                        <input type="hidden" name="user_id" value="{{ u.id }}">
+                                        {% if u.is_active %}
                                         <button type="button"
-                                            class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2"
-                                            data-id="{{ u.id }}" data-name="{{ u.full_name|default:u.username }}"
-                                            data-email="{{ u.email }}" data-role="{{ u.role }}"
-                                            data-designation="{{ u.designation|default:'' }}"
-                                            data-is-self="{% if u.id == request.user.id %}true{% else %}false{% endif %}"
-                                            onclick="openEditModal(this.dataset.id, this.dataset.name, this.dataset.email, this.dataset.role, this.dataset.designation, this.dataset.isSelf === 'true')">
-                                            <i class="fa-solid fa-pen-to-square text-primary"
+                                            class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2 text-warning"
+                                            onclick="confirmToggleUserStatus('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}', true);">
+                                            <i class="fa-solid fa-user-slash text-warning"
                                                 style="font-size: 12px; width: 14px;"></i>
-                                            <span>Edit Profile</span>
+                                            <span>Deactivate Account</span>
                                         </button>
-                                    </li>
-                                    <li>
+                                        {% else %}
                                         <button type="button"
-                                            class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2"
-                                            data-id="{{ u.id }}" data-name="{{ u.full_name|default:u.username }}"
-                                            onclick="openResetModal(this.dataset.id, this.dataset.name)">
-                                            <i class="fa-solid fa-key text-teal"
-                                                style="font-size: 12px; width: 14px; color: #0d9488;"></i>
-                                            <span>Reset Password</span>
-                                        </button>
-                                    </li>
-                                    {% if u != request.user %}
-                                    <li>
-                                        <hr class="dropdown-divider my-1">
-                                    </li>
-                                    <li>
-                                        <form method="POST" action="{% url 'users' %}" class="m-0"
-                                            id="toggleUserForm-{{ u.id }}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="action" value="toggle_status">
-                                            <input type="hidden" name="user_id" value="{{ u.id }}">
-                                            {% if u.is_active %}
-                                            <button type="button"
-                                                class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2 text-warning"
-                                                onclick="confirmToggleUserStatus('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}', true);">
-                                                <i class="fa-solid fa-user-slash text-warning"
-                                                    style="font-size: 12px; width: 14px;"></i>
-                                                <span>Deactivate Account</span>
-                                            </button>
-                                            {% else %}
-                                            <button type="button"
-                                                class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2 text-success"
-                                                onclick="confirmToggleUserStatus('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}', false);">
-                                                <i class="fa-solid fa-user-check text-success"
-                                                    style="font-size: 12px; width: 14px;"></i>
-                                                <span>Activate Account</span>
-                                            </button>
-                                            {% endif %}
-                                        </form>
-                                    </li>
-                                    <li>
-                                        <button type="button"
-                                            class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2 text-danger"
-                                            data-id="{{ u.id }}" data-name="{{ u.full_name|default:u.username }}"
-                                            data-email="{{ u.email }}"
-                                            data-avatar="{{ u.profile_picture_url|default:'' }}"
-                                            data-initials="{{ u.username|slice:':2'|upper }}" data-role="{{ u.role }}"
-                                            onclick="openDeleteModal(this.dataset.id, this.dataset.name, this.dataset.email, this.dataset.avatar, this.dataset.initials, this.dataset.role)">
-                                            <i class="fa-solid fa-trash-can text-danger"
+                                            class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2 text-success"
+                                            onclick="confirmToggleUserStatus('{{ u.id }}', '{{ u.full_name|default:u.username|escapejs }}', false);">
+                                            <i class="fa-solid fa-user-check text-success"
                                                 style="font-size: 12px; width: 14px;"></i>
-                                            <span>Delete Account</span>
+                                            <span>Activate Account</span>
                                         </button>
-                                    </li>
-                                    {% endif %}
-                                </ul>
-                            </div>
+                                        {% endif %}
+                                    </form>
+                                </li>
+
+                                <!-- Divider: Status -> Danger Zone -->
+                                <li>
+                                    <hr class="dropdown-divider my-1">
+                                </li>
+
+                                <!-- Tier 3: Danger Zone (Permanent Deletion) -->
+                                <li>
+                                    <button type="button"
+                                        class="dropdown-item py-2 px-2.5 rounded-2 d-flex align-items-center gap-2 text-danger"
+                                        data-id="{{ u.id }}" data-name="{{ u.full_name|default:u.username }}"
+                                        data-email="{{ u.email }}"
+                                        data-avatar="{{ u.profile_picture_url|default:'' }}"
+                                        data-initials="{{ u.username|slice:':2'|upper }}" data-role="{{ u.role }}"
+                                        onclick="openDeleteModal(this.dataset.id, this.dataset.name, this.dataset.email, this.dataset.avatar, this.dataset.initials, this.dataset.role)">
+                                        <i class="fa-solid fa-trash-can text-danger"
+                                            style="font-size: 12px; width: 14px;"></i>
+                                        <span>Delete Account</span>
+                                    </button>
+                                </li>
+                                {% endif %}
+                            </ul>
                         </div>
                     </td>
                 </tr>
@@ -1429,14 +1449,9 @@
 
         async function updateUsersTableAJAX(url, pushHistory = true) {
             const tableContainer = document.getElementById('usersTableContainer');
-            const loadingOverlay = document.getElementById('usersLoadingOverlay');
-            if (loadingOverlay) loadingOverlay.classList.add('show');
             if (userSearchSpinner) userSearchSpinner.classList.remove('d-none');
             if (userClearBtn) userClearBtn.classList.add('d-none');
-            if (tableContainer) {
-                tableContainer.style.minHeight = `${tableContainer.offsetHeight}px`;
-                tableContainer.classList.add('table-ajax-loading');
-            }
+            const startHeight = tableContainer ? tableContainer.offsetHeight : 0;
 
             try {
                 const response = await fetch(url, {
@@ -1448,13 +1463,26 @@
 
                 const newTable = doc.getElementById('usersTableContainer');
                 if (tableContainer && newTable) {
+                    if (startHeight > 0) {
+                        tableContainer.style.height = `${startHeight}px`;
+                        tableContainer.style.overflow = 'hidden';
+                    }
                     tableContainer.innerHTML = newTable.innerHTML;
-                    tableContainer.classList.remove('table-ajax-loading');
-                    tableContainer.classList.add('table-ajax-fade-in');
-                    setTimeout(() => {
-                        tableContainer.classList.remove('table-ajax-fade-in');
-                        tableContainer.style.minHeight = '';
-                    }, 200);
+                    const targetHeight = tableContainer.scrollHeight;
+                    if (startHeight > 0 && Math.abs(targetHeight - startHeight) > 2) {
+                        tableContainer.style.transition = 'height 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+                        requestAnimationFrame(() => {
+                            tableContainer.style.height = `${targetHeight}px`;
+                        });
+                        setTimeout(() => {
+                            tableContainer.style.height = '';
+                            tableContainer.style.overflow = '';
+                            tableContainer.style.transition = '';
+                        }, 240);
+                    } else {
+                        tableContainer.style.height = '';
+                        tableContainer.style.overflow = '';
+                    }
                     instantFilterLocalRows();
                 }
 
@@ -1506,11 +1534,12 @@
 
         function instantFilterLocalRows() {
             const query = userSearchInput ? userSearchInput.value.toLowerCase().trim() : '';
+            const tokens = query ? query.split(/\s+/).filter(Boolean) : [];
             const userRows = document.querySelectorAll('#usersTableContainer .user-row-item-tr');
             userRows.forEach(row => {
                 const email = (row.getAttribute('data-email') || '').toLowerCase();
                 const text = ((row.innerText || row.textContent || '') + ' ' + email).toLowerCase();
-                if (!query || text.includes(query)) {
+                if (tokens.length === 0 || tokens.every(t => text.includes(t))) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';

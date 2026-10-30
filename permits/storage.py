@@ -80,21 +80,52 @@ class SupabaseStorage(Storage):
                 return c
         return None
 
+    def _upload_to_supabase_worker(self, clean_path, data):
+        url, key, bucket = self._get_supabase_config()
+        endpoint = f"{url}/storage/v1/object/{bucket}/{clean_path}"
+        mime_type, _ = mimetypes.guess_type(clean_path)
+        headers = self._headers()
+        headers['Content-Type'] = mime_type or 'application/octet-stream'
+        headers['x-upsert'] = 'true'
+
+        payload = io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else data
+        session = get_http_session()
+        try:
+            resp = session.post(endpoint, headers=headers, data=payload, timeout=(15.0, 180.0))
+            if resp.status_code in (200, 201):
+                logger.info(f"Successfully uploaded {clean_path} to Supabase bucket '{bucket}'.")
+                return True
+            else:
+                logger.warning(f"Supabase upload returned {resp.status_code} for {clean_path}: {resp.text}")
+                return False
+        except Exception as exc:
+            logger.warning(f"Supabase upload failed ({exc}) for {clean_path}.")
+            return False
+
+    def _dispatch_supabase_upload(self, clean_path, data, async_upload=True):
+        if not async_upload:
+            return self._upload_to_supabase_worker(clean_path, data)
+        import threading
+        t = threading.Thread(target=self._upload_to_supabase_worker, args=(clean_path, data), daemon=True)
+        t.start()
+        return True
+
     def _save(self, name, content):
         clean_name = self._clean_path(name)
         
         # Save to local fallback storage first for guaranteed instant availability & caching
         saved_name = self.fallback_storage.save(clean_name, content)
+        saved_clean = self._clean_path(saved_name)
         
         if not self._is_configured():
             return saved_name
 
-        url, key, bucket = self._get_supabase_config()
-        endpoint = f"{url}/storage/v1/object/{bucket}/{clean_name}"
-        
         try:
             data = b''
-            if hasattr(content, 'seek'):
+            if self.fallback_storage.exists(saved_name):
+                with self.fallback_storage.open(saved_name, 'rb') as f:
+                    data = f.read()
+            elif hasattr(content, 'seek'):
                 try:
                     content.seek(0)
                     data = content.read()
@@ -103,23 +134,11 @@ class SupabaseStorage(Storage):
             elif hasattr(content, 'read'):
                 data = content.read()
 
-            if not data and self.fallback_storage.exists(saved_name):
-                with self.fallback_storage.open(saved_name, 'rb') as f:
-                    data = f.read()
-
-            mime_type, _ = mimetypes.guess_type(clean_name)
-            headers = self._headers()
-            headers['Content-Type'] = mime_type or 'application/octet-stream'
-            headers['x-upsert'] = 'true'
-
-            session = get_http_session()
-            resp = session.post(endpoint, headers=headers, data=data, timeout=(5.0, 45.0))
-            if resp.status_code in (200, 201):
-                logger.info(f"Successfully uploaded {clean_name} to Supabase bucket '{bucket}'.")
-            else:
-                logger.warning(f"Supabase upload returned {resp.status_code} for {clean_name}: {resp.text}")
+            if data:
+                # Immediate async push to Supabase object store
+                self._dispatch_supabase_upload(saved_clean, data, async_upload=True)
         except Exception as exc:
-            logger.warning(f"Supabase upload failed ({exc}), local copy preserved at {clean_name}.")
+            logger.warning(f"Supabase upload dispatch failed ({exc}), local copy preserved at {saved_clean}.")
 
         return saved_name
 
@@ -249,3 +268,76 @@ class SupabaseStorage(Storage):
 
     def get_available_name(self, name, max_length=None):
         return self.fallback_storage.get_available_name(name, max_length=max_length)
+
+
+def sync_all_local_files_to_supabase(target_dirs=('documents', 'profile_pictures', 'feedback_attachments')):
+    """
+    Scans local media directories and uploads any missing files directly to Supabase storage.
+    Runs with persistent HTTP connection pooling and progress tracking.
+    """
+    from pathlib import Path
+    storage = SupabaseStorage()
+    if not storage._is_configured():
+        logger.info("Supabase not configured, skipping cloud sync.")
+        return {'synced': 0, 'skipped': 0, 'errors': 0}
+
+    url, key, bucket = storage._get_supabase_config()
+    session = get_http_session()
+    headers = storage._headers()
+    media_root = Path(settings.MEDIA_ROOT)
+
+    synced_count = 0
+    skipped_count = 0
+    error_count = 0
+
+    for folder in target_dirs:
+        folder_path = media_root / folder
+        if not folder_path.exists():
+            continue
+
+        existing_remote = set()
+        try:
+            r = session.post(
+                f"{url}/storage/v1/object/list/{bucket}",
+                headers=headers,
+                json={'prefix': folder, 'limit': 1000},
+                timeout=30.0
+            )
+            if r.status_code == 200:
+                for item in r.json():
+                    existing_remote.add(item.get('name'))
+        except Exception as e:
+            logger.warning(f"Could not list remote bucket folder '{folder}': {e}")
+
+        for file_path in folder_path.glob('*'):
+            if not file_path.is_file():
+                continue
+            if file_path.name.startswith('.') or file_path.name.lower() in ('thumbs.db', 'desktop.ini'):
+                continue
+
+            if file_path.name in existing_remote:
+                skipped_count += 1
+                continue
+
+            clean_path = f"{folder}/{file_path.name}"
+            try:
+                mime_type, _ = mimetypes.guess_type(file_path.name)
+                upload_headers = storage._headers()
+                upload_headers['Content-Type'] = mime_type or 'application/octet-stream'
+                upload_headers['x-upsert'] = 'true'
+
+                endpoint = f"{url}/storage/v1/object/{bucket}/{clean_path}"
+                with open(file_path, 'rb') as f:
+                    resp = session.post(endpoint, headers=upload_headers, data=f, timeout=(15.0, 300.0))
+                if resp.status_code in (200, 201):
+                    synced_count += 1
+                    existing_remote.add(file_path.name)
+                    logger.info(f"Cloud synced: {clean_path} -> Supabase")
+                else:
+                    error_count += 1
+                    logger.warning(f"Failed syncing {clean_path}: {resp.status_code} {resp.text}")
+            except Exception as e:
+                error_count += 1
+                logger.warning(f"Error syncing {clean_path}: {e}")
+
+    return {'synced': synced_count, 'skipped': skipped_count, 'errors': error_count}

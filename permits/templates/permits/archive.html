@@ -25,17 +25,6 @@
     <div>
         <h1 class="etala-page-title mb-0">Trash</h1>
     </div>
-    {% if request.user.role == 'admin' %}
-    <div class="etala-header-actions">
-        <button type="button" class="premium-btn btn-delete text-decoration-none" onclick="confirmEmptyTrash()"
-            {% if total_trash_unfiltered_count == 0 %}disabled style="opacity: 0.5; pointer-events: none;"{% endif %}
-            title="Permanently remove all items in trash">
-            <span class="btn-icon"><i class="fa-solid fa-trash-can"></i></span>
-            <span class="btn-divider"></span>
-            <span>Empty Trash</span>
-        </button>
-    </div>
-    {% endif %}
 </div>
 
 <!-- ══ CATEGORY TABS & SEARCH TOOLBAR (Standard eTala Layout) ══════════ -->
@@ -50,22 +39,22 @@
         
         <!-- Left: Category Tabs (All, Permits, Projects, Violations) -->
         <div class="filter-tabs-wrapper d-flex align-items-center gap-1.5 flex-nowrap" style="overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;">
-            <a href="?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}{% if per_page %}per_page={{ per_page }}&{% endif %}"
+            <a href="{% url 'archive' %}?{% if q %}q={{ q }}&{% endif %}{% if selected_barangay %}barangay={{ selected_barangay }}&{% endif %}{% if selected_year %}year={{ selected_year }}&{% endif %}{% if current_sort %}sort={{ current_sort }}&{% endif %}{% if per_page %}per_page={{ per_page }}&{% endif %}"
                class="filter-tab {% if not selected_record_type %}active{% endif %}"
                style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                All <span class="tab-count {% if not selected_record_type %}tab-count-active{% else %}tab-count-default{% endif %}">{{ all_trash_count|default:0 }}</span>
             </a>
-            <a href="?record_type=Permit{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
+            <a href="{% url 'archive' %}?record_type=Permit{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
                class="filter-tab {% if selected_record_type == 'Permit' %}active{% endif %}"
                style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                Permits <span class="tab-count {% if selected_record_type == 'Permit' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ permits_trash_count|default:0 }}</span>
             </a>
-            <a href="?record_type=Project{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
+            <a href="{% url 'archive' %}?record_type=Project{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
                class="filter-tab {% if selected_record_type == 'Project' %}active{% endif %}"
                style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                Projects <span class="tab-count {% if selected_record_type == 'Project' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ projects_trash_count|default:0 }}</span>
             </a>
-            <a href="?record_type=Illegal{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
+            <a href="{% url 'archive' %}?record_type=Illegal{% if q %}&q={{ q }}{% endif %}{% if selected_barangay %}&barangay={{ selected_barangay }}{% endif %}{% if selected_year %}&year={{ selected_year }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if per_page %}&per_page={{ per_page }}{% endif %}"
                class="filter-tab {% if selected_record_type == 'Illegal' %}active{% endif %}"
                style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
                Violations <span class="tab-count {% if selected_record_type == 'Illegal' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ illegal_trash_count|default:0 }}</span>
@@ -95,7 +84,7 @@
 
     <!-- Active Filter & Sort Chips -->
     <div id="activeChipsWrapper">
-        {% if active_filters_count > 0 or current_sort %}
+        {% if current_sort or selected_barangay or selected_year %}
         <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2 mt-1.5">
             {% if current_sort %}
             <div class="filter-chip">
@@ -174,7 +163,11 @@
     /* ── Active Filter Chips & Clean Neutral Styling ── */
     #activeChipsWrapper {
         overflow: hidden;
-        transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease, margin 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        transition: height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.20s ease, margin 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    #archiveTableContainer {
+        position: relative;
+        will-change: height;
     }
     #activeChipsWrapper.wrapper-collapsing {
         max-height: 0 !important;
@@ -440,7 +433,14 @@
         width: 100% !important;
         max-width: 100% !important;
     }
+    #archiveTableCard,
+    #archiveTableCard.content-card,
     #archiveTableContainer .content-card {
+        padding: 0 !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--border-default, #e2e8f0) !important;
+        background: #ffffff !important;
+        box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05)) !important;
         min-height: 420px !important;
         display: flex !important;
         flex-direction: column !important;
@@ -449,12 +449,44 @@
         width: 100% !important;
         max-width: 100% !important;
     }
+    #archiveTableCard > .card-body,
+    #archiveTableContainer .content-card > .card-body {
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        flex: 1 1 auto !important;
+        min-height: 100% !important;
+    }
     #archiveTableContainer .table-responsive {
         overflow-x: auto !important;
         overflow-y: visible !important;
         flex: 1 0 auto !important;
         width: 100% !important;
         max-width: 100% !important;
+    }
+    #archiveTableContainer .pagination-bar {
+        margin-top: auto !important;
+        margin-bottom: 0 !important;
+        padding: 10px 14px !important;
+        height: auto !important;
+        min-height: 48px !important;
+        border-top: 1px solid var(--border-default, #e2e8f0) !important;
+        background: #ffffff !important;
+        border-radius: 0 0 12px 12px !important;
+        box-sizing: border-box !important;
+    }
+    .dark-mode #archiveTableCard,
+    .dark-mode #archiveTableContainer .content-card,
+    [data-bs-theme="dark"] #archiveTableCard,
+    [data-bs-theme="dark"] #archiveTableContainer .content-card {
+        border-color: #334155 !important;
+        background: #1e293b !important;
+    }
+    .dark-mode #archiveTableContainer .pagination-bar,
+    [data-bs-theme="dark"] #archiveTableContainer .pagination-bar {
+        border-top-color: var(--border-default, #334155) !important;
+        background: #1e293b !important;
     }
 
     /* ── Table Typography & System-Wide Consistency ── */
@@ -805,9 +837,10 @@
 <!-- ══ TABLE / EMPTY STATE CONTAINER (Seamless AJAX Live Search) ═════════ -->
 <div id="archiveTableContainer">
     {% if page_obj.object_list %}
-    <div class="content-card">
+    <div class="content-card content-card-table" id="archiveTableCard" style="padding: 0 !important; min-height: 420px !important; display: flex; flex-direction: column; justify-content: space-between; overflow: visible !important;">
+        <div class="card-body p-0 d-flex flex-column justify-content-between flex-grow-1" style="overflow: visible !important;">
         <!-- Desktop Table View -->
-        <div class="table-responsive d-none d-md-block">
+        <div class="table-responsive d-none d-md-block" style="overflow-x: auto; overflow-y: visible !important; flex: 1 0 auto;">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -867,7 +900,7 @@
                 </thead>
                 <tbody>
                     {% for record in page_obj %}
-                    <tr data-href="{% url 'record_detail' record.record_id %}" style="cursor: pointer;">
+                    <tr data-href="{% url 'record_detail' record.record_id %}?from=archive" style="cursor: pointer;">
                         <td class="text-center cell-muted cell-row-num" onclick="event.stopPropagation();" style="width: 58px;">
                             <div class="trash-check-wrap">
                                 <input type="checkbox" class="form-check-input trash-row-checkbox trash-checkbox" value="{{ record.record_id }}" data-title="{{ record.display_title }}" onchange="updateSelectionBar()" onclick="event.stopPropagation();">
@@ -876,7 +909,9 @@
                         </td>
                         <td data-label="Title">
                             <div class="cell-title text-truncate" style="font-weight: 700; font-size: 0.88rem; text-align: left;">
-                                <span class="text-truncate" title="{{ record.display_title }}">{{ record.display_title }}</span>
+                                <a href="{% url 'record_detail' record.record_id %}?from=archive" class="title-link text-truncate text-decoration-none" title="{{ record.display_title }}">
+                                    {{ record.display_title }}
+                                </a>
                             </div>
                             <div class="cell-subtitle text-truncate mt-0.5" style="font-size: 0.74rem; text-align: left;">
                                 {% if record.is_illegal_construction and record.illegal_compliance_status == 'resolved' %}
@@ -886,16 +921,24 @@
                                     <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Complied Record</div>
                                     {% endif %}
                                 {% elif record.is_illegal_construction %}
-                                    {% if record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                    {% if record.permit_detail and record.permit_detail.permit_number %}
+                                    <div class="subtitle-row text-truncate" title="Notice/Case No: #{{ record.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ record.permit_detail.permit_number }}</strong></div>
+                                    {% elif record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
                                     <div class="subtitle-row text-truncate" title="Property Owner: {{ record.permit_detail.applicant_name }}"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.permit_detail.applicant_name }}</strong></div>
                                     {% else %}
                                     <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
                                     {% endif %}
                                 {% elif record.record_type == 'Permit' %}
-                                    {% if record.permit_detail and record.permit_detail.permit_number and record.permit_detail.date_issued %}
+                                    {% if record.permit_detail and record.permit_detail.permit_number %}
                                     <div class="subtitle-row text-truncate" title="Permit No: #{{ record.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ record.permit_detail.permit_number }}</strong></div>
+                                    {% elif record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                    <div class="subtitle-row text-truncate" title="Applicant: {{ record.permit_detail.applicant_name }}"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.permit_detail.applicant_name }}</strong></div>
                                     {% else %}
-                                    <div class="subtitle-row text-muted"><i class="fa-regular fa-clock me-1 text-muted" style="font-size: 11px;"></i>Pending Issuance</div>
+                                    <div class="subtitle-row text-muted"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><span>Official Permit</span></div>
+                                    {% endif %}
+                                {% elif record.record_type == 'Project' %}
+                                    {% if record.project_detail and record.project_detail.contractor %}
+                                    <div class="subtitle-row text-truncate" title="Contractor: {{ record.project_detail.contractor }}"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i><strong>{{ record.project_detail.contractor }}</strong></div>
                                     {% endif %}
                                 {% endif %}
                             </div>
@@ -904,9 +947,17 @@
                             {% if record.is_illegal_construction %}
                             <span class="tag tag-permit fw-semibold" style="font-size: 0.78rem;">Building Violation</span>
                             {% elif record.record_type == 'Permit' %}
-                            <span class="tag tag-permit">{{ record.specific_type_label }}</span>
+                            <span class="tag tag-permit" style="font-size: 0.78rem;">Permit</span>
+                            {% elif record.record_type == 'Project' %}
+                                {% if record.project_scope == 'Barangay' %}
+                                <span class="tag tag-project" style="font-size: 0.78rem;">Barangay Project</span>
+                                {% elif record.project_scope == 'Municipal' %}
+                                <span class="tag tag-project" style="font-size: 0.78rem;">Municipal Project</span>
+                                {% else %}
+                                <span class="tag tag-project" style="font-size: 0.78rem;">Project</span>
+                                {% endif %}
                             {% else %}
-                            <span class="tag tag-project">{{ record.specific_type_label }}</span>
+                            <span class="tag tag-project" style="font-size: 0.78rem;">{{ record.specific_type_label }}</span>
                             {% endif %}
                         </td>
                         <td class="cell-muted cell-date" data-label="Retention" style="overflow: hidden;">
@@ -942,7 +993,7 @@
         <div class="mobile-archive-list d-block d-md-none p-2">
             <div class="d-flex flex-column gap-2">
                 {% for record in page_obj %}
-                <div class="mobile-archive-item" data-href="{% url 'record_detail' record.record_id %}">
+                <div class="mobile-archive-item" data-href="{% url 'record_detail' record.record_id %}?from=archive">
                     <div class="d-flex align-items-center me-1 flex-shrink-0" onclick="event.stopPropagation();">
                         <input type="checkbox" class="form-check-input trash-row-checkbox trash-checkbox" value="{{ record.record_id }}" data-title="{{ record.display_title }}" onchange="updateSelectionBar()" onclick="event.stopPropagation();">
                     </div>
@@ -951,13 +1002,32 @@
                     </div>
                     <div class="mobile-archive-content flex-grow-1 min-w-0">
                         <div class="mobile-archive-title text-truncate">
-                            {{ record.display_title }}
+                            <a href="{% url 'record_detail' record.record_id %}?from=archive" class="title-link text-truncate text-decoration-none" title="{{ record.display_title }}">
+                                {{ record.display_title }}
+                            </a>
+                        </div>
+                        <div class="cell-subtitle text-truncate mt-0.5" style="font-size: 0.72rem; color: #64748b;">
+                            {% if record.is_illegal_construction and record.permit_detail and record.permit_detail.permit_number %}
+                                <i class="fa-solid fa-file-lines text-muted me-1"></i>#{{ record.permit_detail.permit_number }}
+                            {% elif record.is_illegal_construction and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                <i class="fa-solid fa-user text-muted me-1"></i>{{ record.permit_detail.applicant_name }}
+                            {% elif record.record_type == 'Permit' and record.permit_detail and record.permit_detail.permit_number %}
+                                <i class="fa-solid fa-file-lines text-muted me-1"></i>#{{ record.permit_detail.permit_number }}
+                            {% elif record.record_type == 'Permit' and record.permit_detail and record.permit_detail.applicant_name|is_valid_applicant %}
+                                <i class="fa-solid fa-user text-muted me-1"></i>{{ record.permit_detail.applicant_name }}
+                            {% elif record.record_type == 'Project' and record.project_detail and record.project_detail.contractor %}
+                                <i class="fa-solid fa-hard-hat text-muted me-1"></i>{{ record.project_detail.contractor }}
+                            {% endif %}
                         </div>
                         <div class="mobile-archive-meta mt-1">
                             {% if record.is_illegal_construction %}
-                            <span class="tag tag-permit text-truncate" style="font-size: 0.70rem; padding: 1px 6px;">Building Violation</span>
+                            <span class="tag tag-permit text-truncate fw-semibold" style="font-size: 0.70rem; padding: 1px 6px;">Building Violation</span>
+                            {% elif record.record_type == 'Permit' %}
+                            <span class="tag tag-permit text-truncate" style="font-size: 0.70rem; padding: 1px 6px;">Permit</span>
+                            {% elif record.record_type == 'Project' %}
+                            <span class="tag tag-project text-truncate" style="font-size: 0.70rem; padding: 1px 6px;">{% if record.project_scope == 'Barangay' %}Barangay Project{% elif record.project_scope == 'Municipal' %}Municipal Project{% else %}Project{% endif %}</span>
                             {% else %}
-                            <span class="tag {% if record.record_type == 'Permit' %}tag-permit{% else %}tag-project{% endif %} text-truncate" style="font-size: 0.70rem; padding: 1px 6px;" title="{{ record.specific_type_label }}">{{ record.specific_type_label }}</span>
+                            <span class="tag tag-project text-truncate" style="font-size: 0.70rem; padding: 1px 6px;">{{ record.specific_type_label }}</span>
                             {% endif %}
                             
                             {% if record.trash_days_remaining <= 7 %}
@@ -1055,6 +1125,7 @@
                 {% endif %}
             </div>
         </div>
+        </div>
     </div>
     {% else %}
     <div class="empty-state-unified py-5 text-center my-auto d-flex flex-column align-items-center justify-content-center flex-grow-1" style="min-height: 380px;">
@@ -1082,7 +1153,8 @@
 // ── URL Serialization Helper (Clean URLs without empty query params) ──
 function cleanUrlParams(rawUrl) {
     try {
-        const urlObj = new URL(rawUrl, window.location.origin);
+        const baseHref = window.location.href.split('?')[0].split('#')[0];
+        const urlObj = new URL(rawUrl, baseHref);
         const cleanParams = new URLSearchParams();
         for (const [k, v] of urlObj.searchParams.entries()) {
             if (v !== null && v.toString().trim() !== '') {
@@ -1091,7 +1163,8 @@ function cleanUrlParams(rawUrl) {
             }
         }
         const qStr = cleanParams.toString();
-        return qStr ? urlObj.pathname + '?' + qStr : urlObj.pathname;
+        const path = (urlObj.pathname && urlObj.pathname !== '/') ? urlObj.pathname : "{% url 'archive' %}";
+        return qStr ? path + '?' + qStr : path;
     } catch (e) {
         return rawUrl;
     }
@@ -1118,10 +1191,10 @@ function buildArchiveUrl(form, overrideParams = {}) {
         params.delete('page');
     }
     const queryString = params.toString();
-    return queryString ? window.location.pathname + '?' + queryString : window.location.pathname;
+    return queryString ? "{% url 'archive' %}?" + queryString : "{% url 'archive' %}";
 }
 
-// ── Global AJAX Table & Filter Updater for Trash ──
+// ── Global AJAX Table & Filter Updater for Trash (Zero-Blink & Zero-Jump) ──
 async function updateArchiveTableAJAX(url, pushHistory = true) {
     const tableContainer = document.getElementById('archiveTableContainer');
     const archiveSearchSpinner = document.getElementById('archiveSearchSpinner');
@@ -1132,10 +1205,9 @@ async function updateArchiveTableAJAX(url, pushHistory = true) {
 
     if (archiveSearchSpinner) archiveSearchSpinner.classList.remove('d-none');
     if (archiveClearBtn) archiveClearBtn.classList.add('d-none');
-    if (tableContainer) {
-        tableContainer.style.minHeight = `${tableContainer.offsetHeight}px`;
-        tableContainer.classList.add('table-ajax-loading');
-    }
+
+    // Capture starting height to guarantee ZERO JUMP during DOM update
+    const startHeight = tableContainer ? tableContainer.offsetHeight : 0;
 
     try {
         const response = await fetch(cleanUrl, {
@@ -1145,25 +1217,54 @@ async function updateArchiveTableAJAX(url, pushHistory = true) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, 'text/html');
 
-        // 1. Update Table or Empty State Container
-        const newTableContainer = doc.getElementById('archiveTableContainer');
-        if (tableContainer && newTableContainer) {
-            tableContainer.innerHTML = newTableContainer.innerHTML;
-            tableContainer.classList.remove('table-ajax-loading');
-            tableContainer.classList.add('table-ajax-fade-in');
-            setTimeout(() => {
-                tableContainer.classList.remove('table-ajax-fade-in');
-                tableContainer.style.minHeight = '';
-            }, 200);
-        }
-
-        // 2. Update Active Filter Chips
+        // 1. Update Active Filter Chips with smooth height slide
         const newChips = doc.getElementById('activeChipsWrapper');
         const currentChips = document.getElementById('activeChipsWrapper');
         if (currentChips && newChips) {
-            currentChips.classList.remove('wrapper-collapsing');
-            currentChips.style.maxHeight = '';
+            const oldChipsH = currentChips.offsetHeight;
             currentChips.innerHTML = newChips.innerHTML;
+            const newChipsH = currentChips.offsetHeight;
+            if (oldChipsH !== newChipsH) {
+                currentChips.style.height = `${oldChipsH}px`;
+                currentChips.style.overflow = 'hidden';
+                currentChips.style.transition = 'height 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+                requestAnimationFrame(() => {
+                    currentChips.style.height = `${newChipsH}px`;
+                });
+                setTimeout(() => {
+                    currentChips.style.height = '';
+                    currentChips.style.overflow = '';
+                    currentChips.style.transition = '';
+                }, 240);
+            }
+        }
+
+        // 2. Update Table Container (Butter-Smooth Swap: Zero Blink & Zero Jump)
+        const newTableContainer = doc.getElementById('archiveTableContainer');
+        if (tableContainer && newTableContainer) {
+            if (startHeight > 0) {
+                tableContainer.style.height = `${startHeight}px`;
+                tableContainer.style.overflow = 'hidden';
+            }
+
+            tableContainer.innerHTML = newTableContainer.innerHTML;
+
+            const targetHeight = tableContainer.scrollHeight;
+
+            if (startHeight > 0 && Math.abs(targetHeight - startHeight) > 2) {
+                tableContainer.style.transition = 'height 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+                requestAnimationFrame(() => {
+                    tableContainer.style.height = `${targetHeight}px`;
+                });
+                setTimeout(() => {
+                    tableContainer.style.height = '';
+                    tableContainer.style.overflow = '';
+                    tableContainer.style.transition = '';
+                }, 240);
+            } else {
+                tableContainer.style.height = '';
+                tableContainer.style.overflow = '';
+            }
         }
 
         // 3. Update Category Tabs & Counters
@@ -1173,7 +1274,7 @@ async function updateArchiveTableAJAX(url, pushHistory = true) {
             currentTabs.innerHTML = newTabs.innerHTML;
         }
 
-        // 4. Update Header Actions (e.g. Empty Trash button state)
+        // 4. Update Header Actions
         const newHeaderActions = doc.querySelector('.etala-header-actions');
         const currentHeaderActions = document.querySelector('.etala-header-actions');
         if (currentHeaderActions && newHeaderActions) {
@@ -1181,7 +1282,7 @@ async function updateArchiveTableAJAX(url, pushHistory = true) {
         }
 
         // 5. Synchronize Form Inputs from Clean URL
-        const parsedUrl = new URL(cleanUrl, window.location.origin);
+        const parsedUrl = new URL(cleanUrl, window.location.href);
         const form = document.getElementById('archiveFilterForm');
         if (form) {
             ['record_type', 'barangay', 'year', 'sort'].forEach(field => {
@@ -1190,7 +1291,7 @@ async function updateArchiveTableAJAX(url, pushHistory = true) {
                 if (inp) inp.value = val;
             });
         }
-        if (archiveSearchInput) {
+        if (archiveSearchInput && document.activeElement !== archiveSearchInput) {
             const queryParam = parsedUrl.searchParams.get('q');
             if (queryParam !== null && queryParam !== archiveSearchInput.value) {
                 archiveSearchInput.value = queryParam;
@@ -1260,6 +1361,16 @@ function setColumnFilter(filterName, filterVal) {
         form.appendChild(targetInput);
     }
     targetInput.value = filterVal;
+
+    // Gracefully dismiss open header dropdowns before table swap
+    document.querySelectorAll('.header-filter-dropdown.show, .dropdown-menu.show').forEach(menu => {
+        menu.classList.remove('show');
+        const btn = menu.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
+        if (btn) {
+            btn.classList.remove('show');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    });
     
     const url = buildArchiveUrl(form, { [filterName]: filterVal, page: '' });
     updateArchiveTableAJAX(url);
@@ -1277,6 +1388,16 @@ function setColumnSort(sortVal) {
         form.appendChild(sortInput);
     }
     sortInput.value = sortVal;
+
+    // Gracefully dismiss open header dropdowns before table swap
+    document.querySelectorAll('.header-filter-dropdown.show, .dropdown-menu.show').forEach(menu => {
+        menu.classList.remove('show');
+        const btn = menu.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
+        if (btn) {
+            btn.classList.remove('show');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    });
     
     const url = buildArchiveUrl(form, { sort: sortVal, page: '' });
     updateArchiveTableAJAX(url);
@@ -1344,7 +1465,7 @@ function updateSelectionBar() {
 
     if (masterCheckbox) {
         masterCheckbox.checked = (totalUniqueCount > 0 && count === totalUniqueCount);
-        masterCheckbox.indeterminate = (count > 0 && count < totalUniqueCount);
+        masterCheckbox.indeterminate = false;
     }
 }
 window.updateSelectionBar = updateSelectionBar;
@@ -1518,14 +1639,24 @@ document.addEventListener('click', function(e) {
 
 // Intercept Navigation Clicks (Category Tabs, Pagination, Clear search, Reset)
 document.addEventListener('click', function (e) {
-    // 1. Category Filter Tabs (All, Permits, Projects, Violations)
+    // 1. Category Filter Tabs (All, Permits, Projects, Violations) - Preserves Search & Filters
     const catTab = e.target.closest('.filter-tabs-wrapper a.filter-tab');
     if (catTab) {
         e.preventDefault();
-        const url = catTab.getAttribute('href');
-        if (url && url !== '#') {
-            updateArchiveTableAJAX(url);
+        const form = document.getElementById('archiveFilterForm');
+        let targetType = '';
+        try {
+            const tabUrl = new URL(catTab.getAttribute('href'), window.location.origin);
+            targetType = tabUrl.searchParams.get('record_type') || '';
+        } catch (err) {
+            targetType = '';
         }
+        if (form) {
+            const rtInput = form.querySelector('input[name="record_type"]');
+            if (rtInput) rtInput.value = targetType;
+        }
+        const url = buildArchiveUrl(form, { record_type: targetType, page: '' });
+        updateArchiveTableAJAX(url);
         return;
     }
 
@@ -1567,7 +1698,7 @@ document.addEventListener('DOMContentLoaded', function () {
             archiveSearchInput.setSelectionRange(len, len);
         }
         archiveSearchInput.addEventListener('input', function () {
-            const sanitized = this.value.replace(/[^a-zA-Z0-9\s\-_.#()',/]/g, '');
+            const sanitized = this.value.replace(/[^a-zA-Z0-9\u00C0-\u017F\s\-_.#()',/@&:+]/g, '');
             if (this.value !== sanitized) {
                 this.value = sanitized;
             }

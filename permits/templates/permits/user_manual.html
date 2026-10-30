@@ -1,0 +1,1901 @@
+{% extends "permits/base.html" %}
+{% load static humanize %}
+
+{% block title %}User Tutorial | eTala{% endblock %}
+
+{% block content %}
+<div class="manual-clean-wrapper">
+
+
+    <!-- ══ SYSTEM SCREEN CANVAS WITH INTERACTIVE NUMBER PINS & FOCUSED TOOLTIP ══ -->
+    <div class="system-screen-card shadow-sm mb-3">
+        <!-- Frame Header -->
+        <div class="screen-frame-bar d-flex align-items-center justify-content-between px-3 py-2 bg-dark text-white rounded-top">
+            <div class="d-flex align-items-center gap-2">
+                <span class="frame-dot dot-red"></span>
+                <span class="frame-dot dot-yellow"></span>
+                <span class="frame-dot dot-green"></span>
+                <span class="small text-white-50 ms-1 fw-medium" id="screenTitleText" style="font-size: 0.78rem; letter-spacing: 0.2px;">
+                    Dashboard Overview
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="demo-live-badge" id="demoLiveBadge" style="display: none;">
+                    <span class="live-dot"></span>
+                    <span id="demoLiveBadgeText">Playing</span>
+                </div>
+                <button type="button" id="autoPlayToggleBtn" class="tour-play-btn" onclick="toggleAutoPlay();" title="Sit back and watch the interactive tutorial">
+                    <i class="fa-solid fa-play text-warning" id="autoPlayIcon"></i>
+                    <span id="autoPlayLabel">Auto Demo</span>
+                </button>
+                <button type="button" id="stopDemoBtn" class="tour-play-btn stop-btn" onclick="stopAutoPlay();" title="Exit Auto Demo" style="display: none;">
+                    <i class="fa-solid fa-stop text-danger"></i>
+                    <span>Stop</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Viewport containing Screenshot, Numbered Target Outlines, and Active Tooltip Bubble -->
+        <div class="screen-viewport" id="screenViewport">
+            <!-- Authentic System Screenshot -->
+            <img src="{% static 'manual/dashboard.png' %}?v=10" alt="eTala System Screenshot" class="system-img" id="systemScreenImg" />
+
+            <!-- Sharp Cutout SVG Layer: Displays the 100% sharp, unblurred, authentic-colored element via clip-path -->
+            <svg id="sharpSpotlightSvg" class="sharp-spotlight-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                    <clipPath id="spotlightClip" clipPathUnits="objectBoundingBox">
+                        <rect id="spotlightClipRect" x="0.002" y="0.002" width="0.234" height="0.996" rx="0.008" ry="0.008" />
+                    </clipPath>
+                </defs>
+                <image id="sharpSpotlightImg" href="{% static 'manual/dashboard.png' %}?v=10" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" clip-path="url(#spotlightClip)" />
+            </svg>
+
+            <!-- Floating Hover Pause Pill Indicator ("lalagay si cursor para magstop") -->
+            <div id="viewportHoverPausePill" class="viewport-hover-pause-pill">
+                <i class="fa-solid fa-pause text-warning"></i>
+                <span>Paused (Move cursor away to resume)</span>
+            </div>
+
+            <!-- Virtual Animated Demo Cursor (Simulated Mouse Pointer with Click Ripple) -->
+            <div id="demoVirtualCursor" class="demo-virtual-cursor">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 3L11 20L13.5 13.5L20 11L4 3Z" fill="#2563eb" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+            </div>
+
+            <!-- Dynamic Overlays Layer: Target Outlines, Corner Number Pins, and Persistent Sliding Callout Bubble -->
+            <div class="diagram-overlay-layer" id="diagramOverlayLayer">
+                <!-- Target boxes container (updated without destroying the bubble) -->
+                <div id="diagramBoxesContainer"></div>
+
+                <!-- Unified Sliding Callout Bubble: NEVER destroyed, ALWAYS persistent (Zero Jump, Zero Blink, Sleek & Compact) -->
+                <div id="unifiedCalloutBubble" class="diagram-callout-bubble" style="left: 24%; top: 40%; border-color: #0284c7;">
+                    <div id="unifiedCalloutTail" class="callout-tail tail-left" style="border-right-color: #0284c7;"></div>
+                    <div class="callout-inner-wrapper" id="calloutInnerWrapper">
+                        <div class="callout-top-row">
+                            <div class="callout-badge" id="calloutBadge" style="background: #0284c7;">1</div>
+                            <h6 class="callout-title" id="calloutTitle">Navigation Sidebar</h6>
+                        </div>
+                        <p class="callout-text" id="calloutText">Access Records Registry, Barangay GIS Folders, and Violations Alerts.</p>
+                        <div class="callout-nav-footer">
+                            <span class="callout-step-counter" id="calloutStepCounter">Step 1 of 7</span>
+                            <div class="d-flex align-items-center gap-1.5">
+                                <button type="button" class="callout-nav-btn" id="calloutPrevBtn" onclick="event.stopPropagation(); stepNav(-1);" disabled style="opacity:0.4;">
+                                    Prev
+                                </button>
+                                <button type="button" class="callout-nav-btn primary" id="calloutNextBtn" onclick="event.stopPropagation(); stepNav(1);">
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                        <div class="autoplay-timer-track" id="autoplayTimerTrack" style="display: none;">
+                            <div class="autoplay-timer-bar" id="autoplayTimerBar" style="background: #0284c7;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ BOTTOM CHAPTER NAVIGATION DOCK / PLAYER TIMELINE ══ -->
+    <div class="manual-bottom-dock shadow-sm mb-3">
+        <!-- Left: Chapter Switcher Controls -->
+        <div class="dock-left-controls d-flex align-items-center gap-1.5 flex-shrink-0">
+            <button type="button" class="dock-arrow-btn" onclick="stepTopic(-1);" title="Previous Topic (Arrow Left)">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="dock-chapter-pill d-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
+                <i class="fa-solid fa-layer-group text-primary" style="font-size: 0.72rem;"></i>
+                <span class="dock-chapter-label" style="font-size: 0.76rem; font-weight: 700;">Topic <span id="dockChapterNum">1</span> of 6</span>
+            </div>
+            <button type="button" class="dock-arrow-btn" onclick="stepTopic(1);" title="Next Topic (Arrow Right)">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <!-- Center: Chapter Pills Timeline -->
+        <div class="manual-tab-group d-flex align-items-center gap-1.5">
+            <button type="button" class="manual-tab-btn active" id="tab-1" onclick="switchTopic(1);">
+                <i class="fa-solid fa-chart-pie tab-icon"></i>
+                <span>1. Dashboard</span>
+            </button>
+            <button type="button" class="manual-tab-btn" id="tab-2" onclick="switchTopic(2);">
+                <i class="fa-solid fa-circle-plus tab-icon"></i>
+                <span>2. Add Record</span>
+            </button>
+            <button type="button" class="manual-tab-btn" id="tab-3" onclick="switchTopic(3);">
+                <i class="fa-solid fa-diagram-project tab-icon"></i>
+                <span>3. Project Types</span>
+            </button>
+            <button type="button" class="manual-tab-btn" id="tab-4" onclick="switchTopic(4);">
+                <i class="fa-solid fa-folder-tree tab-icon"></i>
+                <span>4. Checklist & Files</span>
+            </button>
+            <button type="button" class="manual-tab-btn" id="tab-5" onclick="switchTopic(5);">
+                <i class="fa-solid fa-map-location-dot tab-icon"></i>
+                <span>5. Barangay GIS</span>
+            </button>
+            <button type="button" class="manual-tab-btn" id="tab-6" onclick="switchTopic(6);">
+                <i class="fa-solid fa-table-list tab-icon"></i>
+                <span>6. Records Registry</span>
+            </button>
+        </div>
+
+        <!-- Right: Current Topic Title Badge -->
+        <div class="dock-right-status d-none d-lg-flex align-items-center gap-2 flex-shrink-0">
+            <div class="dock-step-pill d-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
+                <span class="dock-live-dot"></span>
+                <span id="dockTopicTitle" style="font-size: 0.75rem; font-weight: 600; max-width: 170px;" class="text-truncate">Dashboard Overview</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ══ STYLES ══ -->
+<style>
+/* Clean & Minimal Container */
+.manual-clean-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* ══ BOTTOM CHAPTER DOCK / PLAYER TIMELINE ══ */
+.manual-bottom-dock {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.dock-arrow-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.dock-arrow-btn:hover {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+    transform: scale(1.05);
+}
+
+.dock-chapter-pill {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    white-space: nowrap;
+}
+
+.dock-step-pill {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.dock-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+    box-shadow: 0 0 6px #10b981;
+}
+
+/* Chapter Pills container */
+.manual-tab-group {
+    background: #f8fafc;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex: 0 1 auto !important;
+    justify-content: center;
+}
+
+.manual-tab-group::-webkit-scrollbar {
+    display: none;
+}
+
+.manual-tab-btn {
+    border: none;
+    background: transparent;
+    padding: 5px 11px;
+    border-radius: 6px;
+    font-size: 0.79rem;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.manual-tab-btn .tab-icon {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.manual-tab-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.manual-tab-btn.active {
+    background: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
+
+.manual-tab-btn.active .tab-icon {
+    opacity: 1;
+}
+
+/* Dark Mode Enhancements for Bottom Dock */
+[data-bs-theme="dark"] .manual-bottom-dock,
+.dark-mode .manual-bottom-dock {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-bs-theme="dark"] .dock-arrow-btn,
+.dark-mode .dock-arrow-btn {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] .dock-arrow-btn:hover,
+.dark-mode .dock-arrow-btn:hover {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .dock-chapter-pill,
+.dark-mode .dock-chapter-pill,
+[data-bs-theme="dark"] .dock-step-pill,
+.dark-mode .dock-step-pill {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .manual-tab-group,
+.dark-mode .manual-tab-group {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+[data-bs-theme="dark"] .manual-tab-btn,
+.dark-mode .manual-tab-btn {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] .manual-tab-btn:hover,
+.dark-mode .manual-tab-btn:hover {
+    background: #334155 !important;
+    color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] .manual-tab-btn.active,
+.dark-mode .manual-tab-btn.active {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.5) !important;
+}
+
+/* Mobile Responsiveness for Bottom Dock */
+@media (max-width: 767px) {
+    .manual-bottom-dock {
+        flex-direction: column !important;
+        gap: 8px !important;
+        padding: 8px 10px !important;
+    }
+    .dock-left-controls {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+    .manual-tab-group {
+        width: 100% !important;
+        justify-content: flex-start !important;
+        padding: 4px !important;
+    }
+}
+
+/* Screen Window Frame */
+.system-screen-card {
+    background: #0f172a;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #334155;
+    position: relative;
+}
+
+.screen-frame-bar {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    user-select: none;
+    min-height: 42px;
+}
+
+.frame-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot-red { background: #ef4444; }
+.dot-yellow { background: #f59e0b; }
+.dot-green { background: #10b981; }
+
+/* Window Frame Bar Controls - Balanced & Pixel-Perfect Alignment */
+.tour-play-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 13px;
+    border-radius: 9999px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1;
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    user-select: none;
+    box-sizing: border-box;
+}
+.tour-play-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+}
+.tour-play-btn.is-playing {
+    background: #f59e0b;
+    border-color: #d97706;
+    color: #0f172a;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.45);
+}
+.tour-play-btn.is-playing #autoPlayIcon {
+    color: #0f172a !important;
+}
+
+/* Live Demo Watching Status Badge */
+.demo-live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    background: rgba(239, 68, 68, 0.16);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    font-size: 0.72rem;
+    font-weight: 650;
+    border-radius: 9999px;
+    user-select: none;
+    box-sizing: border-box;
+}
+.demo-live-badge .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+    animation: livePulse 1.4s infinite ease-in-out;
+}
+@keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
+}
+
+.tour-play-btn.stop-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+}
+.tour-play-btn.stop-btn:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #ffffff;
+}
+
+/* Virtual Animated Cursor for Auto-Demo */
+.demo-virtual-cursor {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    pointer-events: none;
+    z-index: 60;
+    transition: left 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+                top 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.16s ease,
+                opacity 0.25s ease;
+    transform-origin: 2px 2px;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
+    opacity: 0;
+    left: 50%;
+    top: 50%;
+}
+.demo-virtual-cursor.visible {
+    opacity: 1;
+}
+.demo-virtual-cursor.clicking {
+    transform: scale(0.82);
+}
+
+/* Click Ripple Pulse */
+.demo-click-ripple {
+    position: absolute;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 3px solid #3b82f6;
+    pointer-events: none;
+    z-index: 59;
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.95;
+    animation: rippleExpand 0.65s cubic-bezier(0, 0.2, 0.8, 1) forwards;
+}
+
+@keyframes rippleExpand {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.95; }
+    100% { transform: translate(-50%, -50%) scale(1.65); opacity: 0; }
+}
+
+/* Image Viewport */
+.screen-viewport {
+    position: relative;
+    width: 100%;
+    background: #090d16;
+    overflow: hidden;
+    line-height: 0;
+}
+
+.system-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    filter: blur(0.35px) brightness(0.88);
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+/* Sharp Cutout SVG Layer: Selected element shines through crystal-clear */
+.sharp-spotlight-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 12;
+}
+
+#spotlightClipRect {
+    /* Coordinates are smoothly animated via requestAnimationFrame for 60fps/120fps glide */
+    will-change: x, y, width, height;
+}
+
+/* ══ OVERLAYS LAYER ══ */
+.diagram-overlay-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+}
+
+/* Target Element Box:
+   - When UNSELECTED: Completely transparent (no border, no shadow), only its number pin is shown.
+   - When HOVERED: Subtle dashed guide border.
+   - When SELECTED (.active): Vibrant solid border highlight with crisp glow! */
+.diagram-target-box {
+    position: absolute;
+    pointer-events: auto;
+    cursor: pointer;
+    background: transparent;
+    border: 2.5px solid transparent;
+    box-shadow: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    z-index: 15;
+}
+
+.diagram-target-box:hover:not(.active) {
+    border: 2px dashed rgba(255, 255, 255, 0.4) !important;
+    z-index: 25;
+}
+
+/* ELEMENT IN SPOTLIGHT: Clean accent outline with subtle glow letting normal colors shine */
+.diagram-target-box.active {
+    border: 2.5px solid var(--item-color) !important;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22), 0 0 16px var(--item-color) !important;
+    z-index: 30;
+    animation: none !important;
+}
+
+/* Interactive Numbered Pin:
+   - Solid, opaque dark slate with crisp white outline ring so it is ALWAYS 100% visible and NEVER cut through!
+   - When HOVERED: Slightly brighter preview.
+   - When ACTIVE (selected): Vibrant brand color, white outline ring, elevated glowing shadow & radar pulse! */
+.target-corner-pin {
+    position: absolute;
+    top: -10px;
+    left: -6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #0f172a; /* Deep opaque slate */
+    color: #f8fafc;
+    font-weight: 800;
+    font-size: 0.68rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 0 1.5px #ffffff;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 45;
+    opacity: 0.98;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.target-corner-pin:hover {
+    transform: scale(1.15);
+    background: #1e293b;
+    color: #ffffff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.65), 0 0 0 1.5px #ffffff;
+}
+
+/* ACTIVE PIN: Vibrant brand color with white ring, elevated glowing shadow, and radar pulse! */
+.diagram-target-box.active .target-corner-pin {
+    background: var(--pin-color, #2563eb) !important;
+    color: #ffffff !important;
+    font-weight: 850;
+    opacity: 1 !important;
+    transform: scale(1.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 0 2px #ffffff, 0 0 12px var(--pin-color, #2563eb) !important;
+    z-index: 50;
+}
+
+/* Subtle Animated Radar Pulse on Active Pin */
+.diagram-target-box.active .target-corner-pin::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--pin-color, currentColor);
+    opacity: 0.85;
+    animation: pinRadar 1.8s infinite ease-out;
+}
+
+@keyframes pinRadar {
+    0% { transform: scale(0.85); opacity: 0.9; }
+    100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* ══ INTERACTIVE CLICK PIN BADGE (NO NUMBERS ON TUTORIALS) ══ */
+.target-click-pin {
+    position: absolute;
+    top: -12px;
+    right: -6px;
+    left: auto;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 9999px;
+    background: var(--pin-color, #2563eb) !important;
+    color: #ffffff !important;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45), 0 0 0 2px #ffffff, 0 0 14px var(--pin-color, #2563eb) !important;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 50;
+    animation: clickBadgeBounce 1.5s infinite ease-in-out;
+}
+
+@keyframes clickBadgeBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+.click-pointer-icon {
+    font-size: 0.76rem;
+    animation: clickFingerTap 1.2s infinite ease-in-out;
+}
+
+@keyframes clickFingerTap {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(-14deg) scale(1.18); }
+}
+
+/* ══ FLOATING HOVER PAUSE PILL ON SCREEN VIEWPORT ══ */
+.viewport-hover-pause-pill {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    z-index: 60;
+    pointer-events: none;
+    animation: fadeInPill 0.2s ease-out;
+}
+
+@keyframes fadeInPill {
+    0% { opacity: 0; transform: translate(-50%, -6px); }
+    100% { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ══ UNIFIED SLIDING SPEECH BUBBLE POPOVER (Simple, Clean, Zero Duplication) ══ */
+.diagram-callout-bubble {
+    position: absolute;
+    display: flex;
+    background: #ffffff;
+    border: 2px solid #2563eb;
+    border-radius: 12px;
+    padding: 11px 14px 10px 14px;
+    box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    flex-direction: column;
+    z-index: 55;
+    line-height: 1.45;
+    width: 275px;
+    max-width: min(275px, calc(100vw - 24px));
+    pointer-events: auto;
+    transition: left 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                top 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.25s ease;
+}
+
+.callout-inner-wrapper {
+    width: 100%;
+}
+
+/* Bubble Header — Strictly One Line */
+.callout-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    min-width: 0;
+}
+
+.callout-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.70rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+}
+
+.callout-title,
+body.dark-mode .callout-title,
+.dark-mode h6.callout-title,
+[data-bs-theme="dark"] h6.callout-title {
+    font-size: 0.86rem;
+    font-weight: 750;
+    color: #0f172a !important;
+    margin: 0;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.callout-text {
+    font-size: 0.79rem;
+    color: #334155 !important;
+    margin: 0 0 9px 0;
+    line-height: 1.48;
+    font-weight: 450;
+    word-break: break-word;
+    text-align: left;
+}
+
+/* Integrated Step Navigation in Bubble */
+.callout-nav-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 7px;
+    margin-top: 2px;
+    border-top: 1px solid #f1f5f9;
+    gap: 6px;
+}
+
+.callout-step-counter {
+    font-size: 0.70rem;
+    font-weight: 700;
+    color: #64748b !important;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.callout-nav-btn {
+    border: none;
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    padding: 3px 11px;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    transition: all 0.16s ease;
+    cursor: pointer;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.callout-nav-btn:hover:not(:disabled) {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+.callout-nav-btn.primary {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.28);
+}
+
+.callout-nav-btn.primary:hover {
+    background: #1d4ed8 !important;
+    box-shadow: 0 3px 7px rgba(37, 99, 235, 0.35);
+}
+
+/* Autoplay Progress Timer Track: Clean, flush bottom accent line */
+.autoplay-timer-track {
+    position: absolute;
+    bottom: 0;
+    left: 8px;
+    right: 8px;
+    height: 2.5px;
+    background: rgba(0, 0, 0, 0.07);
+    border-radius: 99px;
+    overflow: hidden;
+    display: none;
+}
+.autoplay-timer-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 99px;
+    transition: width 0.08s linear;
+}
+
+/* Callout Pointer Arrow Tails */
+.callout-tail {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+}
+
+/* Pointer Down (Bubble sits above target) */
+.tail-down {
+    bottom: -9px;
+    left: 24px;
+    border-width: 9px 8px 0 8px;
+    border-color: inherit transparent transparent transparent;
+}
+.tail-down::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: -7px;
+    border-style: solid;
+    border-width: 8px 7px 0 7px;
+    border-color: #ffffff transparent transparent transparent;
+}
+
+/* Pointer Up (Bubble sits below target) */
+.tail-up {
+    top: -9px;
+    left: 24px;
+    border-width: 0 8px 9px 8px;
+    border-color: transparent transparent inherit transparent;
+}
+.tail-up::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: -7px;
+    border-style: solid;
+    border-width: 0 7px 8px 7px;
+    border-color: transparent transparent #ffffff transparent;
+}
+
+/* Pointer Left (Bubble sits to right of target) */
+.tail-left {
+    left: -9px;
+    top: 14px;
+    border-width: 8px 9px 8px 0;
+    border-color: transparent inherit transparent transparent;
+}
+.tail-left::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: -7px;
+    border-style: solid;
+    border-width: 7px 8px 7px 0;
+    border-color: transparent #ffffff transparent transparent;
+}
+
+/* Pointer Right (Bubble sits to left of target) */
+.tail-right {
+    right: -9px;
+    top: 14px;
+    border-width: 8px 0 8px 9px;
+    border-color: transparent transparent transparent inherit;
+}
+.tail-right::after {
+    content: '';
+    position: absolute;
+    right: 2px;
+    top: -7px;
+    border-style: solid;
+    border-width: 7px 0 7px 8px;
+    border-color: transparent transparent transparent #ffffff;
+}
+
+/* Responsive adjustment for Mobile */
+@media (max-width: 767px) {
+    .manual-top-bar {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 10px;
+    }
+    .manual-tab-group {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+        width: 100%;
+    }
+    .diagram-callout-bubble {
+        width: calc(100% - 24px) !important;
+        left: 12px !important;
+        right: 12px !important;
+        bottom: 12px !important;
+        top: auto !important;
+        transform: none !important;
+        padding: 9px 12px 8px 12px;
+    }
+    .callout-tail { display: none; }
+    .viewport-hover-pause-pill {
+        font-size: 0.68rem;
+        padding: 4px 10px;
+    }
+}
+</style>
+
+<!-- ══ SCRIPT ══ -->
+<script>
+const USER_ROLE = "{{ user_role|default:'staff' }}";
+const IS_ADMIN = ("{{ is_admin|yesno:'true,false' }}" === "true");
+let currentRole = "{{ active_role|default:'staff' }}";
+
+function getTutorialDiagrams(role) {
+    const isStaff = (role === 'staff');
+    return {
+        1: {
+            id: 1,
+            title: isStaff ? "Dashboard Overview (Staff)" : "Dashboard Overview (Administrator)",
+            image: "{% static 'manual/dashboard.png' %}?v=10",
+            items: [
+                {
+                    num: 1,
+                    color: "#0284c7", // Sky Blue
+                    title: "Navigation Menu",
+                    text: isStaff 
+                        ? "Your main menu to open Records, Barangay folders, and Report Violation alerts."
+                        : "Your main menu to manage Records, Barangays, User Accounts, Trash, and Backups.",
+                    box: { left: 0.0, top: 0.0, width: 14.1, height: 100.0, radius: 10 },
+                    pinStyle: { left: "14px", top: "14px", right: "auto" },
+                    bubble: { left: 16, top: 25, tail: "tail-left" }
+                },
+                {
+                    num: 2,
+                    color: "#f59e0b", // Amber Gold
+                    title: "Quick Utilities",
+                    text: "Quick tools to search anything, switch between Dark and Light mode, and view notifications.",
+                    box: { left: 70.0, top: 4.2, width: 22.0, height: 5.0, radius: 8 },
+                    pinStyle: { left: "-6px", top: "-10px", transform: "none" },
+                    bubble: { left: 62, top: 12, tail: "tail-up" }
+                },
+                {
+                    num: 3,
+                    color: "#2563eb", // Deep Blue
+                    title: "Summary Cards",
+                    text: isStaff
+                        ? "Overview cards showing total registered records, active violations, and pending uploads."
+                        : "Overview cards showing total records, active illegal construction cases, and system users.",
+                    box: { left: 21.0, top: 17.6, width: 71.0, height: 9.2, radius: 12 },
+                    pinStyle: { left: "14px", top: "-10px" },
+                    bubble: { left: 42, top: 30, tail: "tail-up" }
+                },
+                {
+                    num: 4,
+                    color: "#059669", // Emerald Green
+                    title: "+ New Record",
+                    text: "Click this blue button whenever you want to add a new project or building permit.",
+                    box: { left: 75.6, top: 11.6, width: 7.7, height: 4.6, radius: 8 },
+                    pinStyle: { right: "-6px", top: "-10px", left: "auto", transform: "none" },
+                    bubble: { left: 48, top: 10, tail: "tail-right" }
+                },
+                {
+                    num: 5,
+                    color: "#dc2626", // Crimson Red
+                    title: "Report Violation",
+                    text: "Click here to report construction without a permit. You can attach site photos and location.",
+                    box: { left: 83.1, top: 11.6, width: 9.0, height: 4.6, radius: 8 },
+                    pinStyle: { right: "-6px", top: "-10px", left: "auto", transform: "none" },
+                    bubble: { left: 55, top: 10, tail: "tail-right" }
+                },
+                {
+                    num: 6,
+                    color: "#ea580c", // Vibrant Orange
+                    title: "Pending Uploads",
+                    text: "Shows records that still need documents. Click any row to open and upload required files.",
+                    box: { left: 21.0, top: 28.3, width: 43.4, height: 43.0, radius: 12 },
+                    pinStyle: { left: "16px", top: "-10px" },
+                    bubble: { left: 28, top: 40, tail: "tail-up" }
+                },
+                {
+                    num: 7,
+                    color: "#7c3aed", // Royal Purple
+                    title: "Records Chart",
+                    text: "A pie chart showing how many records are Municipal Projects, Barangay Projects, or Permits.",
+                    box: { left: 64.7, top: 28.3, width: 27.4, height: 43.0, radius: 12 },
+                    pinStyle: { right: "16px", top: "-10px", left: "auto" },
+                    bubble: { left: 37, top: 45, tail: "tail-right" }
+                }
+            ]
+        },
+        2: {
+            id: 2,
+            title: "Add Record — Step 1: Classification",
+            image: "{% static 'manual/add_record_step1.png' %}",
+            items: [
+                {
+                    num: 1,
+                    color: "#2563eb",
+                    title: "Choose Category",
+                    text: "Pick the type of record you are creating: Municipal Project, Barangay Project, or Permit.",
+                    box: { left: 33, top: 19, width: 53, height: 11, radius: 8 },
+                    pinStyle: { left: "50%", top: "-12px", transform: "translateX(-50%)" },
+                    bubble: { left: 42, top: 31, tail: "tail-up" }
+                },
+                {
+                    num: 2,
+                    color: "#ea580c",
+                    title: "Municipal Project",
+                    text: "Choose this for town-level public works like major roads, bridges, and public buildings.",
+                    box: { left: 27.5, top: 42, width: 20, height: 31, radius: 12 },
+                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
+                    bubble: { left: 24, top: 68, tail: "tail-up" }
+                },
+                {
+                    num: 3,
+                    color: "#0284c7",
+                    title: "Barangay Project",
+                    text: "Choose this for community-level projects funded and built in specific barangays.",
+                    box: { left: 49.5, top: 42, width: 20, height: 31, radius: 12 },
+                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
+                    bubble: { left: 44, top: 68, tail: "tail-up" }
+                },
+                {
+                    num: 4,
+                    color: "#059669",
+                    title: "Permit Record",
+                    text: "Choose this for citizen applications like Building, Occupancy, Electrical, and Fencing permits.",
+                    box: { left: 71.5, top: 42, width: 20, height: 31, radius: 12 },
+                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
+                    bubble: { left: 58, top: 68, tail: "tail-up" }
+                }
+            ]
+        },
+        3: {
+            id: 3,
+            title: "Add Record — Step 2: Project Type",
+            image: "{% static 'manual/add_record_step2.png' %}",
+            items: [
+                {
+                    num: 1,
+                    color: "#2563eb",
+                    title: "Select Work Type",
+                    text: "Choose the engineering category that best describes your project construction.",
+                    box: { left: 33.5, top: 18.5, width: 53.0, height: 11.0, radius: 8 },
+                    pinStyle: { left: "50%", top: "-12px", transform: "translateX(-50%)" },
+                    bubble: { left: 42, top: 30, tail: "tail-up" }
+                },
+                {
+                    num: 2,
+                    color: "#0284c7",
+                    title: "Roads & Bridges",
+                    text: "For road paving, bridge repairs, pathways, street concreting, and widening.",
+                    box: { left: 27.5, top: 42.2, width: 31.6, height: 14.2, radius: 10 },
+                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
+                    bubble: { left: 25, top: 56, tail: "tail-up" }
+                },
+                {
+                    num: 3,
+                    color: "#059669",
+                    title: "Vertical Structures",
+                    text: "For buildings like evacuation centers, schools, multi-purpose halls, and clinics.",
+                    box: { left: 60.2, top: 42.2, width: 31.6, height: 14.2, radius: 10 },
+                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
+                    bubble: { left: 54, top: 56, tail: "tail-up" }
+                },
+                {
+                    num: 4,
+                    color: "#ea580c",
+                    title: "Flood Control",
+                    text: "For drainage canals, waterways, seawalls, river dikes, and slope protection.",
+                    box: { left: 27.5, top: 58.2, width: 31.6, height: 14.2, radius: 10 },
+                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
+                    bubble: { left: 25, top: 68, tail: "tail-up" }
+                },
+                {
+                    num: 5,
+                    color: "#7c3aed",
+                    title: "Water Systems",
+                    text: "For drinking water pipelines, distribution networks, deep wells, and water tanks.",
+                    box: { left: 60.2, top: 58.2, width: 31.6, height: 14.2, radius: 10 },
+                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
+                    bubble: { left: 54, top: 68, tail: "tail-up" }
+                }
+            ]
+        },
+        4: {
+            id: 4,
+            title: "Document Checklist & Files",
+            image: "{% static 'manual/document_checklist.png' %}?v=5",
+            items: [
+                {
+                    num: 1,
+                    color: "#2563eb",
+                    title: "Top Actions",
+                    text: isStaff
+                        ? "Click Edit to update project info, or Export ZIP to download all uploaded PDF files together."
+                        : "Click Edit to update info, Export ZIP to download all files, or Trash to remove the record.",
+                    box: { left: 70.6, top: 19.0, width: 25.2, height: 6.8, radius: 8 },
+                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
+                    bubble: { left: 38, top: 14, tail: "tail-right" }
+                },
+                {
+                    num: 2,
+                    color: "#059669",
+                    title: "Document Checklist",
+                    text: "A complete list of required PDFs (like Building Plans and Inspection Reports) with status.",
+                    box: { left: 23.6, top: 39.5, width: 56.0, height: 60.8, radius: 10 },
+                    pinStyle: { left: "16px", top: "-10px" },
+                    bubble: { left: 26, top: 18, tail: "tail-down" }
+                },
+                {
+                    num: 3,
+                    color: "#ea580c",
+                    title: "Upload or Mark N/A",
+                    text: "Click Upload to attach a PDF file from your computer, or click N/A if it is not required.",
+                    box: { left: 80.0, top: 48.6, width: 11.5, height: 51.6, radius: 8 },
+                    pinStyle: { left: "50%", top: "-12px", transform: "translateX(-50%)" },
+                    bubble: { left: 48, top: 46, tail: "tail-right" }
+                }
+            ]
+        },
+        5: {
+            id: 5,
+            title: "Barangay GIS Folders",
+            image: "{% static 'manual/barangays_map.png' %}",
+            items: [
+                {
+                    num: 1,
+                    color: "#2563eb",
+                    title: "Interactive Map",
+                    text: "Click to view the town map showing where projects and permits are located in Carigara.",
+                    box: { left: 85.4, top: 16.0, width: 10.1, height: 5.6, radius: 8 },
+                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
+                    bubble: { left: 52, top: 12, tail: "tail-right" }
+                },
+                {
+                    num: 2,
+                    color: "#059669",
+                    title: "Find a Barangay",
+                    text: "Type any barangay name in this search box to immediately jump to its records.",
+                    box: { left: 72.5, top: 25.0, width: 22, height: 5.8, radius: 8 },
+                    pinStyle: { left: "-6px", top: "-10px", transform: "none" },
+                    bubble: { left: 38, top: 20, tail: "tail-right" }
+                },
+                {
+                    num: 3,
+                    color: "#7c3aed",
+                    title: "Barangay Folders",
+                    text: "Each barangay has its own digital folder. Click Open to see all projects in that barangay.",
+                    box: { left: 23.5, top: 33, width: 72, height: 63, radius: 10 },
+                    pinStyle: { left: "16px", top: "-10px" },
+                    bubble: { left: 28, top: 16, tail: "tail-down" }
+                }
+            ]
+        },
+        6: {
+            id: 6,
+            title: "Records Registry & Search",
+            image: "{% static 'manual/records_list.png' %}?v=8",
+            items: [
+                {
+                    num: 1,
+                    color: "#2563eb",
+                    title: "Filter Tabs",
+                    text: "Click these tabs to view All Records, Municipal only, Barangay only, or Permits only.",
+                    box: { left: 24.0, top: 27.2, width: 35.8, height: 6.6, radius: 8 },
+                    pinStyle: { left: "14px", top: "-10px" },
+                    bubble: { left: 24, top: 36, tail: "tail-up" }
+                },
+                {
+                    num: 2,
+                    color: "#059669",
+                    title: "Search Records",
+                    text: "Type any project title, owner name, barangay, or permit number to find it instantly.",
+                    box: { left: 75.8, top: 27.4, width: 20.0, height: 6.2, radius: 8 },
+                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
+                    bubble: { left: 45, top: 22, tail: "tail-right" }
+                },
+                {
+                    num: 3,
+                    color: "#7c3aed",
+                    title: "Row Options (⋮)",
+                    text: isStaff
+                        ? "Click the 3 dots on any row to view its attached documents or edit project details."
+                        : "Click the 3 dots to view documents, edit details, or move the record to Trash.",
+                    box: { left: 91.2, top: 41.5, width: 2.6, height: 52.0, radius: 8 },
+                    pinStyle: { left: "50%", top: "-12px", transform: "translateX(-50%)" },
+                    bubble: { left: 56, top: 42, tail: "tail-right" }
+                }
+            ]
+        }
+    };
+}
+
+let TUTORIAL_DIAGRAMS = getTutorialDiagrams(currentRole);
+
+function setManualRole(role) {
+    currentRole = role;
+    
+    // Update button styling
+    const btnAdmin = document.getElementById('roleBtnAdmin');
+    const btnStaff = document.getElementById('roleBtnStaff');
+    if (btnAdmin && btnStaff) {
+        if (role === 'admin') {
+            btnAdmin.classList.add('active');
+            btnStaff.classList.remove('active');
+        } else {
+            btnStaff.classList.add('active');
+            btnAdmin.classList.remove('active');
+        }
+    }
+    
+    // Update data
+    TUTORIAL_DIAGRAMS = getTutorialDiagrams(currentRole);
+    
+    // Update screen title
+    const mod = TUTORIAL_DIAGRAMS[currentTopicId];
+    const titleEl = document.getElementById('screenTitleText');
+    if (titleEl && mod) {
+        titleEl.innerText = mod.title;
+    }
+    
+
+    // Re-render and re-focus smoothly
+    renderDiagramOverlays();
+    focusItem(currentFocusIndex);
+}
+
+let activeTaskDemo = null;
+let activeTaskDemoStepIdx = 0;
+let currentTopicId = 1;
+let currentFocusIndex = 0;
+
+function switchTopic(topicId, initialFocusIdx = 0) {
+    const isTopicChange = (currentTopicId !== topicId);
+    currentTopicId = topicId;
+    currentFocusIndex = initialFocusIdx;
+
+    // Update Tabs
+    document.querySelectorAll('.manual-tab-btn').forEach(btn => btn.classList.remove('active'));
+    const tabBtn = document.getElementById(`tab-${topicId}`);
+    if (tabBtn) tabBtn.classList.add('active');
+
+    // Update Frame Bar Title
+    const mod = TUTORIAL_DIAGRAMS[topicId];
+    const titleEl = document.getElementById('screenTitleText');
+    if (titleEl && mod) titleEl.innerText = mod.title;
+
+    // Update Bottom Dock Chapter Number & Title
+    const dockNum = document.getElementById('dockChapterNum');
+    if (dockNum) dockNum.innerText = topicId;
+    const dockTitle = document.getElementById('dockTopicTitle');
+    if (dockTitle && mod) dockTitle.innerText = mod.title;
+
+    // Switch image seamlessly without dimming or flickering
+    const imgEl = document.getElementById('systemScreenImg');
+    const sharpImgEl = document.getElementById('sharpSpotlightImg');
+    if (imgEl && mod && imgEl.getAttribute('src') !== mod.image) {
+        const preloader = new Image();
+        preloader.onload = () => {
+            imgEl.src = mod.image;
+            if (sharpImgEl) sharpImgEl.setAttribute('href', mod.image);
+        };
+        preloader.src = mod.image;
+        if (preloader.complete) {
+            imgEl.src = mod.image;
+            if (sharpImgEl) sharpImgEl.setAttribute('href', mod.image);
+        }
+    }
+
+    renderDiagramOverlays();
+    focusItem(currentFocusIndex, isTopicChange);
+}
+
+function stepTopic(dir) {
+    let nextTopic = currentTopicId + dir;
+    if (nextTopic < 1) nextTopic = 6;
+    if (nextTopic > 6) nextTopic = 1;
+    switchTopic(nextTopic);
+}
+
+// Smooth Spotlight Animation State
+let _spotlightAnim = null;
+let _currentSpotlight = { x: 0.002, y: 0.002, w: 0.234, h: 0.996, rx: 0.008 };
+
+function animateSpotlightTo(target, duration = 360) {
+    if (_spotlightAnim) cancelAnimationFrame(_spotlightAnim);
+    const start = { ..._currentSpotlight };
+    const startTime = performance.now();
+    const clipRect = document.getElementById('spotlightClipRect');
+    if (!clipRect) return;
+
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+
+    function frame(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = easeOutCubic(progress);
+
+        const curX = start.x + (target.x - start.x) * ease;
+        const curY = start.y + (target.y - start.y) * ease;
+        const curW = start.w + (target.w - start.w) * ease;
+        const curH = start.h + (target.h - start.h) * ease;
+        const curRx = start.rx + (target.rx - start.rx) * ease;
+
+        clipRect.setAttribute('x', curX.toFixed(4));
+        clipRect.setAttribute('y', curY.toFixed(4));
+        clipRect.setAttribute('width', curW.toFixed(4));
+        clipRect.setAttribute('height', curH.toFixed(4));
+        clipRect.setAttribute('rx', curRx.toFixed(4));
+        clipRect.setAttribute('ry', curRx.toFixed(4));
+
+        _currentSpotlight = { x: curX, y: curY, w: curW, h: curH, rx: curRx };
+
+        if (progress < 1) {
+            _spotlightAnim = requestAnimationFrame(frame);
+        } else {
+            _spotlightAnim = null;
+        }
+    }
+    _spotlightAnim = requestAnimationFrame(frame);
+}
+
+function updateSpotlight(idx, instant = false) {
+    const mod = TUTORIAL_DIAGRAMS[currentTopicId];
+    if (!mod || !mod.items || !mod.items[idx]) return;
+    const item = mod.items[idx];
+    const target = {
+        x: item.box.left / 100,
+        y: item.box.top / 100,
+        w: item.box.width / 100,
+        h: item.box.height / 100,
+        rx: (item.box.radius || 8) * 0.001
+    };
+    if (instant) {
+        if (_spotlightAnim) cancelAnimationFrame(_spotlightAnim);
+        const clipRect = document.getElementById('spotlightClipRect');
+        if (clipRect) {
+            clipRect.setAttribute('x', target.x.toFixed(4));
+            clipRect.setAttribute('y', target.y.toFixed(4));
+            clipRect.setAttribute('width', target.w.toFixed(4));
+            clipRect.setAttribute('height', target.h.toFixed(4));
+            clipRect.setAttribute('rx', target.rx.toFixed(4));
+            clipRect.setAttribute('ry', target.rx.toFixed(4));
+            _currentSpotlight = target;
+        }
+    } else {
+        animateSpotlightTo(target, 360);
+    }
+}
+
+function renderDiagramOverlays() {
+    const mod = TUTORIAL_DIAGRAMS[currentTopicId];
+    if (!mod || !mod.items) return;
+
+    // Target the inner boxes container ONLY — persistent Callout Bubble is NEVER destroyed!
+    let boxesContainer = document.getElementById('diagramBoxesContainer');
+    if (!boxesContainer) {
+        const layer = document.getElementById('diagramOverlayLayer');
+        if (!layer) return;
+        boxesContainer = document.createElement('div');
+        boxesContainer.id = 'diagramBoxesContainer';
+        layer.prepend(boxesContainer);
+    }
+
+    boxesContainer.innerHTML = '';
+
+    // Render all Target Boxes & Pins
+    mod.items.forEach((item, idx) => {
+        const isCurrentFocus = (idx === currentFocusIndex);
+        const targetBox = document.createElement('div');
+        targetBox.className = `diagram-target-box ${isCurrentFocus ? 'active' : ''}`;
+        targetBox.id = `target-box-${idx}`;
+        targetBox.style.left = `${item.box.left}%`;
+        targetBox.style.top = `${item.box.top}%`;
+        targetBox.style.width = `${item.box.width}%`;
+        targetBox.style.height = `${item.box.height}%`;
+        targetBox.style.borderRadius = `${item.box.radius || 8}px`;
+        targetBox.style.setProperty('--item-color', item.color);
+        targetBox.style.color = item.color;
+        targetBox.title = `Click to inspect: ${item.title}`;
+
+        if (activeTaskDemo) {
+            // TUTORIAL / TASK DEMO MODE ("tots") - No numbers, interactive Click badge
+            if (isCurrentFocus) {
+                targetBox.style.display = 'block';
+                const clickPin = document.createElement('div');
+                clickPin.className = 'target-click-pin';
+                clickPin.style.setProperty('--pin-color', item.color);
+                clickPin.innerHTML = `<i class="fa-solid fa-arrow-pointer click-pointer-icon"></i> <span>Click</span>`;
+                if (item.pinStyle) {
+                    Object.assign(clickPin.style, item.pinStyle);
+                }
+                clickPin.onclick = (e) => {
+                    e.stopPropagation();
+                    focusItem(idx);
+                };
+                targetBox.appendChild(clickPin);
+            } else {
+                targetBox.style.display = 'none';
+            }
+        } else {
+            // TOUR MODE ("tour") - Numbers shown for full overview
+            targetBox.style.display = 'block';
+            const cornerPin = document.createElement('div');
+            cornerPin.className = 'target-corner-pin';
+            cornerPin.style.setProperty('--pin-color', item.color);
+            cornerPin.innerText = item.num;
+            cornerPin.title = `${item.num}. ${item.title}`;
+            if (item.pinStyle) {
+                Object.assign(cornerPin.style, item.pinStyle);
+            }
+            cornerPin.onclick = (e) => {
+                e.stopPropagation();
+                focusItem(idx);
+            };
+            targetBox.appendChild(cornerPin);
+        }
+
+        targetBox.onclick = () => focusItem(idx);
+        boxesContainer.appendChild(targetBox);
+    });
+}
+
+function focusItem(idx, instant = false) {
+    currentFocusIndex = idx;
+    const mod = TUTORIAL_DIAGRAMS[currentTopicId];
+    if (!mod || !mod.items || !mod.items[idx]) return;
+    const item = mod.items[idx];
+
+    // 1. Update active target boxes and pins
+    document.querySelectorAll('.diagram-target-box').forEach((box, i) => {
+        if (activeTaskDemo) {
+            if (i === idx) {
+                box.style.display = 'block';
+                box.classList.add('active');
+                if (!box.querySelector('.target-click-pin')) {
+                    const clickPin = document.createElement('div');
+                    clickPin.className = 'target-click-pin';
+                    clickPin.style.setProperty('--pin-color', item.color);
+                    clickPin.innerHTML = `<i class="fa-solid fa-arrow-pointer click-pointer-icon"></i> <span>Click</span>`;
+                    if (item.pinStyle) {
+                        Object.assign(clickPin.style, item.pinStyle);
+                    }
+                    clickPin.onclick = (e) => {
+                        e.stopPropagation();
+                        focusItem(idx);
+                    };
+                    box.appendChild(clickPin);
+                }
+            } else {
+                box.style.display = 'none';
+                box.classList.remove('active');
+            }
+        } else {
+            box.style.display = 'block';
+            if (i === idx) {
+                box.classList.add('active');
+            } else {
+                box.classList.remove('active');
+            }
+        }
+    });
+
+    // 2. Smoothly glide the unified bubble and update contents without any blink
+    const bubble = document.getElementById('unifiedCalloutBubble');
+    const tail = document.getElementById('unifiedCalloutTail');
+
+    if (bubble) {
+        // Dynamic boundary clamping: Bubble will NEVER exceed screenViewport boundaries!
+        const vp = document.getElementById('screenViewport');
+        let finalLeftPct = item.bubble.left;
+        let finalTopPct = item.bubble.top;
+        if (vp && window.innerWidth >= 768) {
+            const vpW = vp.clientWidth;
+            const vpH = vp.clientHeight;
+            const bW = bubble.offsetWidth || 275;
+            const bH = bubble.offsetHeight || 135;
+            if (vpW > 0 && vpH > 0) {
+                const targetX = (item.bubble.left / 100) * vpW;
+                const targetY = (item.bubble.top / 100) * vpH;
+                // Minimum margin 14px from edges
+                const minX = 14;
+                const maxX = Math.max(14, vpW - bW - 14);
+                const clampedX = Math.min(Math.max(targetX, minX), maxX);
+                const minY = 10;
+                const maxY = Math.max(10, vpH - bH - 10);
+                const clampedY = Math.min(Math.max(targetY, minY), maxY);
+                finalLeftPct = (clampedX / vpW) * 100;
+                finalTopPct = (clampedY / vpH) * 100;
+            }
+        }
+
+        if (instant) {
+            const origTrans = bubble.style.transition;
+            bubble.style.transition = 'none';
+            bubble.style.left = `${finalLeftPct}%`;
+            bubble.style.top = `${finalTopPct}%`;
+            bubble.style.borderColor = item.color;
+            void bubble.offsetHeight; // force reflow
+            bubble.style.transition = origTrans;
+        } else {
+            bubble.style.left = `${finalLeftPct}%`;
+            bubble.style.top = `${finalTopPct}%`;
+            bubble.style.borderColor = item.color;
+        }
+
+        if (tail) {
+            tail.className = `callout-tail ${item.bubble.tail}`;
+            tail.style.borderTopColor = '';
+            tail.style.borderBottomColor = '';
+            tail.style.borderLeftColor = '';
+            tail.style.borderRightColor = '';
+            if (item.bubble.tail === 'tail-up') tail.style.borderBottomColor = item.color;
+            else if (item.bubble.tail === 'tail-down') tail.style.borderTopColor = item.color;
+            else if (item.bubble.tail === 'tail-left') tail.style.borderRightColor = item.color;
+            else if (item.bubble.tail === 'tail-right') tail.style.borderLeftColor = item.color;
+        }
+
+        const badge = document.getElementById('calloutBadge');
+        if (badge) {
+            badge.innerText = item.num;
+            badge.style.background = item.color;
+        }
+        const title = document.getElementById('calloutTitle');
+        if (title) title.innerText = item.title;
+        const text = document.getElementById('calloutText');
+        if (text) text.innerText = item.text;
+
+
+        const counter = document.getElementById('calloutStepCounter');
+        if (counter) {
+            counter.innerText = `Step ${item.num} of ${mod.items.length}`;
+        }
+
+        const timerBar = document.getElementById('autoplayTimerBar');
+        if (timerBar) timerBar.style.background = item.color;
+
+        const prevBtn = document.getElementById('calloutPrevBtn');
+        if (prevBtn) {
+            prevBtn.disabled = (idx === 0);
+            prevBtn.style.opacity = (idx === 0) ? '0.4' : '1';
+        }
+
+        const nextBtn = document.getElementById('calloutNextBtn');
+        if (nextBtn) {
+            const isLast = (idx === mod.items.length - 1);
+            nextBtn.innerText = isLast ? 'Next Topic' : 'Next';
+        }
+    }
+
+    // 3. Smooth spotlight glide
+    updateSpotlight(idx, instant);
+    updateStepIndicator();
+
+    if (isAutoPlaying) {
+        if (item.box) {
+            const x = item.box.left + (item.box.width / 2);
+            const y = item.box.top + (item.box.height / 2);
+            moveVirtualCursorTo(x, y, 480);
+        }
+        if (!isHoverPaused) {
+            resetAutoPlayTimer();
+        }
+    }
+}
+
+function stepNav(dir) {
+    const mod = TUTORIAL_DIAGRAMS[currentTopicId];
+    let nextIdx = currentFocusIndex + dir;
+    if (nextIdx >= mod.items.length) {
+        // Next Topic (Loops back to 1 after Topic 6)
+        const nextTopic = currentTopicId < 6 ? currentTopicId + 1 : 1;
+        switchTopic(nextTopic);
+    } else if (nextIdx < 0) {
+        if (currentTopicId > 1) {
+            switchTopic(currentTopicId - 1);
+        }
+    } else {
+        focusItem(nextIdx);
+    }
+}
+
+function updateStepIndicator() {
+    const mod = TUTORIAL_DIAGRAMS[currentTopicId];
+    const ind = document.getElementById('tourStepIndicator');
+    if (ind && mod.items[currentFocusIndex]) {
+        ind.innerText = `Step ${currentFocusIndex + 1} of ${mod.items.length}`;
+    }
+}
+
+// ══ VIRTUAL CURSOR CONTROLLER FOR AUTO-DEMO ══
+function moveVirtualCursorTo(xPct, yPct, clickAfterMs = 400) {
+    const cursor = document.getElementById('demoVirtualCursor');
+    if (!cursor) return;
+    cursor.classList.add('visible');
+    cursor.style.left = `${xPct}%`;
+    cursor.style.top = `${yPct}%`;
+
+    if (clickAfterMs > 0) {
+        setTimeout(() => {
+            if (!isAutoPlaying) return;
+            cursor.classList.add('clicking');
+            createClickRipple(xPct, yPct);
+            setTimeout(() => {
+                cursor.classList.remove('clicking');
+            }, 180);
+        }, clickAfterMs);
+    }
+}
+
+function hideVirtualCursor() {
+    const cursor = document.getElementById('demoVirtualCursor');
+    if (cursor) cursor.classList.remove('visible');
+}
+
+function createClickRipple(xPct, yPct) {
+    const viewport = document.getElementById('screenViewport');
+    if (!viewport) return;
+    const ripple = document.createElement('div');
+    ripple.className = 'demo-click-ripple';
+    ripple.style.left = `${xPct}%`;
+    ripple.style.top = `${yPct}%`;
+    viewport.appendChild(ripple);
+    setTimeout(() => {
+        if (ripple.parentNode) ripple.parentNode.removeChild(ripple);
+    }, 680);
+}
+
+// ══ AUTOMATIC TOUR / AUTO-PLAY CONTROLLER WITH HOVER PAUSE ══
+let isAutoPlaying = false;
+let isHoverPaused = false;
+let autoPlayTimer = null;
+let autoPlayProgressAnim = null;
+let autoPlayStartTime = 0;
+let autoPlayDuration = 4500;
+let autoPlayRemainingTime = 4500;
+let autoPlayCurrentPct = 0;
+const AUTO_PLAY_DELAY_MS = 4500; // 4.5 seconds per step
+
+function toggleAutoPlay() {
+    if (isAutoPlaying) {
+        stopAutoPlay();
+    } else {
+        startAutoPlay();
+    }
+}
+
+function startAutoPlay() {
+    isAutoPlaying = true;
+    isHoverPaused = false;
+    activeTaskDemo = null;
+    activeTaskDemoStepIdx = 0;
+    updateAutoPlayUI(true);
+
+    const badgeText = document.getElementById('demoLiveBadgeText');
+    if (badgeText) badgeText.innerText = 'Playing';
+
+    // Scroll canvas smoothly into center view
+    const canvasCard = document.querySelector('.system-screen-card') || document.getElementById('screenViewport');
+    if (canvasCard) {
+        canvasCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    focusItem(currentFocusIndex);
+    resetAutoPlayTimer();
+}
+
+function stopAutoPlay() {
+    isAutoPlaying = false;
+    isHoverPaused = false;
+    activeTaskDemo = null;
+    activeTaskDemoStepIdx = 0;
+    if (autoPlayTimer) {
+        clearTimeout(autoPlayTimer);
+        autoPlayTimer = null;
+    }
+    if (autoPlayProgressAnim) {
+        cancelAnimationFrame(autoPlayProgressAnim);
+        autoPlayProgressAnim = null;
+    }
+    const bar = document.getElementById('autoplayTimerBar');
+    if (bar) {
+        bar.style.opacity = '1';
+        bar.style.width = '0%';
+    }
+    const pausePill = document.getElementById('viewportHoverPausePill');
+    if (pausePill) {
+        pausePill.style.display = 'none';
+    }
+    hideVirtualCursor();
+    updateAutoPlayUI(false);
+    renderDiagramOverlays();
+}
+
+function resetAutoPlayTimer(customDuration = AUTO_PLAY_DELAY_MS, startFromPct = 0) {
+    if (!isAutoPlaying || isHoverPaused) return;
+    if (autoPlayTimer) clearTimeout(autoPlayTimer);
+    if (autoPlayProgressAnim) cancelAnimationFrame(autoPlayProgressAnim);
+
+    const track = document.getElementById('autoplayTimerTrack');
+    const bar = document.getElementById('autoplayTimerBar');
+    if (track) track.style.display = 'block';
+    if (bar) {
+        bar.style.opacity = '1';
+        if (customDuration === AUTO_PLAY_DELAY_MS) {
+            bar.style.width = '0%';
+            autoPlayCurrentPct = 0;
+        }
+    }
+
+    autoPlayDuration = customDuration;
+    autoPlayRemainingTime = customDuration;
+    autoPlayStartTime = performance.now();
+    const initialPct = startFromPct;
+
+    function animate(now) {
+        if (!isAutoPlaying || isHoverPaused) return;
+        const elapsed = now - autoPlayStartTime;
+        const addedPct = (elapsed / autoPlayDuration) * 100;
+        autoPlayCurrentPct = Math.min(100, initialPct + addedPct);
+        if (bar) bar.style.width = autoPlayCurrentPct + '%';
+
+        if (elapsed < customDuration) {
+            autoPlayProgressAnim = requestAnimationFrame(animate);
+        }
+    }
+    autoPlayProgressAnim = requestAnimationFrame(animate);
+
+    autoPlayTimer = setTimeout(() => {
+        if (!isAutoPlaying || isHoverPaused) return;
+        if (activeTaskDemo) {
+            advanceTaskDemo();
+        } else {
+            stepNav(1);
+        }
+    }, customDuration);
+}
+
+function pauseOnViewportHover() {
+    if (!isAutoPlaying || isHoverPaused) return;
+    isHoverPaused = true;
+    if (autoPlayTimer) {
+        clearTimeout(autoPlayTimer);
+        autoPlayTimer = null;
+    }
+    if (autoPlayProgressAnim) {
+        cancelAnimationFrame(autoPlayProgressAnim);
+        autoPlayProgressAnim = null;
+    }
+
+    const elapsed = performance.now() - autoPlayStartTime;
+    autoPlayRemainingTime = Math.max(600, autoPlayDuration - elapsed);
+
+    // Subtle visual indication that the countdown is paused on hover
+    const bar = document.getElementById('autoplayTimerBar');
+    if (bar) {
+        bar.style.opacity = '0.35';
+    }
+    const pausePill = document.getElementById('viewportHoverPausePill');
+    if (pausePill) {
+        pausePill.style.display = 'inline-flex';
+    }
+    const badgeText = document.getElementById('demoLiveBadgeText');
+    if (badgeText) {
+        if (!badgeText.dataset.origText) {
+            badgeText.dataset.origText = badgeText.innerText;
+        }
+        badgeText.innerText = 'Paused';
+    }
+}
+
+function resumeOnViewportLeave() {
+    if (!isAutoPlaying || !isHoverPaused) return;
+    isHoverPaused = false;
+    const bar = document.getElementById('autoplayTimerBar');
+    if (bar) {
+        bar.style.opacity = '1';
+    }
+    const pausePill = document.getElementById('viewportHoverPausePill');
+    if (pausePill) {
+        pausePill.style.display = 'none';
+    }
+    const badgeText = document.getElementById('demoLiveBadgeText');
+    if (badgeText && badgeText.dataset.origText) {
+        badgeText.innerText = badgeText.dataset.origText;
+        delete badgeText.dataset.origText;
+    }
+    resetAutoPlayTimer(autoPlayRemainingTime, autoPlayCurrentPct);
+}
+
+function updateAutoPlayUI(active) {
+    const btn = document.getElementById('autoPlayToggleBtn');
+    const icon = document.getElementById('autoPlayIcon');
+    const label = document.getElementById('autoPlayLabel');
+    const track = document.getElementById('autoplayTimerTrack');
+    const stopBtn = document.getElementById('stopDemoBtn');
+    const liveBadge = document.getElementById('demoLiveBadge');
+
+    if (btn && icon && label) {
+        if (active) {
+            btn.classList.add('is-playing');
+            icon.className = 'fa-solid fa-pause';
+            label.innerText = 'Pause';
+            if (track) track.style.display = 'block';
+            if (stopBtn) stopBtn.style.display = 'inline-flex';
+            if (liveBadge) liveBadge.style.display = 'inline-flex';
+        } else {
+            btn.classList.remove('is-playing');
+            icon.className = 'fa-solid fa-play text-warning';
+            label.innerText = 'Auto Demo';
+            if (track) track.style.display = 'none';
+            if (stopBtn) stopBtn.style.display = 'none';
+            if (liveBadge) liveBadge.style.display = 'none';
+        }
+    }
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.code === 'Space') {
+        e.preventDefault();
+        toggleAutoPlay();
+    } else if (e.key === 'ArrowRight') {
+        stepNav(1);
+    } else if (e.key === 'ArrowLeft') {
+        stepNav(-1);
+    } else if (e.key >= '1' && e.key <= '6') {
+        switchTopic(parseInt(e.key));
+    }
+});
+
+// Initialization
+document.addEventListener('DOMContentLoaded', function() {
+    switchTopic(1);
+
+    // Bind hover pause to the entire screen viewport ("lalagay si cursor para magstop")
+    const viewport = document.getElementById('screenViewport');
+    if (viewport) {
+        viewport.addEventListener('mouseenter', pauseOnViewportHover);
+        viewport.addEventListener('mouseleave', resumeOnViewportLeave);
+    }
+
+    // Auto-start gentle interactive tour after a short delay so the user doesn't need to click anything
+    setTimeout(() => {
+        if (!isAutoPlaying) {
+            startAutoPlay();
+        }
+    }, 1200);
+
+    // Responsive auto-reclamp on window resize so bubble never overflows
+    window.addEventListener('resize', () => {
+        if (typeof focusItem === 'function' && typeof currentFocusIndex !== 'undefined') {
+            focusItem(currentFocusIndex, true);
+        }
+    });
+});
+</script>
+{% endblock %}

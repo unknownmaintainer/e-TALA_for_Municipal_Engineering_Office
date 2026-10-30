@@ -163,13 +163,13 @@ class EngineeringRecord(models.Model):
             models.Index(fields=['barangay']),
             models.Index(fields=['status']),
             models.Index(fields=['year']),
-            models.Index(fields=['is_illegal_construction']),
-            models.Index(fields=['illegal_compliance_status']),
+            models.Index(fields=['is_illegal_construction'], name='permits_eng_is_ille_idx'),
+            models.Index(fields=['illegal_compliance_status'], name='permits_eng_illega_comp_idx'),
             models.Index(fields=['title']),
             models.Index(fields=['-created_at']),
             models.Index(fields=['record_type', 'status']),
             models.Index(fields=['barangay', 'year']),
-            models.Index(fields=['status', 'deleted_at']),
+            models.Index(fields=['status', 'deleted_at'], name='permits_eng_status_deleted_idx'),
         ]
 
     def __str__(self):
@@ -237,19 +237,26 @@ class EngineeringRecord(models.Model):
     @property
     def display_title(self):
         """Returns the clean primary display title (e.g. applicant name for permits, project title for projects)."""
-        if self.is_illegal_construction:
-            return self.title or "Illegal Construction"
+        if self.is_illegal_construction and self.illegal_compliance_status != 'resolved':
+            if self.title:
+                for sep in [' · ', ' • ', ' - ']:
+                    if sep in self.title:
+                        prefix, rest = self.title.split(sep, 1)
+                        if any(c.isdigit() for c in prefix):
+                            return rest.strip()
+                return self.title.strip()
+            return "Illegal Construction"
         if self.record_type == 'Permit':
             if hasattr(self, 'permit_detail') and self.permit_detail and self.permit_detail.applicant_name:
                 app = self.permit_detail.applicant_name.strip()
                 if app and app.lower() not in ['none', 'n/a', 'unknown', '[unpermitted construction discovered]']:
                     return app
             if self.title:
-                # If title contains a permit number prefix like "2026-08-003 • eeeee"
-                if ' • ' in self.title:
-                    return self.title.split(' • ', 1)[1].strip()
-                elif ' - ' in self.title and any(c.isdigit() for c in self.title.split(' - ')[0]):
-                    return self.title.split(' - ', 1)[1].strip()
+                for sep in [' · ', ' • ', ' - ']:
+                    if sep in self.title:
+                        prefix, rest = self.title.split(sep, 1)
+                        if any(c.isdigit() for c in prefix):
+                            return rest.strip()
                 return self.title.strip()
             return self.specific_type_label
         return self.title or "Untitled Record"
@@ -454,6 +461,9 @@ class ProjectDetail(models.Model):
         ('Others', 'Others'),
     )
 
+    # Funding sources that require a free-text specification (stored in funding_source_other)
+    SPECIFY_FUNDING_SOURCES = ('NGO', 'Others')
+
     engineering_record = models.OneToOneField(
         EngineeringRecord, on_delete=models.CASCADE, related_name='project_detail'
     )
@@ -463,6 +473,14 @@ class ProjectDetail(models.Model):
     contractor = models.CharField(max_length=255, blank=True, default='')
     project_cost = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
     project_status = models.CharField(max_length=20, choices=PROJECT_STATUS_CHOICES, default='Completed')
+
+    @property
+    def funding_source_display(self):
+        """Human-readable funding source, e.g. 'NGO (Philippine Red Cross)'."""
+        specified = (self.funding_source_other or '').strip()
+        if self.funding_source in self.SPECIFY_FUNDING_SOURCES and specified:
+            return f"{self.funding_source} ({specified})"
+        return self.funding_source
 
     def __str__(self):
         return f"{self.project_type} — {self.engineering_record.title}"

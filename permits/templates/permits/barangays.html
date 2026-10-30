@@ -458,6 +458,25 @@
         border: 1px solid var(--border-color, #cbd5e1) !important;
     }
 
+    /* Consistent Deep Satellite Ocean Base across ALL themes to completely eliminate white/grey tile flashing */
+    #carigaraMap,
+    #carigaraMap .leaflet-container,
+    #carigaraMap .leaflet-pane,
+    #carigaraMap .leaflet-tile-pane,
+    #carigaraMap .leaflet-layer,
+    #carigaraMap .leaflet-tile-container,
+    #add_map_picker,
+    #add_map_picker .leaflet-container,
+    #add_map_picker .leaflet-pane,
+    #add_map_picker .leaflet-tile-pane,
+    #add_map_picker .leaflet-layer,
+    #add_map_picker .leaflet-tile-container,
+    #edit_map_picker,
+    #edit_map_picker .leaflet-container,
+    #edit_map_picker .leaflet-pane,
+    #edit_map_picker .leaflet-tile-pane,
+    #edit_map_picker .leaflet-layer,
+    #edit_map_picker .leaflet-tile-container,
     .dark-mode #carigaraMap,
     .dark-mode .leaflet-container,
     .dark-mode .leaflet-pane,
@@ -470,15 +489,13 @@
     [data-bs-theme="dark"] .leaflet-tile-pane,
     [data-bs-theme="dark"] .leaflet-layer,
     [data-bs-theme="dark"] .leaflet-tile-container {
-        background: #0f172a !important;
-        background-color: #0f172a !important;
+        background: #152238 !important;
+        background-color: #152238 !important;
     }
 
-    /* Ensure map tiles remain 100% natural, clear, and un-darkened/un-inverted */
-    .leaflet-tile-container img,
-    .dark-mode .leaflet-tile-container img {
+    /* Ensure map tiles remain 100% natural, clear, and un-darkened without overriding Leaflet's native tile fade lifecycle */
+    .leaflet-tile {
         filter: none !important;
-        opacity: 1 !important;
     }
 
     /* Hide Leaflet watermark attribution control badge */
@@ -787,15 +804,49 @@
         flex: 1;
         height: 100% !important;
         min-height: 400px !important;
-        background: #f8fafc;
+        background: #152238 !important; /* Deep Satellite Ocean Base - eliminates white square flashing */
         border-bottom-left-radius: 12px;
         border-bottom-right-radius: 12px;
         position: relative;
     }
 
+    .brgy-map-loading-overlay {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.92) 100%);
+        backdrop-filter: blur(4px);
+        z-index: 999;
+        pointer-events: none;
+        transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s;
+    }
+
+    .brgy-map-loading-overlay.fade-out {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .brgy-map-loader-badge {
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 9999px;
+        padding: 6px 14px;
+        font-size: 0.74rem;
+        font-weight: 650;
+        color: #0f172a;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        display: inline-flex;
+        align-items: center;
+        letter-spacing: -0.01em;
+    }
+
+    [data-bs-theme="dark"] .brgy-map-loader-badge,
+    .dark-mode .brgy-map-loader-badge {
+        background: rgba(30, 41, 59, 0.95);
+        border-color: #334155;
+        color: #f8fafc;
+    }
+
     .dark-mode #carigaraMap,
     [data-bs-theme="dark"] #carigaraMap {
-        background: #0f172a;
+        background: #0f172a !important;
     }
 
     /* ── Viewport-Pinned Loading Spinner (Visible & Centered in Viewport) ── */
@@ -1047,7 +1098,17 @@
                         </div>
                     </div>
 
-                    <div id="carigaraMap" style="height: 540px; min-height: 460px; width: 100%; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; background: #f1f5f9;"></div>
+                    <div class="position-relative flex-grow-1 h-100 overflow-hidden" style="border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+                        <div id="carigaraMap" style="height: 540px; min-height: 460px; width: 100%; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; background: #152238;"></div>
+                        <!-- Smooth Shimmer & Preloader Overlay (Eliminates tile square flashing) -->
+                        <div id="brgyMapLoadingOverlay" class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center brgy-map-loading-overlay">
+                            <div class="brgy-map-loader-badge">
+                                <div class="spinner-border spinner-border-sm text-primary me-2" role="status" style="width: 13px; height: 13px; border-width: 2px;"></div>
+                                <i class="fa-solid fa-satellite text-primary me-1.5" style="font-size: 11px;"></i>
+                                <span>Loading satellite map…</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1371,7 +1432,11 @@
             maxZoom: 19,
             maxNativeZoom: 18,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Satellite'
+            attribution: '&copy; Google Satellite',
+            keepBuffer: 10,
+            updateWhenIdle: false,
+            updateWhenZooming: false,
+            fadeAnimation: true
         }).addTo(mapInstance);
 
         const customIcon = L.divIcon({
@@ -1666,7 +1731,11 @@
         // INSTANT LIVE SEARCH & DYNAMIC RESULT COUNTER
         // ═════════════════════════════════════════════════════════════════════════
         function filterBarangayCards() {
-            const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+            const rawQuery = (searchInput ? searchInput.value : '').trim().toLowerCase();
+            let query = rawQuery.replace(/^(?:barangay|brgy\.?|bgy\.?)\s+/i, '').trim();
+            if (['barangay', 'brgy', 'brgy.', 'bgy', 'bgy.'].includes(query)) {
+                query = '';
+            }
             let visibleCount = 0;
 
             cards.forEach(card => {
@@ -1690,7 +1759,7 @@
 
             // Show/hide clear button
             if (clearBtn) {
-                if (query.length > 0) {
+                if (rawQuery.length > 0) {
                     clearBtn.classList.remove('d-none');
                 } else {
                     clearBtn.classList.add('d-none');
@@ -1811,11 +1880,25 @@
                 activeMarker.addTo(map);
 
                 const targetCoords = coords || activeMarker.getLatLng();
-                map.flyTo(targetCoords, 15.8, {
-                    animate: true,
-                    duration: 0.5,
-                    easeLinearity: 0.25
-                });
+                const curZoom = map.getZoom();
+
+                // If map is already at barangay view (>= 13.5), smoothly glide with panTo.
+                // This eliminates zoom oscillation (flyTo) which discards and reloads tiles mid-flight,
+                // ensuring butter-smooth transitions with ZERO blinking or blank spaces.
+                if (curZoom >= 13.5) {
+                    map.panTo(targetCoords, {
+                        animate: true,
+                        duration: 0.5,
+                        easeLinearity: 0.25
+                    });
+                } else {
+                    // Initial smooth entry zoom into barangay from municipality overview
+                    map.flyTo(targetCoords, 14.8, {
+                        animate: true,
+                        duration: 0.55,
+                        easeLinearity: 0.25
+                    });
+                }
             }
 
             // Highlight card border & scroll into view if clicked on map (Clean Theme Blue, Never Red)
@@ -1848,7 +1931,10 @@
                 currentBoundaryPolygon = null;
             }
             if (map && mapInitialized) {
-                map.setView([centerLat, centerLng], 12.5);
+                map.flyTo([centerLat, centerLng], 12.5, {
+                    animate: true,
+                    duration: 0.5
+                });
             }
             cards.forEach(card => {
                 const id = card.getAttribute('data-id');
@@ -1977,18 +2063,48 @@
                 preferCanvas: true
             }).setView([centerLat, centerLng], 12.5);
 
-            // Constant Google Satellite View (High-Resolution Aerial Imagery across all maps)
+            function hideBrgyMapLoader() {
+                const overlay = document.getElementById('brgyMapLoadingOverlay');
+                if (overlay && !overlay.classList.contains('fade-out')) {
+                    overlay.classList.add('fade-out');
+                }
+            }
+
+            // Constant Google Satellite View (Deep Buffered, Silky Smooth & High-Resolution)
             const satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
                 maxZoom: 20,
                 maxNativeZoom: 18,
                 subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                attribution: '&copy; Google Satellite'
+                attribution: '&copy; Google Satellite',
+                keepBuffer: 14,        // Keeps 14 rows of tiles buffered outside viewport across municipality
+                updateWhenIdle: false, // Pre-loads tiles during movement for butter-smooth panning
+                updateWhenZooming: false,
+                fadeAnimation: true
             });
             satelliteLayer.addTo(map);
+
+            satelliteLayer.once('load', hideBrgyMapLoader);
+            setTimeout(hideBrgyMapLoader, 1400); // Safety fallback
 
             map.on('click', function () {
                 resetBarangayHighlight();
             });
+
+            // Suppress hover while scrolling cards pane or whole window to avoid map tile thrashing
+            let isCardsPaneScrolling = false;
+            let scrollEndTimer = null;
+            function onScrollActive() {
+                isCardsPaneScrolling = true;
+                clearTimeout(scrollEndTimer);
+                scrollEndTimer = setTimeout(function () {
+                    isCardsPaneScrolling = false;
+                }, 220);
+            }
+            const cardsPaneEl = document.getElementById('cardsColumn');
+            if (cardsPaneEl) {
+                cardsPaneEl.addEventListener('scroll', onScrollActive, { passive: true });
+            }
+            window.addEventListener('scroll', onScrollActive, { passive: true });
 
             cards.forEach(card => {
                 const name = card.getAttribute('data-name');
@@ -2011,12 +2127,20 @@
                     window.location.href = '/barangays/' + id + '/';
                 });
 
+                let cardHoverTimer = null;
                 const cardContainer = card.querySelector('.brgy-card');
                 if (cardContainer) {
                     cardContainer.addEventListener('mouseenter', function () {
-                        if (mapInitialized && !mapColumn.classList.contains('d-none')) {
-                            highlightBarangay(id, coords);
-                        }
+                        if (isCardsPaneScrolling || !mapInitialized || mapColumn.classList.contains('d-none')) return;
+                        clearTimeout(cardHoverTimer);
+                        cardHoverTimer = setTimeout(function () {
+                            if (!isCardsPaneScrolling) {
+                                highlightBarangay(id, coords, false);
+                            }
+                        }, 180);
+                    });
+                    cardContainer.addEventListener('mouseleave', function () {
+                        clearTimeout(cardHoverTimer);
                     });
                 }
 

@@ -1,45 +1,41 @@
 <!-- ══ LGU BUILDING OFFICIAL VIOLATION & INSPECTION REPORT MODAL ══ -->
 <div class="modal fade" id="flagIllegalModal" tabindex="-1" aria-labelledby="flagIllegalModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width: 560px; max-height: calc(100vh - 40px);">
-        <div class="modal-content border-0 shadow-xl" style="border-radius: 16px; overflow: hidden; max-height: calc(100vh - 40px); display: flex; flex-direction: column;">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable flag-modal-dialog">
+        <div class="modal-content flag-modal-content border-0 shadow-2xl">
 
             <!-- Modal Header -->
-            <div class="modal-header border-bottom px-4 py-2.5 bg-white d-flex align-items-center justify-content-between flex-shrink-0">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="d-flex align-items-center justify-content-center flex-shrink-0"
-                        style="width: 36px; height: 36px; background: rgba(220, 38, 38, 0.10); border: 1px solid rgba(220, 38, 38, 0.22); border-radius: 10px; color: #dc2626;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 15px;"></i>
+            <div class="modal-header flag-modal-header border-bottom px-4 py-2.5 d-flex align-items-center justify-content-between flex-shrink-0">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="flag-header-icon-box flex-shrink-0">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
                     </div>
-                    <div>
-                        <h5 class="modal-title fw-bold mb-0 text-dark" id="flagIllegalModalLabel"
-                            style="font-size: 0.98rem; letter-spacing: -0.01em;">
-                            Report Violation
-                        </h5>
-                    </div>
+                    <h5 class="modal-title fw-bold mb-0" id="flagIllegalModalLabel" style="font-size: 1.05rem; letter-spacing: -0.01em;">
+                        Report Violation
+                    </h5>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                    style="font-size: 0.72rem;"></button>
+                <button type="button" class="btn-close flag-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <form method="POST" action="{% url 'flag_illegal_construction' %}" enctype="multipart/form-data"
                 id="flagIllegalForm" class="d-flex flex-column needs-validation" novalidate style="margin-bottom: 0; min-height: 0; flex: 1 1 auto; overflow: hidden;">
                 {% csrf_token %}
 
-                <div class="modal-body px-4 py-3" style="overflow-y: auto; flex: 1 1 auto; min-height: 0;">
-
-                    <div class="row g-2.5">
-                        <!-- Row 1: Structure Name & Barangay -->
+                <div class="modal-body flag-modal-body px-4 py-3" style="overflow-y: auto; flex: 1 1 auto; min-height: 0;">
+                    <div class="row gx-4 gy-3">
+                        <!-- Structure Name -->
                         <div class="col-md-6">
-                            <label class="cr-label">Structure Name</label>
+                            <label class="cr-label mb-1">Structure Name</label>
                             <input type="text" name="title" class="form-control cr-field"
                                 placeholder="e.g. Commercial Building" maxlength="80" required>
-                            <div class="invalid-feedback">Please enter the structure / incident name.</div>
+                            <div class="invalid-feedback">Please enter the structure name.</div>
                         </div>
+
+                        <!-- Barangay -->
                         <div class="col-md-6">
-                            <label class="cr-label">Barangay</label>
+                            <label class="cr-label mb-1">Barangay</label>
                             <select name="barangay" id="flagBarangaySelect" class="form-select cr-field" required>
-                                <option value="" disabled selected>— Select Barangay —</option>
-                                {% for b in barangays %}
+                                <option value="" disabled selected>Select Barangay</option>
+                                {% for b in barangays|default:global_barangays %}
                                 <option value="{{ b.barangay_id }}"
                                     data-lat="{{ b.latitude|default:'' }}"
                                     data-lng="{{ b.longitude|default:'' }}"
@@ -50,19 +46,22 @@
                         </div>
 
                         <!-- Interactive GIS Map Location Pinpoint Section -->
-                        <div class="col-12 mt-1">
-                            <div class="d-flex align-items-center justify-content-between mb-1">
-                                <label class="cr-label mb-0 d-flex align-items-center gap-1.5">
-                                    <i class="fa-solid fa-map-location-dot text-danger" style="font-size: 11px;"></i>
-                                    <span>Pinpoint Location on Map</span>
-                                    <span class="text-muted fw-normal" style="font-size: 0.69rem;">(Tap lot on map to set GPS)</span>
-                                </label>
-                                <div class="d-flex align-items-center gap-2">
-                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 text-primary fw-semibold d-inline-flex align-items-center gap-1" id="flagDetectLocationBtn" onclick="detectFlagCurrentLocation()" style="font-size: 0.70rem;" title="Detect and pin current GPS location">
-                                        <i class="fa-solid fa-crosshairs"></i><span>Use My Location</span>
+                        <div class="col-12">
+                            <div class="map-section-header mb-1">
+                                <div class="map-header-left">
+                                    <label class="cr-label mb-0 d-inline-flex align-items-center gap-1.5">
+                                        <i class="fa-solid fa-map-pin text-danger" style="font-size: 13px;"></i>
+                                        <span>Pinpoint Location</span>
+                                    </label>
+                                </div>
+                                <div class="map-header-actions">
+                                    <button type="button" class="map-action-pill" id="flagDetectLocationBtn" onclick="detectFlagCurrentLocation()" title="Detect current GPS location">
+                                        <i class="fa-solid fa-crosshairs text-primary"></i>
+                                        <span>Use My Location</span>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0 d-none text-danger fw-semibold" id="flagResetPinBtn" style="font-size: 0.70rem;">
-                                        <i class="fa-solid fa-rotate-left me-1"></i>Clear Pin
+                                    <button type="button" class="map-action-pill d-none text-danger" id="flagResetPinBtn" title="Remove placed GPS pin">
+                                        <i class="fa-solid fa-rotate-left"></i>
+                                        <span>Clear Pin</span>
                                     </button>
                                 </div>
                             </div>
@@ -72,31 +71,32 @@
                             <input type="hidden" name="longitude" id="flagLocationLng" value="">
 
                             <!-- Mini Map Card Container -->
-                            <div class="flag-map-wrapper rounded-3 overflow-hidden border position-relative shadow-2xs"
-                                style="height: 180px; background: #f8fafc; border-color: #cbd5e1 !important;">
+                            <div class="flag-map-wrapper position-relative overflow-hidden">
                                 <div id="flagLocationMap" style="width: 100%; height: 100%;"></div>
 
+                                <!-- Smooth Shimmer & Preloader Overlay (Eliminates tile square flashing) -->
+                                <div id="flagMapLoadingOverlay" class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center flag-map-loading-overlay">
+                                    <div class="flag-map-loader-badge">
+                                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status" style="width: 13px; height: 13px; border-width: 2px;"></div>
+                                        <i class="fa-solid fa-satellite text-primary me-1.5" style="font-size: 11px;"></i>
+                                        <span>Loading satellite map…</span>
+                                    </div>
+                                </div>
 
                                 <!-- Guide Badge Overlay -->
                                 <div id="flagMapGuideOverlay"
-                                    class="position-absolute start-50 bottom-0 translate-middle-x mb-2 text-white px-3 py-1 rounded-pill shadow-sm pointer-events-none d-flex align-items-center gap-1.5"
-                                    style="font-size: 0.68rem; z-index: 999; white-space: nowrap; background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(4px);">
+                                    class="position-absolute start-50 bottom-0 translate-middle-x mb-2 text-white px-3 py-1 rounded-pill pointer-events-none d-flex align-items-center gap-1.5 flag-map-guide-badge">
                                     <i class="fa-solid fa-crosshairs text-warning" style="font-size: 9px;" id="flagMapGuideIcon"></i>
-                                    <span id="flagMapGuideText">Select barangay or click map to drop GPS pin</span>
+                                    <span id="flagMapGuideText">Click map to drop GPS pin</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Row 2: Property Owner & Violation Type -->
+                        <!-- Violation Type -->
                         <div class="col-md-6">
-                            <label class="cr-label">Property Owner <span class="text-muted fw-normal">(Optional)</span></label>
-                            <input type="text" name="applicant_name" class="form-control cr-field"
-                                placeholder="e.g. Juan Dela Cruz" maxlength="60">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="cr-label">Violation Type</label>
+                            <label class="cr-label mb-1">Violation Type</label>
                             <select name="violation_type" id="flagViolationTypeSelect" class="form-select cr-field" required>
-                                <option value="" disabled selected>— Select Violation Type —</option>
+                                <option value="" disabled selected>Select Violation Type</option>
                                 <option value="No Building Permit">No Building Permit</option>
                                 <option value="Illegal Renovation or Demolition">Illegal Renovation or Demolition</option>
                                 <option value="Plan Deviation">Plan Deviation</option>
@@ -109,43 +109,32 @@
                             <div class="invalid-feedback">Please select the violation type.</div>
                         </div>
 
+                        <!-- Date Inspected -->
+                        <div class="col-md-6">
+                            <label class="cr-label mb-1">Date Inspected</label>
+                            <input type="date" name="date_discovered" class="form-control cr-field"
+                                max="{% now 'Y-m-d' %}" required>
+                            <div class="invalid-feedback">Please select the date inspected.</div>
+                        </div>
+
                         <!-- Dynamic Specific Violation Field (Visible only when 'Other Violation' is selected) -->
                         <div class="col-12 d-none" id="flagOtherViolationContainer">
-                            <label class="cr-label d-flex align-items-center justify-content-between">
-                                <span class="d-flex align-items-center gap-1.5">
-                                    <i class="fa-solid fa-pen-to-square text-danger" style="font-size: 11px;"></i>
-                                    <span>Specify Violation Type</span>
-                                </span>
-                                <span class="text-muted fw-normal" style="font-size: 0.68rem;">Custom violation description</span>
-                            </label>
+                            <label class="cr-label mb-1">Specify Violation</label>
                             <input type="text" name="other_violation_type" id="flagOtherViolationInput" class="form-control cr-field"
-                                placeholder="Please specify what type of violation..." maxlength="80">
+                                placeholder="Specify violation details..." maxlength="80">
                             <div class="invalid-feedback">Please specify what type of violation.</div>
                         </div>
 
-                        <!-- Row 3: Date Inspected & Building Type -->
+                        <!-- Remarks / Notes (Optional) -->
                         <div class="col-md-6">
-                            <label class="cr-label">Date Inspected</label>
-                            <input type="date" name="date_discovered" class="form-control cr-field"
-                                max="today"
-                                value="{% now 'Y-m-d' %}" required>
-                            <div class="invalid-feedback">Date Inspected is required and cannot be in the future.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="cr-label">Building Type <span class="text-muted fw-normal">(Optional)</span></label>
-                            <select name="structure_type" class="form-select cr-field">
-                                <option value="" selected>— Select Building Type —</option>
-                                <option value="Residential">Residential</option>
-                                <option value="Commercial">Commercial</option>
-                                <option value="Industrial">Industrial</option>
-                                <option value="Institutional">Institutional</option>
-                                <option value="Agricultural">Agricultural</option>
-                            </select>
+                            <label class="cr-label mb-1">Remarks / Notes <span class="text-muted fw-normal">(Optional)</span></label>
+                            <textarea name="description" id="flagDescription" class="form-control cr-field" rows="2"
+                                placeholder="Inspection remarks, owner info, observations..." maxlength="250"></textarea>
                         </div>
 
-                        <!-- Row 4: Attach Photo / Notice Dropzone -->
-                        <div class="col-12">
-                            <label class="cr-label">Attach Photo or Notice <span class="text-muted fw-normal">(Optional)</span></label>
+                        <!-- Attach Photo Dropzone (Full Width on mobile, 6 cols on desktop) -->
+                        <div class="col-md-6">
+                            <label class="cr-label mb-1">Attach Photo <span class="text-muted fw-normal">(Optional)</span></label>
                             <div class="cr-dropzone-box" id="flagPhotoDropzone">
                                 <input type="file" name="photo" accept=".pdf,image/*,.jpg,.jpeg,.png,.webp" id="flagPhotoInput" class="cr-dropzone-input">
                                 
@@ -155,22 +144,25 @@
                                         <i class="fa-solid fa-cloud-arrow-up"></i>
                                     </div>
                                     <div class="cr-dropzone-text">
-                                        <span class="cr-dropzone-main">Choose site photo or Notice of Violation</span>
-                                        <span class="cr-dropzone-sub">JPG, PNG, WEBP, or PDF up to 50 MB</span>
+                                        <div class="cr-dropzone-main">
+                                            <span>Drop photo or </span>
+                                            <span class="cr-browse-link">Browse</span>
+                                        </div>
+                                        <div class="cr-dropzone-sub">JPG, PNG, PDF up to 50MB</div>
                                     </div>
                                 </div>
 
                                 <!-- Selected File State -->
                                 <div id="flagPhotoSelectedState" class="cr-dropzone-selected d-none">
-                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                    <div class="d-flex align-items-center gap-1.5 overflow-hidden">
                                         <div class="cr-file-icon-box">
                                             <i class="fa-solid fa-file-image" id="flagPhotoTypeIcon"></i>
                                         </div>
                                         <div class="overflow-hidden text-start">
-                                            <div class="cr-file-name text-truncate" id="flagPhotoSelectedName"></div>
-                                            <div class="d-flex align-items-center gap-2">
+                                            <div class="cr-file-name text-truncate" id="flagPhotoSelectedName" style="max-width: 140px;"></div>
+                                            <div class="d-flex align-items-center gap-1.5">
                                                 <span class="cr-file-size text-muted" id="flagPhotoSelectedSize"></span>
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.62rem; padding: 1px 5px;">Ready to upload</span>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.60rem; padding: 1px 4px;">Ready</span>
                                             </div>
                                         </div>
                                     </div>
@@ -180,30 +172,17 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Row 5: Remarks / Notes -->
-                        <div class="col-12">
-                            <label class="cr-label">Remarks / Notes <span class="text-muted fw-normal">(Optional)</span></label>
-                            <textarea name="description" class="form-control cr-field char-counted" rows="2"
-                                maxlength="250"
-                                placeholder="Enter additional notes or observations..." style="height: auto; min-height: 42px; resize: none;"></textarea>
-                            <div class="text-end text-muted small mt-0.5 char-counter-lbl" style="font-size: 0.66rem;">0 / 250 characters</div>
-                        </div>
                     </div>
-
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="modal-footer border-top px-4 py-2.5 bg-white flex-shrink-0">
-                    <div class="w-100" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <button type="button" class="btn btn-light border py-1.5 fw-semibold text-secondary w-100"
-                            data-bs-dismiss="modal" style="border-radius: 8px; font-size: 0.80rem; height: 35px; background: #f1f5f9; border-color: #e2e8f0 !important;">
+                <div class="modal-footer flag-modal-footer border-top px-4 py-2.5 flex-shrink-0">
+                    <div class="w-100 d-flex align-items-center justify-content-end gap-2">
+                        <button type="button" class="btn flag-btn-cancel px-3.5 py-2 fw-semibold" data-bs-dismiss="modal">
                             Cancel
                         </button>
-                        <button type="submit" form="flagIllegalForm"
-                            class="btn text-white py-1.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm w-100"
-                            style="border-radius: 8px; font-size: 0.80rem; height: 35px; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);">
-                            <i class="fa-solid fa-triangle-exclamation" style="font-size: 12px;"></i>
+                        <button type="submit" form="flagIllegalForm" class="btn flag-btn-submit px-4 py-2 fw-semibold shadow-sm">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
                             <span>Report Violation</span>
                         </button>
                     </div>
@@ -214,45 +193,127 @@
 </div>
 
 <style>
+    /* ══ MODAL DIALOG & CONTAINER ══ */
+    .flag-modal-dialog {
+        max-width: 860px !important;
+        width: 95% !important;
+        max-height: calc(100vh - 40px) !important;
+        margin: 20px auto !important;
+    }
+
+    .flag-modal-content {
+        border-radius: 16px !important;
+        overflow: hidden !important;
+        max-height: calc(100vh - 40px) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: #ffffff !important;
+        box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.28) !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+
+    /* ══ MODAL HEADER ══ */
+    .flag-modal-header {
+        background: #ffffff !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 12px 22px !important;
+    }
+
+    .flag-header-icon-box {
+        width: 32px;
+        height: 32px;
+        background: rgba(220, 38, 38, 0.10);
+        border: 1px solid rgba(220, 38, 38, 0.22);
+        border-radius: 8px;
+        color: #dc2626;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+
+    .flag-header-subtitle {
+        font-size: 0.73rem;
+        color: #64748b;
+        margin-top: 1px;
+    }
+
+    .flag-btn-close {
+        font-size: 0.72rem !important;
+        opacity: 0.7;
+        transition: opacity 0.15s ease;
+    }
+
+    .flag-btn-close:hover {
+        opacity: 1;
+    }
+
+    /* ══ SECTION CARDS & HEADINGS ══ */
+    .flag-section-block {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 12px 14px;
+        transition: all 0.15s ease;
+    }
+
+    .flag-section-heading {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 8px;
+    }
+
+    .flag-section-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(220, 38, 38, 0.12);
+        color: #dc2626;
+        font-size: 0.65rem;
+        font-weight: 750;
+        flex-shrink: 0;
+    }
+
+    .flag-section-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #475569;
+    }
+
+    /* ══ LABELS & INPUT CONTROLS ══ */
     .cr-label {
         display: block;
-        font-size: 0.78rem;
-        font-weight: 600;
+        font-size: 0.80rem !important;
+        font-weight: 600 !important;
         color: #334155;
-        margin-bottom: 3px;
+        margin-bottom: 5px !important;
+        letter-spacing: -0.01em;
+    }
+
+    .cr-label .text-danger {
+        display: none !important;
     }
 
     .cr-field {
-        border-radius: 8px !important;
-        padding: 6px 11px !important;
-        font-size: 0.84rem !important;
-        height: 36px;
+        border-radius: 9px !important;
+        padding: 7px 13px !important;
+        font-size: 0.86rem !important;
+        height: 42px !important;
         border: 1px solid #cbd5e1 !important;
         background-color: #ffffff !important;
         color: #0f172a !important;
         transition: all 0.15s ease;
     }
 
-    select.cr-field,
-    select.form-select {
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
-        background-repeat: no-repeat !important;
-        background-position: right 10px center !important;
-        background-size: 13px 9px !important;
-        padding-right: 30px !important;
-        appearance: none !important;
-        -webkit-appearance: none !important;
-    }
-
-    textarea.cr-field {
-        height: auto !important;
-        min-height: 48px !important;
-        padding: 6px 11px !important;
-    }
-
     .cr-field:focus {
-        border-color: #0284c7 !important;
-        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14) !important;
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
         outline: none !important;
     }
 
@@ -260,28 +321,172 @@
         color: #94a3b8 !important;
     }
 
-    .cr-field option {
-        background: #ffffff !important;
-        color: #0f172a !important;
+    select.cr-field,
+    select.form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+        background-repeat: no-repeat !important;
+        background-position: right 12px center !important;
+        background-size: 13px 9px !important;
+        padding-right: 32px !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
     }
 
-    /* Modern Compact Dropzone */
+    input[type="date"].cr-field {
+        color: #0f172a;
+    }
+
+    input[type="date"].cr-field:not(:focus):invalid,
+    input[type="date"].cr-field:not(:focus):placeholder-shown {
+        color: #94a3b8;
+    }
+
+    textarea.cr-field {
+        height: 64px !important;
+        min-height: 64px !important;
+        max-height: 64px !important;
+        padding: 8px 13px !important;
+        line-height: 1.4 !important;
+        resize: none !important;
+        font-size: 0.84rem !important;
+        border-radius: 9px !important;
+    }
+
+    /* ══ MAP PINPOINT SECTION HEADER & TOOLBAR ══ */
+    .map-section-header {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        margin-bottom: 5px !important;
+    }
+
+    .map-header-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        flex-wrap: nowrap;
+    }
+
+    .map-header-actions {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex-shrink: 0 !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .map-action-pill {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        border-radius: 9999px;
+        padding: 4px 11px;
+        font-size: 0.73rem;
+        font-weight: 650;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s ease;
+        text-decoration: none;
+        height: 27px;
+    }
+
+    .map-action-pill:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #0f172a;
+        transform: translateY(-1px);
+    }
+
+    .flag-map-wrapper,
+    .flag-map-wrapper .leaflet-container,
+    .flag-map-wrapper .leaflet-pane,
+    .flag-map-wrapper .leaflet-tile-pane,
+    .flag-map-wrapper .leaflet-layer,
+    .flag-map-wrapper .leaflet-tile-container {
+        background: #152238 !important;
+        background-color: #152238 !important;
+    }
+
+    .flag-map-wrapper {
+        height: 220px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        position: relative;
+    }
+
+    .flag-map-loading-overlay {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.92) 100%);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        pointer-events: none;
+        transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.4s;
+    }
+
+    .flag-map-loading-overlay.fade-out {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .flag-map-loader-badge {
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 9999px;
+        padding: 6px 14px;
+        font-size: 0.74rem;
+        font-weight: 650;
+        color: #0f172a;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        display: inline-flex;
+        align-items: center;
+        letter-spacing: -0.01em;
+    }
+
+    [data-bs-theme="dark"] .flag-map-loader-badge,
+    .dark-mode .flag-map-loader-badge {
+        background: rgba(30, 41, 59, 0.95);
+        border-color: #334155;
+        color: #f8fafc;
+    }
+
+    .flag-map-guide-badge {
+        font-size: 0.68rem;
+        z-index: 999;
+        white-space: nowrap;
+        background: rgba(15, 23, 42, 0.86);
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    /* ══ MODERN UPLOAD DROPZONE ══ */
     .cr-dropzone-box {
         position: relative;
         border: 1.5px dashed #cbd5e1;
-        border-radius: 8px;
+        border-radius: 9px;
         background: #f8fafc;
-        padding: 6px 10px;
-        min-height: 44px;
+        padding: 7px 16px;
+        height: 64px !important;
+        min-height: 64px !important;
+        max-height: 64px !important;
         display: flex;
         align-items: center;
-        transition: all 0.15s ease;
+        justify-content: center;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         cursor: pointer;
+        overflow: hidden;
     }
 
-    .cr-dropzone-box:hover {
-        border-color: #0284c7;
-        background: #f0f9ff;
+    .cr-dropzone-box:hover,
+    .cr-dropzone-box.dragover {
+        border-color: #dc2626;
+        background: #fff5f5;
+        box-shadow: 0 2px 10px rgba(220, 38, 38, 0.08);
     }
 
     .cr-dropzone-box.has-file {
@@ -289,6 +494,15 @@
         border-color: #cbd5e1;
         background: #ffffff;
         cursor: default;
+        padding: 7px 16px;
+        height: 64px !important;
+        min-height: 64px !important;
+        max-height: 64px !important;
+        display: flex;
+        align-items: center;
+        border-radius: 9px !important;
+        transform: none;
+        box-shadow: none;
     }
 
     .cr-dropzone-input {
@@ -308,36 +522,54 @@
 
     .cr-dropzone-empty {
         display: flex;
+        flex-direction: row;
         align-items: center;
+        justify-content: center;
         gap: 10px;
         width: 100%;
         pointer-events: none;
     }
 
     .cr-dropzone-icon {
-        width: 28px;
-        height: 28px;
-        background: #fee2e2;
+        width: 32px;
+        height: 32px;
+        background: rgba(220, 38, 38, 0.10);
         color: #dc2626;
-        border-radius: 6px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 13px;
+        font-size: 14px;
         flex-shrink: 0;
+        transition: transform 0.2s ease;
+    }
+
+    .cr-dropzone-box:hover .cr-dropzone-icon,
+    .cr-dropzone-box.dragover .cr-dropzone-icon {
+        transform: translateY(-1px) scale(1.08);
+        background: rgba(220, 38, 38, 0.16);
     }
 
     .cr-dropzone-text {
         display: flex;
         flex-direction: column;
+        align-items: flex-start;
         text-align: left;
+        line-height: 1.2;
     }
 
     .cr-dropzone-main {
-        font-size: 0.77rem;
+        font-size: 0.79rem;
         font-weight: 600;
         color: #1e293b;
-        line-height: 1.2;
+    }
+
+    .cr-browse-link {
+        color: #dc2626;
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        transition: color 0.15s ease;
     }
 
     .cr-dropzone-sub {
@@ -350,18 +582,19 @@
         align-items: center;
         justify-content: space-between;
         width: 100%;
+        gap: 10px;
     }
 
     .cr-file-icon-box {
-        width: 28px;
-        height: 28px;
-        background: #fee2e2;
+        width: 30px;
+        height: 30px;
+        background: rgba(220, 38, 38, 0.10);
         color: #dc2626;
         border-radius: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        font-size: 13px;
         flex-shrink: 0;
     }
 
@@ -369,18 +602,18 @@
         font-size: 0.77rem;
         font-weight: 600;
         color: #0f172a;
-        max-width: 320px;
+        max-width: 340px;
     }
 
     .cr-file-size {
-        font-size: 0.67rem;
+        font-size: 0.66rem;
     }
 
     .btn-clear-file {
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         border-radius: 50%;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #cbd5e1;
         background: #ffffff;
         color: #ef4444;
         display: flex;
@@ -395,134 +628,249 @@
     .btn-clear-file:hover {
         background: #fee2e2;
         border-color: #fecaca;
+        transform: scale(1.1);
     }
 
-    /* Dark Mode */
-    .dark-mode .cr-label,
-    [data-bs-theme="dark"] .cr-label {
-        color: #cbd5e1;
+    /* ══ MODAL FOOTER & ACTION BUTTONS ══ */
+    .flag-modal-footer {
+        background: #f8fafc !important;
+        border-top: 1px solid #e2e8f0 !important;
+        padding: 13px 26px !important;
     }
 
-    .dark-mode .cr-field,
-    [data-bs-theme="dark"] .cr-field {
-        background-color: #0f172a !important;
+    .flag-btn-cancel {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+        border-radius: 9px !important;
+        font-size: 0.85rem !important;
+        height: 40px !important;
+        min-width: 95px !important;
+        transition: all 0.15s ease !important;
+    }
+
+    .flag-btn-cancel:hover {
+        background: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        color: #1e293b !important;
+    }
+
+    .flag-btn-submit {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+        border: none !important;
+        color: #ffffff !important;
+        border-radius: 9px !important;
+        font-size: 0.85rem !important;
+        height: 40px !important;
+        min-width: 155px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25) !important;
+        transition: all 0.15s ease !important;
+    }
+
+    .flag-btn-submit:hover {
+        background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+        box-shadow: 0 4px 14px rgba(220, 38, 38, 0.38) !important;
+        transform: translateY(-1px);
+        color: #ffffff !important;
+    }
+
+    /* ══ DARK MODE ENHANCEMENTS ══ */
+    [data-bs-theme="dark"] .flag-modal-content,
+    .dark-mode .flag-modal-content {
+        background: #1e2638 !important;
         border-color: #334155 !important;
+        box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.65) !important;
+    }
+
+    [data-bs-theme="dark"] .flag-modal-header,
+    .dark-mode .flag-modal-header {
+        background: #1e2638 !important;
+        border-bottom-color: #2e3a50 !important;
+    }
+
+    [data-bs-theme="dark"] .flag-modal-header h5,
+    .dark-mode .flag-modal-header h5 {
+        color: #f8fafc !important;
+    }
+
+    [data-bs-theme="dark"] .flag-header-subtitle,
+    .dark-mode .flag-header-subtitle {
+        color: #94a3b8 !important;
+    }
+
+    [data-bs-theme="dark"] .flag-btn-close,
+    .dark-mode .flag-btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    [data-bs-theme="dark"] .flag-section-block,
+    .dark-mode .flag-section-block {
+        background: #151c2c !important;
+        border-color: #2a3449 !important;
+    }
+
+    [data-bs-theme="dark"] .flag-section-badge,
+    .dark-mode .flag-section-badge {
+        background: rgba(239, 68, 68, 0.20) !important;
+        color: #f87171 !important;
+    }
+
+    [data-bs-theme="dark"] .flag-section-title,
+    .dark-mode .flag-section-title {
+        color: #94a3b8 !important;
+    }
+
+    [data-bs-theme="dark"] .cr-label,
+    .dark-mode .cr-label {
+        color: #cbd5e1 !important;
+    }
+
+    [data-bs-theme="dark"] .map-helper-tag,
+    .dark-mode .map-helper-tag {
+        color: #94a3b8 !important;
+    }
+
+    [data-bs-theme="dark"] .map-action-pill,
+    .dark-mode .map-action-pill {
+        background: #0f1422 !important;
+        border-color: #2e3a50 !important;
+        color: #cbd5e1 !important;
+    }
+
+    [data-bs-theme="dark"] .map-action-pill:hover,
+    .dark-mode .map-action-pill:hover {
+        background: #1e2638 !important;
+        border-color: #475569 !important;
+        color: #f8fafc !important;
+    }
+
+    [data-bs-theme="dark"] .cr-field,
+    .dark-mode .cr-field {
+        background-color: #0f1422 !important;
+        border-color: #2e3a50 !important;
         color: #f1f5f9 !important;
     }
 
-    .dark-mode .cr-field:focus,
-    [data-bs-theme="dark"] .cr-field:focus {
-        border-color: #38bdf8 !important;
-        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
+    [data-bs-theme="dark"] .cr-field:focus,
+    .dark-mode .cr-field:focus {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22) !important;
     }
 
-    .dark-mode select.cr-field,
-    .dark-mode select.form-select,
-    [data-bs-theme="dark"] select.cr-field,
-    [data-bs-theme="dark"] select.form-select {
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
-    }
-
-    .dark-mode .cr-field::placeholder,
-    [data-bs-theme="dark"] .cr-field::placeholder {
+    [data-bs-theme="dark"] .cr-field::placeholder,
+    .dark-mode .cr-field::placeholder {
         color: #64748b !important;
     }
 
-    .dark-mode .cr-field option,
-    [data-bs-theme="dark"] .cr-field option {
-        background: #1e293b !important;
+    [data-bs-theme="dark"] select.cr-field,
+    [data-bs-theme="dark"] select.form-select,
+    .dark-mode select.cr-field,
+    .dark-mode select.form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+    }
+
+    [data-bs-theme="dark"] .cr-field option,
+    .dark-mode .cr-field option {
+        background: #1e2638 !important;
         color: #f1f5f9 !important;
     }
 
-    .dark-mode .cr-dropzone-box,
-    [data-bs-theme="dark"] .cr-dropzone-box {
-        background: #0f172a !important;
-        border-color: #334155 !important;
+    [data-bs-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+    .dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(0.85);
+        cursor: pointer;
     }
 
-    .dark-mode .cr-dropzone-box:hover,
-    [data-bs-theme="dark"] .cr-dropzone-box:hover {
-        border-color: #38bdf8 !important;
-        background: rgba(56, 189, 248, 0.08) !important;
-    }
-
-    .dark-mode .cr-dropzone-box.has-file,
-    [data-bs-theme="dark"] .cr-dropzone-box.has-file {
-        background: #1e293b !important;
-        border-color: #334155 !important;
-    }
-
-    .dark-mode .cr-dropzone-icon,
-    [data-bs-theme="dark"] .cr-dropzone-icon {
-        background: rgba(220, 38, 38, 0.2);
-        color: #f87171;
-    }
-
-    .dark-mode .cr-dropzone-main,
-    [data-bs-theme="dark"] .cr-dropzone-main {
-        color: #f1f5f9;
-    }
-
-    .dark-mode .cr-dropzone-sub,
-    [data-bs-theme="dark"] .cr-dropzone-sub {
-        color: #94a3b8;
-    }
-
-    .dark-mode .cr-file-icon-box,
-    [data-bs-theme="dark"] .cr-file-icon-box {
-        background: rgba(220, 38, 38, 0.2);
-        color: #f87171;
-    }
-
-    .dark-mode .cr-file-name,
-    [data-bs-theme="dark"] .cr-file-name {
-        color: #f8fafc;
-    }
-
-    .dark-mode .btn-clear-file,
-    [data-bs-theme="dark"] .btn-clear-file {
-        background: #0f172a;
-        border-color: #334155;
-        color: #f87171;
-    }
-
-    .dark-mode .btn-clear-file:hover,
-    [data-bs-theme="dark"] .btn-clear-file:hover {
-        background: rgba(220, 38, 38, 0.2);
-    }
-
-    .dark-mode #flagIllegalModal .modal-content,
-    [data-bs-theme="dark"] #flagIllegalModal .modal-content {
-        background: #1e293b !important;
-    }
-
-    .dark-mode #flagIllegalModal .modal-header,
-    [data-bs-theme="dark"] #flagIllegalModal .modal-header {
-        background: #1e293b !important;
-        border-color: #334155 !important;
-    }
-
-    .dark-mode #flagIllegalModal .modal-header h5,
-    [data-bs-theme="dark"] #flagIllegalModal .modal-header h5 {
-        color: #f1f5f9 !important;
-    }
-
-    .dark-mode #flagIllegalModal .modal-footer,
-    [data-bs-theme="dark"] #flagIllegalModal .modal-footer {
-        background: #0f172a !important;
-        border-color: #334155 !important;
-    }
-
-    .dark-mode .violation-section-header {
-        border-bottom-color: #334155 !important;
-    }
-
+    [data-bs-theme="dark"] .flag-map-wrapper,
     .dark-mode .flag-map-wrapper {
-        border-color: #334155 !important;
-        background: #0f172a !important;
+        border-color: #2e3a50 !important;
+        background: #0f1422 !important;
     }
 
-    /* High-Contrast Leaflet Zoom Controls (Light & Dark Mode) */
+    [data-bs-theme="dark"] .cr-dropzone-box,
+    .dark-mode .cr-dropzone-box {
+        background: #141b2b !important;
+        border-color: #334155 !important;
+    }
+
+    [data-bs-theme="dark"] .cr-dropzone-box:hover,
+    [data-bs-theme="dark"] .cr-dropzone-box.dragover,
+    .dark-mode .cr-dropzone-box:hover,
+    .dark-mode .cr-dropzone-box.dragover {
+        border-color: #ef4444 !important;
+        background: rgba(239, 68, 68, 0.08) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.40) !important;
+    }
+
+    [data-bs-theme="dark"] .cr-dropzone-box.has-file,
+    .dark-mode .cr-dropzone-box.has-file {
+        background: #1e2638 !important;
+        border-color: #2e3a50 !important;
+    }
+
+    [data-bs-theme="dark"] .cr-dropzone-icon,
+    .dark-mode .cr-dropzone-icon {
+        background: rgba(239, 68, 68, 0.18) !important;
+        color: #f87171 !important;
+    }
+
+    [data-bs-theme="dark"] .cr-dropzone-main,
+    .dark-mode .cr-dropzone-main {
+        color: #f1f5f9 !important;
+    }
+
+    [data-bs-theme="dark"] .cr-browse-link,
+    .dark-mode .cr-browse-link {
+        color: #f87171 !important;
+    }
+
+    [data-bs-theme="dark"] .cr-dropzone-sub,
+    .dark-mode .cr-dropzone-sub {
+        color: #94a3b8 !important;
+    }
+
+    [data-bs-theme="dark"] .cr-file-name,
+    .dark-mode .cr-file-name {
+        color: #f8fafc !important;
+    }
+
+    [data-bs-theme="dark"] .btn-clear-file,
+    .dark-mode .btn-clear-file {
+        background: #1e2638 !important;
+        border-color: #334155 !important;
+        color: #f87171 !important;
+    }
+
+    [data-bs-theme="dark"] .btn-clear-file:hover,
+    .dark-mode .btn-clear-file:hover {
+        background: #2e3a50 !important;
+        border-color: #ef4444 !important;
+    }
+
+    [data-bs-theme="dark"] .flag-modal-footer,
+    .dark-mode .flag-modal-footer {
+        background: #151c2c !important;
+        border-top-color: #2e3a50 !important;
+    }
+
+    [data-bs-theme="dark"] .flag-btn-cancel,
+    .dark-mode .flag-btn-cancel {
+        background: #1e2638 !important;
+        border-color: #2e3a50 !important;
+        color: #cbd5e1 !important;
+    }
+
+    [data-bs-theme="dark"] .flag-btn-cancel:hover,
+    .dark-mode .flag-btn-cancel:hover {
+        background: #2e3a50 !important;
+        color: #ffffff !important;
+    }
+
+    /* ══ HIGH-CONTRAST LEAFLET CONTROLS ══ */
     #flagIllegalModal .leaflet-control-zoom,
     .flag-map-wrapper .leaflet-control-zoom {
         border: none !important;
@@ -543,7 +891,7 @@
         font-size: 16px !important;
         font-weight: 800 !important;
         background-color: #ffffff !important;
-        color: #0f172a !important; /* Bold dark text in light mode */
+        color: #0f172a !important;
         border: none !important;
         border-bottom: 1px solid #e2e8f0 !important;
         border-radius: 0 !important;
@@ -565,25 +913,20 @@
         color: #dc2626 !important;
     }
 
-    /* Dark Mode: Sleek dark-slate background with crisp white plus/minus */
-    .dark-mode #flagIllegalModal .leaflet-control-zoom a,
     [data-bs-theme="dark"] #flagIllegalModal .leaflet-control-zoom a,
-    .dark-mode .flag-map-wrapper .leaflet-control-zoom a,
+    .dark-mode #flagIllegalModal .leaflet-control-zoom a,
     [data-bs-theme="dark"] .flag-map-wrapper .leaflet-control-zoom a,
-    .dark-mode #flagIllegalModal .leaflet-bar a,
-    [data-bs-theme="dark"] #flagIllegalModal .leaflet-bar a,
-    .dark-mode .flag-map-wrapper .leaflet-bar a,
-    [data-bs-theme="dark"] .flag-map-wrapper .leaflet-bar a {
-        background-color: #1e293b !important;
-        color: #ffffff !important; /* Crisp white text in dark mode */
-        border-bottom-color: #334155 !important;
+    .dark-mode .flag-map-wrapper .leaflet-control-zoom a {
+        background-color: #1e2638 !important;
+        color: #ffffff !important;
+        border-bottom-color: #2e3a50 !important;
     }
 
-    .dark-mode #flagIllegalModal .leaflet-control-zoom a:hover,
     [data-bs-theme="dark"] #flagIllegalModal .leaflet-control-zoom a:hover,
-    .dark-mode .flag-map-wrapper .leaflet-control-zoom a:hover,
-    [data-bs-theme="dark"] .flag-map-wrapper .leaflet-control-zoom a:hover {
-        background-color: #334155 !important;
+    .dark-mode #flagIllegalModal .leaflet-control-zoom a:hover,
+    [data-bs-theme="dark"] .flag-map-wrapper .leaflet-control-zoom a:hover,
+    .dark-mode .flag-map-wrapper .leaflet-control-zoom a:hover {
+        background-color: #2e3a50 !important;
         color: #f87171 !important;
     }
 
@@ -595,70 +938,58 @@
             padding-bottom: calc(16px + env(safe-area-inset-bottom, 14px)) !important;
         }
 
-        #flagIllegalModal .modal-dialog {
-            margin: 8px auto calc(22px + env(safe-area-inset-bottom, 16px)) auto !important;
+        #flagIllegalModal .flag-modal-dialog {
+            margin: 8px auto calc(20px + env(safe-area-inset-bottom, 16px)) auto !important;
             max-width: calc(100vw - 16px) !important;
             width: calc(100vw - 16px) !important;
-            max-height: calc(100dvh - 38px - env(safe-area-inset-bottom, 16px)) !important;
-            height: auto !important;
+            max-height: calc(100dvh - 36px) !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
         }
 
-        #flagIllegalModal .modal-content {
-            max-height: calc(100dvh - 38px - env(safe-area-inset-bottom, 16px)) !important;
-            height: auto !important;
-            border-radius: 16px !important;
-            display: flex !important;
-            flex-direction: column !important;
-        }
-
-        #flagIllegalModal #flagIllegalForm {
-            display: flex !important;
-            flex-direction: column !important;
-            flex: 1 1 auto !important;
-            min-height: 0 !important;
-            overflow: hidden !important;
-            height: 100% !important;
+        #flagIllegalModal .flag-modal-content {
+            max-height: calc(100dvh - 36px) !important;
+            border-radius: 14px !important;
         }
 
         #flagIllegalModal .modal-body {
-            padding: 12px 14px 20px 14px !important;
-            flex: 1 1 auto !important;
-            min-height: 0 !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            scroll-padding-bottom: 75px !important;
+            padding: 12px 14px 18px 14px !important;
         }
 
-        .cr-field,
-        .cr-dropzone-box {
+        .cr-field {
             font-size: 16px !important; /* Prevents unwanted iOS Safari viewport zoom */
             height: 42px !important;
-            min-height: 42px !important;
         }
 
         textarea.cr-field {
-            height: auto !important;
-            min-height: 54px !important;
             font-size: 16px !important;
+            height: 64px !important;
+            min-height: 64px !important;
+            max-height: 64px !important;
         }
 
-        #flagIllegalModal .modal-footer {
-            flex-shrink: 0 !important;
-            padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 10px)) 14px !important;
-            z-index: 1055 !important;
-            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08) !important;
-        }
-
-        #flagIllegalModal .modal-footer button {
-            height: 40px !important;
-            font-size: 0.86rem !important;
+        .cr-dropzone-box,
+        .cr-dropzone-box.has-file {
+            font-size: 16px !important;
+            height: 64px !important;
+            min-height: 64px !important;
+            max-height: 64px !important;
         }
 
         .flag-map-wrapper {
-            height: 130px !important;
+            height: 175px !important;
+        }
+
+        #flagIllegalModal .flag-modal-footer {
+            padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 10px)) 14px !important;
+        }
+
+        #flagIllegalModal .flag-btn-cancel,
+        #flagIllegalModal .flag-btn-submit {
+            height: 42px !important;
+            flex: 1 1 50% !important;
+            min-width: 0 !important;
         }
     }
 </style>
@@ -728,13 +1059,27 @@
             preferCanvas: true
         }).setView([defaultLat, defaultLng], 13);
 
+        function hideFlagMapLoader() {
+            const overlay = document.getElementById('flagMapLoadingOverlay');
+            if (overlay && !overlay.classList.contains('fade-out')) {
+                overlay.classList.add('fade-out');
+            }
+        }
+
         // High-Definition Satellite Layer (Retina 2x Super-Sampled Aerial Imagery)
-        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
+        const satLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2', {
             maxZoom: 20,
             maxNativeZoom: 19,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Satellite'
+            attribution: '&copy; Google Satellite',
+            keepBuffer: 10,
+            updateWhenIdle: false,
+            updateWhenZooming: false,
+            fadeAnimation: true
         }).addTo(window.flagMap);
+
+        satLayer.once('load', hideFlagMapLoader);
+        setTimeout(hideFlagMapLoader, 1400); // Safety fallback
 
         window.setFlagMapLayer = function (layerKey) {
             if (!window.flagMap || !window.flagTileLayers || !window.flagTileLayers[layerKey]) return;
@@ -803,6 +1148,127 @@
         });
     };
 
+    // Auto-detect and select Barangay from coordinates
+    window.autoDetectFlagBarangay = function (lat, lng) {
+        const brgySelect = document.getElementById('flagBarangaySelect');
+        if (!brgySelect) return;
+
+        const numLat = parseFloat(lat);
+        const numLng = parseFloat(lng);
+        if (isNaN(numLat) || isNaN(numLng)) return;
+
+        // Fast Haversine Distance (in meters)
+        function getDistanceMeters(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const toRad = Math.PI / 180;
+            const dLat = (lat2 - lat1) * toRad;
+            const dLon = (lon2 - lon1) * toRad;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // 1. Instantly scan dropdown options for the geographically closest barangay
+        let closestOpt = null;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < brgySelect.options.length; i++) {
+            const opt = brgySelect.options[i];
+            if (!opt.value) continue;
+            const bLat = parseFloat(opt.getAttribute('data-lat'));
+            const bLng = parseFloat(opt.getAttribute('data-lng'));
+            if (!isNaN(bLat) && !isNaN(bLng) && bLat !== 0 && bLng !== 0) {
+                const dist = getDistanceMeters(numLat, numLng, bLat, bLng);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestOpt = opt;
+                }
+            }
+        }
+
+        function applyBarangaySelection(opt, source) {
+            if (!opt) return;
+            brgySelect.value = opt.value;
+            brgySelect.setAttribute('data-auto-selected', 'true');
+            brgySelect.classList.remove('is-invalid');
+            brgySelect.classList.add('is-valid');
+
+            const guideText = document.getElementById('flagMapGuideText');
+            const optName = opt.getAttribute('data-name') || opt.textContent;
+            if (guideText) {
+                const roundedLat = numLat.toFixed(6);
+                const roundedLng = numLng.toFixed(6);
+                guideText.innerHTML = `GPS: ${roundedLat}, ${roundedLng} &bull; <span class="text-warning fw-semibold">${optName}</span>`;
+            }
+        }
+
+        if (closestOpt) {
+            applyBarangaySelection(closestOpt, 'haversine');
+        }
+
+        // 2. Background reverse-geocoding via OpenStreetMap Nominatim for exact administrative match
+        if (window._flagReverseGeocodeTimeout) {
+            clearTimeout(window._flagReverseGeocodeTimeout);
+        }
+        if (window._flagReverseGeocodeAbort) {
+            try { window._flagReverseGeocodeAbort.abort(); } catch (e) {}
+        }
+
+        window._flagReverseGeocodeTimeout = setTimeout(() => {
+            try {
+                window._flagReverseGeocodeAbort = new AbortController();
+                const signal = window._flagReverseGeocodeAbort.signal;
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(numLat)}&lon=${encodeURIComponent(numLng)}&zoom=18&addressdetails=1`;
+
+                fetch(url, { signal, headers: { 'Accept': 'application/json' } })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data || !data.address) return;
+                        const addr = data.address;
+                        const candidates = [
+                            addr.village,
+                            addr.suburb,
+                            addr.quarter,
+                            addr.neighbourhood,
+                            addr.hamlet,
+                            addr.residential
+                        ].filter(Boolean).map(s => String(s).trim());
+
+                        if (candidates.length === 0 && data.display_name) {
+                            candidates.push(...data.display_name.split(',').map(s => String(s).trim()));
+                        }
+
+                        const normalize = (str) => (str || '')
+                            .toLowerCase()
+                            .replace(/\(poblacion\)/g, '')
+                            .replace(/\bpoblacion\b/g, '')
+                            .replace(/barangay/g, '')
+                            .replace(/brgy\.?/g, '')
+                            .replace(/[^a-z0-9]/g, '');
+
+                        for (const candidate of candidates) {
+                            const normCandidate = normalize(candidate);
+                            if (!normCandidate || normCandidate.length < 3) continue;
+
+                            for (let i = 0; i < brgySelect.options.length; i++) {
+                                const opt = brgySelect.options[i];
+                                if (!opt.value) continue;
+                                const normOpt = normalize(opt.getAttribute('data-name') || opt.textContent);
+                                if (normOpt === normCandidate ||
+                                    (normCandidate.length >= 4 && normOpt.includes(normCandidate)) ||
+                                    (normOpt.length >= 4 && normCandidate.includes(normOpt))) {
+                                    applyBarangaySelection(opt, 'nominatim');
+                                    return;
+                                }
+                            }
+                        }
+                    })
+                    .catch(() => {});
+            } catch (e) {}
+        }, 150);
+    };
+
     window.setFlagLocationPin = function (lat, lng) {
         const roundedLat = parseFloat(lat).toFixed(6);
         const roundedLng = parseFloat(lng).toFixed(6);
@@ -832,6 +1298,9 @@
         if (guideText) guideText.textContent = `GPS Pin: ${roundedLat}, ${roundedLng}`;
         if (guideIcon) guideIcon.className = 'fa-solid fa-location-dot text-danger';
         if (resetBtn) resetBtn.classList.remove('d-none');
+
+        // Automatically detect & auto-select Barangay
+        window.autoDetectFlagBarangay(roundedLat, roundedLng);
     };
 
     window.clearFlagLocationPin = function () {
@@ -847,9 +1316,17 @@
         const guideText = document.getElementById('flagMapGuideText');
         const guideIcon = document.getElementById('flagMapGuideIcon');
         const resetBtn = document.getElementById('flagResetPinBtn');
-        if (guideText) guideText.textContent = 'Select barangay or click map to drop GPS pin';
+        if (guideText) guideText.textContent = 'Click map to drop GPS pin';
         if (guideIcon) guideIcon.className = 'fa-solid fa-crosshairs text-warning';
         if (resetBtn) resetBtn.classList.add('d-none');
+
+        // Reset barangay dropdown if it was auto-detected
+        const brgySelect = document.getElementById('flagBarangaySelect');
+        if (brgySelect && brgySelect.getAttribute('data-auto-selected') === 'true') {
+            brgySelect.value = '';
+            brgySelect.removeAttribute('data-auto-selected');
+            brgySelect.classList.remove('is-valid');
+        }
     };
 
     window.detectFlagCurrentLocation = function () {
@@ -860,7 +1337,7 @@
         detectBtn.disabled = true;
 
         if (!('geolocation' in navigator)) {
-            if (window.showToast) window.showToast('warning', 'GPS Unavailable', 'Geolocation is not supported by your browser.');
+            if (window.showToast) window.showToast('warning', '', 'Geolocation not supported');
             detectBtn.innerHTML = origHtml;
             detectBtn.disabled = false;
             return;
@@ -879,14 +1356,20 @@
                 });
                 detectBtn.innerHTML = origHtml;
                 detectBtn.disabled = false;
-                if (window.showToast) window.showToast('success', 'Location Detected', 'GPS Pin set to your current coordinates.');
+                
+                const brgySelect = document.getElementById('flagBarangaySelect');
+                const opt = brgySelect && brgySelect.selectedIndex >= 0 ? brgySelect.options[brgySelect.selectedIndex] : null;
+                const bName = opt && opt.value ? (opt.getAttribute('data-name') || opt.textContent) : '';
+                const successMsg = bName 
+                    ? `Location set to Barangay ${bName}`
+                    : 'Location detected successfully';
+                if (window.showToast) window.showToast('success', '', successMsg);
             },
             (err) => {
                 detectBtn.innerHTML = origHtml;
                 detectBtn.disabled = false;
-                let msg = 'Could not retrieve your GPS location. Please check device location permissions.';
-                if (err.code === 1) msg = 'Location permission was denied. Please allow location access in your browser settings.';
-                if (window.showToast) window.showToast('warning', 'GPS Detection Failed', msg);
+                const msg = err.code === 1 ? 'Location permission denied' : 'Unable to detect location';
+                if (window.showToast) window.showToast('warning', '', msg);
             },
             { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
         );
@@ -901,6 +1384,8 @@
         // Initialize map when modal is opened
         if (modalEl) {
             modalEl.addEventListener('shown.bs.modal', function () {
+                const modalBody = modalEl.querySelector('.modal-body');
+                if (modalBody) modalBody.scrollTop = 0;
                 ensureLeafletLoaded(function () {
                     window.initFlagLocationMap();
                     [50, 150, 300, 500].forEach(d => setTimeout(() => {
@@ -914,19 +1399,31 @@
             });
         }
 
-        // Auto-center map when user selects a barangay
+        // Auto-center map when user manually selects a barangay
         const brgySelect = document.getElementById('flagBarangaySelect');
         if (brgySelect) {
             brgySelect.addEventListener('change', function () {
+                // If manually changed, remove auto-detected state
+                if (brgySelect.getAttribute('data-auto-selected') === 'true') {
+                    brgySelect.removeAttribute('data-auto-selected');
+                }
+
                 const opt = this.options[this.selectedIndex];
                 if (opt) {
                     const lat = parseFloat(opt.getAttribute('data-lat'));
                     const lng = parseFloat(opt.getAttribute('data-lng'));
                     if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && window.flagMap) {
-                        window.flagMap.flyTo([lat, lng], 16, {
-                            animate: true,
-                            duration: 0.6
-                        });
+                        if (window.flagMap.getZoom() >= 14) {
+                            window.flagMap.panTo([lat, lng], {
+                                animate: true,
+                                duration: 0.45
+                            });
+                        } else {
+                            window.flagMap.flyTo([lat, lng], 15.5, {
+                                animate: true,
+                                duration: 0.55
+                            });
+                        }
                     }
                 }
             });
@@ -982,6 +1479,32 @@
             photoInput.addEventListener('change', updateDropzoneUI);
         }
 
+        if (dropzone) {
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('dragover');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(evt => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('dragover');
+                }, false);
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                if (dt && dt.files && dt.files.length > 0 && photoInput) {
+                    photoInput.files = dt.files;
+                    updateDropzoneUI();
+                }
+            });
+        }
+
         if (clearBtn) {
             clearBtn.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -996,7 +1519,7 @@
             const modalCharCounted = modalEl.querySelectorAll('.char-counted');
             modalCharCounted.forEach(area => {
                 area.addEventListener('input', function () {
-                    const counter = this.closest('.col-12, .mb-3, .form-group')?.querySelector('.char-counter-lbl');
+                    const counter = this.closest('.col-md-6, .col-12, .mb-3, .form-group, .flag-section-block')?.querySelector('.char-counter-lbl');
                     if (counter) {
                         const max = this.getAttribute('maxlength') || 250;
                         counter.textContent = `${this.value.length} / ${max}`;

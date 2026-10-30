@@ -75,16 +75,12 @@ def recent_notifications(request):
     if request.path.startswith('/static/') or request.path.startswith('/media/') or request.path.startswith('/api/'):
         return {'recent_notifications': [], 'notifications_count': 0, 'has_urgent_alerts': False}
 
-    cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}_v2"
-    cached_payload = cache.get(cache_key)
-    if cached_payload is not None:
-        return cached_payload
-
+    # Always evaluate dynamically so unread counts match user actions instantly without stale cache flicker
     alerts = []
     
-    # 1. Security failed login alert for admins (past 24 hours, localized Philippine time)
-    if request.user.role == 'admin' or request.user.is_superuser or request.user.is_staff:
-        twenty_four_hours_ago = timezone.now() - datetime.timedelta(hours=24)
+    # 1. Security failed login alert (System-wide for Admins only)
+    twenty_four_hours_ago = timezone.now() - datetime.timedelta(hours=24)
+    if request.user.role == 'admin' or request.user.is_superuser:
         recent_failed = LoginAttempt.objects.filter(success=False, timestamp__gte=twenty_four_hours_ago).order_by('-timestamp')
         latest_failed = recent_failed.first()
         if latest_failed:
@@ -147,10 +143,10 @@ def recent_notifications(request):
                 'performed_at': doc.uploaded_at,
             })
 
-    # 3. Trash 30-day auto-purge warning alerts (records with <= 7 days left in Trash)
+    # 3. Trash 30-day auto-purge urgent alerts (Option A: Notify only when 7 days or fewer remaining)
     now_dt = timezone.now()
-    seven_days_warning_threshold = now_dt - datetime.timedelta(days=23)  # deleted between 23 and 30 days ago
-    
+    seven_days_warning_threshold = now_dt - datetime.timedelta(days=23)  # deleted 23+ days ago
+
     expiring_trash_records = EngineeringRecord.objects.filter(
         status='archived',
         deleted_at__isnull=False,
@@ -162,6 +158,9 @@ def recent_notifications(request):
         if days_left <= 7:
             trash_notif_id = f"trash_exp_{tr.record_id}"
             rec_display_name = format_notif_record_name(tr)
+            time_desc = f"{days_left} day{'s' if days_left != 1 else ''} before permanent deletion"
+            if days_left <= 0:
+                time_desc = "Expiring today"
 
             alerts.append({
                 'id': trash_notif_id,
@@ -169,11 +168,13 @@ def recent_notifications(request):
                 'action': f"Trash: {rec_display_name}",
                 'url': reverse('archive'),
                 'badge': 'Trash Expiring',
-                'time': f"{days_left} day{'s' if days_left != 1 else ''} before permanent deletion",
+                'time': time_desc,
                 'user': None,
                 'username': None,
                 'performed_at': tr.deleted_at,
             })
+
+
 
     # Fetch read/deleted notification IDs from database for cross-device sync
     user_actions = AuditLog.objects.filter(
@@ -221,17 +222,15 @@ def recent_notifications(request):
         a['is_read'] = is_read
         if not is_read:
             unread_count += 1
+        filtered_alerts.append(a)
     # Automatically sort so unread notifications are at the top and read notifications at the bottom
     filtered_alerts.sort(key=lambda x: (1 if x.get('is_read', False) else 0))
 
-    result = {
+    return {
         'recent_notifications': filtered_alerts[:8],
         'notifications_count': unread_count,
         'has_urgent_alerts': unread_count > 0,
     }
-    # Cache for 10 seconds for real-time responsiveness
-    cache.set(cache_key, result, timeout=10)
-    return result
 
 
 def system_global_context(request):
@@ -247,6 +246,15 @@ def system_global_context(request):
             cache.set('global_total_barangays_count', total_brgys, timeout=60)
         except Exception:
             total_brgys = 49
+
+    global_barangays = cache.get('global_all_barangays_list')
+    if global_barangays is None:
+        try:
+            from .models import Barangay
+            global_barangays = list(Barangay.objects.all().order_by('barangay_name'))
+            cache.set('global_all_barangays_list', global_barangays, timeout=300)
+        except Exception:
+            global_barangays = []
 
     common_project_titles = [
         "Concreting of Barangay Road",
@@ -301,6 +309,7 @@ def system_global_context(request):
 
     return {
         'total_barangays_count': total_brgys,
+        'global_barangays': global_barangays,
         'common_project_titles': common_project_titles,
         'common_contractors': contractor_list,
         'show_welcome_transition': show_welcome,

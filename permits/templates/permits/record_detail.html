@@ -28,7 +28,7 @@
 <a href="{% url 'records_browse' %}" class="breadcrumb-item">Records</a>
 {% endif %}
 <span class="breadcrumb-chevron">›</span>
-<span class="breadcrumb-item active d-inline-block text-truncate align-middle">Record Details</span>
+<span class="breadcrumb-item active d-inline-block text-truncate align-middle" title="{{ record.title }}">{{ record.title|default:"Record Details" }}</span>
 {% endblock %}
 
 {% block extra_css %}
@@ -374,6 +374,11 @@
     background: transparent !important;
     color: #94a3b8 !important;
     border: none !important;
+}
+
+@keyframes sortFadeIn {
+    0% { opacity: 0.6; transform: translateY(-2px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Illegal Construction Timeline Card ── */
@@ -892,12 +897,12 @@ button.premium-btn .btn-divider {
 }
 
 .doc-filename-link {
-    max-width: 280px;
+    max-width: 100%;
     display: inline-block;
     transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #checklistCol.summary-collapsed .doc-filename-link {
-    max-width: 680px;
+    max-width: 100%;
 }
 #checklistCol.summary-collapsed .checklist-sub-item,
 #checklistCol.summary-collapsed .checklist-standalone-item {
@@ -942,22 +947,26 @@ button.premium-btn .btn-divider {
     z-index: 2 !important;
 }
 
-/* ── Smooth Expand / Compress Transitions & Multi-Screen Physics ── */
+/* ── Smooth Expand / Compress Transitions & Multi-Screen Physics (Zero-Jump & Zero-Blink) ── */
 @media (min-width: 992px) {
     .record-detail-grid-row {
         display: flex !important;
         flex-wrap: nowrap !important;
         align-items: flex-start !important;
+        gap: 0 !important;
+        transition: gap 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .record-detail-grid-row.summary-open {
         gap: 1.5rem !important;
     }
     #checklistCol {
         flex: 1 1 100% !important;
         max-width: 100% !important;
-        min-width: 0 !important;
         width: 100% !important;
-        transition: flex 0.28s cubic-bezier(0.16, 1, 0.3, 1), 
-                    max-width 0.28s cubic-bezier(0.16, 1, 0.3, 1), 
-                    width 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        min-width: 0 !important;
+        transition: flex 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                    max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+                    width 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
     }
     .record-detail-grid-row.summary-open #checklistCol {
         flex: 0 0 calc(66.666667% - 0.75rem) !important;
@@ -967,37 +976,33 @@ button.premium-btn .btn-divider {
     #summaryCol {
         display: flex !important;
         flex-direction: column !important;
-        min-width: 0 !important;
-        transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1),
-                    transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
-                    max-width 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                    width 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                    flex 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                    margin 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                    padding 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        will-change: opacity, transform, flex;
-    }
-    .record-detail-grid-row:not(.summary-open) #summaryCol {
         flex: 0 0 0% !important;
         max-width: 0% !important;
         width: 0% !important;
+        min-width: 0 !important;
         opacity: 0 !important;
-        transform: translateX(20px) !important;
+        visibility: hidden !important;
         pointer-events: none !important;
         overflow: hidden !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
+        transform: translateX(18px) !important;
+        transition: flex 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    visibility 0.3s !important;
     }
     .record-detail-grid-row.summary-open #summaryCol {
         flex: 0 0 calc(33.333333% - 0.75rem) !important;
         max-width: calc(33.333333% - 0.75rem) !important;
         width: calc(33.333333% - 0.75rem) !important;
         opacity: 1 !important;
-        transform: translateX(0) !important;
+        visibility: visible !important;
         pointer-events: auto !important;
-        overflow: visible !important;
+        transform: translateX(0) !important;
+    }
+    #summaryCol > * {
+        min-width: 280px !important;
     }
 }
 
@@ -1006,6 +1011,10 @@ button.premium-btn .btn-divider {
     .record-detail-grid-row {
         display: flex !important;
         flex-direction: column !important;
+        gap: 0 !important;
+        transition: gap 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .record-detail-grid-row.summary-open {
         gap: 1rem !important;
     }
     #checklistCol {
@@ -1014,24 +1023,28 @@ button.premium-btn .btn-divider {
         flex: 1 1 100% !important;
     }
     #summaryCol {
+        display: flex !important;
+        flex-direction: column !important;
         width: 100% !important;
         max-width: 100% !important;
-        flex: 1 1 100% !important;
-        transition: opacity 0.22s ease, transform 0.22s ease;
-    }
-    .record-detail-grid-row:not(.summary-open) #summaryCol {
-        display: none !important;
+        max-height: 0px !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transform: translateY(-8px) !important;
+        transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    visibility 0.3s !important;
     }
     .record-detail-grid-row.summary-open #summaryCol {
-        display: flex !important;
+        max-height: 1400px !important;
         opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
         transform: translateY(0) !important;
-        animation: summaryFadeInMobile 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-}
-@keyframes summaryFadeInMobile {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 767.98px) {
@@ -1219,13 +1232,13 @@ button.premium-btn .btn-divider {
     }
 
     .doc-filename-link {
-        max-width: 180px !important;
+        max-width: 100% !important;
     }
 }
 
 @media (max-width: 480px) {
     .doc-filename-link {
-        max-width: 130px !important;
+        max-width: 100% !important;
     }
     .checklist-row-name {
         font-size: 0.80rem !important;
@@ -1353,6 +1366,55 @@ button.premium-btn .btn-divider {
     position: relative !important;
 }
 
+/* ── Bulletproof Single-Line Filename & Multi-File Badge Truncation ── */
+.checklist-row-status,
+.checklist-sub-item .checklist-row-status,
+.checklist-standalone-item .checklist-row-status,
+.checklist-sub-item > div:first-child > div:last-child > .checklist-row-status,
+.checklist-standalone-item > div:first-child > div:last-child > .checklist-row-status {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    gap: 6px !important;
+}
+
+.checklist-row-status > a {
+    display: inline-flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+    flex: 0 1 auto !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    gap: 5px !important;
+}
+
+.checklist-row-status .doc-filename-link {
+    display: inline-block !important;
+    min-width: 0 !important;
+    max-width: 300px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+}
+
+@media (max-width: 767.98px) {
+    .checklist-row-status .doc-filename-link {
+        max-width: min(200px, calc(100vw - 160px)) !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .checklist-row-status .doc-filename-link {
+        max-width: min(160px, calc(100vw - 145px)) !important;
+    }
+}
+
 /* ── Sleek Compact Attached Files Pill Badge ── */
 .attached-files-pill-btn {
     background: transparent !important;
@@ -1370,6 +1432,10 @@ button.premium-btn .btn-divider {
     text-decoration: none !important;
     flex-shrink: 0 !important;
     box-shadow: none !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: 24px !important;
+    vertical-align: middle !important;
 }
 .attached-files-pill-btn:hover {
     background: transparent !important;
@@ -1419,6 +1485,86 @@ button.premium-btn .btn-divider {
 .dark-mode .slot-doc-action-btn.text-danger:hover {
     color: #fca5a5 !important;
     background: rgba(153, 27, 27, 0.4) !important;
+}
+
+/* ── Checklist Quick Filter Bar (All / Pending / Fulfilled) ── */
+.checklist-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.checklist-filter-btn {
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #475569;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    line-height: 1.4;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+.checklist-filter-btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+.checklist-filter-btn.active {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+}
+.filter-count-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #64748b;
+}
+.checklist-filter-btn.active .filter-count-badge {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.dark-mode .checklist-filter-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+.dark-mode .checklist-filter-btn:hover {
+    background: #334155;
+    color: #f8fafc;
+}
+.dark-mode .checklist-filter-btn.active {
+    background: rgba(37, 99, 235, 0.2);
+    border-color: #3b82f6;
+    color: #93c5fd;
+}
+.dark-mode .filter-count-badge {
+    background: #334155;
+    color: #94a3b8;
+}
+.dark-mode .checklist-filter-btn.active .filter-count-badge {
+    background: rgba(59, 130, 246, 0.35);
+    color: #bfdbfe;
+}
+.checklist-action-icon-btn {
+    transition: all 0.15s ease;
+}
+.checklist-action-icon-btn:hover {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+.dark-mode .checklist-action-icon-btn:hover {
+    background: #334155 !important;
+    color: #f8fafc !important;
 }
 
 /* ── Standardized Status Badges / Missing Text ── */
@@ -1543,7 +1689,6 @@ button.premium-btn .btn-divider {
 
 .doc-highlight-focused {
     animation: smoothDocFocusPulse 3.5s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
-    border-radius: 12px !important;
     position: relative !important;
     z-index: 4 !important;
     transition: background-color 0.4s ease, border-color 0.4s ease;
@@ -1810,6 +1955,8 @@ button.premium-btn .btn-divider {
 }
 .checklist-sub-item {
     border-bottom: 1px solid #e2e8f0 !important;
+    padding: 10px 16px !important;
+    min-height: 52px !important;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 .checklist-sub-item:last-child {
@@ -1818,7 +1965,8 @@ button.premium-btn .btn-divider {
 .checklist-standalone-item {
     border: 1px solid #e2e8f0 !important;
     border-radius: 10px !important;
-    padding: 10px 14px !important;
+    padding: 10px 16px !important;
+    min-height: 52px !important;
     background: #ffffff !important;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     transition: all 0.2s ease;
@@ -2765,6 +2913,27 @@ button.premium-btn .btn-divider {
         font-size: 0.70rem !important;
     }
 }
+
+/* ── Desktop & Tablet Responsive Alignment for Record Detail (>= 768px) ── */
+@media (min-width: 768px) {
+    .record-header-actions,
+    .etala-header-actions.record-header-actions {
+        display: inline-flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: nowrap !important;
+        flex-shrink: 0 !important;
+        align-self: flex-start !important;
+        gap: 8px !important;
+        margin-left: auto !important;
+        margin-top: 3px !important;
+    }
+    .record-header-actions .premium-btn,
+    .etala-header-actions.record-header-actions .premium-btn {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+    }
+}
 </style>
 
 <!-- ══ 1. PAGE HEADER ═══════════════════════════════════════════════════════ -->
@@ -2886,7 +3055,7 @@ button.premium-btn .btn-divider {
     </div>
 
     <!-- Quick Action Toolbar Buttons (Matching standard records) -->
-    <div class="d-flex align-items-center gap-2 flex-wrap record-header-actions">
+    <div class="etala-header-actions record-header-actions">
         {% if record.status == 'archived' %}
             {% if request.user.role == 'admin' or request.user.role == 'staff' %}
             <button type="button" class="premium-btn btn-view text-decoration-none"
@@ -2944,26 +3113,6 @@ button.premium-btn .btn-divider {
     </div>
 </div>
 
-<!-- ══ TRASH ARCHIVE NOTICE BANNER (Visible when record is in Trash) ════════ -->
-{% if record.status == 'archived' %}
-<div class="alert alert-warning d-flex align-items-center gap-3 mb-4 p-3 rounded-3"
-    style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.28); border-radius: 14px;">
-    <div class="d-none d-md-flex rounded-3 align-items-center justify-content-center flex-shrink-0"
-        style="width: 38px; height: 38px; background: rgba(245, 158, 11, 0.16); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.28);">
-        <i class="fa-solid fa-trash-can" style="font-size: 15px;"></i>
-    </div>
-    <div class="min-w-0 flex-grow-1">
-        <div class="fw-bold text-dark" style="font-size: 0.88rem;">Record in Trash</div>
-        <div class="text-muted d-flex align-items-center flex-wrap gap-1.5" style="font-size: 0.76rem; margin-top: 2px;">
-            <span>Trashed on {% if record.deleted_at %}{{ record.deleted_at|date:"M d, Y" }}{% else %}{{ record.updated_at|date:"M d, Y" }}{% endif %}{% if trashed_by_user %} by <strong class="text-dark">{{ trashed_by_user }}</strong>{% endif %}</span>
-            {% if record.trash_days_remaining %}
-            <span>&bull;</span>
-            <span class="text-warning-emphasis fw-medium">{{ record.trash_days_remaining }} day{{ record.trash_days_remaining|pluralize }} before permanent deletion</span>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endif %}
 
 <!-- ══ VIOLATION NOTICE CARD (Clean, Compact & Balanced) ═══════════════ -->
 {% if record.is_illegal_construction %}
@@ -3365,6 +3514,7 @@ button.premium-btn .btn-divider {
                             <div class="checklist-group-body border-top d-flex flex-column">
                                 {% for sub_req in sub_list %}
                                 <div class="checklist-sub-item d-flex align-items-center justify-content-between flex-nowrap gap-3"
+                                    data-status="{% if sub_req.is_fulfilled %}fulfilled{% elif sub_req.is_waived %}waived{% else %}missing{% endif %}"
                                     {% if sub_req.document %}id="doc-{{ sub_req.document.document_id }}" data-doc-id="{{ sub_req.document.document_id }}" data-expiry-date="{{ sub_req.document.expiry_date|date:'Y-m-d' }}"{% endif %}
                                     data-item-id="{{ sub_req.requirement_item.item_id }}">
                                     <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
@@ -3398,23 +3548,23 @@ button.premium-btn .btn-divider {
                                             </div>
                                             {% with attached_docs=docs_by_item_id|dict_get:sub_req.requirement_item.item_id %}
                                             {% if sub_req.is_fulfilled and sub_req.document %}
-                                            <div class="text-truncate d-flex align-items-center flex-nowrap gap-1.5 checklist-row-status" style="font-size: 0.74rem; margin-top: 2px;">
+                                            <div class="d-flex align-items-center flex-nowrap gap-1.5 checklist-row-status min-w-0" style="font-size: 0.74rem; margin-top: 2px;">
                                                 <a href="javascript:void(0)"
                                                     onclick="openDocPreview('{{ doc_url_map|dict_get:sub_req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:sub_req.document.document_id|default:sub_req.document.file_name|escapejs }}', '{{ sub_req.requirement_item.name|escapejs }}', '{{ sub_req.requirement_item.item_id }}', 0)"
-                                                    class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5 text-truncate"
-                                                    title="Uploaded by {% if sub_req.document.uploaded_by %}{{ sub_req.document.uploaded_by.full_name|default:sub_req.document.uploaded_by.username }}{% else %}Staff{% endif %} ({{ sub_req.document.uploaded_at|date:'M d, Y • h:i A' }})" data-bs-toggle="tooltip">
-                                                    <i class="{{ sub_req.document.file_name|file_icon_class }}" style="font-size: 11px;"></i>
-                                                    <span class="text-truncate doc-filename-link" style="max-width: 240px;">{{ sub_req.document.file_name }}</span>
+                                                    class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5 min-w-0 text-truncate"
+                                                    title="{{ sub_req.document.file_name }}{% if sub_req.document.file_size %} ({{ sub_req.document.file_size|filesizeformat }}){% endif %} &bull; Uploaded by {% if sub_req.document.uploaded_by %}{{ sub_req.document.uploaded_by.full_name|default:sub_req.document.uploaded_by.username }}{% else %}Staff{% endif %} on {{ sub_req.document.uploaded_at|date:'M d, Y • h:i A' }}" data-bs-toggle="tooltip">
+                                                    <i class="{{ sub_req.document.file_name|file_icon_class }} flex-shrink-0" style="font-size: 11px;"></i>
+                                                    <span class="text-truncate doc-filename-link">{{ sub_req.document.file_name }}</span>
                                                 </a>
                                                 {% if attached_docs and attached_docs|length > 1 %}
-                                                <button type="button" class="btn btn-sm attached-files-pill-btn"
+                                                <button type="button" class="btn btn-sm attached-files-pill-btn flex-shrink-0"
                                                     onclick="openSlotAttachmentsModal('{{ sub_req.requirement_item.item_id }}', '{{ sub_req.requirement_item.name|clean_req_name|escapejs }}')"
                                                     title="{{ attached_docs|length }} total documents attached. Click to view all.">
                                                     <i class="fa-solid fa-layer-group me-1" style="font-size: 9px;"></i>+{{ attached_docs|length|add:"-1" }} more
                                                 </button>
                                                 {% endif %}
                                                 {% if sub_req.document.expiry_date and sub_req.document.expiry_date >= today and sub_req.document.expiry_date > thirty_days_later %}
-                                                <span class="text-muted ms-1" style="font-size: 0.72rem;">&bull; Exp: {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
+                                                <span class="text-muted ms-1 flex-shrink-0 text-nowrap" style="font-size: 0.72rem;">&bull; Exp: {{ sub_req.document.expiry_date|date:"M d, Y" }}</span>
                                                 {% endif %}
                                             </div>
                                             {% elif sub_req.is_waived %}
@@ -3540,6 +3690,7 @@ button.premium-btn .btn-divider {
                     {% else %}
                     <!-- 📄 STANDALONE FILE REQUIREMENT ROW -->
                     <div class="checklist-standalone-item d-flex align-items-center justify-content-between flex-nowrap gap-3"
+                        data-status="{% if req.is_fulfilled %}fulfilled{% elif req.is_waived %}waived{% else %}missing{% endif %}"
                         {% if req.document %}id="doc-{{ req.document.document_id }}" data-doc-id="{{ req.document.document_id }}" data-expiry-date="{{ req.document.expiry_date|date:'Y-m-d' }}"{% endif %}
                         data-item-id="{{ req.requirement_item.item_id }}">
                         <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
@@ -3573,23 +3724,23 @@ button.premium-btn .btn-divider {
                                 </div>
                                 {% with attached_docs=docs_by_item_id|dict_get:req.requirement_item.item_id %}
                                 {% if req.is_fulfilled and req.document %}
-                                <div class="text-truncate d-flex align-items-center flex-nowrap gap-1.5 checklist-row-status" style="font-size: 0.74rem; margin-top: 2px;">
+                                <div class="d-flex align-items-center flex-nowrap gap-1.5 checklist-row-status min-w-0" style="font-size: 0.74rem; margin-top: 2px;">
                                     <a href="javascript:void(0)"
                                         onclick="openDocPreview('{{ doc_url_map|dict_get:req.document.document_id }}', '{{ doc_lgu_name_map|dict_get:req.document.document_id|default:req.document.file_name|escapejs }}', '{{ req.requirement_item.name|escapejs }}', '{{ req.requirement_item.item_id }}', 0)"
-                                        class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5 text-truncate"
-                                        title="Uploaded by {% if req.document.uploaded_by %}{% if req.document.uploaded_by.full_name %}{{ req.document.uploaded_by.full_name }}{% else %}{{ req.document.uploaded_by.username }}{% endif %}{% else %}Staff{% endif %} ({{ req.document.uploaded_at|date:'M d, Y • h:i A' }})" data-bs-toggle="tooltip">
-                                        <i class="{{ req.document.file_name|file_icon_class }}" style="font-size: 11px;"></i>
-                                        <span class="text-truncate doc-filename-link" style="max-width: 240px;">{{ req.document.file_name }}</span>
+                                        class="text-decoration-none fw-medium text-dark d-inline-flex align-items-center gap-1.5 min-w-0 text-truncate"
+                                        title="{{ req.document.file_name }}{% if req.document.file_size %} ({{ req.document.file_size|filesizeformat }}){% endif %} &bull; Uploaded by {% if req.document.uploaded_by %}{% if req.document.uploaded_by.full_name %}{{ req.document.uploaded_by.full_name }}{% else %}{{ req.document.uploaded_by.username }}{% endif %}{% else %}Staff{% endif %} on {{ req.document.uploaded_at|date:'M d, Y • h:i A' }}" data-bs-toggle="tooltip">
+                                        <i class="{{ req.document.file_name|file_icon_class }} flex-shrink-0" style="font-size: 11px;"></i>
+                                        <span class="text-truncate doc-filename-link">{{ req.document.file_name }}</span>
                                     </a>
                                     {% if attached_docs and attached_docs|length > 1 %}
-                                    <button type="button" class="btn btn-sm attached-files-pill-btn"
+                                    <button type="button" class="btn btn-sm attached-files-pill-btn flex-shrink-0"
                                         onclick="openSlotAttachmentsModal('{{ req.requirement_item.item_id }}', '{{ req.requirement_item.name|clean_req_name|escapejs }}')"
                                         title="{{ attached_docs|length }} total documents attached. Click to view all.">
                                         <i class="fa-solid fa-layer-group me-1" style="font-size: 9px;"></i>+{{ attached_docs|length|add:"-1" }} more
                                     </button>
                                     {% endif %}
                                     {% if req.document.expiry_date and req.document.expiry_date >= today and req.document.expiry_date > thirty_days_later %}
-                                    <span class="text-muted ms-1" style="font-size: 0.72rem;">&bull; Exp: {{ req.document.expiry_date|date:"M d, Y" }}</span>
+                                    <span class="text-muted ms-1 flex-shrink-0 text-nowrap" style="font-size: 0.72rem;">&bull; Exp: {{ req.document.expiry_date|date:"M d, Y" }}</span>
                                     {% endif %}
                                 </div>
                                 {% elif req.is_waived %}
@@ -3744,7 +3895,7 @@ button.premium-btn .btn-divider {
         </div>
         {% endif %}
 
-        {% if supporting_docs %}
+        {% if supporting_docs and not record.is_illegal_construction %}
         <!-- 📁 SUPPORTING & ADDITIONAL DOCUMENTS (Auxiliary Attachments, Letters, Plans) -->
         <div class="content-card d-flex flex-column" style="height: auto !important; border-radius: 16px;">
             <div class="card-header border-bottom d-flex align-items-center justify-content-between flex-nowrap gap-2" style="padding: 14px 18px !important; min-height: 56px !important;">
@@ -3778,27 +3929,25 @@ button.premium-btn .btn-divider {
 
             <div class="content-card-body p-3.5 d-flex flex-column gap-2">
                 {% for doc in supporting_docs %}
-                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                {% with doc_at=doc.uploaded_at|date:'M d, Y • h:i A' doc_by=doc.uploaded_by.full_name|default:doc.uploaded_by.username|default:'Staff' doc_url=doc_url_map|dict_get:doc.document_id doc_lgu=doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name doc_size=doc.file_size|filesizeformat %}
+                <div class="checklist-standalone-item d-flex align-items-center justify-content-between flex-nowrap gap-3">
                     <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                         <div class="rounded-2 checklist-icon-box flex-shrink-0 checklist-icon-fulfilled"
                             style="width: 28px; height: 28px; min-width: 28px; margin-right: 12px !important; font-size: 11.5px;">
-                            <i class="fa-solid fa-file-lines"></i>
+                            <i class="{{ doc.file_name|file_icon_class }}"></i>
                         </div>
                         <div class="min-w-0 flex-grow-1">
-                            <div class="fw-semibold title-text-adaptive text-break" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
+                            <div class="fw-semibold text-truncate checklist-row-name" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
                                 <a href="javascript:void(0)"
-                                    onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Supporting Document')"
-                                    class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5" title="{{ doc.file_name }}" data-bs-toggle="tooltip">
-                                    <i class="{{ doc.file_name|file_icon_class }}" style="font-size: 11px;"></i>
-                                    <span class="text-truncate doc-filename-link">{{ doc.file_name }}</span>
+                                    onclick="openDocPreview('{{ doc_url|escapejs }}', '{{ doc_lgu|escapejs }}', 'Supporting Document', '', null, { size: '{{ doc_size|escapejs }}', uploaded_by: '{{ doc_by|escapejs }}', uploaded_at: '{{ doc_at|escapejs }}' })"
+                                    class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5 min-w-0 text-truncate doc-filename-link"
+                                    title="{{ doc.file_name }}{% if doc.file_size %} ({{ doc_size }}){% endif %} &bull; Uploaded by {{ doc_by }} on {{ doc_at }}" data-bs-toggle="tooltip">
+                                    <span class="text-truncate">{{ doc.file_name }}</span>
                                 </a>
-                            </div>
-                            <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">
-                                <i class="fa-regular fa-user me-1" style="font-size: 9.5px;"></i>Uploaded by <strong class="text-dark">{% if doc.uploaded_by %}{{ doc.uploaded_by.full_name|default:doc.uploaded_by.username }}{% else %}Staff{% endif %}</strong> &bull; {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
                             </div>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
+                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
                         <div class="dropdown" onclick="event.stopPropagation();">
                             <button type="button" class="checklist-kebab-btn" data-bs-toggle="dropdown"
                                 data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
@@ -3811,14 +3960,14 @@ button.premium-btn .btn-divider {
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                         href="javascript:void(0)"
-                                        onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Supporting Document')">
+                                        onclick="openDocPreview('{{ doc_url|escapejs }}', '{{ doc_lgu|escapejs }}', 'Supporting Document', '', null, { size: '{{ doc_size|escapejs }}', uploaded_by: '{{ doc_by|escapejs }}', uploaded_at: '{{ doc_at|escapejs }}' })">
                                         <i class="fa-solid fa-eye text-primary" style="font-size: 12px; width: 16px;"></i>
                                         <span>Preview Document</span>
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
-                                        href="{{ doc_url_map|dict_get:doc.document_id }}" download>
+                                        href="{{ doc_url }}" download>
                                         <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
                                         <span>Download File</span>
                                     </a>
@@ -3840,6 +3989,7 @@ button.premium-btn .btn-divider {
                         </div>
                     </div>
                 </div>
+                {% endwith %}
                 {% endfor %}
             </div>
         </div>
@@ -3879,27 +4029,25 @@ button.premium-btn .btn-divider {
 
             <div class="content-card-body p-3.5 d-flex flex-column gap-2">
                 {% for doc in incident_evidence_docs %}
-                <div class="checklist-sub-item p-3 px-3.5 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 shadow-2xs">
+                {% with doc_at=doc.uploaded_at|date:'M d, Y • h:i A' doc_by=doc.uploaded_by.full_name|default:doc.uploaded_by.username|default:'Staff' doc_url=doc_url_map|dict_get:doc.document_id doc_lgu=doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name doc_size=doc.file_size|filesizeformat %}
+                <div class="checklist-standalone-item d-flex align-items-center justify-content-between flex-nowrap gap-3">
                     <div class="d-flex align-items-center min-w-0 flex-grow-1 flex-nowrap">
                         <div class="rounded-2 checklist-icon-box flex-shrink-0 checklist-icon-fulfilled"
                             style="width: 28px; height: 28px; min-width: 28px; margin-right: 12px !important; font-size: 11.5px; background: rgba(220, 38, 38, 0.1); color: #dc2626;">
-                            <i class="fa-solid fa-shield-halved"></i>
+                            <i class="{{ doc.file_name|file_icon_class }}"></i>
                         </div>
                         <div class="min-w-0 flex-grow-1">
-                            <div class="fw-semibold title-text-adaptive text-break" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
+                            <div class="fw-semibold text-truncate checklist-row-name" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
                                 <a href="javascript:void(0)"
-                                    onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Incident Evidence')"
-                                    class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5" title="{{ doc.file_name }}" data-bs-toggle="tooltip">
-                                    <i class="{{ doc.file_name|file_icon_class }}" style="font-size: 11px;"></i>
-                                    <span class="text-truncate doc-filename-link">{{ doc.file_name }}</span>
+                                    onclick="openDocPreview('{{ doc_url|escapejs }}', '{{ doc_lgu|escapejs }}', 'Incident Evidence', '', null, { size: '{{ doc_size|escapejs }}', uploaded_by: '{{ doc_by|escapejs }}', uploaded_at: '{{ doc_at|escapejs }}' })"
+                                    class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5 min-w-0 text-truncate doc-filename-link"
+                                    title="{{ doc.file_name }}{% if doc.file_size %} ({{ doc_size }}){% endif %} &bull; Uploaded by {{ doc_by }} on {{ doc_at }}" data-bs-toggle="tooltip">
+                                    <span class="text-truncate">{{ doc.file_name }}</span>
                                 </a>
-                            </div>
-                            <div class="text-muted text-truncate" style="font-size: 0.74rem; margin-top: 2px;">
-                                <i class="fa-regular fa-user me-1" style="font-size: 9.5px;"></i>Uploaded by <strong class="text-dark">{% if doc.uploaded_by %}{{ doc.uploaded_by.full_name|default:doc.uploaded_by.username }}{% else %}Staff{% endif %}</strong> &bull; {{ doc.uploaded_at|date:"M d, Y • h:i A" }}
                             </div>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
+                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0 ms-auto flex-nowrap justify-content-end">
                         <div class="dropdown" onclick="event.stopPropagation();">
                             <button type="button" class="checklist-kebab-btn" data-bs-toggle="dropdown"
                                 data-bs-display="static" aria-expanded="false" data-bs-auto-close="true"
@@ -3912,14 +4060,14 @@ button.premium-btn .btn-divider {
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
                                         href="javascript:void(0)"
-                                        onclick="openDocPreview('{{ doc_url_map|dict_get:doc.document_id }}', '{{ doc_lgu_name_map|dict_get:doc.document_id|default:doc.file_name|escapejs }}', 'Incident Evidence')">
+                                        onclick="openDocPreview('{{ doc_url|escapejs }}', '{{ doc_lgu|escapejs }}', 'Incident Evidence', '', null, { size: '{{ doc_size|escapejs }}', uploaded_by: '{{ doc_by|escapejs }}', uploaded_at: '{{ doc_at|escapejs }}' })">
                                         <i class="fa-solid fa-eye text-primary" style="font-size: 12px; width: 16px;"></i>
                                         <span>Preview Document</span>
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap"
-                                        href="{{ doc_url_map|dict_get:doc.document_id }}" download>
+                                        href="{{ doc_url }}" download>
                                         <i class="fa-solid fa-download text-secondary" style="font-size: 12px; width: 16px;"></i>
                                         <span>Download File</span>
                                     </a>
@@ -3941,6 +4089,7 @@ button.premium-btn .btn-divider {
                         </div>
                     </div>
                 </div>
+                {% endwith %}
                 {% endfor %}
             </div>
         </div>
@@ -4304,7 +4453,7 @@ button.premium-btn .btn-divider {
 {% endif %}
 
 <!-- ══ MODAL E: SLOT ATTACHED DOCUMENTS MANAGER ══ -->
-<div class="modal fade" id="slotAttachmentsModal" tabindex="-1" aria-labelledby="slotAttachmentsModalLabel" aria-hidden="true">
+<div class="modal fade" id="slotAttachmentsModal" tabindex="-1" aria-labelledby="slotAttachmentsModalLabel" aria-hidden="true" data-can-edit="{% if can_edit and record.status != 'archived' %}true{% else %}false{% endif %}">
     <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 640px;">
         <div class="modal-content border-0 shadow-2xl" style="border-radius: 18px; overflow: hidden; background: #ffffff;">
             <div class="modal-header border-bottom p-3 px-4 bg-white d-flex align-items-center justify-content-between">
@@ -4445,6 +4594,7 @@ button.premium-btn .btn-divider {
             "id": {{ d.document_id }},
             "name": "{{ d.file_name|escapejs }}",
             "size": "{{ d.file_size|filesizeformat }}",
+            "raw_size": {{ d.file_size|default:0 }},
             "uploaded_by": "{% if d.uploaded_by %}{{ d.uploaded_by.full_name|default:d.uploaded_by.username|escapejs }}{% else %}Staff{% endif %}",
             "uploaded_at": "{{ d.uploaded_at|date:'M d, Y • h:i A' }}",
             "url": "{{ doc_url_map|dict_get:d.document_id }}",
@@ -4474,13 +4624,18 @@ button.premium-btn .btn-divider {
         const files = allSlotData[String(itemId)] || [];
 
         const modalEl = document.getElementById('slotAttachmentsModal');
+        const canEdit = modalEl && modalEl.getAttribute('data-can-edit') === 'true';
         const titleEl = document.getElementById('slotAttachmentsModalTitle');
         const countBadge = document.getElementById('slotAttachmentsModalCount');
         const listEl = document.getElementById('slotAttachmentsModalList');
         const addBtn = document.getElementById('slotAttachmentsModalAddBtn');
 
+        const totalBytes = files.reduce((acc, cur) => acc + (cur.raw_size || 0), 0);
         if (titleEl) titleEl.textContent = itemName || 'Attached Documents';
-        if (countBadge) countBadge.textContent = `${files.length} Document${files.length > 1 ? 's' : ''}`;
+        if (countBadge) {
+            const sizeStr = totalBytes > 0 ? ` \u2022 ${formatBytes(totalBytes)}` : '';
+            countBadge.textContent = `${files.length} Document${files.length > 1 ? 's' : ''}${sizeStr}`;
+        }
         
         const zipBtn = document.getElementById('slotAttachmentsModalZipBtn');
         const zipBtnText = document.getElementById('slotAttachmentsModalZipBtnText');
@@ -4513,29 +4668,26 @@ button.premium-btn .btn-divider {
             } else {
                 files.forEach((f, idx) => {
                     const row = document.createElement('div');
-                    row.className = 'p-2.5 px-3 border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 bg-white shadow-2xs checklist-standalone-item';
+                    row.className = 'border rounded-3 d-flex align-items-center justify-content-between flex-nowrap gap-3 bg-white shadow-2xs checklist-standalone-item';
                     row.style.transition = 'all 0.15s ease';
                     
-                    const iconClass = getFileIcon(f.name);
+                    const badge = getFileBadge(f.name);
+                    const tooltipText = f.name + (f.size ? ' (' + f.size + ')' : '') + ' \u2022 Uploaded by ' + (f.uploaded_by || 'Staff') + ' on ' + (f.uploaded_at || '');
 
                     row.innerHTML = `
                         <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1 flex-nowrap">
-                            <div class="rounded-2 checklist-icon-box flex-shrink-0 checklist-icon-fulfilled" style="width: 32px; height: 32px; min-width: 32px; font-size: 13px;">
-                                <i class="fa-solid ${iconClass}"></i>
+                            <div class="rounded-2 checklist-icon-box flex-shrink-0" style="width: 28px; height: 28px; min-width: 28px; font-size: 11.5px; background: ${badge.bg}; color: ${badge.color}; border: 1px solid ${badge.border};">
+                                <i class="fa-solid ${badge.icon}"></i>
                             </div>
                             <div class="min-w-0 flex-grow-1">
                                 <div class="fw-semibold text-truncate checklist-row-name" style="font-size: 0.84rem; line-height: 1.35; color: #1e293b;">
                                     <a href="javascript:void(0)"
                                         onclick="openDocPreview('${f.url}', '${escapeHtml(f.lgu_name || f.name)}', '${escapeHtml(itemName)}', '${itemId}', ${idx})"
                                         class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5 text-truncate doc-filename-link"
-                                        title="Preview ${escapeHtml(f.name)}">
-                                        <span class="text-truncate" style="max-width: 380px;">${escapeHtml(f.name)}</span>
+                                        title="${escapeHtml(tooltipText)}"
+                                        data-bs-toggle="tooltip">
+                                        <span class="text-truncate">${escapeHtml(f.name)}</span>
                                     </a>
-                                </div>
-                                <div class="text-muted text-truncate d-flex align-items-center flex-nowrap gap-1.5" style="font-size: 0.72rem; margin-top: 1px;">
-                                    <span>${f.size}</span>
-                                    <span>&bull;</span>
-                                    <span>Uploaded by <strong class="text-secondary fw-semibold">${escapeHtml(f.uploaded_by)}</strong> on ${f.uploaded_at}</span>
                                 </div>
                             </div>
                         </div>
@@ -4562,7 +4714,7 @@ button.premium-btn .btn-divider {
                                             <span>Download File</span>
                                         </a>
                                     </li>
-                                    {% if can_edit and record.status != 'archived' %}
+                                    ${canEdit ? `
                                     <li><hr class="dropdown-divider my-1"></li>
                                     <li>
                                         <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-danger text-nowrap"
@@ -4572,13 +4724,15 @@ button.premium-btn .btn-divider {
                                             <span>Delete File</span>
                                         </a>
                                     </li>
-                                    {% endif %}
+                                    ` : ''}
                                 </ul>
                             </div>
                         </div>
                     `;
                     listEl.appendChild(row);
                 });
+                const tooltips = listEl.querySelectorAll('[data-bs-toggle="tooltip"]');
+                tooltips.forEach(el => new bootstrap.Tooltip(el));
             }
         }
 
@@ -4631,7 +4785,27 @@ button.premium-btn .btn-divider {
         if (ext === 'pdf') return 'fa-file-pdf text-danger';
         if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) return 'fa-file-image text-primary';
         if (['doc', 'docx'].includes(ext)) return 'fa-file-word text-primary';
+        if (['xls', 'xlsx', 'csv'].includes(ext)) return 'fa-file-excel text-success';
+        if (['dwg', 'dxf'].includes(ext)) return 'fa-compass-drafting text-warning';
         return 'fa-file-lines text-primary';
+    }
+
+    function getFileBadge(filename) {
+        const ext = (filename || '').split('.').pop().toLowerCase();
+        if (ext === 'pdf') {
+            return { icon: 'fa-file-pdf', bg: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', border: 'rgba(239, 68, 68, 0.25)' };
+        } else if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) {
+            return { icon: 'fa-file-image', bg: 'rgba(14, 165, 233, 0.1)', color: '#0284c7', border: 'rgba(14, 165, 233, 0.25)' };
+        } else if (['doc', 'docx'].includes(ext)) {
+            return { icon: 'fa-file-word', bg: 'rgba(37, 99, 235, 0.1)', color: '#2563eb', border: 'rgba(37, 99, 235, 0.25)' };
+        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+            return { icon: 'fa-file-excel', bg: 'rgba(16, 185, 129, 0.1)', color: '#059669', border: 'rgba(16, 185, 129, 0.25)' };
+        } else if (['dwg', 'dxf'].includes(ext)) {
+            return { icon: 'fa-compass-drafting', bg: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: 'rgba(245, 158, 11, 0.25)' };
+        } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+            return { icon: 'fa-file-zipper', bg: 'rgba(147, 51, 234, 0.1)', color: '#9333ea', border: 'rgba(147, 51, 234, 0.25)' };
+        }
+        return { icon: 'fa-file-lines', bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b', border: 'rgba(100, 116, 139, 0.25)' };
     }
 
     function formatBytes(bytes) {
@@ -6164,6 +6338,91 @@ button.premium-btn .btn-divider {
         }
     });
 
+    // ── Smart Checklist Quick Filter (All / Missing / Fulfilled) ──
+    function setChecklistFilter(filterType, btn) {
+        document.querySelectorAll('.checklist-filter-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+
+        const allSubItems = document.querySelectorAll('.checklist-group-body .checklist-sub-item');
+        const allStandalone = document.querySelectorAll('.doc-checklist-tree > .checklist-standalone-item');
+        const allGroupCards = document.querySelectorAll('.checklist-group-card');
+        const emptyNotice = document.getElementById('checklistFilterEmptyNotice');
+
+        let totalVisible = 0;
+
+        if (filterType === 'all') {
+            allSubItems.forEach(el => el.style.display = '');
+            allStandalone.forEach(el => el.style.display = '');
+            allGroupCards.forEach(el => el.style.display = '');
+            if (emptyNotice) emptyNotice.classList.add('d-none');
+            return;
+        }
+
+        // Filter standalone items
+        allStandalone.forEach(el => {
+            const status = el.getAttribute('data-status');
+            let match = false;
+            if (filterType === 'missing' && (status === 'missing' || status === 'waived')) {
+                match = true;
+            } else if (filterType === 'fulfilled' && status === 'fulfilled') {
+                match = true;
+            }
+
+            if (match) {
+                el.style.display = '';
+                totalVisible++;
+            } else {
+                el.style.display = 'none';
+            }
+        });
+
+        // Filter sub items & accordion cards
+        allGroupCards.forEach(card => {
+            const subItems = card.querySelectorAll('.checklist-sub-item');
+            let visibleInCard = 0;
+            subItems.forEach(sub => {
+                const status = sub.getAttribute('data-status');
+                let match = false;
+                if (filterType === 'missing' && (status === 'missing' || status === 'waived')) {
+                    match = true;
+                } else if (filterType === 'fulfilled' && status === 'fulfilled') {
+                    match = true;
+                }
+
+                if (match) {
+                    sub.style.display = '';
+                    visibleInCard++;
+                    totalVisible++;
+                } else {
+                    sub.style.display = 'none';
+                }
+            });
+
+            if (visibleInCard > 0) {
+                card.style.display = '';
+                // Auto open folder if missing filter is selected so engineer doesn't have to manually expand
+                const collapseEl = card.querySelector('.collapse');
+                if (collapseEl && filterType === 'missing') {
+                    try {
+                        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                        bsCollapse.show();
+                    } catch(e) {}
+                }
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        if (emptyNotice) {
+            if (totalVisible === 0) {
+                emptyNotice.classList.remove('d-none');
+            } else {
+                emptyNotice.classList.add('d-none');
+            }
+        }
+    }
+    window.setChecklistFilter = setChecklistFilter;
+
     function scrollToFirstBatchError() {
         const firstErrCard = document.querySelector('#selectedFilesList .batch-file-card.is-error');
         if (firstErrCard) {
@@ -6529,6 +6788,9 @@ button.premium-btn .btn-divider {
             targetEl.classList.remove('doc-highlight-focused');
             void targetEl.offsetWidth; // trigger reflow
             targetEl.classList.add('doc-highlight-focused');
+            setTimeout(() => {
+                targetEl.classList.remove('doc-highlight-focused');
+            }, 3600);
         }
 
         setTimeout(triggerHighlight, 120);
@@ -6559,7 +6821,7 @@ button.premium-btn .btn-divider {
         openDocPreview(file.url, file.lgu_name || file.name, docType, slotId, index);
     }
 
-    function openDocPreview(url, fileName, docType, slotItemId, index) {
+    function openDocPreview(url, fileName, docType, slotItemId, index, metaInfo) {
         if (!url) return;
         const modalEl = document.getElementById('docPreviewModal');
         if (!modalEl) {
@@ -6650,16 +6912,25 @@ button.premium-btn .btn-divider {
             }
         }
         if (subtitleEl) {
+            let metaString = '';
             if (slotItemId !== undefined && slotItemId !== null && slotItemId !== '') {
                 const dataEl = document.getElementById('slot-docs-data');
                 let allSlotData = {};
                 try { allSlotData = dataEl ? JSON.parse(dataEl.textContent || '{}') : {}; } catch(e) {}
-                const totalFilesInSlot = (allSlotData[String(slotItemId)] || []).length;
-                if (totalFilesInSlot > 1) {
-                    subtitleEl.textContent = `${cleanFileName} \u2022 Part ${(typeof index === 'number' ? index + 1 : 1)} of ${totalFilesInSlot}`;
-                } else {
-                    subtitleEl.textContent = cleanFileName && cleanFileName !== docType ? cleanFileName : 'Document \u2022 Official Record Preview';
+                const files = allSlotData[String(slotItemId)] || [];
+                const totalFilesInSlot = files.length;
+                const currentFile = files[(typeof index === 'number' ? index : 0)];
+                if (totalFilesInSlot > 1 && currentFile) {
+                    metaString = `${cleanFileName} \u2022 Part ${(typeof index === 'number' ? index + 1 : 1)} of ${totalFilesInSlot} \u2022 ${currentFile.size} \u2022 Uploaded by ${currentFile.uploaded_by} on ${currentFile.uploaded_at}`;
+                } else if (currentFile) {
+                    metaString = `${cleanFileName} \u2022 ${currentFile.size} \u2022 Uploaded by ${currentFile.uploaded_by} on ${currentFile.uploaded_at}`;
                 }
+            } else if (metaInfo && metaInfo.uploaded_by) {
+                metaString = `${cleanFileName}${metaInfo.size ? ' \u2022 ' + metaInfo.size : ''} \u2022 Uploaded by ${metaInfo.uploaded_by} on ${metaInfo.uploaded_at}`;
+            }
+
+            if (metaString) {
+                subtitleEl.textContent = metaString;
             } else {
                 subtitleEl.textContent = cleanFileName && cleanFileName !== docType ? cleanFileName : 'Document \u2022 Official Record Preview';
             }
@@ -6800,6 +7071,8 @@ button.premium-btn .btn-divider {
             });
         }
     });
+
+
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', handleDocumentDeepLink);

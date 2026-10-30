@@ -405,6 +405,14 @@ $$\text{Days Remaining} = \max\left(0, 30 - \left\lfloor\frac{\text{Current Time
    * Executes every night at **12:00 AM (Midnight)**.
    * Queries records where `deleted_at <= Now - 30 Days`.
    * Permanently erases the database rows and removes attached PDF files from disk, maintaining server storage hygiene.
+4. **Standardized Title, Subtitle & Type Hierarchy (`/archive/`)**:
+   * **Title Column**:
+     - **Permits**: Displays clean Applicant Name (cleared of any leading permit/date codes). Subtitle displays `#PermitNumber` with `<i class="fa-solid fa-file-lines"></i>`.
+     - **Projects**: Displays Project Title. Subtitle displays Contractor / Implementation Mode (e.g. `By Administration (LGU Carigara)`) with `<i class="fa-solid fa-hard-hat"></i>`.
+     - **Violations**: Displays Structure/Violation Name. Subtitle displays Reference/Case Number (`#CaseNumber`) or Property Owner.
+   * **Type Column**: Clean frameless badges designating category: `Municipal Project`, `Barangay Project`, `Permit`, or `Building Violation`.
+   * **Record Detail Cleanliness**:
+     - The intrusive *"Record in Trash"* alert banner was removed from `record_detail.html` to allow clean, unblocked document inspections while keeping the Restore button readily accessible in header actions.
 
 ---
 

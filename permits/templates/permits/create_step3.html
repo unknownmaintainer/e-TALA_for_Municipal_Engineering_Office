@@ -239,7 +239,7 @@
                         <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px; height: 20px;">
                             <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155; line-height: 1;">Funding Source</label>
                         </div>
-                        <select name="funding_source" id="fundingSourceSelect" class="form-select rounded-3" required onchange="toggleFundingOther(this.value)"
+                        <select name="funding_source" id="fundingSourceSelect" class="form-select rounded-3" required data-funding-specify-target="fundingOtherWrapper"
                                 style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             <option value="" disabled {% if not form_data.funding_source %}selected{% endif %}>— Select Funding Source —</option>
                             {% for val, label in funding_sources %}
@@ -275,15 +275,18 @@
                         <div class="invalid-feedback">Date Completed is required and cannot be in the future.</div>
                     </div>
 
-                    <!-- Conditional Other Funding Source (col-12) -->
-                    <div class="col-12" id="fundingOtherWrapper" {% if form_data.funding_source == 'Others' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                    <!-- Conditional Specify Funding Source: NGO / Others (col-12) -->
+                    <div class="col-12" id="fundingOtherWrapper" {% if form_data.funding_source == 'Others' or form_data.funding_source == 'NGO' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                         <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
-                            <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Specify Other Funding Source</label>
+                            <label for="fundingOtherInput" class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;" data-funding-specify-label>{% if form_data.funding_source == 'NGO' %}Specify NGO Name / Organization{% else %}Specify Other Funding Source{% endif %}</label>
                         </div>
-                        <input type="text" name="funding_source_other" class="form-control rounded-3" placeholder="Specify other funding source..."
+                        <input type="text" name="funding_source_other" id="fundingOtherInput" class="form-control rounded-3" placeholder="Specify other funding source..."
+                               maxlength="255" autocomplete="off"
                                value="{{ form_data.funding_source_other|default:'' }}"
                                style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                        <div class="invalid-feedback" data-funding-specify-feedback>Please specify the funding source.</div>
                     </div>
+                    {% include 'permits/includes/_funding_specify.html' %}
 
                     <input type="hidden" name="year" value="{{ current_year }}">
 
@@ -336,9 +339,9 @@
 
 <script>
 function toggleFundingOther(val) {
-    const wrapper = document.getElementById('fundingOtherWrapper');
-    if (wrapper) {
-        wrapper.style.display = (val === 'Others') ? 'block' : 'none';
+    // Kept for backwards compatibility; logic lives in includes/_funding_specify.html
+    if (window.etalaSyncFundingSpecify) {
+        window.etalaSyncFundingSpecify(val, document.getElementById('fundingOtherWrapper'));
     }
 }
 function setByAdmin() {

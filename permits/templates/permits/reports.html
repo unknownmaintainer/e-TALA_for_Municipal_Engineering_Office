@@ -546,7 +546,7 @@
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </span>
                 <input type="text" id="reportSearchInput" name="q" value="{{ search_query|default:'' }}"
-                    class="etala-search-pill-input search-text-input" placeholder="Search barangay..."
+                    class="etala-search-pill-input search-text-input" placeholder="{% if is_single_barangay %}Search period or date...{% else %}Search barangay...{% endif %}"
                     autocomplete="off" onkeyup="filterReportTable(this.value)">
                 <button type="button" id="clearReportSearchBtn"
                     class="clear-search-icon d-flex align-items-center justify-content-center border-0 p-0 {% if not search_query %}d-none{% endif %}"
@@ -640,7 +640,7 @@
 <!-- ══ 3. ACCOMPLISHMENT LEDGER TABLE CARD ════════════════════════════════════ -->
 <div class="report-table-card mb-4">
     <div class="table-responsive" style="max-height: 640px; overflow-y: auto;">
-        <table class="table table-sm align-middle mb-0 report-table">
+        <table class="table table-sm align-middle mb-0 report-table" data-single-barangay="{% if is_single_barangay %}1{% else %}0{% endif %}">
             <thead class="report-table-head sticky-top">
                 <tr>
                     <th class="text-center" style="width: 4%;">#</th>
@@ -791,11 +791,11 @@
             if (!noMatchRow) {
                 noMatchRow = document.createElement('tr');
                 noMatchRow.id = 'reportNoMatchRow';
-                noMatchRow.innerHTML = `<td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-circle-exclamation me-1 text-warning"></i>No matching barangays found for "${escapeHtml(q)}".</td>`;
+                noMatchRow.innerHTML = `<td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-circle-exclamation me-1 text-warning"></i>No matching records found for "${escapeHtml(q)}".</td>`;
                 table.querySelector('tbody').appendChild(noMatchRow);
             } else {
                 noMatchRow.style.display = '';
-                noMatchRow.innerHTML = `<td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-circle-exclamation me-1 text-warning"></i>No matching barangays found for "${escapeHtml(q)}".</td>`;
+                noMatchRow.innerHTML = `<td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-circle-exclamation me-1 text-warning"></i>No matching records found for "${escapeHtml(q)}".</td>`;
             }
         } else if (noMatchRow) {
             noMatchRow.style.display = 'none';
@@ -819,7 +819,13 @@
             footBudget.textContent = '₱' + sumBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         if (footTotalLabel) {
-            footTotalLabel.textContent = q ? `TOTAL (${visibleCount} BRGY${visibleCount === 1 ? '' : 'S'})` : 'TOTAL';
+            const isSingleBrgy = table && table.getAttribute('data-single-barangay') === '1';
+            if (q) {
+                const brgyText = visibleCount === 1 ? 'BRGY' : 'BRGYS';
+                footTotalLabel.textContent = isSingleBrgy ? ('TOTAL (' + visibleCount + ' ROWS)') : ('TOTAL (' + visibleCount + ' ' + brgyText + ')');
+            } else {
+                footTotalLabel.textContent = 'TOTAL';
+            }
         }
     };
 

@@ -223,7 +223,7 @@
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         display: block !important;
-        max-width: 100% !important;
+        max-width: clamp(160px, 28vw, 380px) !important;
     }
 
     .data-table .cell-subtitle {
@@ -704,7 +704,7 @@
                                 <th class="text-center cell-row-num" style="width: 48px; min-width: 48px;">#</th>
                                 
                                 <!-- TITLE Column Header (Sort Dropdown) -->
-                                <th style="width: 21%; min-width: 140px;">
+                                <th style="width: 50%; min-width: 220px;">
                                     <div class="dropdown position-relative d-inline-block">
                                         <button type="button" class="header-menu-btn {% if current_sort == 'title_asc' or current_sort == 'title_desc' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Sort by Title">
                                             <span>Title</span>
@@ -724,11 +724,8 @@
                                     </div>
                                 </th>
 
-                                <!-- TYPE Column Header (Clean Plain Text) -->
-                                <th class="text-center" style="width: 32%; min-width: 160px;">Type</th>
-
                                 <!-- YEAR Column Header (Filter Dropdown) -->
-                                <th style="width: 19%; min-width: 90px;">
+                                <th style="width: 20%; min-width: 90px;">
                                     <div class="dropdown position-relative d-inline-block">
                                         <button type="button" class="header-menu-btn {% if selected_year %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Year">
                                             <span>Year</span>
@@ -758,7 +755,7 @@
                                 </th>
 
                                 <!-- UPLOADS Column Header (Filter Dropdown) -->
-                                <th style="width: 19%; min-width: 95px;">
+                                <th style="width: 20%; min-width: 95px;">
                                     <div class="dropdown position-relative d-inline-block">
                                         <button type="button" class="header-menu-btn {% if selected_upload_status %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Uploads">
                                             <span>Uploads</span>
@@ -797,39 +794,32 @@
                                     {% if page_obj.start_index %}{{ page_obj.start_index|add:forloop.counter0 }}{% else %}{{ forloop.counter }}{% endif %}
                                 </td>
                                 <td>
-                                    <div class="cell-title d-flex align-items-center gap-1.5 flex-wrap">
-                                        <span title="{{ r.display_title }}">{{ r.display_title }}</span>
+                                    <div class="cell-title text-truncate" title="{{ r.display_title }}">
+                                        <span>{{ r.display_title }}</span>
                                     </div>
                                     <div class="cell-subtitle">
                                         {% if r.is_illegal_construction and r.illegal_compliance_status == 'resolved' %}
                                             {% if r.permit_detail and r.permit_detail.permit_number %}
-                                             <div class="subtitle-row" title="Permit No: #{{ r.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ r.permit_detail.permit_number }}</strong></div>
+                                            <div class="subtitle-row" title="Permit No: #{{ r.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ r.permit_detail.permit_number }}</strong></div>
                                             {% else %}
-                                             <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Complied Record</div>
+                                            <div class="subtitle-row text-success fw-semibold"><i class="fa-solid fa-shield-halved me-1" style="font-size: 11px;"></i>Complied Record</div>
                                             {% endif %}
                                         {% elif r.is_illegal_construction %}
                                             {% if r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
-                                             <div class="subtitle-row" title="Property Owner: {{ r.permit_detail.applicant_name }}"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i><strong>{{ r.permit_detail.applicant_name }}</strong></div>
+                                            <div class="subtitle-row" title="Property Owner: {{ r.permit_detail.applicant_name }}"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i><strong>{{ r.permit_detail.applicant_name }}</strong></div>
                                             {% else %}
-                                             <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
+                                            <div class="subtitle-row text-danger fw-semibold"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size: 11px;"></i>Active Violation</div>
                                             {% endif %}
                                         {% elif r.record_type == 'Permit' %}
-                                            {% if r.permit_detail and r.permit_detail.permit_number and r.permit_detail.date_issued %}
-                                             <div class="subtitle-row" title="Permit No: #{{ r.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ r.permit_detail.permit_number }}</strong></div>
-                                            {% else %}
-                                             <div class="subtitle-row text-muted" style="font-size: 0.74rem;"><i class="fa-regular fa-clock me-1 text-muted" style="font-size: 11px;"></i>Pending Issuance</div>
+                                            {% if r.permit_detail and r.permit_detail.permit_number %}
+                                            <div class="subtitle-row" title="Permit No: #{{ r.permit_detail.permit_number }}"><i class="fa-solid fa-file-lines text-muted me-1" style="font-size: 11px;"></i><strong>#{{ r.permit_detail.permit_number }}</strong></div>
+                                            {% elif r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                            <div class="subtitle-row" title="Applicant: {{ r.permit_detail.applicant_name }}"><i class="fa-solid fa-user text-muted me-1" style="font-size: 11px;"></i><strong>{{ r.permit_detail.applicant_name }}</strong></div>
                                             {% endif %}
+                                        {% elif r.record_type == 'Project' and r.project_detail and r.project_detail.contractor %}
+                                            <div class="subtitle-row" title="Contractor: {{ r.project_detail.contractor }}"><i class="fa-solid fa-hard-hat text-muted me-1" style="font-size: 11px;"></i><strong>{{ r.project_detail.contractor }}</strong></div>
                                         {% endif %}
                                     </div>
-                                </td>
-                                <td class="text-center" style="text-align: center;">
-                                    {% if r.record_type == 'Permit' %}
-                                    <span class="tag tag-permit">{{ r.specific_type_label }}</span>
-                                    {% elif r.project_scope == 'Municipal' %}
-                                    <span class="tag tag-municipal">{{ r.specific_type_label }}</span>
-                                    {% else %}
-                                    <span class="tag tag-barangay">{{ r.specific_type_label }}</span>
-                                    {% endif %}
                                 </td>
                                 <td class="cell-muted cell-year">{{ r.year|default:"—" }}</td>
                                 <td>
@@ -849,12 +839,13 @@
                                         </span>
                                         {% endif %}
                                     {% else %}
-                                        {% if r.is_illegal_construction %}
-                                        <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px;">
-                                            {{ r.documents.count }} files
+                                        {% if r.documents.count > 0 %}
+                                        <span class="d-inline-flex align-items-center gap-1.5 fw-semibold text-primary" style="font-size: 0.80rem;" title="{{ r.documents.count }} attached document{{ r.documents.count|pluralize }}">
+                                            <i class="fa-solid fa-paperclip" style="font-size: 11px;"></i>
+                                            <span>{{ r.documents.count }} file{{ r.documents.count|pluralize }}</span>
                                         </span>
                                         {% else %}
-                                        <span class="text-muted small">—</span>
+                                        <span class="text-muted" style="font-size: 0.82rem; opacity: 0.65;">—</span>
                                         {% endif %}
                                     {% endif %}
                                     {% endwith %}
@@ -901,18 +892,29 @@
                     <div class="d-flex flex-column gap-2">
                         {% for r in page_obj %}
                         <a href="{% url 'record_detail' r.record_id %}" class="mobile-record-item text-decoration-none">
-                            <div class="mobile-record-icon {% if r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
-                                <i class="{% if r.record_type == 'Permit' %}fa-solid fa-file-shield{% elif r.project_scope == 'Municipal' %}fa-solid fa-landmark{% else %}fa-solid fa-location-dot{% endif %}"></i>
+                            <div class="mobile-record-icon {% if r.is_illegal_construction %}{% if r.illegal_compliance_status == 'resolved' %}illegal-resolved text-success{% else %}illegal-unresolved text-danger{% endif %}{% elif r.record_type == 'Permit' %}permit{% elif r.project_scope == 'Municipal' %}municipal{% else %}barangay{% endif %}">
+                                <i class="{% if r.is_illegal_construction %}fa-solid fa-triangle-exclamation{% elif r.record_type == 'Permit' %}fa-solid fa-file-shield{% elif r.project_scope == 'Municipal' %}fa-solid fa-landmark{% else %}fa-solid fa-location-dot{% endif %}"></i>
                             </div>
                             <div class="flex-grow-1 min-w-0">
                                 <div class="mobile-record-title">
                                     {% if r.record_type == 'Permit' and r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
+                                        {{ r.permit_detail.applicant_name }}
+                                    {% elif r.is_illegal_construction and r.permit_detail and r.permit_detail.applicant_name|is_valid_applicant %}
                                         {{ r.permit_detail.applicant_name }}
                                     {% else %}
                                         {{ r.title }}
                                     {% endif %}
                                 </div>
                                 <div class="mobile-record-meta d-flex align-items-center flex-wrap gap-1.5 mt-0.5">
+                                    {% if r.is_illegal_construction and r.illegal_compliance_status == 'resolved' %}
+                                    <span class="text-success fw-semibold">Resolved Violation · </span>
+                                    {% elif r.is_illegal_construction %}
+                                    <span class="text-danger fw-semibold">Active Violation · </span>
+                                    {% elif r.record_type == 'Permit' and r.permit_detail and r.permit_detail.permit_number %}
+                                    <span>#{{ r.permit_detail.permit_number }} · </span>
+                                    {% elif r.project_detail and r.project_detail.contractor %}
+                                    <span>{{ r.project_detail.contractor }} · </span>
+                                    {% endif %}
                                     <span>{{ r.year|default:"—" }} · {{ r.specific_type_label }}</span>
                                     {% with stats=r.completion_stats %}
                                     {% if stats.total > 0 %}
@@ -1068,53 +1070,8 @@ function confirmArchiveRecord(archiveUrl, recordTitle) {
     }
 }
 
-function setColumnFilter(key, val) {
-    const form = document.getElementById('wsFilterForm');
-    if (!form) return;
-    
-    let input = form.querySelector(`input[name="${key}"]`);
-    if (!input) {
-        input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        form.appendChild(input);
-    }
-    input.value = val;
-    
-    const formData = new FormData(form);
-    if (!val) {
-        formData.delete(key);
-    }
-    formData.delete('page');
-    
-    const params = new URLSearchParams(formData);
-    const newUrl = window.location.pathname + '?' + params.toString();
-    if (window.updateWorkspaceTableAJAX) {
-        window.updateWorkspaceTableAJAX(newUrl);
-    } else {
-        window.location.search = params.toString();
-    }
-}
-window.setColumnFilter = setColumnFilter;
-
 function setColumnSort(sortVal) {
-    const sortInput = document.getElementById('wsSortInput');
-    if (sortInput) {
-        sortInput.value = sortVal;
-        const form = document.getElementById('wsFilterForm');
-        if (form) {
-            const formData = new FormData(form);
-            if (!sortVal) formData.delete('sort');
-            formData.delete('page');
-            const params = new URLSearchParams(formData);
-            const newUrl = window.location.pathname + '?' + params.toString();
-            if (window.updateWorkspaceTableAJAX) {
-                window.updateWorkspaceTableAJAX(newUrl);
-            } else {
-                window.location.search = params.toString();
-            }
-        }
-    }
+    setColumnFilter('sort', sortVal);
 }
 window.setColumnSort = setColumnSort;
 
@@ -1122,6 +1079,7 @@ function setColumnFilter(filterKey, filterVal) {
     const form = document.getElementById('wsFilterForm');
     if (!form) return;
     const inputMap = {
+        'tab': 'wsActiveTabInput',
         'q': 'wsSearchInput',
         'type': 'wsTypeInput',
         'year': 'wsYearInput',
@@ -1130,12 +1088,19 @@ function setColumnFilter(filterKey, filterVal) {
         'sort': 'wsSortInput'
     };
     const targetId = inputMap[filterKey] || filterKey;
-    const targetEl = document.getElementById(targetId) || form.querySelector(`[name="${filterKey}"]`);
-    if (targetEl) {
-        targetEl.value = filterVal;
+    let targetEl = document.getElementById(targetId) || form.querySelector(`[name="${filterKey}"]`);
+    if (!targetEl) {
+        targetEl = document.createElement('input');
+        targetEl.type = 'hidden';
+        targetEl.name = filterKey;
+        form.appendChild(targetEl);
     }
+    targetEl.value = filterVal;
     const formData = new FormData(form);
     formData.delete('page');
+    for (const [k, v] of Array.from(formData.entries())) {
+        if (!v) formData.delete(k);
+    }
     const params = new URLSearchParams(formData);
     const newUrl = window.location.pathname + '?' + params.toString();
     if (window.updateWorkspaceTableAJAX) {
@@ -1173,6 +1138,10 @@ function clearAllFilters() {
     if (wrapper) wrapper.classList.add('wrapper-collapsing');
     const form = document.getElementById('wsFilterForm');
     if (form) {
+        ['wsSearchInput', 'wsYearInput', 'wsTypeInput', 'wsUploadStatusInput', 'wsStatusInput', 'wsSortInput'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
         const tabVal = document.getElementById('wsActiveTabInput')?.value || 'all';
         const perPageVal = document.getElementById('wsPerPageInput')?.value || '10';
         const newUrl = window.location.pathname + `?tab=${encodeURIComponent(tabVal)}&per_page=${encodeURIComponent(perPageVal)}`;
@@ -1228,10 +1197,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const chipsWrapper = document.getElementById('activeChipsWrapper');
         if (wsSearchSpinner) wsSearchSpinner.classList.remove('d-none');
         if (wsClearBtn) wsClearBtn.classList.add('d-none');
-        if (tableContainer) {
-            tableContainer.style.minHeight = `${tableContainer.offsetHeight}px`;
-            tableContainer.classList.add('table-ajax-loading');
-        }
+        const startHeight = tableContainer ? tableContainer.offsetHeight : 0;
 
         try {
             const response = await fetch(url, {
@@ -1243,20 +1209,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const newTableContainer = doc.getElementById('wsMainTableContainer');
             if (tableContainer && newTableContainer) {
+                if (startHeight > 0) {
+                    tableContainer.style.height = `${startHeight}px`;
+                    tableContainer.style.overflow = 'hidden';
+                }
                 tableContainer.innerHTML = newTableContainer.innerHTML;
-                tableContainer.classList.remove('table-ajax-loading');
-                tableContainer.classList.add('table-ajax-fade-in');
-                setTimeout(() => {
-                    tableContainer.classList.remove('table-ajax-fade-in');
-                    tableContainer.style.minHeight = '';
-                }, 200);
+                const targetHeight = tableContainer.scrollHeight;
+                if (startHeight > 0 && Math.abs(targetHeight - startHeight) > 2) {
+                    tableContainer.style.transition = 'height 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+                    requestAnimationFrame(() => {
+                        tableContainer.style.height = `${targetHeight}px`;
+                    });
+                    setTimeout(() => {
+                        tableContainer.style.height = '';
+                        tableContainer.style.overflow = '';
+                        tableContainer.style.transition = '';
+                    }, 240);
+                } else {
+                    tableContainer.style.height = '';
+                    tableContainer.style.overflow = '';
+                }
             }
 
             const newChipsWrapper = doc.getElementById('activeChipsWrapper');
             if (chipsWrapper && newChipsWrapper) {
+                const oldChipsH = chipsWrapper.offsetHeight;
                 chipsWrapper.classList.remove('wrapper-collapsing');
-                chipsWrapper.style.maxHeight = '';
                 chipsWrapper.innerHTML = newChipsWrapper.innerHTML;
+                const newChipsH = chipsWrapper.offsetHeight;
+                if (oldChipsH !== newChipsH) {
+                    chipsWrapper.style.height = `${oldChipsH}px`;
+                    chipsWrapper.style.overflow = 'hidden';
+                    chipsWrapper.style.transition = 'height 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+                    requestAnimationFrame(() => {
+                        chipsWrapper.style.height = `${newChipsH}px`;
+                    });
+                    setTimeout(() => {
+                        chipsWrapper.style.height = '';
+                        chipsWrapper.style.overflow = '';
+                        chipsWrapper.style.transition = '';
+                    }, 240);
+                }
             }
 
             // Sync hidden inputs
@@ -1272,17 +1265,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 wsSearchInput.value = docSearch.value;
             }
 
-            // Sync Category Tabs active state
-            const urlObj = new URL(url, window.location.origin);
-            const activeTab = urlObj.searchParams.get('tab') || 'all';
-            document.querySelectorAll('.filter-tabs .filter-tab').forEach(tab => {
-                const tabHref = tab.getAttribute('onclick') || '';
-                if (tabHref.includes(`'${activeTab}'`)) {
-                    tab.classList.add('active');
-                } else {
-                    tab.classList.remove('active');
-                }
-            });
+            // Sync Category Tabs (both active state and dynamic counts)
+            const newFilterTabs = doc.querySelector('.filter-tabs');
+            const curFilterTabs = document.querySelector('.filter-tabs');
+            if (curFilterTabs && newFilterTabs) {
+                curFilterTabs.innerHTML = newFilterTabs.innerHTML;
+            }
+
+            // Sync Header Stat Pills and Mobile Subtitle
+            const newHeaderPills = doc.querySelector('.brgy-header-stat-pills');
+            const curHeaderPills = document.querySelector('.brgy-header-stat-pills');
+            if (curHeaderPills && newHeaderPills) {
+                curHeaderPills.innerHTML = newHeaderPills.innerHTML;
+            }
+            const newMobileSub = doc.querySelector('.etala-page-subtitle');
+            const curMobileSub = document.querySelector('.etala-page-subtitle');
+            if (curMobileSub && newMobileSub) {
+                curMobileSub.innerHTML = newMobileSub.innerHTML;
+            }
 
             if (pushHistory) {
                 window.history.pushState({}, '', url);

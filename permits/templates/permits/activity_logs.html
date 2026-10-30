@@ -11,12 +11,33 @@
 
 {% block content %}
 
-<!-- ══ ACTIVITY LOGS PANEL ═════════════════════════════════════════════ -->
-<div class="content-card">
-    <div class="content-card-body" style="padding: 24px;">
-        
-        <!-- Toolbar: Sub-Tabs & Filters (Unified 1-Line Compact Design like Records) -->
-        <form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
+<!-- ══ PAGE HEADER ═════════════════════════════════════════════════════ -->
+<div class="etala-page-header mb-3">
+    <div>
+        <h1 class="etala-page-title mb-0">Activity Logs</h1>
+    </div>
+    <div class="etala-header-actions d-flex align-items-center gap-2">
+        {% if request.user.role == 'admin' %}
+        <button type="button"
+            class="premium-btn text-nowrap d-flex align-items-center {% if active_log_tab == 'login' %}btn-primary text-white{% else %}btn-secondary{% endif %}"
+            id="log-tab-btn-login"
+            onclick="toggleLogHistoryTab()"
+            title="{% if active_log_tab == 'login' %}Return to Activity Logs{% else %}View Login History and Security Logs{% endif %}">
+            <span class="btn-icon"><i class="fa-solid {% if active_log_tab == 'login' %}fa-list-check{% else %}fa-shield-halved text-primary{% endif %}"></i></span>
+            <span class="btn-divider"></span>
+            <span>{% if active_log_tab == 'login' %}Activity Logs{% else %}Login History{% endif %}</span>
+        </button>
+        {% endif %}
+        <button type="button" id="exportPdfHeaderBtn" onclick="exportActivityLogsPdf(this)" class="premium-btn btn-export text-nowrap d-flex align-items-center" title="Export Activity Logs (PDF)">
+            <span class="btn-icon"><i class="fa-solid fa-file-pdf text-danger"></i></span>
+            <span class="btn-divider"></span>
+            <span>Export PDF</span>
+        </button>
+    </div>
+</div>
+
+<!-- ══ TOOLBAR & FILTER TABS (Consistent with Records Browse) ═══════════════ -->
+<form method="GET" action="{% url 'activity_logs' %}" id="activityLogsFilterForm">
             <input type="hidden" name="tab" id="activeLogTabInput" value="{{ active_log_tab|default:'audit' }}">
             <input type="hidden" name="date_range" id="dateRangeInput" value="{{ date_filter|default:'all' }}">
             <input type="hidden" name="action_type" id="actionTypeInput" value="{{ action_type|default:'all' }}">
@@ -24,85 +45,121 @@
             <input type="hidden" name="per_page" value="{{ per_page|default:'20' }}">
             {% if record_id %}<input type="hidden" name="record_id" value="{{ record_id }}">{% endif %}
 
-            <div class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 w-100"
-                style="border-bottom: none !important; max-width: 100%; box-sizing: border-box;">
-                <!-- Left: Category Tabs (Clean Records Style) -->
-                <div class="filter-tabs activity-filter-tabs border-bottom-0 mb-0 d-inline-flex align-items-center"
-                    style="border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;">
+            <div id="activityLogsToolbar" class="records-filter-toolbar d-flex align-items-center justify-content-between gap-3 mb-3 w-100"
+                style="border-bottom: 1px solid var(--border-default, #e2e8f0) !important; max-width: 100%; box-sizing: border-box; padding-bottom: 0px !important;">
+                
+                <!-- Left: Category Action Tabs (When viewing Activity Logs) or Status Tabs (When viewing Login History) -->
+                <div id="activityFilterTabs" class="filter-tabs d-inline-flex align-items-center"
+                    style="flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; margin-bottom: -1px !important;">
                     
-                    {% if request.user.role == 'admin' %}
+                    {% if request.user.role == 'admin' and active_log_tab == 'login' %}
                     <button type="button"
-                        class="filter-tab {% if active_log_tab != 'login' %}active{% endif %}"
-                        id="log-tab-btn-audit"
-                        onclick="switchLogTab('audit')"
-                        style="white-space: nowrap;">
-                        <i class="fa-solid fa-list-check me-1.5"></i>Audit Trail
+                        class="filter-tab me-1"
+                        onclick="switchLogTab('audit'); setLogFilter('action_type', 'all', this)"
+                        style="white-space: nowrap; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left me-1"></i>All Activities
                     </button>
                     <button type="button"
-                        class="filter-tab {% if active_log_tab == 'login' %}active{% endif %}"
-                        id="log-tab-btn-login"
-                        onclick="switchLogTab('login')"
+                        class="filter-tab {% if not status_filter or status_filter == 'all' %}active{% endif %}"
+                        onclick="setLogFilter('status', 'all', this)"
                         style="white-space: nowrap;">
-                        <i class="fa-solid fa-shield-halved me-1.5"></i>Login History
+                        <span>All Attempts</span>
+                        {% if login_counts.all is not None %}<span class="tab-count {% if not status_filter or status_filter == 'all' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ login_counts.all|default:'0' }}</span>{% endif %}
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if status_filter == 'success' %}active{% endif %}"
+                        onclick="setLogFilter('status', 'success', this)"
+                        style="white-space: nowrap;">
+                        <span><i class="fa-solid fa-circle-check text-success me-1"></i>Successful</span>
+                        {% if login_counts.success is not None %}<span class="tab-count {% if status_filter == 'success' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ login_counts.success|default:'0' }}</span>{% endif %}
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if status_filter == 'failed' %}active{% endif %}"
+                        onclick="setLogFilter('status', 'failed', this)"
+                        style="white-space: nowrap;">
+                        <span><i class="fa-solid fa-circle-xmark text-danger me-1"></i>Failed</span>
+                        {% if login_counts.failed is not None %}<span class="tab-count {% if status_filter == 'failed' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ login_counts.failed|default:'0' }}</span>{% endif %}
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if status_filter == 'blocked' %}active{% endif %}"
+                        onclick="setLogFilter('status', 'blocked', this)"
+                        style="white-space: nowrap;">
+                        <span><i class="fa-solid fa-shield-halved text-warning me-1"></i>Blocked</span>
+                        {% if login_counts.blocked is not None %}<span class="tab-count {% if status_filter == 'blocked' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ login_counts.blocked|default:'0' }}</span>{% endif %}
                     </button>
                     {% else %}
                     <button type="button"
                         class="filter-tab {% if not action_type or action_type == 'all' %}active{% endif %}"
-                        onclick="setLogFilter('action_type', 'all')"
-                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
-                        All Activities
+                        onclick="setLogFilter('action_type', 'all', this)"
+                        title="View all activities">
+                        <span>All</span>
+                        <span class="tab-count {% if not action_type or action_type == 'all' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ cat_counts.all|default:'0' }}</span>
                     </button>
                     <button type="button"
                         class="filter-tab {% if action_type == 'update' %}active{% endif %}"
-                        onclick="setLogFilter('action_type', 'update')"
-                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
-                        Updated
+                        onclick="setLogFilter('action_type', 'update', this)"
+                        title="View updated or modified records">
+                        <span>Updated</span>
+                        <span class="tab-count {% if action_type == 'update' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ cat_counts.update|default:'0' }}</span>
                     </button>
                     <button type="button"
                         class="filter-tab {% if action_type == 'upload' %}active{% endif %}"
-                        onclick="setLogFilter('action_type', 'upload')"
-                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
-                        Uploaded
-                    </button>
-                    <button type="button"
-                        class="filter-tab {% if action_type == 'delete' %}active{% endif %}"
-                        onclick="setLogFilter('action_type', 'delete')"
-                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
-                        Deleted
+                        onclick="setLogFilter('action_type', 'upload', this)"
+                        title="View uploaded document attachments">
+                        <span>Uploaded</span>
+                        <span class="tab-count {% if action_type == 'upload' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ cat_counts.upload|default:'0' }}</span>
                     </button>
                     <button type="button"
                         class="filter-tab {% if action_type == 'create' %}active{% endif %}"
-                        onclick="setLogFilter('action_type', 'create')"
-                        style="padding: 6px 14px; font-size: 0.82rem; white-space: nowrap;">
-                        Created
+                        onclick="setLogFilter('action_type', 'create', this)"
+                        title="View newly created or encoded records">
+                        <span>Created</span>
+                        <span class="tab-count {% if action_type == 'create' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ cat_counts.create|default:'0' }}</span>
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if action_type == 'delete' %}active{% endif %}"
+                        onclick="setLogFilter('action_type', 'delete', this)"
+                        title="View deleted or archived records">
+                        <span>Deleted</span>
+                        <span class="tab-count {% if action_type == 'delete' %}tab-count-active{% else %}tab-count-default{% endif %}">{{ cat_counts.delete|default:'0' }}</span>
+                    </button>
+                    <button type="button"
+                        class="filter-tab {% if action_type == 'error' %}active{% endif %}"
+                        onclick="setLogFilter('action_type', 'error', this)"
+                        title="View system alerts, errors, and restrictions">
+                        <span><i class="fa-solid fa-triangle-exclamation text-danger me-1"></i>Errors</span>
+                        <span class="tab-count {% if action_type == 'error' %}tab-count-active{% elif cat_counts.error > 0 %}tab-count-danger{% else %}tab-count-default{% endif %}">{{ cat_counts.error|default:'0' }}</span>
                     </button>
                     {% endif %}
                 </div>
 
-                <!-- Right: Compact Search Pill -->
-                <div class="d-flex align-items-center flex-shrink-0 ms-auto records-search-wrapper">
-                    <div class="etala-search-pill-wrapper w-100">
-                        <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search logs">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                        </button>
-                        <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
-                            placeholder="{% if active_log_tab == 'login' %}Search email or account...{% else %}Search action or staff...{% endif %}" value="{{ query|default:'' }}" autocomplete="off">
+                <!-- Right: Action Controls (Compact Search) -->
+                <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+                    <!-- Compact Search Pill -->
+                    <div class="records-search-wrapper">
+                        <div class="etala-search-pill-wrapper w-100">
+                            <button type="submit" class="etala-search-pill-icon search-btn-icon" title="Search logs">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                            <input type="text" id="liveSearchInput" name="q" class="etala-search-pill-input search-text-input"
+                                placeholder="{% if active_log_tab == 'login' %}Search account or IP...{% else %}Search activities or records...{% endif %}" value="{{ query|default:'' }}" autocomplete="off">
 
-                        <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
-                            style="width: 12px; height: 12px; border-width: 2px;">
-                            <span class="visually-hidden">Searching...</span>
+                            <div id="logSearchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"
+                                style="width: 12px; height: 12px; border-width: 2px;">
+                                <span class="visually-hidden">Searching...</span>
+                            </div>
+
+                            <a href="?tab={{ active_log_tab|default:'audit' }}" id="logClearSearchBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not query %}d-none{% endif %}" title="Clear search">
+                                <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
+                            </a>
                         </div>
-
-                        <a href="?tab={{ active_log_tab|default:'audit' }}" id="logClearSearchBtn" class="clear-search-icon d-flex align-items-center justify-content-center {% if not query %}d-none{% endif %}" title="Clear search">
-                            <i class="fa-solid fa-xmark" style="font-size: 13px;"></i>
-                        </a>
                     </div>
                 </div>
             </div>
 
-            <!-- Active Filter Chips (Seamless Container) -->
+            <!-- Active Filter Chips (Only for date or specific record - tabs handle category) -->
             <div id="activeChipsWrapper">
-                {% if record_id or date_filter and date_filter != 'all' or action_type and action_type != 'all' or status_filter and status_filter != 'all' %}
+                {% if record_id or date_filter and date_filter != 'all' %}
                 <div class="active-filter-chips d-flex align-items-center flex-wrap gap-2 mb-2.5">
                     {% if record_id %}
                     <div class="filter-chip">
@@ -121,29 +178,6 @@
                         <button type="button" class="clear-chip-btn" onclick="removeLogFilterChipSmooth(this, 'date_range', 'all')" title="Clear date filter">&times;</button>
                     </div>
                     {% endif %}
-                    {% if action_type and action_type != 'all' %}
-                    <div class="filter-chip">
-                        <span>Action: <strong>
-                            {% if action_type == 'create' %}Record Created
-                            {% elif action_type == 'update' %}Record Updated
-                            {% elif action_type == 'upload' %}Document Uploaded
-                            {% elif action_type == 'delete' %}Record Deleted
-                            {% else %}{{ action_type|title }}{% endif %}
-                        </strong></span>
-                        <button type="button" class="clear-chip-btn" onclick="removeLogFilterChipSmooth(this, 'action_type', 'all')" title="Clear action filter">&times;</button>
-                    </div>
-                    {% endif %}
-                    {% if status_filter and status_filter != 'all' %}
-                    <div class="filter-chip">
-                        <span>Status: <strong>
-                            {% if status_filter == 'success' %}Successful Logins
-                            {% elif status_filter == 'failed' %}Failed Attempts
-                            {% elif status_filter == 'blocked' %}Blocked / Restricted
-                            {% else %}{{ status_filter|title }}{% endif %}
-                        </strong></span>
-                        <button type="button" class="clear-chip-btn" onclick="removeLogFilterChipSmooth(this, 'status', 'all')" title="Clear status filter">&times;</button>
-                    </div>
-                    {% endif %}
                     <a href="javascript:void(0)" onclick="clearAllLogFilters()" class="action-btn action-btn-ghost action-btn-xs ms-auto" style="font-size: var(--text-2xs); padding: 2px 6px;">
                         Reset All
                     </a>
@@ -152,107 +186,19 @@
             </div>
         </form>
 
+<!-- ══ DATA TABLE CARD (Edge-to-Edge with Docked Pagination, Consistent with Records) ══ -->
+<div class="content-card content-card-table" id="activityLogsTableCard" style="padding: 0 !important; min-height: 420px !important; display: flex; flex-direction: column; justify-content: space-between; overflow: visible !important;">
+    <div class="card-body p-0 d-flex flex-column justify-content-between flex-grow-1" style="overflow: visible !important;">
         <!-- ══ TABLES WRAPPER FOR SEAMLESS AJAX UPDATES ══ -->
         <div id="activityLogsTablesWrapper">
             <!-- ══ SUB-TAB 1: AUDIT TRAIL ══ -->
             <div id="log-tab-content-audit" class="tab-pane-custom {% if active_log_tab == 'login' %}d-none{% endif %}">
             {% if log_page_obj %}
-                <div class="table-responsive table-responsive-cards mb-4" style="overflow-x: auto; overflow-y: visible !important;">
+                <div class="table-responsive table-responsive-cards mb-0" style="overflow-x: auto; overflow-y: visible !important;">
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
-                                {% if request.user.role == 'admin' or record_id %}
-                                <th style="width: 30%;">STAFF MEMBER</th>
-                                <th style="width: 50%;">
-                                    <div class="dropdown position-relative d-inline-block">
-                                        <button type="button" class="header-menu-btn {% if action_type and action_type != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Action">
-                                            <span>Action &amp; Event Details</span>
-                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
-                                        </button>
-                                        <div class="dropdown-menu header-filter-dropdown shadow-sm" style="min-width: 170px;">
-                                            <div class="dropdown-header">Filter by Action</div>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not action_type or action_type == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'all')">
-                                                <span>All Actions</span>
-                                                {% if not action_type or action_type == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'create' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'create')">
-                                                <span>Record Created</span>
-                                                {% if action_type == 'create' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'update' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'update')">
-                                                <span>Record Updated</span>
-                                                {% if action_type == 'update' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'upload' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'upload')">
-                                                <span>Document Uploaded</span>
-                                                {% if action_type == 'upload' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'delete' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'delete')">
-                                                <span>Record Deleted</span>
-                                                {% if action_type == 'delete' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </th>
-                                <th style="width: 20%; text-align: right; white-space: nowrap;">
-                                    <div class="dropdown position-relative d-inline-block">
-                                        <button type="button" class="header-menu-btn {% if date_filter and date_filter != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Date">
-                                            <span>Date &amp; Time</span>
-                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
-                                        </button>
-                                        <div class="dropdown-menu dropdown-menu-end header-filter-dropdown shadow-sm" style="min-width: 150px;">
-                                            <div class="dropdown-header">Filter by Date</div>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not date_filter or date_filter == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'all')">
-                                                <span>All Dates</span>
-                                                {% if not date_filter or date_filter == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == 'today' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', 'today')">
-                                                <span>Today</span>
-                                                {% if date_filter == 'today' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '7days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '7days')">
-                                                <span>Past 7 Days</span>
-                                                {% if date_filter == '7days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if date_filter == '30days' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('date_range', '30days')">
-                                                <span>Past 30 Days</span>
-                                                {% if date_filter == '30days' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </th>
-                                {% else %}
-                                <th style="width: 78%;">
-                                    <div class="dropdown position-relative d-inline-block">
-                                        <button type="button" class="header-menu-btn {% if action_type and action_type != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Action">
-                                            <span>Action &amp; Event Details</span>
-                                            <i class="fa-solid fa-chevron-down dropdown-chevron"></i>
-                                        </button>
-                                        <div class="dropdown-menu header-filter-dropdown shadow-sm" style="min-width: 170px;">
-                                            <div class="dropdown-header">Filter by Action</div>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if not action_type or action_type == 'all' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'all')">
-                                                <span>All Actions</span>
-                                                {% if not action_type or action_type == 'all' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'create' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'create')">
-                                                <span>Record Created</span>
-                                                {% if action_type == 'create' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'update' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'update')">
-                                                <span>Record Updated</span>
-                                                {% if action_type == 'update' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'upload' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'upload')">
-                                                <span>Document Uploaded</span>
-                                                {% if action_type == 'upload' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                            <a class="dropdown-item d-flex align-items-center justify-content-between {% if action_type == 'delete' %}active fw-semibold{% endif %}" href="javascript:void(0)" onclick="setLogFilter('action_type', 'delete')">
-                                                <span>Record Deleted</span>
-                                                {% if action_type == 'delete' %}<i class="fa-solid fa-check text-primary" style="font-size: 11px;"></i>{% endif %}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </th>
+                                <th style="width: 78%;">ACTIVITY &amp; EVENT DETAILS</th>
                                 <th style="width: 22%; text-align: right; white-space: nowrap;">
                                     <div class="dropdown position-relative d-inline-block">
                                         <button type="button" class="header-menu-btn {% if date_filter and date_filter != 'all' %}active{% endif %}" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Filter by Date">
@@ -280,64 +226,40 @@
                                         </div>
                                     </div>
                                 </th>
-                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for log in log_page_obj %}
                             <tr id="log-{{ log.log_id }}" data-log-id="{{ log.log_id }}">
-                                {% if request.user.role == 'admin' or record_id %}
-                                <td data-label="Staff Member" style="vertical-align: middle;">
-                                    <div style="display: flex; align-items: center; gap: 11px; min-width: 0;">
+                                <td data-label="Activity &amp; Event Details" style="vertical-align: middle; white-space: normal !important;">
+                                    <div style="display: flex; align-items: center; gap: 13px; min-width: 0; width: 100%;">
                                         {% if log.user %}
-                                        <div class="log-avatar log-avatar-info flex-shrink-0">
+                                        <div class="log-avatar log-avatar-info flex-shrink-0" title="{{ log.user.full_name|default:log.user.username }} ({{ log.user.designation|default:log.user.get_role_display }})">
                                             {% if log.user.profile_picture_url %}
                                             <img src="{{ log.user.profile_picture_url }}" alt="" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
                                             {% else %}
                                             {{ log.user.full_name|default:log.user.username|slice:":1"|upper }}
                                             {% endif %}
                                         </div>
-                                        <div class="log-card-info" style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem; line-height: 1.25;">
-                                                {{ log.user.full_name|default:log.user.username }}
-                                            </div>
-                                            <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
-                                                {{ log.user.designation|default:log.user.get_role_display }}
-                                            </div>
-                                        </div>
                                         {% else %}
-                                        <div class="log-avatar log-avatar-muted flex-shrink-0">
-                                            <i class="fa-solid fa-server" style="font-size: 11px;"></i>
-                                        </div>
-                                        <div class="log-card-info" style="min-width: 0; flex: 1;">
-                                            <div class="fw-bold title-text-adaptive text-truncate" style="font-size: 0.86rem; line-height: 1.25;">
-                                                System / Automated
-                                            </div>
-                                            <div class="text-muted text-truncate" style="font-size: 0.72rem; margin-top: 2px;">
-                                                System Task
-                                            </div>
+                                        <div class="log-avatar log-avatar-muted flex-shrink-0" title="Scheduled System Task (Automated Service)">
+                                            <i class="fa-solid fa-server" style="font-size: 13px;"></i>
                                         </div>
                                         {% endif %}
-                                    </div>
-                                </td>
-                                {% endif %}
 
-                                <td data-label="Action Performed" style="vertical-align: middle; white-space: normal !important;">
-                                    <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; width: 100%;">
-                                        <div class="activity-action-icon d-flex align-items-center justify-content-center flex-shrink-0 {% if 'Created' in log.action or 'Added' in log.action %}icon-created{% elif 'Updated' in log.action or 'Modified' in log.action %}icon-updated{% elif 'Uploaded' in log.action %}icon-uploaded{% elif 'Deleted' in log.action or 'Trash' in log.action or 'Removed' in log.action %}icon-deleted{% elif 'Alerts' in log.action or 'Email' in log.action %}icon-alert{% else %}icon-default{% endif %}" style="margin-top: 1px;">
-                                            <i class="fa-solid {% if 'Created' in log.action or 'Added' in log.action %}fa-circle-plus{% elif 'Updated' in log.action or 'Modified' in log.action %}fa-pen-to-square{% elif 'Uploaded' in log.action %}fa-cloud-arrow-up{% elif 'Trash' in log.action %}fa-box-archive{% elif 'Deleted' in log.action or 'Removed' in log.action %}fa-trash{% elif 'Alerts' in log.action or 'Email' in log.action %}fa-bell{% elif 'ZIP' in log.action or 'Download' in log.action %}fa-file-zipper{% elif 'Blocked' in log.action %}fa-shield-halved{% else %}fa-clock-rotate-left{% endif %}" style="font-size: 12px;"></i>
-                                        </div>
                                         <div style="min-width: 0; flex: 1;">
-                                            <div class="fw-semibold title-text-adaptive" style="font-size: 0.84rem; line-height: 1.4; word-break: break-word;">
-                                                {{ log.action|clean_audit_action|safe }}
+                                            <div class="fw-semibold title-text-adaptive activity-title-text" style="font-size: 0.88rem; line-height: 1.4; word-break: break-word;">
+                                                {{ log.action|clean_audit_action:log.user|safe }}
+                                                {% if log.action|is_audit_error %}
+                                                <span class="badge badge-subtle-danger ms-1.5" style="font-size: 0.68rem; vertical-align: middle; padding: 2px 6px;">System Alert</span>
+                                                {% endif %}
                                             </div>
                                             {% if log.target_record_id %}
-                                            <div class="text-muted d-flex align-items-center gap-1 mt-1" style="font-size: 0.72rem;">
-                                                <i class="fa-regular fa-folder-open text-primary" style="font-size: 10px;"></i>
-                                                <span>Ref:</span>
-                                                <a href="{% url 'record_detail' log.target_record_id %}" class="text-primary text-decoration-none fw-semibold d-inline-flex align-items-center gap-0.5" title="Open Record #{{ log.target_record_id }}">
+                                            <div class="d-inline-flex align-items-center mt-1">
+                                                <a href="{% url 'record_detail' log.target_record_id %}" class="record-ref-chip" title="View details of Record #{{ log.target_record_id }}">
+                                                    <i class="fa-regular fa-folder-open"></i>
                                                     <span>Record #{{ log.target_record_id }}</span>
-                                                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 8px;"></i>
+                                                    <i class="fa-solid fa-arrow-up-right-from-square chip-ext-icon"></i>
                                                 </a>
                                             </div>
                                             {% endif %}
@@ -345,7 +267,7 @@
                                     </div>
                                 </td>
 
-                                <td class="text-end log-timestamp-cell" data-label="Date & Time" style="vertical-align: middle; white-space: nowrap;">
+                                <td class="text-end log-timestamp-cell" data-label="Date &amp; Time" style="vertical-align: middle; white-space: nowrap;">
                                     <div class="d-none d-md-block">
                                         <div class="fw-bold title-text-adaptive font-monospace" style="font-size: 0.82rem; line-height: 1.2;">
                                             {{ log.performed_at|date:"h:i A" }}
@@ -373,7 +295,7 @@
 
                 <!-- Pagination for Audit Events (Matching Records Archive Design) -->
                 <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 d-print-none">
-                    <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-between w-100 flex-nowrap gap-2">
                         <span class="pagination-info m-0">
                             {% if log_page_obj.paginator.count > 0 %}
                             Showing <strong>{{ log_page_obj.start_index }}–{{ log_page_obj.end_index }}</strong> of <strong>{{ log_page_obj.paginator.count }}</strong> events
@@ -472,7 +394,7 @@
         <div id="log-tab-content-login" class="tab-pane-custom {% if active_log_tab != 'login' %}d-none{% endif %}">
 
             {% if login_page_obj %}
-                <div class="table-responsive table-responsive-cards mb-4" style="overflow-x: auto; overflow-y: visible !important;">
+                <div class="table-responsive table-responsive-cards mb-0" style="overflow-x: auto; overflow-y: visible !important;">
                     <table class="data-table table-card-responsive mb-0" style="width: 100%; table-layout: fixed;">
                         <thead>
                             <tr>
@@ -621,60 +543,69 @@
                                         <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0"
                                             style="min-width: 200px; font-size: var(--text-sm); border-radius: 12px; padding: 6px; z-index: 1060; margin-top: 4px;"
                                             onclick="event.stopPropagation();">
-                                            {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
-                                            <li>
-                                                <form method="POST" action="{% url 'activity_logs' %}">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="action" value="unblock_ip">
-                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
-                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-success">
-                                                        <i class="fa-solid fa-shield-check text-success" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
-                                                        <span>Unblock Device</span>
-                                                    </button>
-                                                </form>
-                                            </li>
-                                            {% elif attempt.ip_address %}
-                                            <li>
-                                                <form method="POST" action="{% url 'activity_logs' %}">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="action" value="block_ip">
-                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
-                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-danger">
-                                                        <i class="fa-solid fa-shield-halved text-danger" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
-                                                        <span>Block Device Access</span>
-                                                    </button>
-                                                </form>
-                                            </li>
-                                            {% endif %}
+                                            {% if request.user.role == 'admin' %}
+                                                {% if attempt.ip_address and attempt.ip_address in blocked_ips %}
+                                                <li>
+                                                    <form method="POST" action="{% url 'activity_logs' %}">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="unblock_ip">
+                                                        <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-success">
+                                                            <i class="fa-solid fa-shield-check text-success" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                            <span>Unblock Device</span>
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                                {% elif attempt.ip_address %}
+                                                <li>
+                                                    <form method="POST" action="{% url 'activity_logs' %}">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="block_ip">
+                                                        <input type="hidden" name="ip_address" value="{{ attempt.ip_address }}">
+                                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-danger">
+                                                            <i class="fa-solid fa-shield-halved text-danger" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                            <span>Block Device Access</span>
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                                {% endif %}
 
-                                            {% if attempt.is_registered_staff %}
-                                            {% if attempt.is_active_staff and attempt.display_email|lower != request.user.email|lower and attempt.display_name|lower != request.user.username|lower %}
-                                            <li>
-                                                <form method="POST" action="{% url 'activity_logs' %}">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="action" value="block_email">
-                                                    <input type="hidden" name="email" value="{{ attempt.display_email }}">
-                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address|default:'' }}">
-                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-warning">
-                                                        <i class="fa-solid fa-user-lock text-warning" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
-                                                        <span>Lock Account</span>
-                                                    </button>
-                                                </form>
-                                            </li>
-                                            {% elif not attempt.is_active_staff %}
-                                            <li>
-                                                <form method="POST" action="{% url 'activity_logs' %}">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="action" value="unblock_email">
-                                                    <input type="hidden" name="email" value="{{ attempt.display_email }}">
-                                                    <input type="hidden" name="ip_address" value="{{ attempt.ip_address|default:'' }}">
-                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-success">
-                                                        <i class="fa-solid fa-user-check text-success" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
-                                                        <span>Unlock Account</span>
-                                                    </button>
-                                                </form>
-                                            </li>
-                                            {% endif %}
+                                                {% if attempt.is_registered_staff %}
+                                                {% if attempt.is_active_staff and attempt.display_email|lower != request.user.email|lower and attempt.display_name|lower != request.user.username|lower %}
+                                                <li>
+                                                    <form method="POST" action="{% url 'activity_logs' %}">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="block_email">
+                                                        <input type="hidden" name="email" value="{{ attempt.display_email }}">
+                                                        <input type="hidden" name="ip_address" value="{{ attempt.ip_address|default:'' }}">
+                                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-warning">
+                                                            <i class="fa-solid fa-user-lock text-warning" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                            <span>Lock Account</span>
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                                {% elif not attempt.is_active_staff %}
+                                                <li>
+                                                    <form method="POST" action="{% url 'activity_logs' %}">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="unblock_email">
+                                                        <input type="hidden" name="email" value="{{ attempt.display_email }}">
+                                                        <input type="hidden" name="ip_address" value="{{ attempt.ip_address|default:'' }}">
+                                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-success">
+                                                            <i class="fa-solid fa-user-check text-success" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                            <span>Unlock Account</span>
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                                {% endif %}
+                                                {% endif %}
+                                            {% else %}
+                                                <li>
+                                                    <a href="{% url 'profile' %}" class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 rounded-2 fw-medium text-nowrap text-dark">
+                                                        <i class="fa-solid fa-key text-warning" style="font-size: 13px; flex-shrink: 0; width: 14px;"></i>
+                                                        <span>Change Password</span>
+                                                    </a>
+                                                </li>
                                             {% endif %}
 
                                             {% if attempt.display_email %}
@@ -698,7 +629,7 @@
 
                 <!-- Pagination for Login History (Matching Records Archive Design) -->
                 <div class="pagination-bar d-flex flex-wrap align-items-center justify-content-between gap-2 d-print-none">
-                    <div class="d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center justify-content-between w-100 flex-nowrap gap-2">
                         <span class="pagination-info m-0">
                             {% if login_page_obj.paginator.count > 0 %}
                             Showing <strong>{{ login_page_obj.start_index }}–{{ login_page_obj.end_index }}</strong> of <strong>{{ login_page_obj.paginator.count }}</strong> attempts
@@ -805,77 +736,6 @@
 </div>
 
 <style>
-    /* Quick Action Filter Pills (Instant 1-Click Filtering) */
-    .quick-action-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 5.5px;
-        background: #ffffff;
-        color: #64748b;
-        font-size: 0.74rem;
-        font-weight: 600;
-        padding: 5px 12px;
-        border-radius: 20px;
-        border: 1px solid #cbd5e1;
-        cursor: pointer;
-        transition: all 0.16s ease;
-        line-height: 1.2;
-        user-select: none;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-    .quick-action-pill i {
-        font-size: 10px;
-    }
-    .quick-action-pill:hover {
-        background: #f8fafc;
-        color: #0f172a;
-        border-color: #94a3b8;
-        transform: translateY(-1px);
-    }
-    .quick-action-pill.active {
-        background: #0f172a;
-        color: #ffffff;
-        border-color: #0f172a;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
-    }
-    .quick-action-pill.pill-update.active {
-        background: #0284c7;
-        border-color: #0284c7;
-        color: #ffffff;
-    }
-    .quick-action-pill.pill-upload.active {
-        background: #0d9488;
-        border-color: #0d9488;
-        color: #ffffff;
-    }
-    .quick-action-pill.pill-delete.active {
-        background: #e11d48;
-        border-color: #e11d48;
-        color: #ffffff;
-    }
-    .quick-action-pill.pill-create.active {
-        background: #059669;
-        border-color: #059669;
-        color: #ffffff;
-    }
-    .dark-mode .quick-action-pill,
-    [data-bs-theme="dark"] .quick-action-pill {
-        background: #1e293b;
-        border-color: #334155;
-        color: #94a3b8;
-    }
-    .dark-mode .quick-action-pill:hover,
-    [data-bs-theme="dark"] .quick-action-pill:hover {
-        background: #334155;
-        color: #f8fafc;
-    }
-    .dark-mode .quick-action-pill.active,
-    [data-bs-theme="dark"] .quick-action-pill.active {
-        background: #38bdf8;
-        color: #0f172a;
-        border-color: #38bdf8;
-    }
-
     /* Visual Action Category Badges */
     .activity-badge {
         display: inline-flex;
@@ -1009,99 +869,331 @@
         border-color: #0284c7;
     }
 
-    /* Activity Action Icon Badges */
-    .activity-action-icon {
-        width: 26px;
-        height: 26px;
-        min-width: 26px;
-        border-radius: 7px;
-        align-self: center !important;
+    /* Activity Action Icon Boxes */
+    .activity-action-box {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 9px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
         flex-shrink: 0;
+        border: none !important;
+        box-shadow: none !important;
+        transition: transform 0.15s ease;
     }
-    .activity-action-icon.icon-created {
-        background: rgba(34, 197, 94, 0.12);
-        color: #16a34a;
+    .activity-action-box.box-created {
+        background: #dcfce7;
+        color: #15803d;
+        border: none !important;
     }
-    .activity-action-icon.icon-updated {
-        background: rgba(2, 132, 199, 0.12);
-        color: #0284c7;
+    .activity-action-box.box-updated {
+        background: #e0f2fe;
+        color: #0369a1;
+        border: none !important;
     }
-    .activity-action-icon.icon-uploaded {
-        background: rgba(13, 148, 136, 0.12);
-        color: #0d9488;
+    .activity-action-box.box-uploaded {
+        background: #ccfbf1;
+        color: #0f766e;
+        border: none !important;
     }
-    .activity-action-icon.icon-deleted {
-        background: rgba(239, 68, 68, 0.12);
+    .activity-action-box.box-deleted {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: none !important;
+    }
+    .activity-action-box.box-error {
+        background: #fee2e2;
         color: #dc2626;
+        border: none !important;
+        box-shadow: none !important;
     }
-    .activity-action-icon.icon-alert {
-        background: rgba(245, 158, 11, 0.12);
-        color: #d97706;
+    .activity-action-box.box-alert {
+        background: #fef3c7;
+        color: #b45309;
+        border: none !important;
     }
-    .activity-action-icon.icon-default {
-        background: rgba(100, 116, 139, 0.12);
-        color: #64748b;
+    .activity-action-box.box-default {
+        background: #f1f5f9;
+        color: #475569;
+        border: none !important;
     }
 
-    /* Activity Logs Category Tabs (Audit Trail vs Login History) - Symmetrical & Clean */
-    .activity-filter-tabs {
+    .dark-mode .activity-action-box.box-created, [data-bs-theme="dark"] .activity-action-box.box-created {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+        border: none !important;
+    }
+    .dark-mode .activity-action-box.box-updated, [data-bs-theme="dark"] .activity-action-box.box-updated {
+        background: rgba(56, 189, 248, 0.15);
+        color: #38bdf8;
+        border: none !important;
+    }
+    .dark-mode .activity-action-box.box-uploaded, [data-bs-theme="dark"] .activity-action-box.box-uploaded {
+        background: rgba(45, 212, 191, 0.15);
+        color: #2dd4bf;
+        border: none !important;
+    }
+    .dark-mode .activity-action-box.box-deleted, [data-bs-theme="dark"] .activity-action-box.box-deleted {
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+        border: none !important;
+    }
+    .dark-mode .activity-action-box.box-error, [data-bs-theme="dark"] .activity-action-box.box-error {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .dark-mode .activity-action-box.box-alert, [data-bs-theme="dark"] .activity-action-box.box-alert {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+        border: none !important;
+    }
+    .dark-mode .activity-action-box.box-default, [data-bs-theme="dark"] .activity-action-box.box-default {
+        background: rgba(148, 163, 184, 0.12);
+        color: #94a3b8;
+        border: none !important;
+    }
+
+    /* Record Reference Chip - Smooth Borderless Pill */
+    .record-ref-chip {
+        background: rgba(2, 132, 199, 0.08) !important;
+        color: #0284c7 !important;
+        border: none !important;
+        outline: none !important;
+        padding: 2px 9px !important;
+        border-radius: 9999px !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        line-height: 1.35 !important;
+        text-decoration: none !important;
+        transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
         display: inline-flex !important;
         align-items: center !important;
-        gap: 6px !important;
-        border: none !important;
-        background: transparent !important;
-        padding: 2px 0 !important;
+        gap: 4.5px !important;
     }
-    .activity-filter-tabs .filter-tab {
+    .record-ref-chip:hover {
+        background: rgba(2, 132, 199, 0.16) !important;
+        color: #0369a1 !important;
+        border: none !important;
+        transform: translateY(-0.5px);
+        box-shadow: 0 1px 3px rgba(2, 132, 199, 0.12);
+    }
+    .record-ref-chip i.fa-regular {
+        font-size: 0.72rem;
+        opacity: 0.85;
+    }
+    .record-ref-chip .chip-ext-icon {
+        font-size: 8px;
+        opacity: 0.65;
+        margin-left: 1px;
+    }
+    .dark-mode .record-ref-chip, [data-bs-theme="dark"] .record-ref-chip {
+        background: rgba(56, 189, 248, 0.12) !important;
+        color: #38bdf8 !important;
+        border: none !important;
+    }
+    .dark-mode .record-ref-chip:hover, [data-bs-theme="dark"] .record-ref-chip:hover {
+        background: rgba(56, 189, 248, 0.22) !important;
+        color: #7dd3fc !important;
+        border: none !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+
+    /* ── Uniform eTala Underline Filter Tabs System ── */
+    .filter-tabs {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        border-bottom: none !important;
+        margin-bottom: -1px !important;
+        padding: 0 !important;
+        width: auto !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    .filter-tabs::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+
+    .filter-tab {
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        gap: 7px !important;
-        padding: 6px 14px !important;
-        height: 34px !important;
+        gap: 5px !important;
+        padding: 8px 8px 10px 8px !important;
         font-size: 0.82rem !important;
         font-weight: 600 !important;
         color: #64748b !important;
         background: transparent !important;
-        border: 1px solid transparent !important;
-        border-radius: 8px !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 0 !important;
         cursor: pointer !important;
-        transition: all 0.16s ease !important;
-        white-space: nowrap !important;
         text-decoration: none !important;
+        white-space: nowrap !important;
+        line-height: 1.2 !important;
+        transition: color 0.16s ease, border-color 0.16s ease !important;
         user-select: none !important;
     }
-    .activity-filter-tabs .filter-tab:hover {
-        color: #0f172a !important;
-        background: rgba(0, 0, 0, 0.05) !important;
-        border-color: rgba(226, 232, 240, 0.8) !important;
+    .filter-tab:hover {
+        color: #1e293b !important;
     }
-    .activity-filter-tabs .filter-tab.active {
-        color: #2563eb !important;
-        background: rgba(37, 99, 235, 0.08) !important;
-        border: 1px solid rgba(37, 99, 235, 0.25) !important;
-        font-weight: 700 !important;
-        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1) !important;
-    }
-    .dark-mode .activity-filter-tabs .filter-tab,
-    [data-bs-theme="dark"] .activity-filter-tabs .filter-tab {
+    .dark-mode .filter-tab,
+    [data-bs-theme="dark"] .filter-tab {
         color: #94a3b8 !important;
-        background: transparent !important;
-        border-color: transparent !important;
     }
-    .dark-mode .activity-filter-tabs .filter-tab:hover,
-    [data-bs-theme="dark"] .activity-filter-tabs .filter-tab:hover {
-        color: #f8fafc !important;
-        background: rgba(255, 255, 255, 0.06) !important;
-        border-color: rgba(255, 255, 255, 0.1) !important;
+    .dark-mode .filter-tab:hover,
+    [data-bs-theme="dark"] .filter-tab:hover {
+        color: #f1f5f9 !important;
     }
-    .dark-mode .activity-filter-tabs .filter-tab.active,
-    [data-bs-theme="dark"] .activity-filter-tabs .filter-tab.active {
-        color: #38bdf8 !important;
-        background: rgba(56, 189, 248, 0.15) !important;
-        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+
+    .filter-tab.active {
+        color: #1e3a8a !important;
         font-weight: 700 !important;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+        border-bottom: 2px solid #1e3a8a !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    .dark-mode .filter-tab.active,
+    [data-bs-theme="dark"] .filter-tab.active {
+        color: #38bdf8 !important;
+        border-bottom: 2px solid #38bdf8 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    .tab-count {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0.69rem !important;
+        font-weight: 600 !important;
+        padding: 1px 7px !important;
+        border-radius: 9999px !important;
+        min-width: 20px !important;
+        height: 18px !important;
+        line-height: 1 !important;
+        transition: background-color 0.16s ease, color 0.16s ease !important;
+    }
+
+    .tab-count-default {
+        background: #f1f5f9 !important;
+        color: #64748b !important;
+    }
+    .filter-tab:hover .tab-count-default {
+        background: #e2e8f0 !important;
+        color: #334155 !important;
+    }
+    .dark-mode .tab-count-default,
+    [data-bs-theme="dark"] .tab-count-default {
+        background: rgba(148, 163, 184, 0.16) !important;
+        color: #94a3b8 !important;
+    }
+    .dark-mode .filter-tab:hover .tab-count-default,
+    [data-bs-theme="dark"] .filter-tab:hover .tab-count-default {
+        background: rgba(148, 163, 184, 0.25) !important;
+        color: #f1f5f9 !important;
+    }
+
+    .tab-count-active {
+        background: #1e3a8a !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+    .dark-mode .tab-count-active,
+    [data-bs-theme="dark"] .tab-count-active {
+        background: #0284c7 !important;
+        color: #ffffff !important;
+    }
+
+    .tab-count-danger {
+        background: #fee2e2 !important;
+        color: #b91c1c !important;
+        font-weight: 700 !important;
+    }
+    .dark-mode .tab-count-danger,
+    [data-bs-theme="dark"] .tab-count-danger {
+        background: rgba(239, 68, 68, 0.25) !important;
+        color: #fca5a5 !important;
+    }
+
+    /* Seamless Table Wrapper & Snug Pagination (Identical to Records Browse) */
+    #activityLogsTableCard,
+    #activityLogsTableCard.content-card {
+        padding: 0 !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--border-default, #e2e8f0) !important;
+        background: #ffffff !important;
+        box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05)) !important;
+        overflow: hidden !important;
+        min-height: 420px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+    }
+    #activityLogsTableCard > .card-body {
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        flex: 1 1 auto !important;
+        min-height: 100% !important;
+    }
+    .dark-mode #activityLogsTableCard,
+    [data-bs-theme="dark"] #activityLogsTableCard {
+        border-color: #334155 !important;
+        background: #1e293b !important;
+    }
+    #activityLogsTablesWrapper {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        flex: 1 1 auto;
+        min-height: 100%;
+        transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #log-tab-content-audit,
+    #log-tab-content-login {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        flex: 1 1 auto;
+        min-height: 100%;
+    }
+    #log-tab-content-audit.d-none,
+    #log-tab-content-login.d-none {
+        display: none !important;
+    }
+    #activityLogsTablesWrapper .table-responsive-cards {
+        margin-bottom: 0 !important;
+        flex: 1 0 auto !important;
+    }
+    #activityLogsTablesWrapper .pagination-bar {
+        margin-top: auto !important;
+        margin-bottom: 0 !important;
+        padding: 10px 14px !important;
+        height: auto !important;
+        min-height: 48px !important;
+        border-top: 1px solid var(--border-default, #e2e8f0) !important;
+        background: #ffffff !important;
+        border-radius: 0 0 12px 12px !important;
+        box-sizing: border-box !important;
+    }
+    .dark-mode #activityLogsTablesWrapper .pagination-bar,
+    [data-bs-theme="dark"] #activityLogsTablesWrapper .pagination-bar {
+        border-top-color: var(--border-default, #334155) !important;
+        background: #1e293b !important;
     }
 
     .empty-state-icon-circle {
@@ -1575,9 +1667,9 @@
     }
 
     .records-search-wrapper {
-        flex: 0 0 250px;
-        width: 250px;
-        max-width: 250px;
+        flex: 0 0 190px;
+        width: 190px;
+        max-width: 190px;
     }
 
     /* Mobile Responsive Card Transformation (<768px) */
@@ -1592,7 +1684,8 @@
         }
 
         .records-filter-toolbar .filter-tabs,
-        .filter-tabs.activity-filter-tabs {
+        .filter-tabs.activity-filter-tabs,
+        .activity-segmented-tabs {
             width: 100% !important;
             display: flex !important;
             flex-wrap: nowrap !important;
@@ -1727,6 +1820,8 @@
             padding-right: 36px !important;
         }
 
+        .table-responsive-cards table.data-table td[data-label="Activity & Event Details"],
+        .table-responsive-cards table.data-table td[data-label="Activity &amp; Event Details"],
         .table-responsive-cards table.data-table td[data-label="Action Performed"],
         .table-responsive-cards table.data-table td[data-label="Status"] {
             padding: 0 !important;
@@ -1839,7 +1934,8 @@
         const exportUrl = "{% url 'export_activity_logs' %}?tab=" + encodeURIComponent(activeTab) + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
         
         if (window.downloadFileWithToast) {
-            window.downloadFileWithToast(exportUrl, `eTala_${activeTab}_Activity_Logs.pdf`, {
+            const tabLabel = activeTab === 'login' ? 'Login Attempts' : 'Audit Trail';
+            window.downloadFileWithToast(exportUrl, `eTala Activity Logs (${tabLabel}).pdf`, {
                 title: 'PDF',
                 startMsg: 'Preparing PDF...',
                 successTitle: 'PDF ready',
@@ -1855,6 +1951,12 @@
             }
             downloadFrame.src = exportUrl;
         }
+    }
+
+    function toggleLogHistoryTab() {
+        const tabInput = document.getElementById('activeLogTabInput');
+        const currentTab = (tabInput && tabInput.value) ? tabInput.value : 'audit';
+        switchLogTab(currentTab === 'login' ? 'audit' : 'login');
     }
 
     function switchLogTab(tabName, isInitial = false) {
@@ -1905,77 +2007,6 @@
         }
     }
     window.switchLogTab = switchLogTab;
-
-    function setLogFilter(key, val) {
-        const form = document.getElementById('activityLogsFilterForm');
-        if (form) {
-            let input;
-            if (key === 'action_type') {
-                input = document.getElementById('actionTypeInput') || form.querySelector('input[name="action_type"]');
-            } else if (key === 'date_range') {
-                input = document.getElementById('dateRangeInput') || form.querySelector('input[name="date_range"]');
-            } else if (key === 'status') {
-                input = document.getElementById('statusInput') || form.querySelector('input[name="status"]');
-            } else if (key === 'record_id') {
-                input = form.querySelector('input[name="record_id"]');
-            }
-            if (input) {
-                input.value = val;
-            } else if (val) {
-                input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = val;
-                form.appendChild(input);
-            }
-            
-            const formData = new FormData(form);
-            if (key !== 'record_id' && (!val || val === 'all')) {
-                formData.set(key, 'all');
-            }
-            if (key === 'record_id' && !val) {
-                formData.delete('record_id');
-            }
-            formData.delete('log_page');
-            formData.delete('login_page');
-            
-            const params = new URLSearchParams(formData);
-            const newUrl = window.location.pathname + '?' + params.toString();
-            if (window.updateLogsTableAJAX) {
-                window.updateLogsTableAJAX(newUrl);
-            } else {
-                window.location.search = params.toString();
-            }
-        }
-    }
-    window.setLogFilter = setLogFilter;
-
-    function clearAllLogFilters() {
-        const form = document.getElementById('activityLogsFilterForm');
-        if (form) {
-            const tabInput = document.getElementById('activeLogTabInput');
-            const activeTab = tabInput ? tabInput.value : 'audit';
-            const dateInput = document.getElementById('dateRangeInput');
-            if (dateInput) dateInput.value = 'all';
-            const actInput = document.getElementById('actionTypeInput');
-            if (actInput) actInput.value = 'all';
-            const statInput = document.getElementById('statusInput');
-            if (statInput) statInput.value = 'all';
-            const recInput = form.querySelector('input[name="record_id"]');
-            if (recInput) recInput.remove();
-            
-            const searchInput = document.getElementById('liveSearchInput');
-            if (searchInput) searchInput.value = '';
-
-            const newUrl = window.location.pathname + '?tab=' + encodeURIComponent(activeTab);
-            if (window.updateLogsTableAJAX) {
-                window.updateLogsTableAJAX(newUrl);
-            } else {
-                window.location.href = newUrl;
-            }
-        }
-    }
-    window.clearAllLogFilters = clearAllLogFilters;
 
     function filterActionType(actionVal, event) {
         if (event) event.preventDefault();
@@ -2045,9 +2076,12 @@
             const tablesWrapper = document.getElementById('activityLogsTablesWrapper');
             if (logSearchSpinner) logSearchSpinner.classList.remove('d-none');
             if (logClearBtn) logClearBtn.classList.add('d-none');
+
+            // Soft opacity transition: zero blink, zero height-collapse or layout snap
             if (tablesWrapper) {
-                tablesWrapper.style.minHeight = `${tablesWrapper.offsetHeight}px`;
-                tablesWrapper.classList.add('table-ajax-loading');
+                tablesWrapper.style.transition = 'opacity 0.14s ease';
+                tablesWrapper.style.opacity = '0.55';
+                tablesWrapper.style.pointerEvents = 'none';
             }
 
             try {
@@ -2061,20 +2095,17 @@
                 const newTablesWrapper = doc.getElementById('activityLogsTablesWrapper');
                 if (tablesWrapper && newTablesWrapper) {
                     tablesWrapper.innerHTML = newTablesWrapper.innerHTML;
-                    tablesWrapper.classList.remove('table-ajax-loading');
-                    tablesWrapper.classList.add('table-ajax-fade-in');
-                    setTimeout(() => {
-                        tablesWrapper.classList.remove('table-ajax-fade-in');
-                        tablesWrapper.style.minHeight = '';
-                    }, 200);
+                    // Force browser reflow before smooth fade-in
+                    void tablesWrapper.offsetHeight;
+                    tablesWrapper.style.transition = 'opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1)';
+                    tablesWrapper.style.opacity = '1';
                 }
 
-                // Update active filter chips container seamlessly
+                // Update active filter chips container seamlessly with smooth height transition
                 const newChipsWrapper = doc.getElementById('activeChipsWrapper');
                 const currentChipsWrapper = document.getElementById('activeChipsWrapper');
                 if (currentChipsWrapper && newChipsWrapper) {
                     currentChipsWrapper.classList.remove('wrapper-collapsing');
-                    currentChipsWrapper.style.maxHeight = '';
                     currentChipsWrapper.innerHTML = newChipsWrapper.innerHTML;
                 }
 
@@ -2086,34 +2117,17 @@
                 if (docActionInput && document.getElementById('actionTypeInput')) document.getElementById('actionTypeInput').value = docActionInput.value;
                 if (docStatusInput && document.getElementById('statusInput')) document.getElementById('statusInput').value = docStatusInput.value;
 
-                // Sync filter tabs active state accurately
-                try {
-                    const urlObj = new URL(url, window.location.origin);
-                    const currentTab = urlObj.searchParams.get('tab') || document.getElementById('activeLogTabInput')?.value || 'audit';
-                    const btnAudit = document.getElementById('log-tab-btn-audit');
-                    const btnLogin = document.getElementById('log-tab-btn-login');
-                    if (btnAudit && btnLogin) {
-                        if (currentTab === 'login') {
-                            btnAudit.classList.remove('active');
-                            btnLogin.classList.add('active');
-                        } else {
-                            btnAudit.classList.add('active');
-                            btnLogin.classList.remove('active');
-                        }
-                    }
-
-                    const currentAction = urlObj.searchParams.get('action_type') || 'all';
-                    document.querySelectorAll('.filter-tabs .filter-tab:not(#log-tab-btn-audit):not(#log-tab-btn-login)').forEach(tab => {
-                        const tabText = tab.textContent.trim().toLowerCase();
-                        if (currentAction === 'all' && tabText.includes('all')) {
-                            tab.classList.add('active');
-                        } else if (currentAction !== 'all' && tabText.includes(currentAction)) {
-                            tab.classList.add('active');
-                        } else {
-                            tab.classList.remove('active');
-                        }
-                    });
-                } catch(e) {}
+                // Sync filter tabs and right action button accurately
+                const newTabs = doc.getElementById('activityFilterTabs');
+                const currentTabs = document.getElementById('activityFilterTabs');
+                if (currentTabs && newTabs) {
+                    currentTabs.innerHTML = newTabs.innerHTML;
+                }
+                const newRightActions = doc.getElementById('activityToolbarRightActions');
+                const currentRightActions = document.getElementById('activityToolbarRightActions');
+                if (currentRightActions && newRightActions) {
+                    currentRightActions.innerHTML = newRightActions.innerHTML;
+                }
 
                 // Sync URL history
                 if (pushHistory) {
@@ -2123,6 +2137,10 @@
             } catch (err) {
                 console.error("AJAX refresh error:", err);
             } finally {
+                if (tablesWrapper) {
+                    tablesWrapper.style.opacity = '1';
+                    tablesWrapper.style.pointerEvents = '';
+                }
                 if (logSearchSpinner) logSearchSpinner.classList.add('d-none');
                 if (logClearBtn) {
                     if (logSearchInput && logSearchInput.value.trim().length > 0) logClearBtn.classList.remove('d-none');
@@ -2242,11 +2260,37 @@
             switchLogTab('audit', true);
         }
         updateSettingsExportUrl();
+        const activeTabEl = document.querySelector('#activityFilterTabs .filter-tab.active');
+        if (activeTabEl) {
+            activeTabEl.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
+        }
     });
 
-    function setLogFilter(filterKey, filterVal) {
-        const form = document.getElementById('activityFilterForm');
+    function setLogFilter(filterKey, filterVal, clickedBtn) {
+        const form = document.getElementById('activityLogsFilterForm');
         if (!form) return;
+
+        // 0ms Optimistic UI feedback: highlight clicked tab immediately without waiting
+        if (clickedBtn) {
+            const clickedTab = clickedBtn.closest('.filter-tab');
+            if (clickedTab && clickedTab.parentElement) {
+                clickedTab.parentElement.querySelectorAll('.filter-tab').forEach(t => {
+                    t.classList.remove('active');
+                    const badge = t.querySelector('.tab-count');
+                    if (badge) {
+                        badge.classList.remove('tab-count-active');
+                        badge.classList.add('tab-count-default');
+                    }
+                });
+                clickedTab.classList.add('active');
+                const activeBadge = clickedTab.querySelector('.tab-count');
+                if (activeBadge) {
+                    activeBadge.classList.remove('tab-count-default');
+                    activeBadge.classList.add('tab-count-active');
+                }
+            }
+        }
+
         const inputMap = {
             'record_id': 'recordIdInput',
             'date_range': 'dateRangeInput',
@@ -2254,14 +2298,49 @@
             'status': 'statusInput'
         };
         const targetId = inputMap[filterKey] || filterKey;
-        const targetEl = document.getElementById(targetId) || form.querySelector(`[name="${filterKey}"]`);
+        let targetEl = document.getElementById(targetId) || form.querySelector(`[name="${filterKey}"]`);
+        if (!targetEl && filterVal) {
+            targetEl = document.createElement('input');
+            targetEl.type = 'hidden';
+            targetEl.name = filterKey;
+            targetEl.id = targetId;
+            form.appendChild(targetEl);
+        }
         if (targetEl) {
             targetEl.value = filterVal;
         }
+
+        // Keep search input value synced with form
+        const searchInput = document.getElementById('liveSearchInput');
+        const qInp = form.querySelector('input[name="q"]');
+        if (searchInput && qInp && searchInput.value) {
+            qInp.value = searchInput.value.trim();
+        }
+
+        // Smoothly dismiss open header dropdowns
+        document.querySelectorAll('.header-filter-dropdown.show, .dropdown-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+            const btn = menu.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
+            if (btn) {
+                btn.classList.remove('show');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+
         const formData = new FormData(form);
-        formData.delete('page');
+        if (filterKey === 'record_id' && !filterVal) {
+            formData.delete('record_id');
+        }
+        formData.delete('log_page');
         formData.delete('login_page');
-        const params = new URLSearchParams(formData);
+        formData.delete('page');
+
+        const params = new URLSearchParams();
+        for (const [k, v] of formData.entries()) {
+            if (v !== '' && v !== null && v !== undefined) {
+                params.set(k, v);
+            }
+        }
         const newUrl = window.location.pathname + '?' + params.toString();
         if (window.updateLogsTableAJAX) {
             window.updateLogsTableAJAX(newUrl);
@@ -2288,7 +2367,7 @@
             });
         }
         setTimeout(() => {
-            setLogFilter(filterName, value || '');
+            setLogFilter(filterName, value || 'all');
         }, 110);
     }
     window.removeLogFilterChipSmooth = removeLogFilterChipSmooth;
@@ -2296,16 +2375,19 @@
     function clearAllLogFilters() {
         const wrapper = document.getElementById('activeChipsWrapper');
         if (wrapper) wrapper.classList.add('wrapper-collapsing');
-        const form = document.getElementById('activityFilterForm');
+        const form = document.getElementById('activityLogsFilterForm');
         if (form) {
             ['date_range', 'action_type', 'status'].forEach(id => {
                 const el = document.getElementById(id + 'Input') || form.querySelector(`[name="${id}"]`);
                 if (el) el.value = 'all';
             });
             const recEl = form.querySelector('[name="record_id"]');
-            if (recEl) recEl.value = '';
-            const searchInp = document.getElementById('activityLogSearch');
+            if (recEl) recEl.remove();
+            const searchInp = document.getElementById('liveSearchInput');
             if (searchInp) searchInp.value = '';
+            const qInp = form.querySelector('input[name="q"]');
+            if (qInp) qInp.value = '';
+
             const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
             const newUrl = window.location.pathname + `?tab=${encodeURIComponent(activeTab)}`;
             if (window.updateLogsTableAJAX) {

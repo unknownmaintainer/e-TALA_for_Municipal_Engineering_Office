@@ -1,4 +1,5 @@
 from django import template
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
@@ -31,204 +32,285 @@ def clean_req_name(value):
     return re.sub(r'\s*\([a-z]\.\d+\)', '', str(value)).strip()
 
 
+def _sentence(actor, verb_phrase):
+    """Combines actor (e.g. <strong>Mardion Fuerte</strong> ) with an action verb phrase."""
+    if not actor:
+        if verb_phrase and verb_phrase[0].islower():
+            return mark_safe(verb_phrase[0].upper() + verb_phrase[1:])
+        return mark_safe(verb_phrase)
+
+    raw_actor_name = re.sub(r'<[^>]+>', '', actor).strip().lower()
+    clean_verb = verb_phrase.strip()
+    # If the text already starts with the actor name, avoid repeating it
+    if clean_verb.lower().startswith(raw_actor_name):
+        return mark_safe(clean_verb)
+
+    if clean_verb and clean_verb[0].isupper():
+        clean_verb = clean_verb[0].lower() + clean_verb[1:]
+    return mark_safe(f"{actor}{clean_verb}")
+
+
 @register.filter(name='clean_audit_action')
-def clean_audit_action(action):
-    """Formats audit log text into concise, professional, and easily understandable municipal actions."""
+def clean_audit_action(action, user=None):
+    """
+    Formats audit log text into natural, sentence-like activity updates (similar to modern social/activity feeds)
+    with the actor's name and highlighted targets for maximum clarity.
+    """
     if not action:
         return ''
     s = str(action).strip()
     
+    # Clean encoding artifacts, corrupt characters, and normalize bullet/dot separators
+    s = s.replace(chr(183), ' &middot; ').replace('\ufffd', ' &middot; ').replace(' · ', ' &middot; ')
+    s = re.sub(r'\s*&middot;\s*', ' &middot; ', s)
+
+    # Skip internal notification markers
+    if s.startswith(('NOTIF_READ:', 'NOTIF_DELETED:')):
+        return ''
+    
     # Strip any obsolete/legacy (Status: ...) or (Compliance: ...) suffixes
     s = re.sub(r"\s*\((?:Status|Compliance):\s*[^)]+\)", "", s, flags=re.IGNORECASE).strip()
+
+    # Determine actor prefix
+    actor = ""
+    if user:
+        if isinstance(user, str):
+            uname = user.strip()
+        else:
+            uname = getattr(user, 'full_name', None) or getattr(user, 'username', None) or str(user)
+        if uname:
+            actor = f"<strong>{uname}</strong> "
+    else:
+        # Automated background tasks or cron services have no user
+        actor = "<strong>Scheduled System Task</strong> "
+
+    # 0. Errors, Failures & Security Alerts (Direct, clear, and visible for admin awareness)
+    if any(s.lower().startswith(k) for k in ['failed', 'error', 'system error', 'access denied', 'restricted', 'blocked', 'account locked']):
+        s = re.sub(r"\b[A-Za-z]:\\[^:\s]+", "", s)
+        s = re.sub(r"\s+", " ", s).strip()
+        if 'permanently locked out' in s.lower() or 'locked out permanently' in s.lower():
+            return mark_safe("Account was permanently locked out after 10 failed login attempts")
+        if s.startswith('Blocked login access for account:'):
+            acc = s.split('account:', 1)[-1].strip().strip('\'"')
+            return _sentence(actor, f"Blocked login access for account <strong>{acc}</strong>")
+        if s.startswith('Restored login access for account:'):
+            acc = s.split('account:', 1)[-1].strip().strip('\'"')
+            return _sentence(actor, f"Restored login access for account <strong>{acc}</strong>")
+        if s.startswith('Blocked device access'):
+            return mark_safe("Restricted device access due to suspicious login attempts")
+        if s.startswith('Blocked IP address:'):
+            ip = s.split('address:', 1)[-1].strip()
+            return _sentence(actor, f"Blocked access for IP address <strong>{ip}</strong>")
+        return mark_safe(s)
     
     # 1. Clean email notifications
     if 'Triggered Document Expiry Email Alerts' in s or 'Dispatched document expiry' in s:
-        return 'Dispatched Document Expiry Email Alerts'
+        return _sentence(actor, 'Dispatched document expiry email notifications')
+
+    # 2. Automated Backups & System Exports
+    if 'Automated System Backup' in s:
+        m = re.search(r"\((\d+)\s*records", s)
+        cnt = f"{int(m.group(1)):,} records" if m else "system records"
+        return _sentence(actor, f"Completed automated system backup of <strong>{cnt}</strong>")
+    if 'Exported complete municipal archive backup' in s or 'Exported Complete System Archive' in s:
+        return _sentence(actor, 'Exported complete municipal archive backup package (.ZIP)')
+    if 'Exported full database backup' in s or 'Exported data-only' in s:
+        return _sentence(actor, 'Exported database records backup (JSON)')
         
-    # 2. Clean user deletion & toggle wording
-    if 'Permanently deleted unused user account' in s:
-        m = re.search(r"'([^']+)'", s)
-        user_str = f": {m.group(1)}" if m else ""
-        return f"Deleted User Account{user_str}"
+    # 3. User Password & Security Actions
+    if 'Reset password for user' in s:
+        m = re.search(r"['\"]([^'\"]+)['\"]", s)
+        target_user = m.group(1) if m else "user"
+        return _sentence(actor, f"Reset password for user <strong>{target_user}</strong>")
+    if s in ['Changed password', 'Changed account password']:
+        return _sentence(actor, 'Changed account security password')
+    if 'Account locked out permanently' in s:
+        return mark_safe('Account was permanently locked out after 10 failed login attempts')
+    if 'Blocked device access' in s:
+        return mark_safe('Restricted device access due to suspicious login attempts')
+    if 'Blocked login access for account:' in s:
+        acc = s.split('account:', 1)[-1].strip().strip('\'"')
+        return _sentence(actor, f"Blocked login access for account <strong>{acc}</strong>")
+    if 'Restored login access for account:' in s:
+        acc = s.split('account:', 1)[-1].strip().strip('\'"')
+        return _sentence(actor, f"Restored login access for account <strong>{acc}</strong>")
+    if 'Permanently deleted unused user account' in s or 'Permanently deleted user account' in s:
+        m = re.search(r"['\"]([^'\"]+)['\"]", s)
+        user_str = m.group(1) if m else ""
+        return _sentence(actor, f"Permanently deleted user account for <strong>{user_str}</strong>")
     if 'Toggled user' in s:
-        m = re.search(r"'([^']+)'", s)
-        user_str = f": {m.group(1)}" if m else ""
+        m = re.search(r"['\"]([^'\"]+)['\"]", s)
+        user_str = m.group(1) if m else ""
         if 'deactivated' in s.lower() or 'inactive' in s.lower():
-            return f"Deactivated Account{user_str}"
+            return _sentence(actor, f"Deactivated user account for <strong>{user_str}</strong>")
         elif 'activated' in s.lower() or 'active' in s.lower():
-            return f"Activated Account{user_str}"
-            
-    # 3. Clean user creation wording
+            return _sentence(actor, f"Activated user account for <strong>{user_str}</strong>")
+
+    # 4. User creation
     if 'Created new' in s and 'account:' in s:
         m = re.search(r"Created new (\w+) account:\s*['\"]?([^'\"\(]+)", s)
         if m:
             role = m.group(1).title()
             name = m.group(2).strip()
-            return f"Created {role} Account: {name}"
+            return _sentence(actor, f"Created a new <strong>{role}</strong> account for <strong>{name}</strong>")
     if s.startswith('Created user ') and ' with role ' in s:
         m = re.search(r"Created user '([^']+)'", s)
         role_m = re.search(r"with role '([^']+)'", s)
         user_str = m.group(1) if m else ''
         role_str = role_m.group(1).title() if role_m else 'Staff'
-        return f"Created {role_str} Account: {user_str}"
-        
-    # 4. Clean password actions
-    if 'Reset password for user' in s:
-        m = re.search(r"'([^']+)'", s)
-        user_str = f": {m.group(1)}" if m else ""
-        return f"Reset Password for User{user_str}"
-    if s in ['Changed password', 'Changed account password']:
-        return 'Changed Account Password'
+        return _sentence(actor, f"Created a new <strong>{role_str}</strong> account for <strong>{user_str}</strong>")
 
-    # 5. Clean Record Creations & Updates
-    if s.startswith('Created ') and ' record:' in s:
-        s = re.sub(r"^Created (\w+) record:\s*['\"]?(.+?)['\"]?$", r"Created \1: \2", s)
-    if s.startswith('Updated ') and (' Project:' in s or ' Permit:' in s or ' Record:' in s):
-        s = re.sub(r"^Updated (\w+):\s*['\"]?(.+?)['\"]?$", r"Updated \1: \2", s)
-
-    # 6. Clean Trash & Restores
+    # 5. Trash & Restores (Conversational Facebook-style sentence)
     if s.startswith("Moved to Trash:"):
         inner = s.replace("Moved to Trash:", "").strip().strip("'\"")
         if (inner.startswith('[') and inner.endswith(']')) or (inner.startswith('"') and inner.endswith('"')) or (inner.startswith("'") and inner.endswith("'")):
             inner = inner[1:-1].strip()
         if inner.lower().startswith('violation:'):
             v_desc = inner[10:].strip()
-            inner = f"Violation: {v_desc}" if v_desc else "Violation"
-        return f"Moved to Trash: {inner}"
+            inner = f"violation case {v_desc}" if v_desc else "violation case"
+        return _sentence(actor, f"Moved <strong>{inner}</strong> to trash")
     if s.startswith("Restored:"):
         inner = s.replace("Restored:", "").strip().strip("'\"")
         if (inner.startswith('[') and inner.endswith(']')) or (inner.startswith('"') and inner.endswith('"')) or (inner.startswith("'") and inner.endswith("'")):
             inner = inner[1:-1].strip()
         if inner.lower().startswith('violation:'):
             v_desc = inner[10:].strip()
-            inner = f"Violation: {v_desc}" if v_desc else "Violation"
-        return f"Restored from Trash: {inner}"
+            inner = f"violation case {v_desc}" if v_desc else "violation case"
+        return _sentence(actor, f"Restored <strong>{inner}</strong> from trash")
+    if s.startswith('Batch Permanently Deleted'):
+        m = re.search(r"\((\d+)\s*records", s)
+        cnt = f"{m.group(1)} records" if m else "records"
+        return _sentence(actor, f"Permanently deleted <strong>{cnt}</strong> from trash")
 
-    # 7. Clean Violations & Illegal Constructions (Legacy and Modern)
+    # 6. Record Creations & Updates
+    if s.startswith('Created ') and ' record:' in s:
+        m = re.search(r"^Created (\w+) record:\s*['\"]?(.+?)['\"]?$", s)
+        if m:
+            rtype = m.group(1).lower()
+            title = m.group(2).strip()
+            return _sentence(actor, f"Created new {rtype} record <strong>{title}</strong>")
+    if s.startswith('Updated ') and (' Project:' in s or ' Permit:' in s or ' Record:' in s):
+        m = re.search(r"^Updated (\w+):\s*['\"]?(.+?)['\"]?$", s)
+        if m:
+            rtype = m.group(1).lower()
+            title = m.group(2).strip()
+            return _sentence(actor, f"Updated details for {rtype} <strong>{title}</strong>")
+
+    # 7. Violations & Official Permits
+    if 'Issued Official Permit #' in s:
+        m = re.search(r"Issued Official Permit #([^\s]+)\s+for violation\s*['\"]?([^'\"\(]+)", s)
+        if m:
+            p_no = m.group(1).strip()
+            title = m.group(2).strip().strip("'\"·- ")
+            if '·' in title or '&middot;' in title:
+                title = title.split('·')[-1].split('&middot;')[-1].strip()
+            return _sentence(actor, f"Issued official permit <strong>#{p_no}</strong> for <strong>{title}</strong> (Case Resolved)")
+        return _sentence(actor, "Issued official permit to resolve violation case")
     if s.startswith('Flagged Illegal Construction at Barangay') or s.startswith('Flagged Illegal Construction at Brgy'):
         m = re.search(r"Flagged Illegal Construction at (?:Barangay|Brgy\.?)\s*([^:]+):\s*(.+)", s, flags=re.IGNORECASE)
         if m:
             brgy = m.group(1).strip()
             title = m.group(2).strip().strip("'\"")
-            return f"Flagged Illegal Construction: {title} (Brgy. {brgy})"
+            return _sentence(actor, f"Flagged illegal construction <strong>{title}</strong> in <strong>Brgy. {brgy}</strong>")
     if 'Flagged as Illegal Construction' in s:
-        return 'Flagged as Illegal Construction'
+        return _sentence(actor, 'Flagged record as an illegal construction')
     if 'Unflagged Illegal Construction' in s or 'Removed Illegal Construction flag' in s:
-        return 'Removed Illegal Construction Flag'
+        return _sentence(actor, 'Removed illegal construction flag from record')
     if 'Removed violation flag from record' in s:
         m = re.search(r"record\s*['\"]?([^'\"]+)['\"]?", s)
-        title = f": {m.group(1)}" if m else ""
-        return f"Removed Violation Flag{title}"
+        title = m.group(1) if m else "record"
+        return _sentence(actor, f"Removed violation flag from <strong>{title}</strong>")
     if 'Updated Illegal Construction Compliance to' in s or 'Updated violation status to' in s:
         m = re.search(r"for record\s*['\"]?([^'\"]+)['\"]?", s)
-        title = f": {m.group(1)}" if m else ""
-        return f"Updated Violation Status{title}"
-    if 'Issued Official Permit #' in s:
-        m = re.search(r"Issued Official Permit #([^\s]+)\s+for violation\s*['\"]?([^'\"]+)['\"]?", s)
-        if m:
-            return f"Issued Permit #{m.group(1)}: {m.group(2)}"
-        return "Issued Official Permit for Violation"
+        title = m.group(1) if m else "record"
+        return _sentence(actor, f"Updated violation compliance status for <strong>{title}</strong>")
     if 'Regularized incident case into' in s:
         m = re.search(r"into (.+)", s)
-        return f"Regularized Record: {m.group(1)}" if m else "Regularized Illegal Construction"
-    if 'Reported violation at' in s:
-        m = re.search(r"Reported violation at (?:Barangay|Brgy\.?)\s*([^:]+):\s*['\"]?([^'\"]+)['\"]?(?:\s*[—–-]\s*|\s*:\s*)(.+)", s)
+        target = m.group(1).strip() if m else "official record"
+        return _sentence(actor, f"Regularized illegal construction into official record <strong>{target}</strong>")
+
+    # 8. Document uploads/deletions
+    if 'Uploaded document' in s and ' for ' in s:
+        m = re.search(r"for\s*['\"]?([^'\"]+?)['\"]?\s*in\s*['\"]?([^'\"]+?)['\"]?$", s)
         if m:
-            brgy = m.group(1).strip()
-            title = m.group(2).strip()
-            return f"Reported Violation: {title} (Brgy. {brgy})"
-
-    # 8. Clean Requirement N/A & Waivers
-    if "marked as N/A (waived)" in s:
-        m = re.search(r"Requirement\s*['\"]?([^'\"]+)['\"]?", s)
-        req_name = f": {m.group(1)}" if m else ""
-        return f"Marked Requirement as N/A{req_name}"
-    if "marked as required" in s:
-        m = re.search(r"Requirement\s*['\"]?([^'\"]+)['\"]?", s)
-        req_name = f": {m.group(1)}" if m else ""
-        return f"Marked Requirement as Required{req_name}"
-
-    # 9. Clean Checklist Templates
-    if s.startswith('Created checklist template:'):
-        tmpl = s.split(':', 1)[-1].strip().strip("'\"")
-        return f"Created Template: {tmpl}"
-    if s.startswith('Updated checklist template details:'):
-        tmpl = s.split(':', 1)[-1].strip().strip("'\"")
-        return f"Updated Template: {tmpl}"
-    if 'Added ' in s and ' to template ' in s:
-        m = re.search(r"Added \w+ '([^']+)' to template '([^']+)'", s)
-        if m:
-            return f"Added Template Item: {m.group(1)}"
-    if 'Updated requirement ' in s and ' to ' in s:
-        m = re.search(r"to '([^']+)'", s)
-        if m:
-            return f"Updated Template Item: {m.group(1)}"
-    if 'Deleted requirement ' in s and ' from template' in s:
-        m = re.search(r"Deleted requirement '([^']+)'", s)
-        if m:
-            return f"Deleted Template Item: {m.group(1)}"
-
-    # 10. Clean Barangay Management
-    if s.startswith('Created Barangay '):
-        name = s.replace('Created Barangay', '').strip().strip("'\"")
-        return f"Created Barangay: {name}"
-    if s.startswith('Updated Barangay '):
-        name = s.replace('Updated Barangay', '').strip().strip("'\"")
-        return f"Updated Barangay: {name}"
-    if s.startswith('Deleted Barangay '):
-        name = s.replace('Deleted Barangay', '').strip().strip("'\"")
-        return f"Deleted Barangay: {name}"
-
-    # 11. Clean Database Backup & Restore
-    if 'Exported full database backup' in s:
-        return 'Exported Database Backup (JSON)'
-    if 'Restored' in s and 'from backup file' in s:
-        m = re.search(r"backup file '([^']+)'", s)
-        fname = f" ({m.group(1)})" if m else ""
-        return f"Restored Database from Backup{fname}"
-    if s.startswith('Updated office settings:'):
-        return 'Updated Office Settings'
-
-    # 12. Clean Document uploads/deletions (Legacy & Modern)
+            doc_slot = re.sub(r"^[A-Z0-9]+\s*[-–—:]\s*", "", m.group(1).strip())
+            return _sentence(actor, f"Uploaded document <strong>{doc_slot}</strong>")
+        m2 = re.search(r"for\s*['\"]?([^'\"]+?)['\"]?$", s)
+        if m2:
+            doc_slot = re.sub(r"^[A-Z0-9]+\s*[-–—:]\s*", "", m2.group(1).strip())
+            return _sentence(actor, f"Uploaded document <strong>{doc_slot}</strong>")
     if s.startswith("Uploaded:") and " for " in s:
         m = re.search(r"Uploaded:\s*(.+?)\s*for\s*(.+?)(?:\s*[—–-]\s*(.+))?$", s)
         if m:
-            doc_type = m.group(1).strip()
-            # Clean abbreviations with hyphens e.g. "FSIC - Fire Safety..." -> "Fire Safety..."
-            doc_type = re.sub(r"^[A-Z]+\s*[-–—]\s*", "", doc_type)
-            return f"Uploaded Document: {doc_type}"
+            doc_type = re.sub(r"^[A-Z]+\s*[-–—]\s*", "", m.group(1).strip())
+            return _sentence(actor, f"Uploaded document <strong>{doc_type}</strong>")
     if s.startswith("Deleted:") and " from " in s:
         m = re.search(r"Deleted:\s*(.+?)\s*from\s*['\"]?(.+?)['\"]?$", s)
         if m:
-            doc_name = m.group(1).strip()
-            doc_name = re.sub(r"^[A-Z]+\s*[-–—]\s*", "", doc_name)
-            return f"Deleted Document: {doc_name}"
+            doc_name = re.sub(r"^[A-Z]+\s*[-–—]\s*", "", m.group(1).strip())
+            return _sentence(actor, f"Deleted document <strong>{doc_name}</strong>")
     if "Uploaded" in s and "file(s)" in s:
         m = re.search(r"Uploaded (\d+) new file\(s\).*? for (.+?)(?: in ['\"].+?['\"])?$", s)
         if m:
             c = m.group(1)
-            target = m.group(2).strip()
-            return f"Uploaded {c} file{'s' if c != '1' else ''} for {target}"
+            target = re.sub(r"^[A-Z0-9]+\s*[-–—:]\s*", "", m.group(2).strip())
+            return _sentence(actor, f"Uploaded <strong>{c} files</strong> for <strong>{target}</strong>")
     if s.startswith("Deleted all attached files") or "Deleted all attached files (" in s:
         m = re.search(r"Deleted all attached files(?: \((\d+ files?|\d+)\))?\s*for (.+?)(?: from ['\"].+?['\"])?$", s)
         if m:
-            qty = f" ({m.group(1)})" if m.group(1) else ""
             target = m.group(2).strip()
-            return f"Deleted attached files{qty} for {target}"
+            return _sentence(actor, f"Deleted all attached files for <strong>{target}</strong>")
 
-    # 13. Clean Email updates
+    # 9. Checklist Requirements & Templates
+    if "marked as N/A (waived)" in s:
+        m = re.search(r"Requirement\s*['\"]?([^'\"]+)['\"]?", s)
+        req_name = m.group(1) if m else "requirement"
+        return _sentence(actor, f"Marked requirement <strong>{req_name}</strong> as N/A (waived)")
+    if "marked as required" in s:
+        m = re.search(r"Requirement\s*['\"]?([^'\"]+)['\"]?", s)
+        req_name = m.group(1) if m else "requirement"
+        return _sentence(actor, f"Marked requirement <strong>{req_name}</strong> as required")
+    if s.startswith('Created checklist template:'):
+        tmpl = s.split(':', 1)[-1].strip().strip("'\"")
+        return _sentence(actor, f"Created checklist template <strong>{tmpl}</strong>")
+    if s.startswith('Updated checklist template details:'):
+        tmpl = s.split(':', 1)[-1].strip().strip("'\"")
+        return _sentence(actor, f"Updated checklist template details for <strong>{tmpl}</strong>")
+    if 'Added ' in s and ' to template ' in s:
+        m = re.search(r"Added \w+ '([^']+)' to template '([^']+)'", s)
+        if m:
+            return _sentence(actor, f"Added item <strong>{m.group(1)}</strong> to template <strong>{m.group(2)}</strong>")
+    if 'Updated requirement ' in s and ' to ' in s:
+        m = re.search(r"to '([^']+)'", s)
+        if m:
+            return _sentence(actor, f"Updated requirement item to <strong>{m.group(1)}</strong>")
+    if 'Deleted requirement ' in s and ' from template' in s:
+        m = re.search(r"Deleted requirement '([^']+)'", s)
+        if m:
+            return _sentence(actor, f"Deleted requirement <strong>{m.group(1)}</strong> from template")
+
+    # 10. Feedback & Email updates
+    if 'Submitted' in s and 'Feedback' in s:
+        return _sentence(actor, "Submitted system feedback to administrators")
     if "Work email address updated from" in s and "to" in s:
         m = re.search(r"to\s+([^\s]+)\s+via OTP", s)
         if m:
-            return f"Updated Work Email: {m.group(1)}"
-        return "Updated Work Email"
+            return _sentence(actor, f"Updated work email address to <strong>{m.group(1)}</strong>")
+        return _sentence(actor, "Updated work email address")
 
-    # Final polish: Remove all em-dashes (—), en-dashes (–), and stray ' - ' dividers
-    s = s.replace('—', ': ').replace('–', ': ')
-    s = re.sub(r"\s+-\s+", ": ", s)
-    # General cleanup of surrounding quotes for cleaner human reading
-    s = re.sub(r"'([^']+)'", r"\1", s)
-    return s
+    # Final polish: Remove quotes and normalize dashes
+    s = s.replace('—', ' &middot; ').replace('–', ' &middot; ')
+    s = re.sub(r"'([^']+)'", r"<strong>\1</strong>", s)
+    return _sentence(actor, s.strip())
+
+
+@register.filter(name='is_audit_error')
+def is_audit_error(action):
+    """Checks if an audit action represents a system error, failure, or security alert."""
+    if not action:
+        return False
+    a = str(action).lower()
+    return any(k in a for k in ['error', 'failed', 'blocked', 'denied', 'restricted', 'locked out', 'lockout', 'warning'])
 
 
 @register.filter(name='split')
@@ -449,6 +531,8 @@ def file_icon_class(filename):
         return 'fa-solid fa-file-word text-primary'
     elif fn.endswith(('.xls', '.xlsx', '.csv')):
         return 'fa-solid fa-file-excel text-success'
+    elif fn.endswith(('.dwg', '.dxf')):
+        return 'fa-solid fa-compass-drafting text-warning'
     elif fn.endswith(('.zip', '.rar', '.7z', '.tar', '.gz')):
         return 'fa-solid fa-file-zipper text-warning'
     return 'fa-solid fa-file text-secondary'

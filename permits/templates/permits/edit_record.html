@@ -64,6 +64,10 @@
 
                             <!-- ── 1. ILLEGAL CONSTRUCTION FIELDS ───────── -->
                             {% if record.is_illegal_construction %}
+                            <input type="hidden" name="illegal_compliance_status" id="complianceStatusHidden" value="{{ record.illegal_compliance_status|default:'unresolved' }}">
+
+                            {% if record.illegal_compliance_status != 'resolved' %}
+                            <!-- ── UNRESOLVED VIOLATION FIELDS ── -->
                             <!-- 1. Structure Name & Barangay (Paired 2-Column Row) -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
@@ -86,9 +90,6 @@
                                 </select>
                             </div>
 
-                            <input type="hidden" name="illegal_compliance_status" id="complianceStatusHidden" value="{{ record.illegal_compliance_status|default:'unresolved' }}">
-
-                            {% if record.illegal_compliance_status != 'resolved' %}
                             <!-- 2. Property Owner & Violation Type (Paired 2-Column Row) -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
@@ -161,8 +162,31 @@
                             </div>
 
                             {% else %}
-                            <!-- When Resolved / Complied -->
+                            <!-- ── RESOLVED / REGULARIZED PERMIT FIELDS ── -->
                             <input type="hidden" name="date_started" value="{{ record.date_started|date:'Y-m-d'|default:'' }}">
+
+                            <!-- 1. Structure Name (Full Width Solo like Notes) -->
+                            <div class="col-12">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Structure Name</label>
+                                </div>
+                                <input type="text" name="title" class="form-control rounded-3" value="{{ record.title }}" maxlength="80" required
+                                    placeholder="e.g. Commercial Building" style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                            </div>
+
+                            <!-- 2. Barangay & Property Owner (Paired 2-Column Row 1) -->
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center justify-content-between form-label-row">
+                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Barangay</label>
+                                </div>
+                                <select name="barangay" id="editBarangaySelect" class="form-select rounded-3" required
+                                    style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                    <option value="" disabled>— Select Barangay —</option>
+                                    {% for b in barangays %}
+                                    <option value="{{ b.barangay_id }}" data-lat="{{ b.latitude|default:'' }}" data-lng="{{ b.longitude|default:'' }}" {% if record.barangay and record.barangay.barangay_id == b.barangay_id %}selected{% endif %}>{{ b.barangay_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
 
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
@@ -176,6 +200,7 @@
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
+                            <!-- 3. Building Type & Permit Type (Paired 2-Column Row 2) -->
                             <div class="col-md-6" id="violationBuildingTypeWrapper">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">
@@ -204,6 +229,7 @@
                                 </select>
                             </div>
 
+                            <!-- 4. Permit Number & Date Issued (Paired 2-Column Row 3) -->
                             <div class="col-md-6" id="violationPermitNumWrapper">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Permit Number</label>
@@ -243,7 +269,8 @@
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                             </div>
 
-                            <!-- 5. Interactive GIS Map Location Pinpoint Section (Full Width) -->
+                            <!-- 5. Interactive GIS Map Location Pinpoint Section (Only for Unresolved Violations) -->
+                            {% if record.illegal_compliance_status != 'resolved' %}
                             <div class="col-12" id="editMapPinSection">
                                 <div class="d-flex align-items-center justify-content-between form-label-row">
                                     <label class="form-label fw-semibold m-0 d-flex align-items-center gap-1.5" style="font-size:0.83rem; color: #334155;">
@@ -274,6 +301,11 @@
                                     </div>
                                 </div>
                             </div>
+                            {% else %}
+                            <!-- When Resolved: Keep existing GPS coordinates intact via hidden inputs without cluttering the regularized permit edit form -->
+                            <input type="hidden" name="latitude" id="editLocationLat" value="{{ record.latitude|default:'' }}">
+                            <input type="hidden" name="longitude" id="editLocationLng" value="{{ record.longitude|default:'' }}">
+                            {% endif %}
 
                             <!-- ── 2. PERMIT APPLICATION FIELDS ────────────────────── -->
                             {% elif record.record_type == 'Permit' %}
@@ -434,7 +466,7 @@
                                     <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Funding Source</label>
                                 </div>
                                 <select name="funding_source" id="editFundingSourceSelect" class="form-select rounded-3" required
-                                    onchange="toggleEditFundingOther(this.value)"
+                                    data-funding-specify-target="editFundingOtherWrapper"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
                                     <option value="" disabled {% if not project_detail or not project_detail.funding_source %}selected{% endif %}>— Select Funding Source —</option>
                                     {% for val, label in funding_sources %}
@@ -467,17 +499,20 @@
                                 <div class="invalid-feedback">Date Completed is required and cannot be before 1995 or in the future.</div>
                             </div>
 
-                            <!-- Conditional Other Funding Source (col-12) -->
+                            <!-- Conditional Specify Funding Source: NGO / Others (col-12) -->
                             <div class="col-12" id="editFundingOtherWrapper"
-                                {% if project_detail and project_detail.funding_source == 'Others' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                                {% if project_detail and project_detail.funding_source == 'Others' or project_detail and project_detail.funding_source == 'NGO' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                                 <div class="d-flex align-items-center justify-content-between form-label-row mb-1" style="min-height: 20px;">
-                                    <label class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;">Specify Other Funding Source</label>
+                                    <label for="editFundingOtherInput" class="form-label fw-semibold m-0" style="font-size:0.83rem; color: #334155;" data-funding-specify-label>{% if project_detail and project_detail.funding_source == 'NGO' %}Specify NGO Name / Organization{% else %}Specify Other Funding Source{% endif %}</label>
                                 </div>
-                                <input type="text" name="funding_source_other" class="form-control rounded-3"
+                                <input type="text" name="funding_source_other" id="editFundingOtherInput" class="form-control rounded-3"
                                     value="{{ project_detail.funding_source_other|default:'' }}"
                                     placeholder="Specify other funding source..."
+                                    maxlength="255" autocomplete="off"
                                     style="font-size: 0.86rem; padding: 8.5px 13px; height: 40px;">
+                                <div class="invalid-feedback" data-funding-specify-feedback>Please specify the funding source.</div>
                             </div>
+                            {% include 'permits/includes/_funding_specify.html' %}
                             {% endif %}
 
                             <!-- Hidden Coordinates Preservation for Standard Permits and Projects -->
@@ -527,9 +562,9 @@
 
 <script>
     function toggleEditFundingOther(val) {
-        const wrapper = document.getElementById('editFundingOtherWrapper');
-        if (wrapper) {
-            wrapper.style.display = (val === 'Others') ? 'block' : 'none';
+        // Kept for backwards compatibility; logic lives in includes/_funding_specify.html
+        if (window.etalaSyncFundingSpecify) {
+            window.etalaSyncFundingSpecify(val, document.getElementById('editFundingOtherWrapper'));
         }
     }
 
