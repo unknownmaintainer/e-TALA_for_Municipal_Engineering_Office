@@ -10,7 +10,6 @@
     <div class="etala-page-header d-flex align-items-center justify-content-between mb-2.5">
         <div class="d-flex align-items-center gap-2">
             <h4 class="fw-bold text-dark mb-0" style="font-size: 1.25rem;">User Tutorial & Guide</h4>
-            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-0.5" style="font-size: 0.72rem;">Interactive</span>
         </div>
         <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1.5 px-3 py-1.5 rounded-2 fw-semibold" onclick="var el=document.getElementById('developerFeedbackModal');if(el&&window.bootstrap){bootstrap.Modal.getOrCreateInstance(el).show();}">
@@ -22,16 +21,20 @@
 
     <!-- ══ TOP CHAPTER & STEP NAVIGATION CONTROLS (LIGHT & CLEAN) ══ -->
     <div class="manual-nav-bar shadow-sm mb-3">
-        <!-- Left: Topic Stepper -->
+        <!-- Left: Topic Dropdown Stepper -->
         <div class="d-flex align-items-center gap-2">
             <span class="dock-label">TOPIC</span>
             <button type="button" class="dock-arrow-btn" onclick="stepTopic(-1);" title="Previous Topic (Arrow Left)">
                 <i class="fa-solid fa-chevron-left"></i>
             </button>
-            <div class="dock-topic-info d-flex align-items-center gap-2 px-1">
-                <span class="dock-topic-pill" id="dockTopicBadge">Topic 1 of 6</span>
-                <span class="dock-topic-name" id="dockTopicTitleText">Dashboard Overview</span>
-            </div>
+            <select class="form-select form-select-sm dock-topic-select" id="dockTopicSelect" onchange="switchTopic(parseInt(this.value));" aria-label="Select Tutorial Topic">
+                <option value="1">Topic 1 of 6: Dashboard Overview</option>
+                <option value="2">Topic 2 of 6: Add Record</option>
+                <option value="3">Topic 3 of 6: Project Types</option>
+                <option value="4">Topic 4 of 6: Checklist & Files</option>
+                <option value="5">Topic 5 of 6: Barangay GIS</option>
+                <option value="6">Topic 6 of 6: Records Registry</option>
+            </select>
             <button type="button" class="dock-arrow-btn" onclick="stepTopic(1);" title="Next Topic (Arrow Right)">
                 <i class="fa-solid fa-chevron-right"></i>
             </button>
@@ -197,6 +200,33 @@
     cursor: not-allowed;
 }
 
+.dock-topic-select {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    background-color: #f8fafc;
+    border-radius: 6px;
+    height: 32px;
+    padding: 3px 28px 3px 10px;
+    min-width: 250px;
+    max-width: 320px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: all 0.15s ease;
+}
+
+.dock-topic-select:hover {
+    border-color: #0284c7;
+    background-color: #ffffff;
+}
+
+.dock-topic-select:focus {
+    border-color: #0284c7;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
 .dock-topic-pill {
     background: #e0f2fe;
     color: #0284c7;
@@ -257,6 +287,20 @@
     background: #0284c7 !important;
     border-color: #0284c7 !important;
     color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .dock-topic-select,
+.dark-mode .dock-topic-select {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+[data-bs-theme="dark"] .dock-topic-select:hover,
+.dark-mode .dock-topic-select:hover,
+[data-bs-theme="dark"] .dock-topic-select:focus,
+.dark-mode .dock-topic-select:focus {
+    border-color: #38bdf8 !important;
 }
 
 [data-bs-theme="dark"] .dock-topic-pill,
@@ -1224,6 +1268,12 @@ function switchTopic(topicId, initialFocusIdx = 0) {
     const mod = TUTORIAL_DIAGRAMS[topicId];
     const titleEl = document.getElementById('screenTitleText');
     if (titleEl && mod) titleEl.innerText = mod.title;
+
+    // Sync Topic Select Dropdown
+    const selectEl = document.getElementById('dockTopicSelect');
+    if (selectEl) {
+        selectEl.value = String(topicId);
+    }
 
     // Update Bottom Dock Topic Pill Labels
     const dockTopicBadge = document.getElementById('dockTopicBadge');
