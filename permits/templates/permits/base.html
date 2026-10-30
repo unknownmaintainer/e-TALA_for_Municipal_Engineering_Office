@@ -12517,19 +12517,34 @@
                 // Send beacon fallback for reliable instant persistence before page navigation
                 try {
                     if (id && navigator.sendBeacon) {
-                        const csrftoken = (document.cookie.split('; ').find(row =
-                localStorage.setItem('etala_read_notifs', JSON.stringify(list));
-            } catch(e) {}
+                        const csrftoken = (document.cookie.split('; ').find(row => row.startsWith('csrftoken=')) || '').split('=')[1];
+                        const blob = new Blob([JSON.stringify({ action_type: 'mark_read', notification_id: id })], { type: 'application/json' });
+                        navigator.sendBeacon('/notifications/action/', blob);
+                    }
+                } catch(e) {}
+
+                window.location.href = url;
+            }
         }
-        function getDeletedNotifs() {
-            const { deletedKey } = getNotifStorageKeys();
+
+        function getNotifStorageKeys() {
+            const userId = '{{ request.user.id|default:"guest" }}';
+            return {
+                readKey: 'etala_read_notifs_' + userId,
+                deletedKey: 'etala_deleted_notifs_' + userId
+            };
+        }
+        function getReadNotifs() {
+            const { readKey } = getNotifStorageKeys();
             try {
-                const val = localStorage.getItem(deletedKey) || localStorage.getItem('etala_deleted_notifs');
+                const val = localStorage.getItem(readKey) || localStorage.getItem('etala_read_notifs');
                 return val ? JSON.parse(val) : [];
             } catch(e) { return []; }
         }
-        function setDeletedNotifs(list) {
-       
+        function setReadNotifs(list) {
+            const { readKey } = getNotifStorageKeys();
+            try {
+                localStorage.setItem(readKey, JSON.stringify(list));
                 localStorage.setItem('etala_read_notifs', JSON.stringify(list));
             } catch(e) {}
         }
