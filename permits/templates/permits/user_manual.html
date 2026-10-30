@@ -97,7 +97,7 @@
         </div>
     </div>
 
-    <!-- ══ BOTTOM CHAPTER NAVIGATION DOCK / PLAYER TIMELINE ══ -->
+    <!-- ══ BOTTOM CHAPTER NAVIGATION DOCK / INTERACTIVE TIMELINE ══ -->
     <div class="manual-bottom-dock shadow-sm mb-3">
         <!-- Left: Chapter Switcher Controls -->
         <div class="dock-left-controls d-flex align-items-center gap-1.5 flex-shrink-0">
@@ -113,41 +113,60 @@
             </button>
         </div>
 
-        <!-- Center: Chapter Pills Timeline -->
-        <div class="manual-tab-group d-flex align-items-center gap-1.5">
-            <button type="button" class="manual-tab-btn active" id="tab-1" onclick="switchTopic(1);">
-                <i class="fa-solid fa-chart-pie tab-icon"></i>
-                <span>1. Dashboard</span>
+        <!-- Center: Chapter Pills Timeline with Scroll Assist -->
+        <div class="dock-center-tabs-wrapper d-flex align-items-center position-relative">
+            <button type="button" class="dock-scroll-arrow left" onclick="scrollManualTabs(-1);" title="Scroll Topics Left">
+                <i class="fa-solid fa-chevron-left"></i>
             </button>
-            <button type="button" class="manual-tab-btn" id="tab-2" onclick="switchTopic(2);">
-                <i class="fa-solid fa-circle-plus tab-icon"></i>
-                <span>2. Add Record</span>
-            </button>
-            <button type="button" class="manual-tab-btn" id="tab-3" onclick="switchTopic(3);">
-                <i class="fa-solid fa-diagram-project tab-icon"></i>
-                <span>3. Project Types</span>
-            </button>
-            <button type="button" class="manual-tab-btn" id="tab-4" onclick="switchTopic(4);">
-                <i class="fa-solid fa-folder-tree tab-icon"></i>
-                <span>4. Checklist & Files</span>
-            </button>
-            <button type="button" class="manual-tab-btn" id="tab-5" onclick="switchTopic(5);">
-                <i class="fa-solid fa-map-location-dot tab-icon"></i>
-                <span>5. Barangay GIS</span>
-            </button>
-            <button type="button" class="manual-tab-btn" id="tab-6" onclick="switchTopic(6);">
-                <i class="fa-solid fa-table-list tab-icon"></i>
-                <span>6. Records Registry</span>
+            <div class="manual-tab-group d-flex align-items-center gap-1.5" id="manualTabGroup">
+                <button type="button" class="manual-tab-btn active" id="tab-1" onclick="switchTopic(1);">
+                    <i class="fa-solid fa-chart-pie tab-icon"></i>
+                    <span>1. Dashboard</span>
+                </button>
+                <button type="button" class="manual-tab-btn" id="tab-2" onclick="switchTopic(2);">
+                    <i class="fa-solid fa-circle-plus tab-icon"></i>
+                    <span>2. Add Record</span>
+                </button>
+                <button type="button" class="manual-tab-btn" id="tab-3" onclick="switchTopic(3);">
+                    <i class="fa-solid fa-diagram-project tab-icon"></i>
+                    <span>3. Project Types</span>
+                </button>
+                <button type="button" class="manual-tab-btn" id="tab-4" onclick="switchTopic(4);">
+                    <i class="fa-solid fa-folder-tree tab-icon"></i>
+                    <span>4. Checklist & Files</span>
+                </button>
+                <button type="button" class="manual-tab-btn" id="tab-5" onclick="switchTopic(5);">
+                    <i class="fa-solid fa-map-location-dot tab-icon"></i>
+                    <span>5. Barangay GIS</span>
+                </button>
+                <button type="button" class="manual-tab-btn" id="tab-6" onclick="switchTopic(6);">
+                    <i class="fa-solid fa-table-list tab-icon"></i>
+                    <span>6. Records Registry</span>
+                </button>
+            </div>
+            <button type="button" class="dock-scroll-arrow right" onclick="scrollManualTabs(1);" title="Scroll Topics Right">
+                <i class="fa-solid fa-chevron-right"></i>
             </button>
         </div>
 
-        <!-- Right: Current Topic Title Badge -->
-        <div class="dock-right-status d-none d-lg-flex align-items-center gap-2 flex-shrink-0">
-            <div class="dock-step-pill d-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2">
-                <span class="dock-live-dot"></span>
-                <span id="dockTopicTitle" style="font-size: 0.75rem; font-weight: 600; max-width: 170px;" class="text-truncate">Dashboard Overview</span>
+        <!-- Right: Interactive Step Nav & Auto Demo Controls -->
+        <div class="dock-right-controls d-flex align-items-center gap-2 flex-shrink-0">
+            <button type="button" id="dockAutoPlayBtn" class="dock-demo-btn" onclick="toggleAutoPlay();" title="Sit back and watch the interactive walkthrough">
+                <i class="fa-solid fa-play text-warning"></i>
+                <span>Auto Demo</span>
+            </button>
+            <div class="dock-step-controls d-flex align-items-center">
+                <button type="button" id="dockPrevStepBtn" class="dock-step-nav-btn" onclick="stepNav(-1);" title="Previous Step">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <span class="dock-step-badge" id="dockStepIndicator">Step 1 of 7</span>
+                <button type="button" id="dockNextStepBtn" class="dock-step-nav-btn primary" onclick="stepNav(1);" title="Next Step">
+                    <span>Next</span>
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
             </div>
         </div>
+    </div>
     </div>
 
 </div>
@@ -160,30 +179,37 @@
     margin: 0 auto;
 }
 
-/* ══ BOTTOM CHAPTER DOCK / PLAYER TIMELINE ══ */
+/* ══ BOTTOM CHAPTER DOCK / INTERACTIVE TIMELINE ══ */
 .manual-bottom-dock {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 8px 14px;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 12px !important;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.dock-left-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .dock-arrow-btn {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 8px;
     background: #f1f5f9;
     border: 1px solid #cbd5e1;
     color: #475569;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     cursor: pointer;
     transition: all 0.15s ease;
 }
@@ -192,47 +218,66 @@
     background: #0284c7;
     border-color: #0284c7;
     color: #ffffff;
-    transform: scale(1.05);
+    transform: translateY(-1px);
 }
 
 .dock-chapter-pill {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     color: #334155;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
     white-space: nowrap;
 }
 
-.dock-step-pill {
-    background: #f8fafc;
+/* Center Tabs Wrapper & Smooth Scroller */
+.dock-center-tabs-wrapper {
+    flex: 1 1 340px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dock-scroll-arrow {
+    width: 26px;
+    height: 30px;
+    background: #f1f5f9;
     border: 1px solid #e2e8f0;
-    color: #475569;
-    white-space: nowrap;
+    border-radius: 6px;
+    color: #64748b;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
 }
 
-.dock-live-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #10b981;
-    display: inline-block;
-    box-shadow: 0 0 6px #10b981;
+.dock-scroll-arrow:hover {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
 }
 
-/* Chapter Pills container */
 .manual-tab-group {
     background: #f8fafc;
     padding: 3px;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
-    display: flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    overflow-x: auto !important;
-    white-space: nowrap !important;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    white-space: nowrap;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    flex: 0 1 auto !important;
-    justify-content: center;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    scroll-behavior: smooth;
 }
 
 .manual-tab-group::-webkit-scrollbar {
@@ -242,9 +287,9 @@
 .manual-tab-btn {
     border: none;
     background: transparent;
-    padding: 5px 11px;
+    padding: 5px 12px;
     border-radius: 6px;
-    font-size: 0.79rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: #475569;
     white-space: nowrap;
@@ -259,7 +304,7 @@
 
 .manual-tab-btn .tab-icon {
     font-size: 0.75rem;
-    opacity: 0.8;
+    opacity: 0.85;
 }
 
 .manual-tab-btn:hover {
@@ -277,6 +322,94 @@
     opacity: 1;
 }
 
+/* Right Controls: Auto Demo + In-dock Step Buttons */
+.dock-right-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dock-demo-btn {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 8px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.dock-demo-btn:hover {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+}
+
+.dock-demo-btn.is-playing {
+    background: #dc2626;
+    border-color: #dc2626;
+    animation: dockPulse 1.8s infinite;
+}
+
+@keyframes dockPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+.dock-step-controls {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.dock-step-nav-btn {
+    border: none;
+    background: transparent;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.dock-step-nav-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.dock-step-nav-btn.primary {
+    background: #0284c7;
+    color: #ffffff;
+}
+
+.dock-step-nav-btn.primary:hover {
+    background: #0369a1;
+}
+
+.dock-step-badge {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #1e293b;
+    padding: 0 8px;
+    white-space: nowrap;
+}
+
 /* Dark Mode Enhancements for Bottom Dock */
 [data-bs-theme="dark"] .manual-bottom-dock,
 .dark-mode .manual-bottom-dock {
@@ -286,14 +419,18 @@
 }
 
 [data-bs-theme="dark"] .dock-arrow-btn,
-.dark-mode .dock-arrow-btn {
+.dark-mode .dock-arrow-btn,
+[data-bs-theme="dark"] .dock-scroll-arrow,
+.dark-mode .dock-scroll-arrow {
     background: #0f172a !important;
     border-color: #334155 !important;
     color: #94a3b8 !important;
 }
 
 [data-bs-theme="dark"] .dock-arrow-btn:hover,
-.dark-mode .dock-arrow-btn:hover {
+.dark-mode .dock-arrow-btn:hover,
+[data-bs-theme="dark"] .dock-scroll-arrow:hover,
+.dark-mode .dock-scroll-arrow:hover {
     background: #2563eb !important;
     border-color: #2563eb !important;
     color: #ffffff !important;
@@ -301,24 +438,29 @@
 
 [data-bs-theme="dark"] .dock-chapter-pill,
 .dark-mode .dock-chapter-pill,
-[data-bs-theme="dark"] .dock-step-pill,
-.dark-mode .dock-step-pill {
+[data-bs-theme="dark"] .manual-tab-group,
+.dark-mode .manual-tab-group,
+[data-bs-theme="dark"] .dock-step-controls,
+.dark-mode .dock-step-controls {
     background: #0f172a !important;
     border-color: #334155 !important;
     color: #cbd5e1 !important;
 }
 
-[data-bs-theme="dark"] .manual-tab-group,
-.dark-mode .manual-tab-group {
-    background: #0f172a !important;
-    border-color: #334155 !important;
+[data-bs-theme="dark"] .dock-step-badge,
+.dark-mode .dock-step-badge {
+    color: #f1f5f9 !important;
 }
 
+[data-bs-theme="dark"] .dock-step-nav-btn,
+.dark-mode .dock-step-nav-btn,
 [data-bs-theme="dark"] .manual-tab-btn,
 .dark-mode .manual-tab-btn {
     color: #94a3b8 !important;
 }
 
+[data-bs-theme="dark"] .dock-step-nav-btn:hover,
+.dark-mode .dock-step-nav-btn:hover,
 [data-bs-theme="dark"] .manual-tab-btn:hover,
 .dark-mode .manual-tab-btn:hover {
     background: #334155 !important;
@@ -332,21 +474,38 @@
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.5) !important;
 }
 
-/* Mobile Responsiveness for Bottom Dock */
-@media (max-width: 767px) {
+/* Mobile & Tablet Responsiveness for Bottom Dock */
+@media (max-width: 991px) {
+    .dock-center-tabs-wrapper {
+        order: 2;
+        width: 100%;
+        flex: 1 1 100%;
+    }
+    .dock-left-controls {
+        order: 1;
+    }
+    .dock-right-controls {
+        order: 1;
+    }
+}
+
+@media (max-width: 576px) {
     .manual-bottom-dock {
         flex-direction: column !important;
+        align-items: stretch !important;
         gap: 8px !important;
         padding: 8px 10px !important;
     }
     .dock-left-controls {
-        width: 100% !important;
-        justify-content: space-between !important;
+        justify-content: space-between;
+        width: 100%;
     }
-    .manual-tab-group {
-        width: 100% !important;
-        justify-content: flex-start !important;
-        padding: 4px !important;
+    .dock-right-controls {
+        justify-content: space-between;
+        width: 100%;
+    }
+    .dock-center-tabs-wrapper {
+        width: 100%;
     }
 }
 
@@ -1278,7 +1437,12 @@ function switchTopic(topicId, initialFocusIdx = 0) {
     // Update Tabs
     document.querySelectorAll('.manual-tab-btn').forEach(btn => btn.classList.remove('active'));
     const tabBtn = document.getElementById(`tab-${topicId}`);
-    if (tabBtn) tabBtn.classList.add('active');
+    if (tabBtn) {
+        tabBtn.classList.add('active');
+        try {
+            tabBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        } catch(e) {}
+    }
 
     // Update Frame Bar Title
     const mod = TUTORIAL_DIAGRAMS[topicId];
@@ -1309,6 +1473,14 @@ function switchTopic(topicId, initialFocusIdx = 0) {
 
     renderDiagramOverlays();
     focusItem(currentFocusIndex, isTopicChange);
+}
+
+
+function scrollManualTabs(dir) {
+    const group = document.getElementById('manualTabGroup');
+    if (group) {
+        group.scrollBy({ left: dir * 180, behavior: 'smooth' });
+    }
 }
 
 function stepTopic(dir) {
@@ -1625,8 +1797,22 @@ function stepNav(dir) {
 function updateStepIndicator() {
     const mod = TUTORIAL_DIAGRAMS[currentTopicId];
     const ind = document.getElementById('tourStepIndicator');
-    if (ind && mod.items[currentFocusIndex]) {
-        ind.innerText = `Step ${currentFocusIndex + 1} of ${mod.items.length}`;
+    const dockStep = document.getElementById('dockStepIndicator');
+    const dockPrev = document.getElementById('dockPrevStepBtn');
+    const dockNext = document.getElementById('dockNextStepBtn');
+    if (mod && mod.items && mod.items[currentFocusIndex]) {
+        const text = `Step ${currentFocusIndex + 1} of ${mod.items.length}`;
+        if (ind) ind.innerText = text;
+        if (dockStep) dockStep.innerText = text;
+        if (dockPrev) {
+            const isFirst = (currentTopicId === 1 && currentFocusIndex === 0);
+            dockPrev.disabled = isFirst;
+            dockPrev.style.opacity = isFirst ? '0.45' : '1';
+        }
+        if (dockNext) {
+            const isLastOfAll = (currentTopicId === 6 && currentFocusIndex === mod.items.length - 1);
+            dockNext.innerHTML = isLastOfAll ? '<span>Finish</span> <i class="fa-solid fa-check"></i>' : '<span>Next</span> <i class="fa-solid fa-chevron-right"></i>';
+        }
     }
 }
 
@@ -1838,6 +2024,7 @@ function updateAutoPlayUI(active) {
     const stopBtn = document.getElementById('stopDemoBtn');
     const liveBadge = document.getElementById('demoLiveBadge');
 
+    const dockDemo = document.getElementById('dockAutoPlayBtn');
     if (btn && icon && label) {
         if (active) {
             btn.classList.add('is-playing');
@@ -1846,6 +2033,10 @@ function updateAutoPlayUI(active) {
             if (track) track.style.display = 'block';
             if (stopBtn) stopBtn.style.display = 'inline-flex';
             if (liveBadge) liveBadge.style.display = 'inline-flex';
+            if (dockDemo) {
+                dockDemo.classList.add('is-playing');
+                dockDemo.innerHTML = '<i class="fa-solid fa-pause"></i> <span>Pause Demo</span>';
+            }
         } else {
             btn.classList.remove('is-playing');
             icon.className = 'fa-solid fa-play text-warning';
@@ -1853,6 +2044,10 @@ function updateAutoPlayUI(active) {
             if (track) track.style.display = 'none';
             if (stopBtn) stopBtn.style.display = 'none';
             if (liveBadge) liveBadge.style.display = 'none';
+            if (dockDemo) {
+                dockDemo.classList.remove('is-playing');
+                dockDemo.innerHTML = '<i class="fa-solid fa-play text-warning"></i> <span>Auto Demo</span>';
+            }
         }
     }
 }
