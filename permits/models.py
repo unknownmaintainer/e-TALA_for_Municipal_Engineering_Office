@@ -237,7 +237,7 @@ class EngineeringRecord(models.Model):
     @property
     def display_title(self):
         """Returns the clean primary display title (e.g. applicant name for permits, project title for projects)."""
-        if self.is_illegal_construction and self.illegal_compliance_status != 'resolved':
+        if self.is_illegal_construction:
             if self.title:
                 for sep in [' · ', ' • ', ' - ']:
                     if sep in self.title:
