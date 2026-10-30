@@ -8768,15 +8768,16 @@ def quick_search_api_view(request):
     if not q or len(q) < 1:
         return JsonResponse({'results': []})
 
-    # Spotlight Search: Use unified multi-token search engine across all active records (Permits, Projects, Violations)
+    # Spotlight Search: Use weighted relevance search (Title -> Barangay -> Permit# -> Type -> Applicant -> Details)
     base_spotlight_qs = EngineeringRecord.objects.exclude(status='archived')
     records = filter_engineering_records(
         base_spotlight_qs,
         query=q,
-        illegal_filter='all'
+        illegal_filter='all',
+        order_by_relevance=True
     ).select_related(
         'barangay', 'permit_detail', 'project_detail'
-    ).order_by('-record_id')[:10]
+    )[:10]
 
     results = []
     for r in records:

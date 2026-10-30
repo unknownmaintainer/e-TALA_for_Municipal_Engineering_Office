@@ -466,6 +466,9 @@ class RolePermissionsAndCleanupTestCase(TestCase):
         filtered = filter_engineering_records(qs, query="Test Permit")
         self.assertTrue(filtered.exists())
         self.assertTrue(any(r.title == 'Test Permit Record' for r in filtered))
+        # Verify relevance ordering: Title matches are prioritized at top
+        first_record = filtered.first()
+        self.assertIn("Test Permit", first_record.title)
 
     def test_forms_user_creation(self):
         from permits.forms import UserCreationForm

@@ -13,7 +13,7 @@ import zipfile
 
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, Case, When, Value, IntegerField
 from django.template.loader import render_to_string
 from django.utils import timezone
 from .models import EngineeringRecord, RecordRequirement, AuditLog, LoginAttempt, Document, Barangay
@@ -1119,9 +1119,107 @@ def build_activity_logs_csv_rows(tab, query, date_filter, action_type, current_u
         return f"eTala Audit Trail ({now.strftime('%Y-%m-%d')}).csv", row_generator()
 
 
+# ─── RELEVANCE SCORING FOR SEARCH ENGINE ─────────────────────────────────────
+
+def build_search_relevance_expression(query_str):
+    """
+    Builds a weighted relevance expression for search ranking:
+    1. Title matches (Highest priority)
+    2. Barangay matches
+    3. Permit number matches
+    4. Classification / Type matches (Permit type, Project type)
+    5. Applicant / Contractor matches
+    6. Description & Remarks (Lowest priority)
+    * Author / Creator is intentionally excluded from general search to prevent author confusion.
+    """
+    q_clean = str(query_str).strip()
+    raw_tokens = [t for t in q_clean.split() if t]
+    
+    cases = [
+        # Priority 1: Title (Project Title, Structure Name, or Permit Title)
+        Case(
+            When(title__iexact=q_clean, then=Value(100)),
+            When(title__istartswith=q_clean, then=Value(80)),
+            When(title__icontains=q_clean, then=Value(60)),
+            default=Value(0),
+            output_field=IntegerField()
+        ),
+        # Priority 2: Barangay Location
+        Case(
+            When(barangay__barangay_name__iexact=q_clean, then=Value(50)),
+            When(barangay__barangay_name__istartswith=q_clean, then=Value(45)),
+            When(barangay__barangay_name__icontains=q_clean, then=Value(40)),
+            default=Value(0),
+            output_field=IntegerField()
+        ),
+        # Priority 3: Permit Number
+        Case(
+            When(permit_detail__permit_number__iexact=q_clean, then=Value(45)),
+            When(permit_detail__permit_number__icontains=q_clean, then=Value(35)),
+            default=Value(0),
+            output_field=IntegerField()
+        ),
+        # Priority 4: Specific Type & Scope (Electrical, Building, Road, Drainage, etc.)
+        Case(
+            When(permit_detail__permit_type__iexact=q_clean, then=Value(35)),
+            When(permit_detail__permit_type__icontains=q_clean, then=Value(25)),
+            When(project_detail__project_type__iexact=q_clean, then=Value(35)),
+            When(project_detail__project_type__icontains=q_clean, then=Value(25)),
+            default=Value(0),
+            output_field=IntegerField()
+        ),
+        # Priority 5: Applicant / Property Owner / Contractor
+        Case(
+            When(permit_detail__applicant_name__icontains=q_clean, then=Value(25)),
+            When(project_detail__contractor__icontains=q_clean, then=Value(20)),
+            default=Value(0),
+            output_field=IntegerField()
+        ),
+        # Priority 6: Remarks & Descriptions
+        Case(
+            When(description__icontains=q_clean, then=Value(10)),
+            When(permit_detail__remarks__icontains=q_clean, then=Value(5)),
+            When(project_detail__funding_source__icontains=q_clean, then=Value(5)),
+            default=Value(0),
+            output_field=IntegerField()
+        )
+    ]
+    
+    # If multiple tokens, give additional score for each matching token
+    if len(raw_tokens) > 1:
+        for t in raw_tokens:
+            t_clean = t.lstrip('#') or t
+            cases.append(
+                Case(
+                    When(title__icontains=t_clean, then=Value(20)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            )
+            cases.append(
+                Case(
+                    When(barangay__barangay_name__icontains=t_clean, then=Value(15)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            )
+            cases.append(
+                Case(
+                    When(permit_detail__permit_number__icontains=t_clean, then=Value(15)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            )
+    
+    expr = cases[0]
+    for c in cases[1:]:
+        expr = expr + c
+    return expr
+
+
 # ─── REUSABLE RECORD FILTER SERVICE ──────────────────────────────────────────
 
-def filter_engineering_records(base_qs, query='', record_type='', project_scope='', barangay_id='', status='', year='', permit_type='', project_type='', illegal_filter=''):
+def filter_engineering_records(base_qs, query='', record_type='', project_scope='', barangay_id='', status='', year='', permit_type='', project_type='', illegal_filter='', order_by_relevance=True):
     """
     Applies high-precision search and filter criteria to an EngineeringRecord QuerySet.
     """
@@ -1248,6 +1346,13 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
         # Only regularized (resolved) illegal constructions appear in Master Records.
         # Unresolved and pending_permit cases remain exclusively in the Illegal Constructions module.
         qs = qs.exclude(is_illegal_construction=True, illegal_compliance_status__in=['unresolved', 'pending_permit'])
+
+    if query:
+        q_clean = str(query).strip()
+        if q_clean and hasattr(qs, 'annotate'):
+            qs = qs.annotate(search_relevance=build_search_relevance_expression(q_clean))
+            if order_by_relevance:
+                qs = qs.order_by('-search_relevance', '-record_id')
 
     return qs
 
