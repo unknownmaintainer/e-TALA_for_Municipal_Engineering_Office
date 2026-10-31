@@ -28,11 +28,7 @@
             <span>{% if active_log_tab == 'login' %}Activity Logs{% else %}Login History{% endif %}</span>
         </button>
         {% endif %}
-        <button type="button" id="exportPdfHeaderBtn" onclick="exportActivityLogsPdf(this)" class="premium-btn btn-export text-nowrap d-flex align-items-center" title="Export Activity Logs (PDF)">
-            <span class="btn-icon"><i class="fa-solid fa-file-pdf text-danger"></i></span>
-            <span class="btn-divider"></span>
-            <span>Export PDF</span>
-        </button>
+
     </div>
 </div>
 
@@ -1913,45 +1909,7 @@
         localStorage.setItem('active_settings_log_tab', tabName);
     }
 
-    function updateSettingsExportUrl() {
-        const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
-        const query = document.getElementById('liveSearchInput')?.value || document.querySelector('input[name="q"]')?.value || '';
-        const dateRange = document.getElementById('dateRangeInput')?.value || document.querySelector('[name="date_range"]')?.value || 'all';
-        const actionType = document.getElementById('actionTypeInput')?.value || document.querySelector('[name="action_type"]')?.value || 'all';
-        const statusVal = document.getElementById('statusInput')?.value || document.querySelector('[name="status"]')?.value || 'all';
-        const exportBtn = document.getElementById('exportPdfHeaderBtn');
-        if (exportBtn && exportBtn.tagName === 'A') {
-            exportBtn.href = "{% url 'export_activity_logs' %}?tab=" + encodeURIComponent(activeTab) + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
-        }
-    }
 
-    function exportActivityLogsPdf(btn) {
-        const activeTab = document.getElementById('activeLogTabInput')?.value || 'audit';
-        const query = document.getElementById('liveSearchInput')?.value || document.querySelector('input[name="q"]')?.value || '';
-        const dateRange = document.getElementById('dateRangeInput')?.value || document.querySelector('[name="date_range"]')?.value || 'all';
-        const actionType = document.getElementById('actionTypeInput')?.value || document.querySelector('[name="action_type"]')?.value || 'all';
-        const statusVal = document.getElementById('statusInput')?.value || document.querySelector('[name="status"]')?.value || 'all';
-        const exportUrl = "{% url 'export_activity_logs' %}?tab=" + encodeURIComponent(activeTab) + "&q=" + encodeURIComponent(query) + "&date_range=" + encodeURIComponent(dateRange) + "&action_type=" + encodeURIComponent(actionType) + "&status=" + encodeURIComponent(statusVal);
-        
-        if (window.downloadFileWithToast) {
-            const tabLabel = activeTab === 'login' ? 'Login Attempts' : 'Audit Trail';
-            window.downloadFileWithToast(exportUrl, `eTala Activity Logs (${tabLabel}).pdf`, {
-                title: 'PDF',
-                startMsg: 'Preparing PDF...',
-                successTitle: 'PDF ready',
-                buttonElement: btn
-            });
-        } else {
-            let downloadFrame = document.getElementById('etalaDownloadIframe');
-            if (!downloadFrame) {
-                downloadFrame = document.createElement('iframe');
-                downloadFrame.id = 'etalaDownloadIframe';
-                downloadFrame.style.display = 'none';
-                document.body.appendChild(downloadFrame);
-            }
-            downloadFrame.src = exportUrl;
-        }
-    }
 
     function toggleLogHistoryTab() {
         const tabInput = document.getElementById('activeLogTabInput');
@@ -2133,8 +2091,7 @@
                 if (pushHistory) {
                     window.history.pushState({}, '', url);
                 }
-                updateSettingsExportUrl();
-            } catch (err) {
+                            } catch (err) {
                 console.error("AJAX refresh error:", err);
             } finally {
                 if (tablesWrapper) {
@@ -2259,8 +2216,7 @@
         } else {
             switchLogTab('audit', true);
         }
-        updateSettingsExportUrl();
-        const activeTabEl = document.querySelector('#activityFilterTabs .filter-tab.active');
+                const activeTabEl = document.querySelector('#activityFilterTabs .filter-tab.active');
         if (activeTabEl) {
             activeTabEl.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
         }
