@@ -459,9 +459,10 @@
     z-index: 15;
 }
 
+/* Inactive targets stay invisible on hover (only their pin shows) so there is
+   never a second outline competing with the highlighted element. */
 .diagram-target-box:hover:not(.active) {
-    border: 2px dashed rgba(255, 255, 255, 0.4) !important;
-    z-index: 25;
+    border-color: transparent !important;
 }
 
 /* ELEMENT IN SPOTLIGHT: Clean accent outline with subtle glow letting normal colors shine */
@@ -933,15 +934,14 @@ body.dark-mode .callout-title,
     border: none;
 }
 .system-screen-card:fullscreen .screen-viewport {
-    flex: 1 1 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    max-height: calc(100vh - 90px);
+    flex: 0 0 auto;
+    width: min(100vw, calc((100vh - 90px) * 1920 / 998));
+    aspect-ratio: 1920 / 998;
+    margin: 0 auto;
 }
 .system-screen-card:fullscreen .system-img {
-    max-height: calc(100vh - 90px);
     width: 100%;
+    height: 100%;
 }
 
 @media (max-width: 767px) {
@@ -1040,7 +1040,7 @@ body.dark-mode .callout-title,
         <!-- Viewport containing Screenshot, Numbered Target Outlines, and Active Tooltip Bubble -->
         <div class="screen-viewport" id="screenViewport">
             <!-- Authentic System Screenshot -->
-            <img src="{% static 'manual/dashboard.png' %}?v=14" alt="eTala System Screenshot" class="system-img" id="systemScreenImg" />
+            <img src="{% static 'manual/dashboard.png' %}?v=17" alt="eTala System Screenshot" class="system-img" id="systemScreenImg" />
 
             <!-- Sharp Cutout SVG Layer: Displays the 100% sharp, unblurred, authentic-colored element via clip-path -->
             <svg id="sharpSpotlightSvg" class="sharp-spotlight-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -1136,326 +1136,295 @@ const TOTAL_TOPICS = 9;
 
 function getTutorialDiagrams(role) {
     const isStaff = (role === 'staff');
+    // All box values are exact getBoundingClientRect() measurements from the live
+    // eTala pages at 1920x998 (same pass that captured the screenshots), in %.
+    // Bubble placement is computed automatically so it never covers the target.
+    const V = "?v=17";
     return {
         1: {
             id: 1,
             title: isStaff ? "Topic 1: Dashboard Overview (Staff)" : "Topic 1: Dashboard Overview (Administrator)",
-            image: "{% static 'manual/dashboard.png' %}?v=16",
+            image: "{% static 'manual/dashboard.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#0284c7",
+                    num: 1, color: "#0284c7",
                     title: "Navigation Menu",
                     text: isStaff
                         ? "Main menu to open Records, Barangays, Illegal Constructions, and Reports."
                         : "Main menu to manage Records, Barangays, Violations, Reports, Users, Trash, and Backups.",
-                    box: { left: 0.0, top: 0.0, width: 13.5, height: 100.0, radius: 0 },
-                    pinStyle: { left: "14px", top: "14px", right: "auto" },
-                    bubble: { left: 16, top: 10, tail: "tail-left" }
+                    box: { left: 0.0, top: 0.0, width: 14.3, height: 100.0, radius: 0 }
                 },
                 {
-                    num: 2,
-                    color: "#2563eb",
+                    num: 2, color: "#2563eb",
                     title: "Summary Counter Cards",
-                    text: "Quick overview of total permits, municipal and barangay projects, active violations, and registered users.",
-                    box: { left: 22.0, top: 17.5, width: 70.5, height: 9.5, radius: 12 },
-                    pinStyle: { left: "14px", top: "-10px" },
-                    bubble: { left: 38, top: 29, tail: "tail-up" }
+                    text: "Quick overview of total permits and projects, illegal constructions, and active users.",
+                    box: { left: 21.7, top: 18.3, width: 70.4, height: 8.2, radius: 14 }
                 },
                 {
-                    num: 3,
-                    color: "#059669",
+                    num: 3, color: "#059669",
                     title: "Quick Action Buttons",
-                    text: "Click '+ New Record' to add a project or permit, or 'Report Violation' to log an unpermitted construction.",
-                    box: { left: 75.5, top: 11.6, width: 16.8, height: 4.2, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto", transform: "none" },
-                    bubble: { left: 45, top: 10, tail: "tail-right" }
+                    text: "Click 'New Record' to add a project or permit, or 'Report Violation' to log an unpermitted construction.",
+                    box: { left: 76.5, top: 12.3, width: 15.7, height: 3.6, radius: 10 }
                 },
                 {
-                    num: 4,
-                    color: "#ea580c",
+                    num: 4, color: "#ea580c",
                     title: "Pending Uploads & Breakdown",
-                    text: "View records that still need PDF attachments on the left, and the overall category breakdown chart on the right.",
-                    box: { left: 22.0, top: 28.5, width: 70.5, height: 43.0, radius: 12 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 36, top: 14, tail: "tail-down" }
+                    text: "See records that still need document uploads on the left, and the records breakdown chart on the right.",
+                    box: { left: 21.7, top: 28.9, width: 70.4, height: 42.1, radius: 14 }
                 }
             ]
         },
         2: {
             id: 2,
-            title: "Topic 2: Add Record — Step 1: Classification",
-            image: "{% static 'manual/add_record_step1.png' %}?v=16",
+            title: "Topic 2: Add Record  —  Step 1: Classification",
+            image: "{% static 'manual/add_record_step1.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#ea580c",
+                    num: 1, color: "#ea580c",
                     title: "Municipal Project",
-                    text: "Choose this for municipal-funded infrastructure such as roads, bridges, flood control, and water systems.",
-                    box: { left: 27.5, top: 42.0, width: 20.3, height: 31.0, radius: 12 },
-                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
-                    bubble: { left: 24, top: 75, tail: "tail-up" }
+                    text: "Choose this for municipal-funded infrastructure such as roads, buildings, flood control, and water systems.",
+                    box: { left: 35.5, top: 29.4, width: 13.4, height: 20.5, radius: 14 }
                 },
                 {
-                    num: 2,
-                    color: "#0284c7",
+                    num: 2, color: "#0284c7",
                     title: "Barangay Project",
-                    text: "Choose this for barangay-level infrastructure projects across any barangay in the municipality.",
-                    box: { left: 49.5, top: 42.0, width: 20.3, height: 31.0, radius: 12 },
-                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
-                    bubble: { left: 44, top: 75, tail: "tail-up" }
+                    text: "Choose this for infrastructure projects implemented at the barangay level.",
+                    box: { left: 50.2, top: 29.4, width: 13.4, height: 20.5, radius: 14 }
                 },
                 {
-                    num: 3,
-                    color: "#059669",
+                    num: 3, color: "#059669",
                     title: "Permit Record",
                     text: "Choose this for applicant permits such as Building, Occupancy, Electrical, and Fencing permits.",
-                    box: { left: 71.5, top: 42.0, width: 20.3, height: 31.0, radius: 12 },
-                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
-                    bubble: { left: 58, top: 75, tail: "tail-up" }
+                    box: { left: 64.9, top: 29.4, width: 13.4, height: 20.5, radius: 14 }
                 }
             ]
         },
         3: {
             id: 3,
-            title: "Topic 3: Add Record — Step 2: Project Type",
-            image: "{% static 'manual/add_record_step2.png' %}?v=16",
+            title: "Topic 3: Add Record  —  Step 2: Project Type",
+            image: "{% static 'manual/add_record_step2.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#0284c7",
+                    num: 1, color: "#0284c7",
                     title: "Roads and Bridges",
                     text: "Select for road concreting, bridges, and pathway projects.",
-                    box: { left: 27.5, top: 42.2, width: 31.5, height: 14.5, radius: 10 },
-                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
-                    bubble: { left: 25, top: 58, tail: "tail-up" }
+                    box: { left: 35.5, top: 29.4, width: 20.9, height: 9.1, radius: 12 }
                 },
                 {
-                    num: 2,
-                    color: "#059669",
+                    num: 2, color: "#059669",
                     title: "Vertical Structures",
-                    text: "Select for multi-purpose buildings, evacuation centers, schools, and facilities.",
-                    box: { left: 60.2, top: 42.2, width: 31.5, height: 14.5, radius: 10 },
-                    pinStyle: { right: "12px", top: "-10px", left: "auto" },
-                    bubble: { left: 54, top: 58, tail: "tail-up" }
+                    text: "Select for multi-purpose buildings, schools, and other vertical structures.",
+                    box: { left: 57.3, top: 29.4, width: 20.9, height: 9.1, radius: 12 }
                 },
                 {
-                    num: 3,
-                    color: "#ea580c",
+                    num: 3, color: "#ea580c",
                     title: "Flood Control & Water Systems",
-                    text: "Select Flood Control for seawalls or drainage lines, or Potable Water System for supply pipelines.",
-                    box: { left: 27.5, top: 58.2, width: 64.2, height: 14.5, radius: 10 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 40, top: 74, tail: "tail-up" }
+                    text: "Select Flood Control for seawalls, dikes, and drainage, or Potable Water System for supply pipelines.",
+                    box: { left: 35.5, top: 40.2, width: 42.7, height: 9.1, radius: 12 }
                 }
             ]
         },
         4: {
             id: 4,
-            title: "Topic 4: Add Record — Step 3: Record Information",
-            image: "{% static 'manual/add_record_step3.png' %}?v=16",
+            title: "Topic 4: Add Record  —  Step 3: Record Information",
+            image: "{% static 'manual/add_record_step3.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#0284c7",
-                    title: "Record Information Form",
-                    text: "Fill in the project identification details, select the barangay, and specify the contractor (or click 'By Admin').",
-                    box: { left: 35.6, top: 29.5, width: 42.6, height: 61.0, radius: 12 },
-                    pinStyle: { left: "16px", top: "-12px" },
-                    bubble: { left: 18, top: 35, tail: "tail-right" }
+                    num: 1, color: "#0284c7",
+                    title: "Project Details",
+                    text: "Enter the project name, select the barangay, and specify the contractor (or click 'By Admin').",
+                    box: { left: 36.4, top: 36.6, width: 40.9, height: 17.0, radius: 10 }
                 },
                 {
-                    num: 2,
-                    color: "#059669",
-                    title: "Funding, Budget & Remarks",
-                    text: "Specify the funding source, project budget or estimated cost, target completion date, and optional remarks.",
-                    box: { left: 36.6, top: 54.0, width: 40.6, height: 28.0, radius: 10 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 18, top: 56, tail: "tail-right" }
+                    num: 2, color: "#059669",
+                    title: "Funding, Cost & Remarks",
+                    text: "Select the funding source, enter the project cost and completion date, and add optional remarks.",
+                    box: { left: 36.4, top: 55.4, width: 40.9, height: 27.2, radius: 10 }
                 },
                 {
-                    num: 3,
-                    color: "#2563eb",
+                    num: 3, color: "#2563eb",
                     title: "Save Record",
-                    text: "Click 'Save Record' to create the record and proceed directly to its document checklist.",
-                    box: { left: 71.8, top: 92.5, width: 6.5, height: 3.5, radius: 8 },
-                    pinStyle: { right: "-8px", top: "-10px", left: "auto" },
-                    bubble: { left: 41, top: 82, tail: "tail-right" }
+                    text: "Click 'Save Record' to create the record and go straight to its document checklist.",
+                    box: { left: 71.7, top: 93.0, width: 6.6, height: 4.4, radius: 10 }
                 }
             ]
         },
         5: {
             id: 5,
             title: "Topic 5: Document Checklist & Uploads",
-            image: "{% static 'manual/document_checklist.png' %}?v=16",
+            image: "{% static 'manual/document_checklist.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#2563eb",
-                    title: "Record Actions (Edit / Export ZIP)",
+                    num: 1, color: "#2563eb",
+                    title: isStaff ? "Record Actions (Edit / Export ZIP)" : "Record Actions (Edit / Export / Trash)",
                     text: isStaff
-                        ? "Click Edit to update record details, or Export ZIP to download all uploaded document files."
+                        ? "Click Edit to update record details, or Export ZIP to download all uploaded documents."
                         : "Click Edit to update details, Export ZIP to download all documents, or Trash to archive the record.",
-                    box: { left: 75.7, top: 11.6, width: 16.5, height: 4.2, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
-                    bubble: { left: 45, top: 10, tail: "tail-right" }
+                    box: { left: 75.8, top: 12.3, width: 16.4, height: 3.6, radius: 10 }
                 },
                 {
-                    num: 2,
-                    color: "#0284c7",
-                    title: "Batch Upload PDFs",
-                    text: "Click 'Batch Upload' to attach multiple required PDF documents in a single upload.",
-                    box: { left: 83.5, top: 22.2, width: 6.3, height: 3.8, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
-                    bubble: { left: 52, top: 19, tail: "tail-right" }
+                    num: 2, color: "#0284c7",
+                    title: "Batch Upload",
+                    text: "Click 'Batch Upload' to attach several required PDF documents at once.",
+                    box: { left: 83.5, top: 22.3, width: 6.3, height: 4.4, radius: 10 }
                 },
                 {
-                    num: 3,
-                    color: "#059669",
-                    title: "Upload or Mark N/A per Requirement",
-                    text: "Each requirement has an 'Upload' button to attach its PDF file, or 'N/A' if not applicable for this record.",
-                    box: { left: 2.6, top: 27.5, width: 95.8, height: 45.0, radius: 10 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 36, top: 68, tail: "tail-up" }
+                    num: 3, color: "#059669",
+                    title: "Upload or Mark N/A",
+                    text: "Each requirement has an 'Upload' button for its PDF file, or 'N/A' if it does not apply to this record.",
+                    box: { left: 21.7, top: 28.4, width: 69.1, height: 39.3, radius: 14 }
                 }
             ]
         },
         6: {
             id: 6,
             title: "Topic 6: Barangay Workspaces",
-            image: "{% static 'manual/barangays_map.png' %}?v=16",
+            image: "{% static 'manual/barangays_map.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#0284c7",
-                    title: "Show Interactive GIS Map",
-                    text: "Click 'Show Map' to view the interactive GIS map with all barangay boundaries and pinned projects.",
-                    box: { left: 85.8, top: 16.5, width: 9.6, height: 5.2, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
-                    bubble: { left: 54, top: 12, tail: "tail-right" }
+                    num: 1, color: "#0284c7",
+                    title: "Show Map",
+                    text: "Click 'Show Map' to open the interactive GIS map with barangay boundaries and pinned projects.",
+                    box: { left: 85.5, top: 12.3, width: 6.6, height: 3.6, radius: 10 }
                 },
                 {
-                    num: 2,
-                    color: "#059669",
+                    num: 2, color: "#059669",
                     title: "Sort & Search Barangays",
-                    text: "Sort barangay folders alphabetically or by record count, or find a specific barangay using the search bar.",
-                    box: { left: 4.2, top: 23.0, width: 94.3, height: 6.2, radius: 8 },
-                    pinStyle: { left: "14px", top: "-10px" },
-                    bubble: { left: 36, top: 31, tail: "tail-up" }
+                    text: "Sort folders alphabetically or by most records, or type a barangay name in the search box.",
+                    box: { left: 21.7, top: 18.3, width: 70.4, height: 3.6, radius: 10 }
                 },
                 {
-                    num: 3,
-                    color: "#7c3aed",
-                    title: "Barangay Folders (Open >)",
-                    text: "Click 'Open >' on any barangay card to view all infrastructure projects and permits located in that barangay.",
-                    box: { left: 4.2, top: 31.0, width: 94.3, height: 42.0, radius: 10 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 36, top: 68, tail: "tail-up" }
+                    num: 3, color: "#7c3aed",
+                    title: "Barangay Folders",
+                    text: "Click 'Open' on any barangay card to view all projects and permits located in that barangay.",
+                    box: { left: 21.7, top: 23.1, width: 70.4, height: 25.1, radius: 14 }
                 }
             ]
         },
         7: {
             id: 7,
             title: "Topic 7: Records Management",
-            image: "{% static 'manual/records_list.png' %}?v=16",
+            image: "{% static 'manual/records_list.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#2563eb",
+                    num: 1, color: "#2563eb",
                     title: "Category Filter Tabs",
                     text: "Switch between All Types, Municipal, Barangay, and Permits to filter the records table.",
-                    box: { left: 2.6, top: 16.5, width: 33.0, height: 4.5, radius: 8 },
-                    pinStyle: { left: "12px", top: "-10px" },
-                    bubble: { left: 18, top: 23, tail: "tail-up" }
+                    box: { left: 17.4, top: 18.5, width: 24.4, height: 3.3, radius: 10 }
                 },
                 {
-                    num: 2,
-                    color: "#059669",
-                    title: "Smart Search Bar",
-                    text: "Type a project title, barangay, applicant name, or permit number to filter records immediately.",
-                    box: { left: 82.8, top: 16.5, width: 14.2, height: 4.5, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
-                    bubble: { left: 52, top: 14, tail: "tail-right" }
+                    num: 2, color: "#059669",
+                    title: "Search Bar",
+                    text: "Type a title, owner, permit number, or contractor to filter records instantly.",
+                    box: { left: 83.3, top: 18.3, width: 13.0, height: 3.6, radius: 20 }
                 },
                 {
-                    num: 3,
-                    color: "#7c3aed",
-                    title: "Records List & Row Actions (⋮)",
-                    text: "Monitor checklist upload progress or click the action menu (⋮) on any row to view, edit, or export documents.",
-                    box: { left: 2.6, top: 22.0, width: 94.8, height: 72.5, radius: 10 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 36, top: 68, tail: "tail-down" }
+                    num: 3, color: "#7c3aed",
+                    title: "Records Table & Row Actions",
+                    text: "Check each record's upload progress, or click the action menu on any row to view, edit, or export.",
+                    box: { left: 17.4, top: 23.3, width: 78.9, height: 75.5, radius: 14 }
                 }
             ]
         },
         8: {
             id: 8,
             title: "Topic 8: Illegal Constructions",
-            image: "{% static 'manual/illegal_constructions.png' %}?v=16",
+            image: "{% static 'manual/illegal_constructions.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#dc2626",
+                    num: 1, color: "#dc2626",
                     title: "Report Violation",
-                    text: "Click 'Report Violation' to record an unpermitted construction case with inspection details and site files.",
-                    box: { left: 88.5, top: 12.5, width: 7.6, height: 4.0, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
-                    bubble: { left: 56, top: 10, tail: "tail-right" }
+                    text: "Click 'Report Violation' to record an unpermitted construction case with its site files.",
+                    box: { left: 88.1, top: 12.3, width: 8.3, height: 3.6, radius: 10 }
                 },
                 {
-                    num: 2,
-                    color: "#0284c7",
-                    title: "Status Tabs & Search",
-                    text: "Filter violation cases by status tabs (All, Unresolved, Resolved) or locate cases by structure title and property owner.",
-                    box: { left: 2.6, top: 17.5, width: 94.4, height: 4.2, radius: 8 },
-                    pinStyle: { left: "14px", top: "-10px" },
-                    bubble: { left: 32, top: 24, tail: "tail-up" }
+                    num: 2, color: "#0284c7",
+                    title: "Status Tabs",
+                    text: "Filter cases by All, Unresolved, or Resolved status.",
+                    box: { left: 17.4, top: 17.7, width: 16.3, height: 3.4, radius: 10 }
                 },
                 {
-                    num: 3,
-                    color: "#f59e0b",
-                    title: "Violations Table & Actions (⋮)",
-                    text: "Click any violation row or the action menu (⋮) to inspect site photos, review evidence, or update resolution status.",
-                    box: { left: 2.6, top: 22.0, width: 94.8, height: 72.5, radius: 10 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 36, top: 68, tail: "tail-down" }
+                    num: 3, color: "#0891b2",
+                    title: "Search Cases",
+                    text: "Search by violation title, property owner, or barangay.",
+                    box: { left: 83.3, top: 17.5, width: 13.0, height: 3.6, radius: 20 }
+                },
+                {
+                    num: 4, color: "#f59e0b",
+                    title: "Violations Table & Actions",
+                    text: "Click any case or its action menu to inspect site files or update the resolution status.",
+                    box: { left: 17.4, top: 22.5, width: 78.9, height: 65.4, radius: 14 }
                 }
             ]
         },
         9: {
             id: 9,
             title: "Topic 9: Reports & Accomplishments",
-            image: "{% static 'manual/reports_analytics.png' %}?v=16",
+            image: "{% static 'manual/reports_analytics.png' %}" + V,
             items: [
                 {
-                    num: 1,
-                    color: "#059669",
+                    num: 1, color: "#059669",
                     title: "Export Excel & Export PDF",
-                    text: "Download the official Barangay Accomplishments report as an Excel spreadsheet or print-ready PDF.",
-                    box: { left: 78.1, top: 12.5, width: 18.8, height: 4.0, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
-                    bubble: { left: 46, top: 10, tail: "tail-right" }
+                    text: "Download the Barangay Accomplishments report as an Excel spreadsheet or a print-ready PDF.",
+                    box: { left: 78.0, top: 12.3, width: 14.1, height: 3.6, radius: 10 }
                 },
                 {
-                    num: 2,
-                    color: "#0284c7",
-                    title: "Search & Filter Sliders",
-                    text: "Search for a specific barangay or use the filter controls to refine the report by year and project category.",
-                    box: { left: 78.1, top: 17.0, width: 18.8, height: 4.0, radius: 8 },
-                    pinStyle: { right: "-6px", top: "-10px", left: "auto" },
-                    bubble: { left: 47, top: 15, tail: "tail-right" }
+                    num: 2, color: "#0284c7",
+                    title: "Search & Filter",
+                    text: "Search for a barangay, or click the filter icon to refine the report by year and category.",
+                    box: { left: 78.6, top: 17.5, width: 13.5, height: 3.6, radius: 20 }
                 },
                 {
-                    num: 3,
-                    color: "#7c3aed",
+                    num: 3, color: "#7c3aed",
                     title: "Barangay Accomplishments Table",
-                    text: "Summarizes municipal projects, barangay projects, permits, violations, and total allocated budgets per barangay.",
-                    box: { left: 2.6, top: 22.0, width: 94.8, height: 72.5, radius: 10 },
-                    pinStyle: { left: "16px", top: "-10px" },
-                    bubble: { left: 36, top: 68, tail: "tail-down" }
+                    text: "Summarizes municipal projects, barangay projects, permits, violations, and total project cost per barangay.",
+                    box: { left: 21.7, top: 22.7, width: 70.4, height: 64.3, radius: 14 }
                 }
             ]
         }
+    };
+}
+
+// Small outset so the highlight frames the element instead of sitting on its edge.
+function paddedBox(box) {
+    const padX = 0.35, padY = 0.65;
+    const left = Math.max(0, box.left - padX);
+    const top = Math.max(0, box.top - padY);
+    const right = Math.min(100, box.left + box.width + padX);
+    const bottom = Math.min(100, box.top + box.height + padY);
+    return { left, top, width: right - left, height: bottom - top, radius: box.radius == null ? 8 : box.radius };
+}
+
+// Auto-place the callout beside the highlighted box (right, left, below, above),
+// never on top of it. Returns pixel position + tail side/offset.
+function computeBubblePlacement(box, vpW, vpH, bW, bH) {
+    const gap = 14, m = 10;
+    const bx = box.left / 100 * vpW, by = box.top / 100 * vpH;
+    const bw = box.width / 100 * vpW, bh = box.height / 100 * vpH;
+    const cx = bx + bw / 2, cy = by + bh / 2;
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+    const vy = clamp(cy - 24, m, vpH - bH - m);
+    const hx = clamp(cx - 30, m, vpW - bW - m);
+    const cands = [
+        { side: 'right', fits: bx + bw + gap + bW <= vpW - m, x: bx + bw + gap, y: vy, tail: 'tail-left' },
+        { side: 'left', fits: bx - gap - bW >= m, x: bx - gap - bW, y: vy, tail: 'tail-right' },
+        { side: 'below', fits: by + bh + gap + bH <= vpH - m, x: hx, y: by + bh + gap, tail: 'tail-up' },
+        { side: 'above', fits: by - gap - bH >= m, x: hx, y: by - gap - bH, tail: 'tail-down' }
+    ];
+    // Wide targets read better with the bubble under/over them.
+    if (bw > vpW * 0.5) cands.push(cands.shift(), cands.shift());
+    const pick = cands.find(c => c.fits);
+    if (pick) {
+        const tailOffset = (pick.tail === 'tail-left' || pick.tail === 'tail-right')
+            ? clamp(cy - pick.y - 8, 10, bH - 26)
+            : clamp(cx - pick.x - 8, 14, bW - 30);
+        return { x: pick.x, y: pick.y, tail: pick.tail, tailOffset };
+    }
+    // Target fills the screen: float inside its lower-left corner without a tail.
+    return {
+        x: clamp(bx + 18, m, vpW - bW - m),
+        y: clamp(Math.min(by + bh, vpH) - bH - 18, m, vpH - bH - m),
+        tail: 'none', tailOffset: 0
     };
 }
 
@@ -1639,12 +1608,13 @@ function updateSpotlight(idx, instant = false) {
     const mod = TUTORIAL_DIAGRAMS[currentTopicId];
     if (!mod || !mod.items || !mod.items[idx]) return;
     const item = mod.items[idx];
+    const pb = paddedBox(item.box);
     const target = {
-        x: item.box.left / 100,
-        y: item.box.top / 100,
-        w: item.box.width / 100,
-        h: item.box.height / 100,
-        rx: (item.box.radius || 8) * 0.001
+        x: pb.left / 100,
+        y: pb.top / 100,
+        w: pb.width / 100,
+        h: pb.height / 100,
+        rx: (pb.radius || 8) * 0.001
     };
     if (instant) {
         if (_spotlightAnim) cancelAnimationFrame(_spotlightAnim);
@@ -1683,11 +1653,12 @@ function renderDiagramOverlays() {
         const targetBox = document.createElement('div');
         targetBox.className = `diagram-target-box ${isCurrentFocus ? 'active' : ''}`;
         targetBox.id = `target-box-${idx}`;
-        targetBox.style.left = `${item.box.left}%`;
-        targetBox.style.top = `${item.box.top}%`;
-        targetBox.style.width = `${item.box.width}%`;
-        targetBox.style.height = `${item.box.height}%`;
-        targetBox.style.borderRadius = `${item.box.radius || 8}px`;
+        const pb = paddedBox(item.box);
+        targetBox.style.left = `${pb.left}%`;
+        targetBox.style.top = `${pb.top}%`;
+        targetBox.style.width = `${pb.width}%`;
+        targetBox.style.height = `${pb.height}%`;
+        targetBox.style.borderRadius = `${pb.radius}px`;
         targetBox.style.setProperty('--item-color', item.color);
         targetBox.style.color = item.color;
         targetBox.title = `Click to inspect: ${item.title}`;
@@ -1786,24 +1757,24 @@ function focusItem(idx, instant = false) {
 
     if (bubble) {
         const vp = document.getElementById('screenViewport');
-        let finalLeftPct = item.bubble.left;
-        let finalTopPct = item.bubble.top;
+        // Fill in text first so the measured bubble height is accurate.
+        const titleEl0 = document.getElementById('calloutTitle');
+        if (titleEl0) titleEl0.innerText = item.title;
+        const textEl0 = document.getElementById('calloutText');
+        if (textEl0) textEl0.innerText = item.text;
+
+        let finalLeftPct = 2, finalTopPct = 2, tailSide = 'none', tailOffset = 0;
         if (vp && window.innerWidth >= 768) {
             const vpW = vp.clientWidth;
             const vpH = vp.clientHeight;
             const bW = bubble.offsetWidth || 275;
             const bH = bubble.offsetHeight || 135;
             if (vpW > 0 && vpH > 0) {
-                const targetX = (item.bubble.left / 100) * vpW;
-                const targetY = (item.bubble.top / 100) * vpH;
-                const minX = 14;
-                const maxX = Math.max(14, vpW - bW - 14);
-                const clampedX = Math.min(Math.max(targetX, minX), maxX);
-                const minY = 10;
-                const maxY = Math.max(10, vpH - bH - 10);
-                const clampedY = Math.min(Math.max(targetY, minY), maxY);
-                finalLeftPct = (clampedX / vpW) * 100;
-                finalTopPct = (clampedY / vpH) * 100;
+                const p = computeBubblePlacement(paddedBox(item.box), vpW, vpH, bW, bH);
+                finalLeftPct = (p.x / vpW) * 100;
+                finalTopPct = (p.y / vpH) * 100;
+                tailSide = p.tail;
+                tailOffset = p.tailOffset;
             }
         }
 
@@ -1822,15 +1793,25 @@ function focusItem(idx, instant = false) {
         }
 
         if (tail) {
-            tail.className = `callout-tail ${item.bubble.tail}`;
             tail.style.borderTopColor = '';
             tail.style.borderBottomColor = '';
             tail.style.borderLeftColor = '';
             tail.style.borderRightColor = '';
-            if (item.bubble.tail === 'tail-up') tail.style.borderBottomColor = item.color;
-            else if (item.bubble.tail === 'tail-down') tail.style.borderTopColor = item.color;
-            else if (item.bubble.tail === 'tail-left') tail.style.borderRightColor = item.color;
-            else if (item.bubble.tail === 'tail-right') tail.style.borderLeftColor = item.color;
+            tail.style.top = '';
+            tail.style.left = '';
+            if (tailSide === 'none') {
+                tail.className = 'callout-tail';
+                tail.style.display = 'none';
+            } else {
+                tail.className = `callout-tail ${tailSide}`;
+                tail.style.display = '';
+                if (tailSide === 'tail-up' || tailSide === 'tail-down') tail.style.left = `${tailOffset}px`;
+                else tail.style.top = `${tailOffset}px`;
+                if (tailSide === 'tail-up') tail.style.borderBottomColor = item.color;
+                else if (tailSide === 'tail-down') tail.style.borderTopColor = item.color;
+                else if (tailSide === 'tail-left') tail.style.borderRightColor = item.color;
+                else if (tailSide === 'tail-right') tail.style.borderLeftColor = item.color;
+            }
         }
 
         const badge = document.getElementById('calloutBadge');
