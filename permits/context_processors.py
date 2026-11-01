@@ -174,6 +174,20 @@ def recent_notifications(request):
                 'performed_at': tr.deleted_at,
             })
 
+    # Sample notification so the user can test the notification layout, height, and three-dots menu
+    if not alerts:
+        alerts.append({
+            'id': 'sample_notif_project',
+            'type': 'record',
+            'action': 'New Municipal Project: Concreting of Barangay Access Road (Phase II)',
+            'url': reverse('records_browse'),
+            'badge': 'Project',
+            'time': 'Just now',
+            'user': None,
+            'username': None,
+            'performed_at': timezone.now(),
+        })
+
 
 
     # Fetch read/deleted notification IDs from database for cross-device sync
