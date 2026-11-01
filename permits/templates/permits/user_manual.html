@@ -822,6 +822,19 @@ body.dark-mode .callout-title,
     border-color: transparent transparent transparent #ffffff;
 }
 
+.mobile-callout-section {
+    display: none;
+    width: 100%;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+}
+
+[data-bs-theme="dark"] .mobile-callout-section,
+.dark-mode .mobile-callout-section {
+    background: #1e293b;
+    border-color: #334155;
+}
+
 /* Responsive adjustment for Mobile */
 @media (max-width: 767px) {
     .manual-top-bar {
@@ -834,6 +847,35 @@ body.dark-mode .callout-title,
         -webkit-overflow-scrolling: touch;
         padding-bottom: 2px;
         width: 100%;
+    }
+    .mobile-callout-section {
+        display: block !important;
+    }
+    .mobile-callout-section .diagram-callout-bubble {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+        transform: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        border-top: 3px solid var(--item-color, #0284c7) !important;
+        box-shadow: none !important;
+        padding: 12px 14px 10px 14px !important;
+        margin: 0 !important;
+        background: #ffffff !important;
+    }
+    [data-bs-theme="dark"] .mobile-callout-section .diagram-callout-bubble,
+    .dark-mode .mobile-callout-section .diagram-callout-bubble {
+        background: #1e293b !important;
+    }
+    .mobile-callout-section .callout-tail {
+        display: none !important;
     }
     .diagram-callout-bubble {
         width: calc(100% - 24px) !important;
@@ -848,6 +890,62 @@ body.dark-mode .callout-title,
     .viewport-hover-pause-pill {
         font-size: 0.68rem;
         padding: 4px 10px;
+    }
+    /* Mobile Touch Targets & iOS Safari Zoom Prevention */
+    .dock-arrow-btn {
+        min-width: 44px !important;
+        min-height: 44px !important;
+        height: 44px !important;
+        font-size: 14px !important;
+    }
+    .dock-topic-select {
+        min-height: 44px !important;
+        height: 44px !important;
+        line-height: 44px !important;
+        font-size: 16px !important;
+        padding-left: 12px !important;
+        padding-right: 32px !important;
+    }
+    .dock-next-btn {
+        min-height: 44px !important;
+        height: 44px !important;
+        padding: 0 16px !important;
+        font-size: 0.90rem !important;
+    }
+    .callout-nav-btn {
+        min-height: 42px !important;
+        padding: 0 16px !important;
+        font-size: 0.85rem !important;
+        border-radius: 9999px !important;
+    }
+    .callout-title {
+        font-size: 0.96rem !important;
+        line-height: 1.3 !important;
+    }
+    .callout-text {
+        font-size: 0.84rem !important;
+        line-height: 1.5 !important;
+        margin-bottom: 10px !important;
+    }
+    .callout-badge {
+        width: 24px !important;
+        height: 24px !important;
+        font-size: 0.76rem !important;
+    }
+    .video-ctrl-btn {
+        min-height: 38px !important;
+        height: 38px !important;
+        padding: 0 12px !important;
+        font-size: 0.78rem !important;
+    }
+    .tour-play-btn {
+        min-height: 34px !important;
+        padding: 0 12px !important;
+        font-size: 0.78rem !important;
+    }
+    .video-scrubber-segments {
+        min-height: 28px !important;
+        padding: 6px 0 !important;
     }
 }
 
@@ -1097,6 +1195,9 @@ body.dark-mode .callout-title,
                 </div>
             </div>
         </div>
+
+        <!-- Mobile Dedicated Callout Card Section (visible on phones < 768px) -->
+        <div class="mobile-callout-section" id="mobileCalloutSection"></div>
 
         <!-- Interactive Video Scrubber & Playback Bar -->
         <div class="video-player-footer">
@@ -1700,6 +1801,23 @@ function renderDiagramOverlays() {
     });
 }
 
+function updateBubblePlacementMode() {
+    const bubble = document.getElementById('unifiedCalloutBubble');
+    const mobileSection = document.getElementById('mobileCalloutSection');
+    const overlayLayer = document.getElementById('diagramOverlayLayer');
+    if (!bubble || !mobileSection || !overlayLayer) return;
+
+    if (window.innerWidth < 768) {
+        if (bubble.parentElement !== mobileSection) {
+            mobileSection.appendChild(bubble);
+        }
+    } else {
+        if (bubble.parentElement !== overlayLayer) {
+            overlayLayer.appendChild(bubble);
+        }
+    }
+}
+
 function focusItem(idx, instant = false) {
     currentFocusIndex = idx;
     const mod = TUTORIAL_DIAGRAMS[currentTopicId];
@@ -1748,6 +1866,8 @@ function focusItem(idx, instant = false) {
     // Sync segmented scrubber
     syncSegmentedScrubberState(0);
 
+    updateBubblePlacementMode();
+
     // 2. Smoothly glide the unified bubble and update contents without any blink
     const bubble = document.getElementById('unifiedCalloutBubble');
     const tail = document.getElementById('unifiedCalloutTail');
@@ -1781,12 +1901,14 @@ function focusItem(idx, instant = false) {
             bubble.style.left = `${finalLeftPct}%`;
             bubble.style.top = `${finalTopPct}%`;
             bubble.style.borderColor = item.color;
+            bubble.style.setProperty('--item-color', item.color);
             void bubble.offsetHeight;
             bubble.style.transition = origTrans;
         } else {
             bubble.style.left = `${finalLeftPct}%`;
             bubble.style.top = `${finalTopPct}%`;
             bubble.style.borderColor = item.color;
+            bubble.style.setProperty('--item-color', item.color);
         }
 
         if (tail) {
