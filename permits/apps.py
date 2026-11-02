@@ -40,7 +40,7 @@ class PermitsConfig(AppConfig):
 
         def scheduler_loop():
             # Grace period after server startup
-            time.sleep(8)
+            time.sleep(10)
             while True:
                 try:
                     from django.db import connection
@@ -51,18 +51,23 @@ class PermitsConfig(AppConfig):
                     from permits.models import AuditLog
                     from django.db.models import Q
 
-                    now = timezone.now()
-                    local_now = timezone.localtime(now)
+                    local_now = timezone.localtime(timezone.now())
                     today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-                    # Check if a backup was completed today
+                    # Scheduled window: Daily between 12:00 AM and 12:30 AM midnight (Asia/Manila)
+                    is_midnight_window = (local_now.hour == 0 and local_now.minute < 30)
+
+                    # Check if an automated or full backup was already logged today
                     ran_today = AuditLog.objects.filter(
                         Q(action__icontains='Automated System Backup') | Q(action__icontains='Exported full database backup')
                     ).filter(performed_at__gte=today_start).exists()
 
-                    if not ran_today:
+                    if is_midnight_window and not ran_today:
                         execute_automated_backup(skip_if_already_backed_up_today=False)
-                        sync_all_local_files_to_supabase()
+                        try:
+                            sync_all_local_files_to_supabase()
+                        except Exception:
+                            pass
                 except Exception:
                     pass
                 finally:
@@ -72,8 +77,8 @@ class PermitsConfig(AppConfig):
                     except Exception:
                         pass
 
-                # Check every 15 minutes for midnight transition or missed backup
-                time.sleep(900)
+                # Poll every 60 seconds to accurately hit the 12:00 AM midnight window without drift
+                time.sleep(60)
 
         t = threading.Thread(target=scheduler_loop, daemon=True, name="eTala-AutoBackupScheduler")
         t.start()
