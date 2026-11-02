@@ -9917,6 +9917,11 @@
                                             <i class="fa-solid fa-check-double" style="font-size: 11px;"></i>
                                             <span>Mark all as read</span>
                                         </a>
+                                        <button type="button" id="refreshNotifsBtn" onclick="window.fetchLatestNotifications({ manual: true, btn: this });"
+                                            title="Refresh notifications" aria-label="Refresh notifications"
+                                            style="background: transparent; border: none; padding: 3px 6px; border-radius: 6px; color: #64748b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; transition: all 0.15s ease;">
+                                            <i class="fa-solid fa-arrows-rotate" style="font-size: 11px;"></i>
+                                        </button>
                                         <button type="button" class="btn-close"
                                             onclick="window.closeAllHeaderDropdowns();"
                                             aria-label="Close"
@@ -12040,49 +12045,12 @@
             return match ? match.split('=')[1] : '';
         }
 
-        /* ══ NOTIFICATION UNREAD / ITEM READ / DISMISS ENGINE ══ */
-        function markItemAsRead(element, url) {
-            if (!element) return;
-            const id = element.getAttribute('data-notification-id');
-            if (id) {
-                let readList = getReadNotifs();
-                if (!readList.includes(id)) {
-                    readList.push(id);
-                    setReadNotifs(readList);
-                }
-                syncNotifToServer('mark_read', id);
-            }
-
-            element.classList.remove('is-unread-item');
-            updateNotificationBadges();
-
-            if (url && url !== '#' && url !== 'javascript:void(0)') {
-                // Auto-close notification dropdown menu cleanly
-                const bellBtn = document.getElementById('notificationBellBtn');
-                if (bellBtn && window.bootstrap && bootstrap.Dropdown) {
-                    try {
-                        const bsDropdown = bootstrap.Dropdown.getInstance(bellBtn);
-                        if (bsDropdown) bsDropdown.hide();
-                    } catch (e) {}
-                }
-
-                // Send beacon fallback for reliable instant persistence before page navigation
-                try {
-                    if (id && navigator.sendBeacon) {
-                        var beaconToken = getNotificationCsrfToken();
-                        var blob = new Blob([JSON.stringify({ action_type: 'mark_read', notification_id: id })], { type: 'application/json' });
-                        navigator.sendBeacon('/notifications/action/', blob);
-                    }
-                } catch(e) {}
-
-                window.location.href = url;
-            }
-        }
-
+        /* ══ NOTIFICATION UNREAD / ITEM READ / LIVE REFRESH ENGINE ══ */
         function getNotifStorageKeys() {
             const userId = '{{ request.user.id|default:"guest" }}';
             return {
                 readKey: 'etala_read_notifs_' + userId,
+                unreadKey: 'etala_unread_notifs_' + userId,
                 deletedKey: 'etala_deleted_notifs_' + userId
             };
         }
@@ -12098,6 +12066,20 @@
             try {
                 localStorage.setItem(readKey, JSON.stringify(list));
                 localStorage.setItem('etala_read_notifs', JSON.stringify(list));
+            } catch(e) {}
+        }
+        function getUnreadNotifs() {
+            const { unreadKey } = getNotifStorageKeys();
+            try {
+                const val = localStorage.getItem(unreadKey) || localStorage.getItem('etala_unread_notifs');
+                return val ? JSON.parse(val) : [];
+            } catch(e) { return []; }
+        }
+        function setUnreadNotifs(list) {
+            const { unreadKey } = getNotifStorageKeys();
+            try {
+                localStorage.setItem(unreadKey, JSON.stringify(list));
+                localStorage.setItem('etala_unread_notifs', JSON.stringify(list));
             } catch(e) {}
         }
         function getDeletedNotifs() {
@@ -12130,8 +12112,70 @@
                         notification_id: notifId || '',
                         notification_ids: notifIds || []
                     })
+                }).then(res => res.json()).then(data => {
+                    if (data && typeof data.notifications_count === 'number') {
+                        // Keep bell badge aligned with server if no explicit unread overrides
+                        const unreadList = getUnreadNotifs();
+                        if (unreadList.length === 0) {
+                            const bellBadge = document.getElementById('notificationBadge');
+                            if (bellBadge) {
+                                if (data.notifications_count > 0) {
+                                    bellBadge.textContent = data.notifications_count > 99 ? '99+' : data.notifications_count;
+                                    bellBadge.classList.remove('d-none');
+                                    bellBadge.style.display = 'inline-flex';
+                                } else {
+                                    bellBadge.classList.add('d-none');
+                                    bellBadge.style.display = 'none';
+                                }
+                            }
+                        }
+                    }
                 }).catch(() => {});
             } catch(e) {}
+        }
+
+        function markItemAsRead(element, url) {
+            if (!element) return;
+            const id = element.getAttribute('data-notification-id');
+            if (id) {
+                let readList = getReadNotifs();
+                let unreadList = getUnreadNotifs();
+                if (!readList.includes(id)) {
+                    readList.push(id);
+                    setReadNotifs(readList);
+                }
+                if (unreadList.includes(id)) {
+                    unreadList = unreadList.filter(x => x !== id);
+                    setUnreadNotifs(unreadList);
+                }
+                syncNotifToServer('mark_read', id);
+            }
+
+            element.setAttribute('data-server-read', 'true');
+            element.classList.remove('is-unread-item');
+            updateNotificationBadges();
+
+            if (url && url !== '#' && url !== 'javascript:void(0)') {
+                // Auto-close notification dropdown menu cleanly
+                const bellBtn = document.getElementById('notificationBellBtn');
+                if (bellBtn && window.bootstrap && bootstrap.Dropdown) {
+                    try {
+                        const bsDropdown = bootstrap.Dropdown.getInstance(bellBtn);
+                        if (bsDropdown) bsDropdown.hide();
+                    } catch (e) {}
+                }
+
+                // Send beacon fallback for reliable instant persistence before page navigation
+                try {
+                    if (id && navigator.sendBeacon) {
+                        var beaconToken = getNotificationCsrfToken();
+                        var blob = new Blob([JSON.stringify({ action_type: 'mark_read', notification_id: id })], { type: 'application/json' });
+                        navigator.sendBeacon('/notifications/action/', blob);
+                    }
+                } catch(e) {}
+
+                window.location.href = url;
+            }
         }
 
         window.toggleNotifMenu = function(btn, event) {
@@ -12159,17 +12203,14 @@
                 const item = targetBtn.closest('.notification-item');
                 const container = document.getElementById('notificationListContainer');
 
-                // Intelligent position adaptation
                 if (item && container) {
                     const allItems = Array.from(container.querySelectorAll('.notification-item:not([style*="display: none"])'));
                     const itemIndex = allItems.indexOf(item);
                     const totalItems = allItems.length;
 
                     if (itemIndex === 0) {
-                        // Unang item (pinakataas): simulan sa itaas ng row pababa
                         popover.classList.add('popover-align-top');
                     } else if (itemIndex === totalItems - 1 && totalItems > 1) {
-                        // Huling item (pinakababa): simulan sa ibaba ng row pataas
                         popover.classList.add('popover-align-bottom');
                     }
                 }
@@ -12202,18 +12243,27 @@
             if (!id) return;
 
             let readList = getReadNotifs();
-            const isRead = readList.includes(id);
-            if (isRead) {
-                // Mark as unread
+            let unreadList = getUnreadNotifs();
+
+            const isCurrentlyRead = !item.classList.contains('is-unread-item');
+            if (isCurrentlyRead) {
+                // User wants to mark as UNREAD
                 readList = readList.filter(itemX => itemX !== id);
+                if (!unreadList.includes(id)) unreadList.push(id);
+                item.setAttribute('data-server-read', 'false');
+                item.classList.add('is-unread-item');
                 syncNotifToServer('mark_unread', id);
             } else {
-                // Mark as read
-                readList.push(id);
+                // User wants to mark as READ
+                if (!readList.includes(id)) readList.push(id);
+                unreadList = unreadList.filter(itemX => itemX !== id);
+                item.setAttribute('data-server-read', 'true');
+                item.classList.remove('is-unread-item');
                 syncNotifToServer('mark_read', id);
             }
 
             setReadNotifs(readList);
+            setUnreadNotifs(unreadList);
             updateNotificationBadges();
         };
 
@@ -12232,11 +12282,15 @@
 
             let deletedList = getDeletedNotifs();
             let readList = getReadNotifs();
+            let unreadList = getUnreadNotifs();
 
             if (!deletedList.includes(id)) {
                 deletedList.push(id);
                 setDeletedNotifs(deletedList);
             }
+            unreadList = unreadList.filter(x => x !== id);
+            setUnreadNotifs(unreadList);
+
             syncNotifToServer('delete', id);
 
             if (!readList.includes(id)) {
@@ -12245,7 +12299,6 @@
             }
 
             if (item) {
-                // Smooth collapse and fade-out animation
                 item.style.transition = 'all 0.24s cubic-bezier(0.4, 0, 0.2, 1)';
                 item.style.opacity = '0';
                 item.style.transform = 'translateX(24px)';
@@ -12266,6 +12319,7 @@
 
         window.updateNotificationBadges = function() {
             const readList = getReadNotifs();
+            const unreadList = getUnreadNotifs();
             const deletedList = getDeletedNotifs();
             const listContainer = document.getElementById('notificationListContainer');
 
@@ -12286,9 +12340,10 @@
 
                 visibleCount++;
                 const toggleReadBtn = el.querySelector('.notif-item-toggle-read');
+                const isExplicitUnread = id && unreadList.includes(id);
                 const isServerRead = el.getAttribute('data-server-read') === 'true';
                 const isLocalRead = id && readList.includes(id);
-                const isRead = isServerRead || isLocalRead;
+                const isRead = !isExplicitUnread && (isServerRead || isLocalRead);
 
                 if (isRead) {
                     if (id && !readList.includes(id)) {
@@ -12397,14 +12452,16 @@
 
             const items = document.querySelectorAll('.notification-item');
             let readList = getReadNotifs();
+            setUnreadNotifs([]); // clear unread list
             const allIds = [];
-            
+
             items.forEach(el => {
                 const id = el.getAttribute('data-notification-id');
                 if (id) {
                     allIds.push(id);
                     if (!readList.includes(id)) readList.push(id);
                 }
+                el.setAttribute('data-server-read', 'true');
                 el.classList.remove('is-unread-item');
             });
 
@@ -12434,11 +12491,179 @@
                     updateNotificationBadges();
                 }
             }, 250);
+        };
+
+        /* ══ LIVE REAL-TIME NOTIFICATIONS SYNC (ZERO PAGE REFRESH REQUIRED) ══ */
+        function _escapeHtmlNotif(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
         }
+
+        function _getNotifIconMarkup(n) {
+            const action = n.action || '';
+            const type = n.type || '';
+            let wrapperClass = 'notif-default';
+            let iconHtml = '<i class="fa-solid fa-bell" style="font-size: 14px;"></i>';
+
+            if (type === 'security') {
+                wrapperClass = 'notif-security';
+                iconHtml = '<i class="fa-solid fa-shield-halved" style="font-size: 14px; font-weight: 900;"></i>';
+            } else if (type === 'trash_warning') {
+                wrapperClass = 'notif-trash';
+                iconHtml = '<i class="fa-solid fa-trash-can" style="font-size: 13px;"></i>';
+            } else if (/violation/i.test(action)) {
+                wrapperClass = 'notif-violation';
+                iconHtml = '<i class="fa-solid fa-triangle-exclamation" style="font-size: 14px;"></i>';
+            } else if (action.includes('FSIC')) {
+                wrapperClass = 'notif-fsic';
+                iconHtml = '<i class="fa-solid fa-file-invoice" style="font-size: 14px;"></i>';
+            } else if (action.includes('Electrical')) {
+                wrapperClass = 'notif-electrical';
+                iconHtml = '<i class="fa-solid fa-file-lines" style="font-size: 14px;"></i>';
+            } else if (action.includes('Other') || action.includes('Record') || type === 'record') {
+                wrapperClass = 'notif-record';
+                iconHtml = '<i class="fa-solid fa-folder" style="font-size: 14px;"></i>';
+            }
+            return `<div class="notification-icon-wrapper flex-shrink-0 align-self-start mt-0.5 ${wrapperClass}">${iconHtml}</div>`;
+        }
+
+        window.fetchLatestNotifications = function(options) {
+            options = options || {};
+            const refreshBtn = options.btn || document.getElementById('refreshNotifsBtn');
+            const refreshIcon = refreshBtn ? refreshBtn.querySelector('i') : null;
+            if (options.manual && refreshIcon) {
+                refreshIcon.classList.add('fa-spin');
+            }
+
+            fetch('/notifications/action/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data || !data.success) return;
+                const container = document.getElementById('notificationListContainer');
+                if (!container) return;
+
+                const notifs = data.recent_notifications || [];
+                const deletedList = getDeletedNotifs();
+                const readList = getReadNotifs();
+                const unreadList = getUnreadNotifs();
+
+                // Build mapping of existing items by data-notification-id
+                const existingMap = {};
+                container.querySelectorAll('.notification-item').forEach(el => {
+                    const id = el.getAttribute('data-notification-id');
+                    if (id) existingMap[id] = el;
+                });
+
+                // Reconcile items
+                notifs.forEach(n => {
+                    const nid = String(n.id || '');
+                    if (!nid || deletedList.includes(nid)) return;
+
+                    let isRead = n.is_read;
+                    if (unreadList.includes(nid)) {
+                        isRead = false;
+                    } else if (readList.includes(nid)) {
+                        isRead = true;
+                    }
+
+                    if (existingMap[nid]) {
+                        // Update existing item attributes without destroying user focus
+                        const el = existingMap[nid];
+                        el.setAttribute('data-server-read', isRead ? 'true' : 'false');
+                        if (isRead) {
+                            el.classList.remove('is-unread-item');
+                        } else {
+                            el.classList.add('is-unread-item');
+                        }
+                    } else {
+                        // Create brand new incoming notification element
+                        const el = document.createElement('div');
+                        el.className = `px-3 py-2.5 border-bottom notification-item d-flex align-items-start gap-2.5 position-relative ${isRead ? '' : 'is-unread-item'}`;
+                        el.style.cssText = 'cursor:pointer; transition: all 0.22s ease;';
+                        el.setAttribute('onclick', `markItemAsRead(this, '${_escapeHtmlNotif(n.url)}')`);
+                        el.setAttribute('data-notification-id', nid);
+                        el.setAttribute('data-server-read', isRead ? 'true' : 'false');
+                        el.innerHTML = `
+                            ${_getNotifIconMarkup(n)}
+                            <div class="notification-content-wrapper min-w-0 flex-grow-1">
+                                <div class="fw-bold notification-item-title" title="${_escapeHtmlNotif(n.action)}">
+                                    ${_escapeHtmlNotif(n.action)}
+                                </div>
+                                <div class="notification-subtext text-muted" title="${_escapeHtmlNotif(n.time || '')}">
+                                    ${_escapeHtmlNotif(n.time || '')}
+                                </div>
+                            </div>
+                            <div class="notif-menu-wrapper ms-auto flex-shrink-0 align-self-start mt-0.5" onclick="event.stopPropagation();">
+                                <button class="notif-item-action-btn" type="button" onclick="toggleNotifMenu(this, event);" title="Options">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="notif-custom-popover-menu shadow-lg">
+                                    <button type="button" class="notif-popover-item notif-item-toggle-read" onclick="toggleItemReadState(this, event);">
+                                        ${isRead 
+                                            ? '<i class="fa-regular fa-envelope text-primary" style="width: 14px;"></i> <span>Mark as unread</span>' 
+                                            : '<i class="fa-solid fa-check text-primary" style="width: 14px;"></i> <span>Mark as read</span>'}
+                                    </button>
+                                    <button type="button" class="notif-popover-item notif-popover-item-danger" onclick="deleteNotification(this, event, '${_escapeHtmlNotif(nid)}');">
+                                        <i class="fa-solid fa-trash-can" style="width: 14px;"></i>
+                                        <span>Delete notification</span>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        const emptyState = document.getElementById('noNotificationsEmptyState');
+                        if (emptyState) {
+                            container.insertBefore(el, emptyState);
+                        } else {
+                            container.appendChild(el);
+                        }
+                    }
+                });
+
+                updateNotificationBadges();
+            })
+            .catch(() => {})
+            .finally(() => {
+                if (refreshIcon) {
+                    setTimeout(() => { refreshIcon.classList.remove('fa-spin'); }, 350);
+                }
+            });
+        };
 
         // Run immediately & on DOMContentLoaded to guarantee persistent badge count and read/unread states on refresh
         updateNotificationBadges();
-        document.addEventListener('DOMContentLoaded', updateNotificationBadges);
+        document.addEventListener('DOMContentLoaded', function() {
+            updateNotificationBadges();
+
+            // Background polling: check every 45s for incoming notifications without page refresh
+            setInterval(function() {
+                if (!document.hidden) {
+                    window.fetchLatestNotifications({ silent: true });
+                }
+            }, 45000);
+
+            // Fetch live updates when tab regains focus
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    window.fetchLatestNotifications({ silent: true });
+                }
+            });
+
+            // Fetch live updates when user taps the notification bell
+            const bellBtn = document.getElementById('notificationBellBtn');
+            if (bellBtn) {
+                bellBtn.addEventListener('show.bs.dropdown', function() {
+                    window.fetchLatestNotifications({ silent: true });
+                });
+            }
+        });
         window.addEventListener('load', updateNotificationBadges);
 
         // ── Universal Viewport Modal & Backdrop Manager ──

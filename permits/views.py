@@ -8695,13 +8695,35 @@ def bad_request(request, exception=None):
 # ─── NOTIFICATION ACTIONS API (CROSS-DEVICE SYNC) ──────────────────────────────
 
 @login_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def notification_sync_action_view(request):
     """
     Synchronizes notification actions (mark_read, mark_unread, delete, mark_all_read)
-    to the database so notification states persist across all devices.
+    and delivers live notification feeds via JSON without requiring page refreshes.
     """
     try:
+        from .context_processors import recent_notifications
+
+        if request.method == "GET":
+            data = recent_notifications(request)
+            notifs = []
+            for n in data.get('recent_notifications', []):
+                notifs.append({
+                    'id': n.get('id', ''),
+                    'type': n.get('type', 'default'),
+                    'action': n.get('action', ''),
+                    'url': n.get('url', '#'),
+                    'badge': n.get('badge', ''),
+                    'time': n.get('time', ''),
+                    'is_read': bool(n.get('is_read', False)),
+                })
+            return JsonResponse({
+                'success': True,
+                'notifications_count': data.get('notifications_count', 0),
+                'recent_notifications': notifs,
+                'has_urgent_alerts': data.get('has_urgent_alerts', False),
+            })
+
         import json
         if request.body:
             try:
@@ -8728,29 +8750,29 @@ def notification_sync_action_view(request):
                 AuditLog.objects.create(user=request.user, action=f"NOTIF_DELETED:{notif_id}")
             AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{notif_id}").delete()
         elif action_type == 'mark_all_read':
-            marked_any = False
             if isinstance(notif_ids, list) and len(notif_ids) > 0:
                 for nid in notif_ids:
                     nid_str = str(nid).strip()
                     if nid_str and not AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{nid_str}").exists():
                         AuditLog.objects.create(user=request.user, action=f"NOTIF_READ:{nid_str}")
-                        marked_any = True
             
             # Also capture all active system notifications dynamically
-            from .context_processors import recent_notifications
             current_payload = recent_notifications(request)
             for item in current_payload.get('recent_notifications', []):
                 item_id = str(item.get('id', '')).strip()
                 if item_id and not AuditLog.objects.filter(user=request.user, action=f"NOTIF_READ:{item_id}").exists():
                     AuditLog.objects.create(user=request.user, action=f"NOTIF_READ:{item_id}")
-                    marked_any = True
 
         # Invalidate user notification cache across all versions
         cache_key = f"recent_notifications_{request.user.pk}_{request.user.role}_v2"
         cache.delete(cache_key)
         cache.delete(f"recent_notifications_{request.user.pk}_{request.user.role}")
 
-        return JsonResponse({'success': True})
+        updated_data = recent_notifications(request)
+        return JsonResponse({
+            'success': True,
+            'notifications_count': updated_data.get('notifications_count', 0),
+        })
     except Exception as e:
         logger.error(f"notification_sync_action_view error: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
