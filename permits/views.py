@@ -8924,3 +8924,31 @@ def toast_preview_view(request):
     """Interactive preview dashboard to test and see all 1-line standardized toast notifications."""
     return render(request, 'permits/toast_preview.html')
 
+
+def seed_demo_online_view(request):
+    """
+    Direct endpoint to trigger demo data seeding on the live online server.
+    Protected with admin or secret token.
+    """
+    key = request.GET.get('key', '')
+    # Allow if logged in admin or if valid secret token passed
+    is_authorized = (request.user.is_authenticated and (request.user.is_superuser or request.user.role == 'admin'))
+    if key == 'etala_demo_2026' or key == settings.SECRET_KEY:
+        is_authorized = True
+
+    if not is_authorized:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    try:
+        from permits.management.commands.seed_demo_records import seed_all_demo_data
+        results = seed_all_demo_data()
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Demo records successfully seeded into online database!',
+            'results': results
+        })
+    except Exception as e:
+        logger.exception("Failed to seed demo records: %s", e)
+        return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
+
+

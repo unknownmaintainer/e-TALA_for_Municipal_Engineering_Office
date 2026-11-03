@@ -45,6 +45,7 @@ urlpatterns = [
     path('manual/', views.user_manual_view, name='user_manual_alias'),
     path('user-manual/video-stream/', views.user_manual_video_stream, name='user_manual_video_stream'),
     path('manual/video/', views.user_manual_video_stream, name='user_manual_video_alias'),
+    path('seed-demo-online/', views.seed_demo_online_view, name='seed_demo_online'),
 
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),
