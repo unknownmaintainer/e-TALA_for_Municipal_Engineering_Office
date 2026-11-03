@@ -482,9 +482,9 @@ flowchart TD
 ```
 
 #### 🔢 Backup & Recovery Rules:
-* **Automated Schedule**: **Daily at 12:00 AM (Midnight)**.
+* **Automated Schedule**: **Strictly Scheduled Daily at 12:00 AM (Midnight)** (Window: `12:00 AM – 12:30 AM` Asia/Manila). Background threads poll at exact 60-second intervals to hit midnight precisely without mid-day trigger or restart drift.
 * **Rolling Retention Window**: Retains the **14 most recent daily snapshots** (2 full weeks of rollback history); older snapshot files are automatically pruned to prevent server storage bloat.
-* **Smart Same-Day Skip**: If an Admin manually clicks *"Download Backup"* during the day, the automated midnight script detects the fresh backup and skips redundant execution.
+* **Smart Same-Day Skip**: If an Admin manually clicks *"Download Backup"* or runs a manual backup during the day, the automated midnight script detects the fresh backup and skips redundant execution.
 * **1-Click Emergency Disaster Recovery**: Uploading a valid `.json` backup file in `/settings/` restores all database tables, user accounts, records, checklists, and audit trails in under **2 minutes**.
 
 ---
@@ -752,8 +752,17 @@ Barangay_Name/
 
 ---
 
-## 15. 📱 UI Design Systems, Pagination & Ergonomics Guidelines
+## 15. 📱 UI Design Systems, Pagination, Mobile Ergonomics & Uniform Table Architecture
 
+* **Unified Seamless Mobile Table Architecture (Zero-Gap System)**:
+  * Across all modules (**Records Browse**, **Barangay Workspace**, **Illegal Constructions**, **Trash / Archive**, and **Global Search Results**), mobile list displays conform to a unified **Zero-Gap Table Card Design** (`gap: 0 !important;`, `border-radius: 12px;`, `1px` subtle divider borders).
+  * **Uniform Single-Line Typography**: On smartphone viewports, rows display only the **Applicant Name** (or Record / Structure Title) in a clean, bold, single-line format with ellipsis truncation (`...`), completely eliminating multi-line vertical clutter while preserving full tabular details on desktop.
+  * **Inline Pill Badges & Chevrons**: Document completion counters (`mobile-doc-pill`, e.g., `9/9`, `0/3`) and trash expiration days (`29d left`) sit inline on the far-right side alongside a subtle navigation chevron (`>`).
+* **Interactive User Tutorial Ergonomics (`/user-manual/`)**:
+  * Features a responsive screen player frame with responsive text truncation, persistent action controls (Auto Demo, Pause, Stop), and dedicated safe-area clearance (`padding-bottom: 96px`) to ensure explanation cards and step steppers remain 100% visible above floating bottom navigation bars on phones.
+* **Real-Time Notification Sync & Accessible Bell Trigger**:
+  * Real-time AJAX background synchronization (`/notifications/action/` every 45s) dynamically refreshes unread badges and dropdown lists without page reload.
+  * Bell icon trigger incorporates an expanded pseudo-element hitbox (`::after`) meeting the 46px touch target requirement and viewport fixed position escape.
 * **Pagination Standard & Control Aesthetics**:
   * **Uniform Height & Radius**: `30px` box height and `7px` border radius across all page numbers, page size selectors, and arrow controls.
   * **Standard Page Sizes**: `[20, 50, 100, 500]` with `20` as the standard system default.
