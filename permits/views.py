@@ -8940,6 +8940,28 @@ def seed_demo_online_view(request):
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
 
     try:
+        action = request.GET.get('action', '')
+        if action == 'clean_duplicate_backups':
+            from permits.models import AuditLog
+            from datetime import timedelta
+            # Find duplicate backup logs on online server
+            backup_logs = list(AuditLog.objects.filter(action__icontains='Automated System Backup').order_by('performed_at'))
+            deleted_ids = []
+            for i in range(len(backup_logs) - 1):
+                cur = backup_logs[i]
+                nxt = backup_logs[i+1]
+                # If within 5 minutes of each other
+                if abs((nxt.performed_at - cur.performed_at).total_seconds()) < 300:
+                    if cur.log_id not in deleted_ids and nxt.log_id not in deleted_ids:
+                        deleted_ids.append(nxt.log_id)
+            if deleted_ids:
+                AuditLog.objects.filter(log_id__in=deleted_ids).delete()
+            return JsonResponse({
+                'status': 'success',
+                'cleaned_duplicates_count': len(deleted_ids),
+                'deleted_ids': deleted_ids
+            })
+
         from permits.management.commands.seed_demo_records import seed_all_demo_data
         results = seed_all_demo_data()
         return JsonResponse({

@@ -63,7 +63,14 @@ class PermitsConfig(AppConfig):
                     ).filter(performed_at__gte=today_start).exists()
 
                     if is_midnight_window and not ran_today:
-                        execute_automated_backup(skip_if_already_backed_up_today=False)
+                        from django.db import transaction
+                        with transaction.atomic():
+                            # Re-verify inside transaction to prevent concurrent worker race conditions
+                            already_logged = AuditLog.objects.filter(
+                                Q(action__icontains='Automated System Backup') | Q(action__icontains='Exported full database backup')
+                            ).filter(performed_at__gte=today_start).exists()
+                            if not already_logged:
+                                execute_automated_backup(skip_if_already_backed_up_today=False)
                         try:
                             sync_all_local_files_to_supabase()
                         except Exception:
