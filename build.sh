@@ -9,3 +9,4 @@ python manage.py migrate
 python manage.py seed_requirement_templates
 python manage.py seed_users
 python seed_coordinates.py
+python manage.py seed_demo_records
