@@ -1240,14 +1240,12 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
             
             # Primary visible fields aligned with what the user sees in the table and detail views
             primary_token_q = (
-                # Title & Description (Project Title, Structure Name, or Permit Title)
+                # Title (Project Title, Structure Name, or Permit Title)
                 Q(title__icontains=token_clean) |
-                Q(description__icontains=token_clean) |
                 # Applicant / Property Owner Name (for permits & violations)
                 Q(permit_detail__applicant_name__icontains=token_clean) |
-                # Permit Number & Remarks
+                # Permit Number
                 Q(permit_detail__permit_number__icontains=token_clean) |
-                Q(permit_detail__remarks__icontains=token_clean) |
                 # Contractor & Funding Source
                 Q(project_detail__contractor__icontains=token_clean) |
                 Q(project_detail__funding_source__icontains=token_clean) |
