@@ -1238,24 +1238,19 @@ def filter_engineering_records(base_qs, query='', record_type='', project_scope=
             token_clean = token.lstrip('#') or token
             token_lower = token_clean.lower()
             
-            # Primary visible fields aligned with what the user sees in the table and detail views
+            # Strict visible table column fields matching only:
+            # - Title (Project Title / Structure Name)
+            # - Applicant Name / Property Owner (shown prominently on permits & violations)
+            # - Permit Number (shown in permit subtitle)
+            # - Contractor (shown in project subtitle)
+            # - Barangay Name (shown in Barangay column)
+            # We strictly exclude broad classification/category types (like 'Flood Control and Drainage System')
+            # from partial text matching so short queries like 'dr' only match records with 'dr' in their name/title!
             primary_token_q = (
-                # Title (Project Title, Structure Name, or Permit Title)
                 Q(title__icontains=token_clean) |
-                # Applicant / Property Owner Name (for permits & violations)
                 Q(permit_detail__applicant_name__icontains=token_clean) |
-                # Permit Number
                 Q(permit_detail__permit_number__icontains=token_clean) |
-                # Contractor & Funding Source
                 Q(project_detail__contractor__icontains=token_clean) |
-                Q(project_detail__funding_source__icontains=token_clean) |
-                Q(project_detail__funding_source_other__icontains=token_clean) |
-                # Classifications & Scope
-                Q(permit_detail__permit_type__icontains=token_clean) |
-                Q(project_detail__project_type__icontains=token_clean) |
-                Q(permit_detail__building_type__icontains=token_clean) |
-                Q(project_scope__icontains=token_clean) |
-                # Barangay Location
                 Q(barangay__barangay_name__icontains=token_clean)
             )
 

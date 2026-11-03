@@ -8941,7 +8941,7 @@ def seed_demo_online_view(request):
 
     try:
         action = request.GET.get('action', '')
-        if action == 'clean_duplicate_backups':
+        if action == 'clean_duplicate_backups' or action == 'clean_duplicates':
             from permits.models import AuditLog
             from datetime import timedelta
             # Find duplicate backup logs on online server
@@ -8950,8 +8950,8 @@ def seed_demo_online_view(request):
             for i in range(len(backup_logs) - 1):
                 cur = backup_logs[i]
                 nxt = backup_logs[i+1]
-                # If within 5 minutes of each other
-                if abs((nxt.performed_at - cur.performed_at).total_seconds()) < 300:
+                # If within 15 minutes of each other and same record count
+                if abs((nxt.performed_at - cur.performed_at).total_seconds()) < 900:
                     if cur.log_id not in deleted_ids and nxt.log_id not in deleted_ids:
                         deleted_ids.append(nxt.log_id)
             if deleted_ids:
