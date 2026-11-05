@@ -238,8 +238,13 @@ class EngineeringRecord(models.Model):
     def display_title(self):
         """Returns the clean primary display title (e.g. applicant name for permits, project title for projects)."""
         if self.is_illegal_construction:
+            if self.illegal_compliance_status == 'resolved':
+                if hasattr(self, 'permit_detail') and self.permit_detail and self.permit_detail.applicant_name:
+                    app = self.permit_detail.applicant_name.strip()
+                    if app and app.lower() not in ['none', 'n/a', 'unknown', '[unpermitted construction discovered]', 'under investigation']:
+                        return app
             if self.title:
-                for sep in [' · ', ' • ', ' - ']:
+                for sep in [' · ', ' • ', ' — ', ' - ']:
                     if sep in self.title:
                         prefix, rest = self.title.split(sep, 1)
                         if any(c.isdigit() for c in prefix):
@@ -249,10 +254,10 @@ class EngineeringRecord(models.Model):
         if self.record_type == 'Permit':
             if hasattr(self, 'permit_detail') and self.permit_detail and self.permit_detail.applicant_name:
                 app = self.permit_detail.applicant_name.strip()
-                if app and app.lower() not in ['none', 'n/a', 'unknown', '[unpermitted construction discovered]']:
+                if app and app.lower() not in ['none', 'n/a', 'unknown', '[unpermitted construction discovered]', 'under investigation']:
                     return app
             if self.title:
-                for sep in [' · ', ' • ', ' - ']:
+                for sep in [' · ', ' • ', ' — ', ' - ']:
                     if sep in self.title:
                         prefix, rest = self.title.split(sep, 1)
                         if any(c.isdigit() for c in prefix):

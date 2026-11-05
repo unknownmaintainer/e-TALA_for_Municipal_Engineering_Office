@@ -2981,9 +2981,13 @@ def regularize_record_view(request, record_id):
     Staff specifies the exact Permit Type (e.g. Building Permit, Fencing Permit, etc.), Permit Number, and Applicant Name.
     """
     if request.user.role not in ['staff', 'admin']:
-        return HttpResponseForbidden("Unauthorized")
+        raise PermissionDenied("You do not have permission to issue permits.")
 
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
+    if record.status == 'archived':
+        messages.error(request, "This record is currently in the Trash Bin and cannot be modified. Please restore it first.")
+        return redirect('record_detail', record_id=record.record_id)
+
     if request.method == 'POST':
         permit_type = sanitize_input(request.POST.get('permit_type', 'Building Permit')).strip()
         permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
@@ -2991,7 +2995,7 @@ def regularize_record_view(request, record_id):
         building_type = sanitize_input(request.POST.get('building_type', '')).strip()
 
         if not permit_number or not applicant_name or not building_type:
-            messages.error(request, "Permit Number, Property Owner, and Building Type are all required to regularize this record.")
+            messages.error(request, "Permit Number, Applicant Name, and Building Type are all required to regularize this record.")
             return redirect('record_detail', record_id=record.record_id)
 
         # Update or create PermitDetail
@@ -3004,10 +3008,17 @@ def regularize_record_view(request, record_id):
             permit_detail.date_issued = timezone.now().date()
         permit_detail.save()
 
-        # Update EngineeringRecord — preserve original Structure Name in record.title
+        # Update EngineeringRecord — set to official Permit
         record.record_type = 'Permit'
         record.is_illegal_construction = True
         record.illegal_compliance_status = 'resolved'
+        record.title = f"{permit_number} — {applicant_name}"
+        record.date_started = None
+        m_num = re.search(r'(?:^|BP-)(\d{4})-', permit_number)
+        if m_num:
+            record.year = int(m_num.group(1))
+        elif permit_detail.date_issued:
+            record.year = permit_detail.date_issued.year
         record.save()
 
         # Auto-populate checklist slots for the regularized permit type
@@ -3023,15 +3034,15 @@ def regularize_record_view(request, record_id):
 
         log_audit(
             request.user,
-            f"Regularized incident case into {permit_type} (Permit #{permit_detail.permit_number or 'N/A'})",
+            f"Issued Official Permit #{permit_number} for violation case '{record.title}' — Case Regularized & Saved to Records",
             target_record_id=record.record_id,
             request=request
         )
         messages.success(
             request,
-            f"Record regularized into official {permit_type}."
+            f"Official Permit #{permit_number} successfully issued. Record regularized into official {permit_type}."
         )
-        origin_param = request.POST.get('from', '').strip() or 'illegal'
+        origin_param = request.POST.get('from', '').strip() or 'records'
         redirect_url = reverse('record_detail', kwargs={'record_id': record.record_id}) + f"?from={origin_param}"
         return redirect(redirect_url)
 
@@ -3173,56 +3184,6 @@ def flag_illegal_construction_view(request):
 
     return redirect('records_browse')
 
-
-@login_required
-def regularize_record_view(request, record_id):
-    """
-    Converts an illegal/unpermitted construction into an official permit record (Resolved).
-    Assigns official permit number, applicant name, building type, and date issued.
-    """
-    if request.user.role not in ['staff', 'admin']:
-        raise PermissionDenied("You do not have permission to issue permits.")
-
-    record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    if record.status == 'archived':
-        messages.error(request, "This record is currently in the Trash Bin and cannot be modified. Please restore it first.")
-        return redirect('record_detail', record_id=record.record_id)
-
-    if request.method == 'POST':
-        permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
-        permit_type = sanitize_input(request.POST.get('permit_type', 'Building Permit')).strip()
-        building_type = sanitize_input(request.POST.get('building_type', '')).strip()
-        applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
-        
-        if not permit_number:
-            messages.error(request, "Official Permit Number is required to resolve this case.")
-            return redirect('record_detail', record_id=record.record_id)
-            
-        record.is_illegal_construction = True
-        record.illegal_compliance_status = 'resolved'
-        record.save()
-        
-        permit_detail, _ = PermitDetail.objects.get_or_create(engineering_record=record)
-        permit_detail.permit_number = permit_number
-        permit_detail.permit_type = permit_type
-        if building_type:
-            permit_detail.building_type = building_type
-        if applicant_name:
-            permit_detail.applicant_name = applicant_name
-        if not permit_detail.date_issued:
-            permit_detail.date_issued = timezone.now().date()
-        permit_detail.save()
-        
-        log_audit(
-            request.user,
-            f"Issued Official Permit #{permit_number} for violation '{record.title}' — Case Resolved & Saved to Records",
-            target_record_id=record.record_id,
-            request=request
-        )
-        messages.success(request, f"Official Permit #{permit_number} successfully issued. Violation resolved and saved to records.")
-        return redirect('record_detail', record_id=record.record_id)
-        
-    return redirect('record_detail', record_id=record.record_id)
 
 
 @login_required
@@ -3439,8 +3400,6 @@ def record_edit_view(request, record_id):
                             return redirect('edit_record', record_id=record.record_id)
                         detail.building_type = new_bldg_type
                         detail.permit_type = request.POST.get('permit_type', detail.permit_type or 'Building Permit')
-                        date_issued_val = request.POST.get('date_issued', '').strip()
-                        detail.date_issued = date_issued_val if date_issued_val else timezone.now().date()
                     else:
                         # Clear issued permit data if violation is not yet regularized
                         new_permit_num = ''
@@ -3464,7 +3423,8 @@ def record_edit_view(request, record_id):
                 detail.permit_number = new_permit_num
                 detail.applicant_name = applicant_name_val
 
-                if not record.is_illegal_construction:
+                # Date Issued & Year handling for both standard permits and regularized violations
+                if not record.is_illegal_construction or record.illegal_compliance_status == 'resolved':
                     date_issued_val = request.POST.get('date_issued', '').strip() or None
                     if new_permit_num and not date_issued_val:
                         messages.error(request, "Date Issued is required when assigning a Permit Number.")
@@ -3498,15 +3458,16 @@ def record_edit_view(request, record_id):
                 detail.remarks = sanitize_input(request.POST.get('remarks', '')).strip()
                 detail.save()
                 
-                # Auto-sync record.title with updated permit_number / applicant_name ONLY for regular permits
-                # For illegal constructions, preserve the explicit structure/incident name entered by the user
-                if not record.is_illegal_construction:
+                # Auto-sync record.title with updated permit_number / applicant_name for regular permits
+                # and regularized/resolved illegal constructions
+                if not record.is_illegal_construction or record.illegal_compliance_status == 'resolved':
                     if detail.permit_number and detail.applicant_name:
                         record.title = f"{detail.permit_number} — {detail.applicant_name}"
                     elif detail.applicant_name:
                         record.title = detail.applicant_name
                     elif detail.permit_number:
                         record.title = detail.permit_number
+                    record.record_type = 'Permit'
                 record.save()
                 
                 if not record.requirements.exists() or old_subtype != new_subtype:
@@ -3644,7 +3605,7 @@ def record_edit_view(request, record_id):
         'selected_violation_type': selected_violation_type,
         'other_violation_type_val': other_violation_type_val,
         'clean_description': clean_description,
-        'active_tab': 'illegal_constructions' if record.is_illegal_construction else 'records',
+        'active_tab': 'illegal_constructions' if (record.is_illegal_construction and record.illegal_compliance_status != 'resolved') else 'records',
     }
     return render(request, 'permits/edit_record.html', context)
 
