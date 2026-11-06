@@ -5474,8 +5474,8 @@ def reports_view(request):
                     cell.fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
                     cell.border = thin_border
 
-            # 3. Master Accomplishment Matrix Table (Violations removed; Municipal and Barangay budgets separated)
-            headers = ["#", period_header_label if is_single_barangay else "BARANGAY", "MUNICIPAL", "BARANGAY", "PERMITS", "TOTAL", "MUNICIPAL BUDGET (₱)", "BARANGAY BUDGET (₱)", "TOTAL BUDGET (₱)"]
+            # 3. Master Accomplishment Matrix Table (Violations & Total count column removed; Municipal and Barangay budgets separated)
+            headers = ["#", period_header_label if is_single_barangay else "BARANGAY", "MUNICIPAL", "BARANGAY", "PERMITS", "MUNICIPAL BUDGET (₱)", "BARANGAY BUDGET (₱)", "TOTAL BUDGET (₱)"]
             header_row_idx = 11
             ws.row_dimensions[header_row_idx].height = 24
 
@@ -5483,7 +5483,7 @@ def reports_view(request):
                 cell = ws.cell(row=header_row_idx, column=col_idx, value=header)
                 cell.font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
                 cell.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
-                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 4, 5, 6] else ('right' if col_idx in [7, 8, 9] else 'left'), vertical='center')
+                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 4, 5] else ('right' if col_idx in [6, 7, 8] else 'left'), vertical='center')
                 cell.border = thin_border
 
             exp_tot_muni_budget = Decimal('0.00')
@@ -5494,7 +5494,6 @@ def reports_view(request):
                 m_c = row_data['muni_proj_cnt']
                 b_c = row_data['brgy_proj_cnt']
                 pm_c = row_data['perm_cnt']
-                t_c = row_data['tot_cnt']
                 m_bud = float(row_data.get('muni_budget_sum') or Decimal('0.00'))
                 b_bud = float(row_data.get('brgy_budget_sum') or Decimal('0.00'))
                 b_sum = float(row_data.get('budget_sum') or Decimal('0.00'))
@@ -5521,26 +5520,23 @@ def reports_view(request):
                 c5 = ws.cell(row=row_idx, column=5, value=pm_c)
                 c5.alignment = Alignment(horizontal='center', vertical='center')
                 c5.font = Font(name='Segoe UI', size=9.5, bold=(pm_c > 0), color='0284C7' if pm_c > 0 else TEXT_MUTED)
-                c6 = ws.cell(row=row_idx, column=6, value=t_c)
-                c6.alignment = Alignment(horizontal='center', vertical='center')
-                c6.font = Font(name='Segoe UI', size=9.5, bold=(t_c > 0), color=TEXT_DARK if t_c > 0 else TEXT_MUTED)
 
-                c7 = ws.cell(row=row_idx, column=7, value=m_bud)
+                c6 = ws.cell(row=row_idx, column=6, value=m_bud)
+                c6.alignment = Alignment(horizontal='right', vertical='center')
+                c6.font = Font(name='Segoe UI', size=9.5, bold=(m_bud > 0), color='0284C7' if m_bud > 0 else TEXT_MUTED)
+                c6.number_format = '₱#,##0.00'
+
+                c7 = ws.cell(row=row_idx, column=7, value=b_bud)
                 c7.alignment = Alignment(horizontal='right', vertical='center')
-                c7.font = Font(name='Segoe UI', size=9.5, bold=(m_bud > 0), color='0284C7' if m_bud > 0 else TEXT_MUTED)
+                c7.font = Font(name='Segoe UI', size=9.5, bold=(b_bud > 0), color='4F46E5' if b_bud > 0 else TEXT_MUTED)
                 c7.number_format = '₱#,##0.00'
 
-                c8 = ws.cell(row=row_idx, column=8, value=b_bud)
+                c8 = ws.cell(row=row_idx, column=8, value=b_sum)
                 c8.alignment = Alignment(horizontal='right', vertical='center')
-                c8.font = Font(name='Segoe UI', size=9.5, bold=(b_bud > 0), color='4F46E5' if b_bud > 0 else TEXT_MUTED)
+                c8.font = Font(name='Segoe UI', size=9.5, bold=(b_sum > 0), color='15803D' if b_sum > 0 else TEXT_MUTED)
                 c8.number_format = '₱#,##0.00'
 
-                c9 = ws.cell(row=row_idx, column=9, value=b_sum)
-                c9.alignment = Alignment(horizontal='right', vertical='center')
-                c9.font = Font(name='Segoe UI', size=9.5, bold=(b_sum > 0), color='15803D' if b_sum > 0 else TEXT_MUTED)
-                c9.number_format = '₱#,##0.00'
-
-                for col_i in range(1, 10):
+                for col_i in range(1, 9):
                     cell = ws.cell(row=row_idx, column=col_i)
                     cell.border = thin_border
                     if row_fill:
@@ -5567,33 +5563,29 @@ def reports_view(request):
             c_perm.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
             c_perm.alignment = Alignment(horizontal='center', vertical='center')
 
-            c_tot = ws.cell(row=tot_row_idx, column=6, value=total_rec_cnt)
-            c_tot.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
-            c_tot.alignment = Alignment(horizontal='center', vertical='center')
-
-            c_mbud = ws.cell(row=tot_row_idx, column=7, value=float(exp_tot_muni_budget))
+            c_mbud = ws.cell(row=tot_row_idx, column=6, value=float(exp_tot_muni_budget))
             c_mbud.font = Font(name='Segoe UI', size=10, bold=True, color='0284C7')
             c_mbud.alignment = Alignment(horizontal='right', vertical='center')
             c_mbud.number_format = '₱#,##0.00'
 
-            c_bbud = ws.cell(row=tot_row_idx, column=8, value=float(exp_tot_brgy_budget))
+            c_bbud = ws.cell(row=tot_row_idx, column=7, value=float(exp_tot_brgy_budget))
             c_bbud.font = Font(name='Segoe UI', size=10, bold=True, color='4F46E5')
             c_bbud.alignment = Alignment(horizontal='right', vertical='center')
             c_bbud.number_format = '₱#,##0.00'
 
-            c_bud = ws.cell(row=tot_row_idx, column=9, value=float(total_budget_sum))
+            c_bud = ws.cell(row=tot_row_idx, column=8, value=float(total_budget_sum))
             c_bud.font = Font(name='Segoe UI', size=10, bold=True, color='15803D')
             c_bud.alignment = Alignment(horizontal='right', vertical='center')
             c_bud.number_format = '₱#,##0.00'
 
-            for col_idx in range(1, 10):
+            for col_idx in range(1, 9):
                 cell = ws.cell(row=tot_row_idx, column=col_idx)
                 cell.border = double_bottom_border
                 cell.fill = PatternFill(start_color='EEF2F6', end_color='EEF2F6', fill_type='solid')
 
             # 5. Footer Timestamp Note
             footer_row_idx = tot_row_idx + 2
-            ws.merge_cells(start_row=footer_row_idx, start_column=1, end_row=footer_row_idx, end_column=9)
+            ws.merge_cells(start_row=footer_row_idx, start_column=1, end_row=footer_row_idx, end_column=8)
             ws.cell(row=footer_row_idx, column=1, value=f"eTala • Carigara, Leyte • Generated: {gen_timestamp}").font = Font(name='Segoe UI', size=8, italic=True, color=TEXT_MUTED)
 
             ws.column_dimensions['A'].width = 6
@@ -5601,10 +5593,9 @@ def reports_view(request):
             ws.column_dimensions['C'].width = 14
             ws.column_dimensions['D'].width = 14
             ws.column_dimensions['E'].width = 14
-            ws.column_dimensions['F'].width = 14
+            ws.column_dimensions['F'].width = 20
             ws.column_dimensions['G'].width = 20
-            ws.column_dimensions['H'].width = 20
-            ws.column_dimensions['I'].width = 22
+            ws.column_dimensions['H'].width = 22
 
             # ── Sheet 2: Project List with Funding Subtotals (Requirement 3) ────
             ws_p = wb.create_sheet(title="Project List")
@@ -5970,14 +5961,13 @@ def reports_view(request):
             cell_muted_center = ParagraphStyle('CMC', fontName=main_font, fontSize=7, leading=8.5, alignment=1, textColor=SLATE_MUTED)
             cell_muted_right = ParagraphStyle('CMR', fontName=main_font, fontSize=7, leading=8.5, alignment=2, textColor=SLATE_MUTED)
 
-            col_widths = [18, 105, 42, 42, 42, 42, 75, 75, 82.27]
+            col_widths = [20, 125, 48, 48, 48, 78, 78, 78.27]
             table_data = [[
                 Paragraph("#", header_center_style),
                 Paragraph(period_header_label if is_single_barangay else "BARANGAY", header_cell_style),
                 Paragraph("MUNICIPAL", header_center_style),
                 Paragraph("BARANGAY", header_center_style),
                 Paragraph("PERMITS", header_center_style),
-                Paragraph("TOTAL", header_center_style),
                 Paragraph("MUNI BUDGET (₱)", header_right_style),
                 Paragraph("BRGY BUDGET (₱)", header_right_style),
                 Paragraph("TOTAL BUDGET (₱)", header_right_style)
@@ -5991,7 +5981,6 @@ def reports_view(request):
                 m_c = row_data['muni_proj_cnt']
                 b_c = row_data['brgy_proj_cnt']
                 pm_c = row_data['perm_cnt']
-                t_c = row_data['tot_cnt']
                 m_bud = row_data.get('muni_budget_sum') or Decimal('0.00')
                 b_bud = row_data.get('brgy_budget_sum') or Decimal('0.00')
                 b_sum = row_data.get('budget_sum') or Decimal('0.00')
@@ -6005,7 +5994,6 @@ def reports_view(request):
                     Paragraph(str(m_c), cell_center if m_c > 0 else cell_muted_center),
                     Paragraph(str(b_c), cell_center if b_c > 0 else cell_muted_center),
                     Paragraph(str(pm_c), cell_center if pm_c > 0 else cell_muted_center),
-                    Paragraph(f"<b>{t_c}</b>" if t_c > 0 else "0", cell_center if t_c > 0 else cell_muted_center),
                     Paragraph(f"₱ {m_bud:,.2f}" if m_bud > 0 else "₱ 0.00", cell_right if m_bud > 0 else cell_muted_right),
                     Paragraph(f"₱ {b_bud:,.2f}" if b_bud > 0 else "₱ 0.00", cell_right if b_bud > 0 else cell_muted_right),
                     Paragraph(f"<b>₱ {b_sum:,.2f}</b>" if b_sum > 0 else "₱ 0.00", cell_right if b_sum > 0 else cell_muted_right),
@@ -6021,7 +6009,6 @@ def reports_view(request):
                 Paragraph(str(muni_p_cnt), tot_center_style),
                 Paragraph(str(brgy_p_cnt), tot_center_style),
                 Paragraph(str(permits_cnt), tot_center_style),
-                Paragraph(str(total_rec_cnt), tot_center_style),
                 Paragraph(f"₱ {pdf_tot_muni_bud:,.2f}", tot_right_style),
                 Paragraph(f"₱ {pdf_tot_brgy_bud:,.2f}", tot_right_style),
                 Paragraph(f"₱ {total_budget_sum:,.2f}", tot_right_style)
