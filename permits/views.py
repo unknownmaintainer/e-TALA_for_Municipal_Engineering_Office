@@ -4862,7 +4862,245 @@ def reports_view(request):
 
     # Intercept for exports
     export_format = request.GET.get('export', '').strip().lower()
+    export_type = request.GET.get('export_type', '').strip().lower()
     if export_format in ['excel', 'pdf']:
+        if export_type == 'compliance':
+            compliance_yr_label = f"Year {selected_year}" if selected_year else "All Years"
+            comp_records = EngineeringRecord.objects.exclude(status='archived').filter(is_illegal_construction=True)
+            if selected_year and selected_year.isdigit():
+                comp_records = comp_records.filter(year=int(selected_year))
+            if selected_barangay:
+                comp_records = comp_records.filter(barangay_id=selected_barangay)
+
+            comp_records = comp_records.select_related('barangay', 'permit_detail').order_by('barangay__barangay_name', '-created_at')
+            c_total = comp_records.count()
+            c_resolved = comp_records.filter(illegal_compliance_status='resolved').count()
+            c_active = comp_records.exclude(illegal_compliance_status='resolved').count()
+            c_rate = round((c_resolved / c_total * 100), 1) if c_total > 0 else 0.0
+
+            if export_format == 'excel':
+                import openpyxl
+                from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+                from django.http import HttpResponse
+
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Compliance Report"
+                ws.views.sheetView[0].showGridLines = True
+
+                NAVY_HEX = '002855'
+                BORDER_GRAY = 'CBD5E1'
+                thin_border = Border(left=Side(style='thin', color=BORDER_GRAY), right=Side(style='thin', color=BORDER_GRAY), top=Side(style='thin', color=BORDER_GRAY), bottom=Side(style='thin', color=BORDER_GRAY))
+                double_bottom_border = Border(left=Side(style='thin', color=BORDER_GRAY), right=Side(style='thin', color=BORDER_GRAY), top=Side(style='thin', color='94A3B8'), bottom=Side(style='double', color=NAVY_HEX))
+
+                ws.merge_cells('A1:H1')
+                ws['A1'] = "REPUBLIC OF THE PHILIPPINES • PROVINCE OF LEYTE • MUNICIPALITY OF CARIGARA"
+                ws['A1'].font = Font(name='Segoe UI', size=9, bold=True, color='475569')
+                ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+
+                ws.merge_cells('A2:H2')
+                ws['A2'] = "MUNICIPAL ENGINEERING OFFICE • BUILDING OFFICIAL REGULATORY DIVISION"
+                ws['A2'].font = Font(name='Segoe UI', size=11, bold=True, color=NAVY_HEX)
+                ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
+
+                ws.merge_cells('A3:H3')
+                ws['A3'] = f"ANNUAL ILLEGAL CONSTRUCTION & COMPLIANCE SUMMARY REPORT ({compliance_yr_label.upper()})"
+                ws['A3'].font = Font(name='Segoe UI', size=13, bold=True, color=NAVY_HEX)
+                ws['A3'].alignment = Alignment(horizontal='center', vertical='center')
+
+                ws.merge_cells('A4:H4')
+                ws['A4'] = f"Mandated Under P.D. 1096 (National Building Code of the Philippines) • Generated: {timezone.localtime().strftime('%B %d, %Y %I:%M %p')}"
+                ws['A4'].font = Font(name='Segoe UI', size=9, italic=True, color='64748B')
+                ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
+
+                # KPI Summary Box
+                ws.cell(row=6, column=2, value="TOTAL VIOLATIONS RECORDED").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=2, value=c_total).font = Font(name='Segoe UI', size=18, bold=True, color='DC2626')
+                ws.cell(row=7, column=2).alignment = Alignment(horizontal='center', vertical='center')
+
+                ws.cell(row=6, column=4, value="COMPLIED / REGULARIZED").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=4, value=c_resolved).font = Font(name='Segoe UI', size=18, bold=True, color='16A34A')
+                ws.cell(row=7, column=4).alignment = Alignment(horizontal='center', vertical='center')
+
+                ws.cell(row=6, column=6, value="PENDING / UNRESOLVED").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=6, value=c_active).font = Font(name='Segoe UI', size=18, bold=True, color='D97706')
+                ws.cell(row=7, column=6).alignment = Alignment(horizontal='center', vertical='center')
+
+                ws.cell(row=6, column=8, value="COMPLIANCE RESOLUTION RATE").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=8, value=f"{c_rate}%").font = Font(name='Segoe UI', size=18, bold=True, color='2563EB')
+                ws.cell(row=7, column=8).alignment = Alignment(horizontal='center', vertical='center')
+
+                # Detail Table Headers
+                headers = ["#", "CONTROL NO.", "VIOLATOR / APPLICANT", "LOCATION (BARANGAY)", "TYPE OF STRUCTURE / VIOLATION", "DATE RECORDED", "STATUS", "PERMIT NO. (IF COMPLIED)"]
+                for col_idx, h in enumerate(headers, 1):
+                    c = ws.cell(row=9, column=col_idx, value=h)
+                    c.font = Font(name='Segoe UI', size=9, bold=True, color='FFFFFF')
+                    c.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
+                    c.alignment = Alignment(horizontal='center' if col_idx in [1, 2, 6, 7] else ('left' if col_idx in [3, 4, 5] else 'center'), vertical='center')
+
+                curr_row = 10
+                for idx, r in enumerate(comp_records, 1):
+                    applicant_val = (r.permit_detail.applicant_name if (hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name) else r.title) or 'N/A'
+                    date_val = r.created_at.strftime('%b %d, %Y') if r.created_at else 'N/A'
+                    ws.cell(row=curr_row, column=1, value=idx).alignment = Alignment(horizontal='center', vertical='center')
+                    ws.cell(row=curr_row, column=2, value=f"#{r.record_id}").alignment = Alignment(horizontal='center', vertical='center')
+                    ws.cell(row=curr_row, column=3, value=applicant_val)
+                    ws.cell(row=curr_row, column=4, value=r.barangay.barangay_name if r.barangay else 'Carigara')
+                    ws.cell(row=curr_row, column=5, value=r.title or 'Illegal Construction')
+                    ws.cell(row=curr_row, column=6, value=date_val).alignment = Alignment(horizontal='center', vertical='center')
+
+                    st_cell = ws.cell(row=curr_row, column=7, value="COMPLIED (PERMIT ISSUED)" if r.illegal_compliance_status == 'resolved' else "ACTIVE VIOLATION")
+                    st_cell.alignment = Alignment(horizontal='center', vertical='center')
+                    if r.illegal_compliance_status == 'resolved':
+                        st_cell.font = Font(name='Segoe UI', size=9, bold=True, color='16A34A')
+                    else:
+                        st_cell.font = Font(name='Segoe UI', size=9, bold=True, color='DC2626')
+
+                    p_no = r.permit_detail.permit_number if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_number else '-'
+                    ws.cell(row=curr_row, column=8, value=p_no).alignment = Alignment(horizontal='center', vertical='center')
+
+                    for c_i in range(1, 9):
+                        cell = ws.cell(row=curr_row, column=c_i)
+                        cell.border = thin_border
+                        if curr_row % 2 == 1:
+                            cell.fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+                    curr_row += 1
+
+                ws.column_dimensions['A'].width = 6
+                ws.column_dimensions['B'].width = 16
+                ws.column_dimensions['C'].width = 28
+                ws.column_dimensions['D'].width = 22
+                ws.column_dimensions['E'].width = 32
+                ws.column_dimensions['F'].width = 16
+                ws.column_dimensions['G'].width = 24
+                ws.column_dimensions['H'].width = 22
+
+                response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                response['Content-Disposition'] = f'attachment; filename="eTala_Illegal_Construction_Compliance_{selected_year or "All"}.xlsx"'
+                wb.save(response)
+                return response
+
+            elif export_format == 'pdf':
+                from reportlab.lib.pagesizes import letter, landscape
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib import colors
+                from io import BytesIO
+                from django.http import HttpResponse
+
+                buffer = BytesIO()
+                doc = SimpleDocTemplate(
+                    buffer,
+                    pagesize=landscape(letter),
+                    leftMargin=36,
+                    rightMargin=36,
+                    topMargin=36,
+                    bottomMargin=36
+                )
+                story = []
+                styles = getSampleStyleSheet()
+
+                NAVY = colors.HexColor('#002855')
+                DARK_TEXT = colors.HexColor('#0F172A')
+                SLATE_MUTED = colors.HexColor('#64748B')
+
+                title_style = ParagraphStyle('CTitle', fontName='Helvetica-Bold', fontSize=14, leading=16, alignment=1, textColor=NAVY)
+                sub_style = ParagraphStyle('CSub', fontName='Helvetica', fontSize=8.5, leading=11, alignment=1, textColor=SLATE_MUTED)
+
+                story.append(Paragraph("<b>MUNICIPAL ENGINEERING OFFICE &bull; CARIGARA, LEYTE</b>", sub_style))
+                story.append(Spacer(1, 2))
+                story.append(Paragraph(f"<b>ANNUAL ILLEGAL CONSTRUCTION & COMPLIANCE SUMMARY REPORT ({compliance_yr_label.upper()})</b>", title_style))
+                story.append(Spacer(1, 2))
+                story.append(Paragraph(f"Regulatory Enforcement under P.D. 1096 (National Building Code) &bull; Generated: {timezone.localtime().strftime('%B %d, %Y %I:%M %p')}", sub_style))
+                story.append(Spacer(1, 10))
+
+                # KPI Stat Cards Table
+                kpi_box_data = [
+                    [
+                        Paragraph(f"<font size=8 color='#64748B'>TOTAL RECORDED</font><br/><font size=16 color='#DC2626'><b>{c_total}</b></font><br/><font size=7 color='#64748B'>Illegal Structures</font>", styles['Normal']),
+                        Paragraph(f"<font size=8 color='#64748B'>COMPLIED / REGULARIZED</font><br/><font size=16 color='#16A34A'><b>{c_resolved}</b></font><br/><font size=7 color='#16A34A'>Official Permits Issued</font>", styles['Normal']),
+                        Paragraph(f"<font size=8 color='#64748B'>PENDING / UNRESOLVED</font><br/><font size=16 color='#D97706'><b>{c_active}</b></font><br/><font size=7 color='#D97706'>Action / Notice Active</font>", styles['Normal']),
+                        Paragraph(f"<font size=8 color='#64748B'>RESOLUTION RATE</font><br/><font size=16 color='#2563EB'><b>{c_rate}%</b></font><br/><font size=7 color='#2563EB'>Compliance Rate</font>", styles['Normal']),
+                    ]
+                ]
+                kpi_table = Table(kpi_box_data, colWidths=[180, 180, 180, 180])
+                kpi_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#CBD5E1')),
+                    ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ]))
+                story.append(kpi_table)
+                story.append(Spacer(1, 12))
+
+                # Details Table (landscape letter printable width: 720)
+                pdf_col_widths = [24, 76, 150, 110, 160, 65, 75, 60]
+                th_style = ParagraphStyle('TH', fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=1, textColor=colors.white)
+                td_style = ParagraphStyle('TD', fontName='Helvetica', fontSize=7, leading=8.5, textColor=DARK_TEXT)
+                td_center = ParagraphStyle('TDC', fontName='Helvetica', fontSize=7, leading=8.5, alignment=1, textColor=DARK_TEXT)
+
+                pdf_table_data = [[
+                    Paragraph("#", th_style),
+                    Paragraph("CONTROL NO.", th_style),
+                    Paragraph("VIOLATOR / APPLICANT", th_style),
+                    Paragraph("LOCATION", th_style),
+                    Paragraph("STRUCTURE / VIOLATION", th_style),
+                    Paragraph("DATE", th_style),
+                    Paragraph("STATUS", th_style),
+                    Paragraph("PERMIT NO.", th_style),
+                ]]
+
+                for idx, r in enumerate(comp_records, 1):
+                    st_str = '<font color="#16A34A"><b>COMPLIED</b></font>' if r.illegal_compliance_status == 'resolved' else '<font color="#DC2626"><b>UNRESOLVED</b></font>'
+                    p_no = r.permit_detail.permit_number if (hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_number) else '-'
+                    d_str = r.created_at.strftime('%m/%d/%Y') if r.created_at else '-'
+                    applicant_val = (r.permit_detail.applicant_name if (hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name) else r.title) or 'N/A'
+
+                    pdf_table_data.append([
+                        Paragraph(str(idx), td_center),
+                        Paragraph(f"#{r.record_id}", td_center),
+                        Paragraph(f"<b>{applicant_val}</b>", td_style),
+                        Paragraph(r.barangay.barangay_name if r.barangay else 'Carigara', td_style),
+                        Paragraph(r.title or 'Illegal Construction', td_style),
+                        Paragraph(d_str, td_center),
+                        Paragraph(st_str, td_center),
+                        Paragraph(p_no, td_center),
+                    ])
+
+                if len(pdf_table_data) == 1:
+                    pdf_table_data.append([
+                        Paragraph("", td_style),
+                        Paragraph("No illegal construction violations recorded for this period.", td_style),
+                        Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_style), Paragraph("", td_style)
+                    ])
+
+                dt_table = Table(pdf_table_data, colWidths=pdf_col_widths, repeatRows=1)
+                dt_style_cmds = [
+                    ('BACKGROUND', (0, 0), (-1, 0), NAVY),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, 0), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+                ]
+                for r_idx in range(1, len(pdf_table_data)):
+                    bg = colors.HexColor('#F8FAFC') if r_idx % 2 == 0 else colors.HexColor('#FFFFFF')
+                    dt_style_cmds.append(('BACKGROUND', (0, r_idx), (-1, r_idx), bg))
+                    dt_style_cmds.append(('TOPPADDING', (0, r_idx), (-1, r_idx), 2.5))
+                    dt_style_cmds.append(('BOTTOMPADDING', (0, r_idx), (-1, r_idx), 2.5))
+
+                dt_table.setStyle(TableStyle(dt_style_cmds))
+                story.append(dt_table)
+
+                doc.build(story)
+                pdf_val = buffer.getvalue()
+                buffer.close()
+                response = HttpResponse(content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="eTala_Illegal_Construction_Compliance_{selected_year or "All"}.pdf"'
+                response.write(pdf_val)
+                return response
         # Build user-friendly report title, subtitle, and filename (Option 3 Dynamic)
         target_brgy_name = None
         if selected_barangay:
@@ -4943,6 +5181,8 @@ def reports_view(request):
                         brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
                         perm_cnt=Count('record_id', filter=valid_permit_q),
                         viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                        muni_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Municipal')), Value(Decimal('0.00'), output_field=DecimalField())),
+                        brgy_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Barangay')), Value(Decimal('0.00'), output_field=DecimalField())),
                         budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
                         tot_cnt=Count('record_id', filter=master_record_q)
                     )
@@ -4959,6 +5199,8 @@ def reports_view(request):
                             'perm_cnt': row.get('perm_cnt', 0),
                             'viol_cnt': row.get('viol_cnt', 0),
                             'tot_cnt': row.get('tot_cnt', 0),
+                            'muni_budget_sum': row.get('muni_budget_sum') or Decimal('0.00'),
+                            'brgy_budget_sum': row.get('brgy_budget_sum') or Decimal('0.00'),
                             'budget_sum': row.get('budget_sum') or Decimal('0.00'),
                         })
                     period_header_label = "DATE / PERIOD"
@@ -4980,6 +5222,8 @@ def reports_view(request):
                         brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
                         perm_cnt=Count('record_id', filter=valid_permit_q),
                         viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                        muni_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Municipal')), Value(Decimal('0.00'), output_field=DecimalField())),
+                        brgy_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Barangay')), Value(Decimal('0.00'), output_field=DecimalField())),
                         budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
                         tot_cnt=Count('record_id', filter=master_record_q)
                     )
@@ -4996,6 +5240,8 @@ def reports_view(request):
                             'perm_cnt': row.get('perm_cnt', 0),
                             'viol_cnt': row.get('viol_cnt', 0),
                             'tot_cnt': row.get('tot_cnt', 0),
+                            'muni_budget_sum': row.get('muni_budget_sum') or Decimal('0.00'),
+                            'brgy_budget_sum': row.get('brgy_budget_sum') or Decimal('0.00'),
                             'budget_sum': row.get('budget_sum') or Decimal('0.00'),
                         })
                     period_header_label = "MONTH / PERIOD"
@@ -5007,6 +5253,8 @@ def reports_view(request):
                     brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
                     perm_cnt=Count('record_id', filter=valid_permit_q),
                     viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                    muni_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Municipal')), Value(Decimal('0.00'), output_field=DecimalField())),
+                    brgy_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Barangay')), Value(Decimal('0.00'), output_field=DecimalField())),
                     budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
                     tot_cnt=Count('record_id', filter=master_record_q)
                 ).order_by('-year')
@@ -5029,6 +5277,8 @@ def reports_view(request):
                         'perm_cnt': row.get('perm_cnt', 0),
                         'viol_cnt': row.get('viol_cnt', 0),
                         'tot_cnt': row.get('tot_cnt', 0),
+                        'muni_budget_sum': row.get('muni_budget_sum') or Decimal('0.00'),
+                        'brgy_budget_sum': row.get('brgy_budget_sum') or Decimal('0.00'),
                         'budget_sum': row.get('budget_sum') or Decimal('0.00'),
                     })
                 period_header_label = "YEAR / PERIOD"
@@ -5041,6 +5291,8 @@ def reports_view(request):
                 brgy_proj_cnt=Count('record_id', filter=Q(record_type='Project', project_scope='Barangay')),
                 perm_cnt=Count('record_id', filter=valid_permit_q),
                 viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+                muni_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Municipal')), Value(Decimal('0.00'), output_field=DecimalField())),
+                brgy_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Barangay')), Value(Decimal('0.00'), output_field=DecimalField())),
                 budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
                 tot_cnt=Count('record_id', filter=master_record_q)
             )
@@ -5059,6 +5311,8 @@ def reports_view(request):
                     'perm_cnt': b_stat.get('perm_cnt', 0),
                     'viol_cnt': b_stat.get('viol_cnt', 0),
                     'tot_cnt': b_stat.get('tot_cnt', 0),
+                    'muni_budget_sum': b_stat.get('muni_budget_sum') or Decimal('0.00'),
+                    'brgy_budget_sum': b_stat.get('brgy_budget_sum') or Decimal('0.00'),
                     'budget_sum': b_stat.get('budget_sum') or Decimal('0.00'),
                 })
 
@@ -5220,8 +5474,8 @@ def reports_view(request):
                     cell.fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
                     cell.border = thin_border
 
-            # 3. Master Accomplishment Matrix Table
-            headers = ["#", period_header_label if is_single_barangay else "BARANGAY", "MUNICIPAL", "BARANGAY", "PERMITS", "VIOLATIONS", "TOTAL", "PROJECT BUDGET (₱)"]
+            # 3. Master Accomplishment Matrix Table (Violations removed; Municipal and Barangay budgets separated)
+            headers = ["#", period_header_label if is_single_barangay else "BARANGAY", "MUNICIPAL", "BARANGAY", "PERMITS", "TOTAL", "MUNICIPAL BUDGET (₱)", "BARANGAY BUDGET (₱)", "TOTAL BUDGET (₱)"]
             header_row_idx = 11
             ws.row_dimensions[header_row_idx].height = 24
 
@@ -5229,17 +5483,24 @@ def reports_view(request):
                 cell = ws.cell(row=header_row_idx, column=col_idx, value=header)
                 cell.font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
                 cell.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
-                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 4, 5, 6, 7] else ('right' if col_idx == 8 else 'left'), vertical='center')
+                cell.alignment = Alignment(horizontal='center' if col_idx in [1, 3, 4, 5, 6] else ('right' if col_idx in [7, 8, 9] else 'left'), vertical='center')
                 cell.border = thin_border
+
+            exp_tot_muni_budget = Decimal('0.00')
+            exp_tot_brgy_budget = Decimal('0.00')
 
             for row_data in export_table_rows:
                 seq_idx = row_data['seq']
                 m_c = row_data['muni_proj_cnt']
                 b_c = row_data['brgy_proj_cnt']
                 pm_c = row_data['perm_cnt']
-                v_c = row_data['viol_cnt']
                 t_c = row_data['tot_cnt']
-                b_sum = float(row_data['budget_sum'])
+                m_bud = float(row_data.get('muni_budget_sum') or Decimal('0.00'))
+                b_bud = float(row_data.get('brgy_budget_sum') or Decimal('0.00'))
+                b_sum = float(row_data.get('budget_sum') or Decimal('0.00'))
+
+                exp_tot_muni_budget += Decimal(str(m_bud))
+                exp_tot_brgy_budget += Decimal(str(b_bud))
 
                 row_idx = 11 + seq_idx
                 ws.row_dimensions[row_idx].height = 20
@@ -5260,18 +5521,26 @@ def reports_view(request):
                 c5 = ws.cell(row=row_idx, column=5, value=pm_c)
                 c5.alignment = Alignment(horizontal='center', vertical='center')
                 c5.font = Font(name='Segoe UI', size=9.5, bold=(pm_c > 0), color='0284C7' if pm_c > 0 else TEXT_MUTED)
-                c6 = ws.cell(row=row_idx, column=6, value=v_c)
+                c6 = ws.cell(row=row_idx, column=6, value=t_c)
                 c6.alignment = Alignment(horizontal='center', vertical='center')
-                c6.font = Font(name='Segoe UI', size=9.5, bold=(v_c > 0), color='DC2626' if v_c > 0 else TEXT_MUTED)
-                c7 = ws.cell(row=row_idx, column=7, value=t_c)
-                c7.alignment = Alignment(horizontal='center', vertical='center')
-                c7.font = Font(name='Segoe UI', size=9.5, bold=(t_c > 0), color=TEXT_DARK if t_c > 0 else TEXT_MUTED)
-                c8 = ws.cell(row=row_idx, column=8, value=b_sum)
+                c6.font = Font(name='Segoe UI', size=9.5, bold=(t_c > 0), color=TEXT_DARK if t_c > 0 else TEXT_MUTED)
+
+                c7 = ws.cell(row=row_idx, column=7, value=m_bud)
+                c7.alignment = Alignment(horizontal='right', vertical='center')
+                c7.font = Font(name='Segoe UI', size=9.5, bold=(m_bud > 0), color='0284C7' if m_bud > 0 else TEXT_MUTED)
+                c7.number_format = '₱#,##0.00'
+
+                c8 = ws.cell(row=row_idx, column=8, value=b_bud)
                 c8.alignment = Alignment(horizontal='right', vertical='center')
-                c8.font = Font(name='Segoe UI', size=9.5, bold=(b_sum > 0), color='15803D' if b_sum > 0 else TEXT_MUTED)
+                c8.font = Font(name='Segoe UI', size=9.5, bold=(b_bud > 0), color='4F46E5' if b_bud > 0 else TEXT_MUTED)
                 c8.number_format = '₱#,##0.00'
 
-                for col_i in range(1, 9):
+                c9 = ws.cell(row=row_idx, column=9, value=b_sum)
+                c9.alignment = Alignment(horizontal='right', vertical='center')
+                c9.font = Font(name='Segoe UI', size=9.5, bold=(b_sum > 0), color='15803D' if b_sum > 0 else TEXT_MUTED)
+                c9.number_format = '₱#,##0.00'
+
+                for col_i in range(1, 10):
                     cell = ws.cell(row=row_idx, column=col_i)
                     cell.border = thin_border
                     if row_fill:
@@ -5298,27 +5567,33 @@ def reports_view(request):
             c_perm.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
             c_perm.alignment = Alignment(horizontal='center', vertical='center')
 
-            c_viol = ws.cell(row=tot_row_idx, column=6, value=active_violations_cnt)
-            c_viol.font = Font(name='Segoe UI', size=10, bold=True, color='DC2626')
-            c_viol.alignment = Alignment(horizontal='center', vertical='center')
-
-            c_tot = ws.cell(row=tot_row_idx, column=7, value=total_rec_cnt)
+            c_tot = ws.cell(row=tot_row_idx, column=6, value=total_rec_cnt)
             c_tot.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
             c_tot.alignment = Alignment(horizontal='center', vertical='center')
 
-            c_bud = ws.cell(row=tot_row_idx, column=8, value=float(total_budget_sum))
+            c_mbud = ws.cell(row=tot_row_idx, column=7, value=float(exp_tot_muni_budget))
+            c_mbud.font = Font(name='Segoe UI', size=10, bold=True, color='0284C7')
+            c_mbud.alignment = Alignment(horizontal='right', vertical='center')
+            c_mbud.number_format = '₱#,##0.00'
+
+            c_bbud = ws.cell(row=tot_row_idx, column=8, value=float(exp_tot_brgy_budget))
+            c_bbud.font = Font(name='Segoe UI', size=10, bold=True, color='4F46E5')
+            c_bbud.alignment = Alignment(horizontal='right', vertical='center')
+            c_bbud.number_format = '₱#,##0.00'
+
+            c_bud = ws.cell(row=tot_row_idx, column=9, value=float(total_budget_sum))
             c_bud.font = Font(name='Segoe UI', size=10, bold=True, color='15803D')
             c_bud.alignment = Alignment(horizontal='right', vertical='center')
             c_bud.number_format = '₱#,##0.00'
 
-            for col_idx in range(1, 9):
+            for col_idx in range(1, 10):
                 cell = ws.cell(row=tot_row_idx, column=col_idx)
                 cell.border = double_bottom_border
                 cell.fill = PatternFill(start_color='EEF2F6', end_color='EEF2F6', fill_type='solid')
 
             # 5. Footer Timestamp Note
             footer_row_idx = tot_row_idx + 2
-            ws.merge_cells(start_row=footer_row_idx, start_column=1, end_row=footer_row_idx, end_column=8)
+            ws.merge_cells(start_row=footer_row_idx, start_column=1, end_row=footer_row_idx, end_column=9)
             ws.cell(row=footer_row_idx, column=1, value=f"eTala • Carigara, Leyte • Generated: {gen_timestamp}").font = Font(name='Segoe UI', size=8, italic=True, color=TEXT_MUTED)
 
             ws.column_dimensions['A'].width = 6
@@ -5327,8 +5602,9 @@ def reports_view(request):
             ws.column_dimensions['D'].width = 14
             ws.column_dimensions['E'].width = 14
             ws.column_dimensions['F'].width = 14
-            ws.column_dimensions['G'].width = 13
-            ws.column_dimensions['H'].width = 24
+            ws.column_dimensions['G'].width = 20
+            ws.column_dimensions['H'].width = 20
+            ws.column_dimensions['I'].width = 22
 
             # ── Sheet 2: Project List with Funding Subtotals (Requirement 3) ────
             ws_p = wb.create_sheet(title="Project List")
@@ -5694,26 +5970,34 @@ def reports_view(request):
             cell_muted_center = ParagraphStyle('CMC', fontName=main_font, fontSize=7, leading=8.5, alignment=1, textColor=SLATE_MUTED)
             cell_muted_right = ParagraphStyle('CMR', fontName=main_font, fontSize=7, leading=8.5, alignment=2, textColor=SLATE_MUTED)
 
-            col_widths = [22, 121, 54, 54, 48, 58, 48, 118.27]
+            col_widths = [18, 105, 42, 42, 42, 42, 75, 75, 82.27]
             table_data = [[
                 Paragraph("#", header_center_style),
                 Paragraph(period_header_label if is_single_barangay else "BARANGAY", header_cell_style),
                 Paragraph("MUNICIPAL", header_center_style),
                 Paragraph("BARANGAY", header_center_style),
                 Paragraph("PERMITS", header_center_style),
-                Paragraph("VIOLATIONS", header_center_style),
                 Paragraph("TOTAL", header_center_style),
-                Paragraph("PROJECT BUDGET (₱)", header_right_style)
+                Paragraph("MUNI BUDGET (₱)", header_right_style),
+                Paragraph("BRGY BUDGET (₱)", header_right_style),
+                Paragraph("TOTAL BUDGET (₱)", header_right_style)
             ]]
+
+            pdf_tot_muni_bud = Decimal('0.00')
+            pdf_tot_brgy_bud = Decimal('0.00')
 
             for row_data in export_table_rows:
                 seq_idx = row_data['seq']
                 m_c = row_data['muni_proj_cnt']
                 b_c = row_data['brgy_proj_cnt']
                 pm_c = row_data['perm_cnt']
-                v_c = row_data['viol_cnt']
                 t_c = row_data['tot_cnt']
-                b_sum = row_data['budget_sum']
+                m_bud = row_data.get('muni_budget_sum') or Decimal('0.00')
+                b_bud = row_data.get('brgy_budget_sum') or Decimal('0.00')
+                b_sum = row_data.get('budget_sum') or Decimal('0.00')
+
+                pdf_tot_muni_bud += m_bud
+                pdf_tot_brgy_bud += b_bud
 
                 table_data.append([
                     Paragraph(str(seq_idx), cell_muted_center),
@@ -5721,9 +6005,10 @@ def reports_view(request):
                     Paragraph(str(m_c), cell_center if m_c > 0 else cell_muted_center),
                     Paragraph(str(b_c), cell_center if b_c > 0 else cell_muted_center),
                     Paragraph(str(pm_c), cell_center if pm_c > 0 else cell_muted_center),
-                    Paragraph(f'<font color="#DC2626"><b>{v_c}</b></font>' if v_c > 0 else "0", cell_center if v_c > 0 else cell_muted_center),
                     Paragraph(f"<b>{t_c}</b>" if t_c > 0 else "0", cell_center if t_c > 0 else cell_muted_center),
-                    Paragraph(f"₱ {b_sum:,.2f}" if b_sum > 0 else "₱ 0.00", cell_right if b_sum > 0 else cell_muted_right),
+                    Paragraph(f"₱ {m_bud:,.2f}" if m_bud > 0 else "₱ 0.00", cell_right if m_bud > 0 else cell_muted_right),
+                    Paragraph(f"₱ {b_bud:,.2f}" if b_bud > 0 else "₱ 0.00", cell_right if b_bud > 0 else cell_muted_right),
+                    Paragraph(f"<b>₱ {b_sum:,.2f}</b>" if b_sum > 0 else "₱ 0.00", cell_right if b_sum > 0 else cell_muted_right),
                 ])
 
             tot_label_style = ParagraphStyle('TotLbl', parent=cell_style, fontName=bold_font, fontSize=7.5, textColor=NAVY)
@@ -5736,8 +6021,9 @@ def reports_view(request):
                 Paragraph(str(muni_p_cnt), tot_center_style),
                 Paragraph(str(brgy_p_cnt), tot_center_style),
                 Paragraph(str(permits_cnt), tot_center_style),
-                Paragraph(str(active_violations_cnt), tot_center_style),
                 Paragraph(str(total_rec_cnt), tot_center_style),
+                Paragraph(f"₱ {pdf_tot_muni_bud:,.2f}", tot_right_style),
+                Paragraph(f"₱ {pdf_tot_brgy_bud:,.2f}", tot_right_style),
                 Paragraph(f"₱ {total_budget_sum:,.2f}", tot_right_style)
             ])
 
@@ -5888,6 +6174,12 @@ def reports_view(request):
     total_projects_budget = projects_qs.aggregate(
         total_cost=Coalesce(Sum('project_detail__project_cost'), Value(Decimal('0.00'), output_field=DecimalField()))
     )['total_cost'] or Decimal('0.00')
+    municipal_projects_budget = projects_qs.filter(project_scope='Municipal').aggregate(
+        total_cost=Coalesce(Sum('project_detail__project_cost'), Value(Decimal('0.00'), output_field=DecimalField()))
+    )['total_cost'] or Decimal('0.00')
+    barangay_projects_budget = projects_qs.filter(project_scope='Barangay').aggregate(
+        total_cost=Coalesce(Sum('project_detail__project_cost'), Value(Decimal('0.00'), output_field=DecimalField()))
+    )['total_cost'] or Decimal('0.00')
 
     # 2. Official Permit Status Metrics (Excluding Illegal / Unpermitted Constructions)
     permits_qs = records.filter(valid_permit_q)
@@ -5904,11 +6196,18 @@ def reports_view(request):
     electrical_permits_count = permit_type_map.get('electrical', 0)
 
     # 3. Illegal Construction Metrics (Enforcement & Compliance Monitoring)
-    illegal_cases_qs = records.filter(is_illegal_construction=True)
-    total_illegal_cases = illegal_cases_qs.count()
-    active_illegal_cases = illegal_cases_qs.exclude(illegal_compliance_status='resolved').count()
-    resolved_illegal_cases = illegal_cases_qs.filter(illegal_compliance_status='resolved').count()
-    illegal_cases_list = []
+    compliance_year_num = int(selected_year) if (selected_year and selected_year.isdigit()) else today_date.year
+    compliance_qs = EngineeringRecord.objects.exclude(status='archived').filter(is_illegal_construction=True)
+    if selected_year and selected_year.isdigit():
+        compliance_qs = compliance_qs.filter(year=compliance_year_num)
+    if selected_barangay:
+        compliance_qs = compliance_qs.filter(barangay_id=selected_barangay)
+
+    total_illegal_cases = compliance_qs.count()
+    active_illegal_cases = compliance_qs.exclude(illegal_compliance_status='resolved').count()
+    resolved_illegal_cases = compliance_qs.filter(illegal_compliance_status='resolved').count()
+    compliance_rate = round((resolved_illegal_cases / total_illegal_cases * 100), 1) if total_illegal_cases > 0 else 0.0
+    illegal_cases_list = list(compliance_qs.select_related('barangay', 'permit_detail').order_by('-created_at')[:100])
 
     # Prepare readable filter names for UI display
     active_filters = []
@@ -6124,6 +6423,8 @@ def reports_view(request):
             fenc_perm_cnt=Count('record_id', filter=valid_permit_q & Q(permit_detail__permit_type__iexact='fencing')),
             elec_perm_cnt=Count('record_id', filter=valid_permit_q & Q(permit_detail__permit_type__iexact='electrical')),
             viol_cnt=Count('record_id', filter=Q(is_illegal_construction=True) & ~Q(illegal_compliance_status='resolved')),
+            muni_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Municipal')), Value(Decimal('0.00'), output_field=DecimalField())),
+            brgy_budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project', project_scope='Barangay')), Value(Decimal('0.00'), output_field=DecimalField())),
             budget_sum=Coalesce(Sum('project_detail__project_cost', filter=Q(record_type='Project')), Value(Decimal('0.00'), output_field=DecimalField())),
             tot_cnt=Count('record_id', filter=master_record_q)
         )
@@ -6148,6 +6449,8 @@ def reports_view(request):
                 'electrical_permits_count': row.get('elec_perm_cnt', 0),
                 'violations_count': row.get('viol_cnt', 0),
                 'total_count': row.get('tot_cnt', 0),
+                'muni_budget_total': row.get('muni_budget_sum') or Decimal('0.00'),
+                'brgy_budget_total': row.get('brgy_budget_sum') or Decimal('0.00'),
                 'budget_total': row.get('budget_sum') or Decimal('0.00')
             })
 
@@ -6177,8 +6480,10 @@ def reports_view(request):
         'ongoing_projects_count': total_projects,
         'completed_projects_count': 0,
         'total_projects_budget': total_projects_budget,
-        'municipal_projects_budget': 0,
-        'barangay_projects_budget': 0,
+        'municipal_projects_budget': municipal_projects_budget,
+        'barangay_projects_budget': barangay_projects_budget,
+        'compliance_year': compliance_year_num,
+        'compliance_rate': compliance_rate,
         'monitoring_projects_list': monitoring_projects_list,
         'monitoring_permits_list': monitoring_permits_list,
         'monitoring_violations_list': monitoring_violations_list,
