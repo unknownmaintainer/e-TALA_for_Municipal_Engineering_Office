@@ -5443,7 +5443,7 @@ def reports_view(request):
             ws.merge_cells('D8:E8')
             ws['D8'] = projects_cnt
             ws.merge_cells('F8:G8')
-            ws['F8'] = active_violations_cnt
+            ws['F8'] = violations_cnt
 
             for cell_id in ['A8', 'D8', 'F8']:
                 ws[cell_id].font = Font(name='Segoe UI', size=11, bold=True, color=NAVY_HEX)
@@ -5969,7 +5969,7 @@ def reports_view(request):
                 [
                     Paragraph(str(projects_cnt), kpi_val_style),
                     Paragraph(str(permits_cnt), kpi_val_style),
-                    Paragraph(str(active_violations_cnt), kpi_val_style),
+                    Paragraph(str(violations_cnt), kpi_val_style),
                 ],
                 [
                     Paragraph(f"{muni_p_cnt} Municipal &bull; {brgy_p_cnt} Barangay", kpi_sub_style),
