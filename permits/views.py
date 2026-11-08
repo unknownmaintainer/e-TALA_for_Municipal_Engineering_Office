@@ -5110,42 +5110,39 @@ def reports_view(request):
         elif search_query and all_barangays_filtered.count() == 1:
             target_brgy_name = all_barangays_filtered.first().barangay_name
 
-        location_label = f"Barangay {target_brgy_name}, Carigara" if target_brgy_name else (f"Filtered by \"{search_query}\" • Carigara" if search_query else "49 Barangays of Carigara")
+        # Sentence-style Dynamic Title Construction
+        # Pattern: ENGINEERING RECORDS & ACCOMPLISHMENTS [ACROSS ALL BARANGAYS | FOR BARANGAY X] [FOR THE MONTH OF ... 2026 | FOR THE YEAR 2026]
+        scope_part = f"FOR BARANGAY {target_brgy_name.upper()}" if target_brgy_name else (f"FILTERED BY \"{search_query.upper()}\"" if search_query else "ACROSS ALL BARANGAYS")
 
         if selected_year and selected_month and selected_month.isdigit():
             m_name = calendar.month_name[int(selected_month)]
-            doc_title = f"MONTHLY ENGINEERING ACCOMPLISHMENT REPORT &mdash; {m_name.upper()} {selected_year}"
-            doc_subtitle = f"Accomplishments for {m_name} {selected_year} &bull; {location_label}"
+            period_part = f"FOR THE MONTH OF {m_name.upper()} {selected_year}"
             file_suffix = f"Accomplishment Report ({m_name} {selected_year})"
         elif selected_month and selected_month.isdigit():
             m_name = calendar.month_name[int(selected_month)]
-            doc_title = f"MONTHLY ENGINEERING ACCOMPLISHMENT REPORT &mdash; {m_name.upper()}"
-            doc_subtitle = f"Accomplishments for Month of {m_name} (All Years) &bull; {location_label}"
+            period_part = f"FOR THE MONTH OF {m_name.upper()}"
             file_suffix = f"Accomplishment Report ({m_name} All Years)"
-            if target_brgy_name:
-                file_suffix += f" - Brgy {target_brgy_name}"
-            elif search_query:
-                file_suffix += f" - {search_query}"
         elif selected_year:
-            doc_title = f"ANNUAL ENGINEERING ACCOMPLISHMENT REPORT &mdash; {selected_year}"
-            doc_subtitle = f"Accomplishments for Year {selected_year} &bull; {location_label}"
+            period_part = f"FOR THE YEAR {selected_year}"
             file_suffix = f"Accomplishment Report ({selected_year})"
-            if target_brgy_name:
-                file_suffix += f" - Brgy {target_brgy_name}"
         else:
-            doc_title = "ENGINEERING ACCOMPLISHMENT SUMMARY REPORT"
-            if target_brgy_name:
-                doc_subtitle = f"All Engineering Accomplishments &bull; {location_label}"
-                file_suffix = f"Accomplishment Report (Brgy {target_brgy_name})"
-            elif search_query:
-                doc_subtitle = f"Accomplishments Filtered by \"{search_query}\" &bull; Carigara"
-                file_suffix = f"Accomplishment Report ({search_query})"
-            else:
-                doc_subtitle = "All Engineering Accomplishments across 49 Barangays of Carigara"
-                file_suffix = "Accomplishment Report (All Barangays)"
+            period_part = ""
+            file_suffix = f"Accomplishment Report (All Periods)"
 
-        clean_sub_text = doc_subtitle.replace('&mdash;', '—').replace('&bull;', '•')
-        clean_doc_title = doc_title.replace('&mdash;', '—').replace('&bull;', '•')
+        if period_part:
+            doc_title = f"ENGINEERING RECORDS & ACCOMPLISHMENTS {scope_part} {period_part}"
+        else:
+            doc_title = f"ENGINEERING RECORDS & ACCOMPLISHMENTS {scope_part}"
+
+        doc_subtitle = "Municipal Engineering Office • Municipality of Carigara, Leyte"
+
+        if target_brgy_name:
+            file_suffix += f" - Brgy {target_brgy_name}"
+        elif search_query:
+            file_suffix += f" - {search_query}"
+
+        clean_sub_text = doc_subtitle
+        clean_doc_title = doc_title
         gen_timestamp = timezone.localtime(timezone.now()).strftime("%B %d, %Y • %I:%M %p")
 
         # Pre-compute metrics for KPI block (used in both Excel and PDF)
