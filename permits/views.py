@@ -5158,9 +5158,10 @@ def reports_view(request):
 
         muni_p_cnt = records.filter(record_type='Project', project_scope='Municipal').count()
         brgy_p_cnt = records.filter(record_type='Project', project_scope='Barangay').count()
-        bldg_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iexact='Building').count()
+        bldg_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iregex=r'^(building|building\s+permit)$').count()
         elec_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iexact='Electrical').count()
         occ_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iexact='Occupancy').count()
+        fenc_perm_cnt = records.filter(valid_permit_q, permit_detail__permit_type__iexact='Fencing').count()
 
         is_single_barangay = bool(target_brgy_name)
 
@@ -5425,37 +5426,47 @@ def reports_view(request):
             ws['A5'].alignment = Alignment(horizontal='center', vertical='center')
 
             # 2. Executive 3-KPI Metric Strip Block (Aligned to 7-Column Table A..G)
-            ws.merge_cells('A7:B7')
+            # Layout: A-C: Engineering Permits (with complete breakdown), D-E: Infrastructure Projects, F-G: Illegal Constructions
+            ws.merge_cells('A7:C7')
             ws['A7'] = "ENGINEERING PERMITS"
-            ws.merge_cells('C7:D7')
-            ws['C7'] = "INFRASTRUCTURE PROJECTS"
-            ws.merge_cells('E7:G7')
-            ws['E7'] = "TOTAL PROJECT BUDGET"
+            ws.merge_cells('D7:E7')
+            ws['D7'] = "INFRASTRUCTURE PROJECTS"
+            ws.merge_cells('F7:G7')
+            ws['F7'] = "ILLEGAL CONSTRUCTIONS"
 
-            for cell_id in ['A7', 'C7', 'E7']:
+            for cell_id in ['A7', 'D7', 'F7']:
                 ws[cell_id].font = Font(name='Segoe UI', size=8.5, bold=True, color='475569')
                 ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
 
-            ws.merge_cells('A8:B8')
+            ws.merge_cells('A8:C8')
             ws['A8'] = permits_cnt
-            ws.merge_cells('C8:D8')
-            ws['C8'] = projects_cnt
-            ws.merge_cells('E8:G8')
-            ws['E8'] = float(total_budget_sum)
+            ws.merge_cells('D8:E8')
+            ws['D8'] = projects_cnt
+            ws.merge_cells('F8:G8')
+            ws['F8'] = active_violations_cnt
 
-            for cell_id in ['A8', 'C8', 'E8']:
+            for cell_id in ['A8', 'D8', 'F8']:
                 ws[cell_id].font = Font(name='Segoe UI', size=11, bold=True, color=NAVY_HEX)
                 ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
-            ws['E8'].number_format = '₱#,##0.00'
 
-            ws.merge_cells('A9:B9')
-            ws['A9'] = f"{bldg_perm_cnt} Bldg • {occ_perm_cnt} Occ • {elec_perm_cnt} Elec"
-            ws.merge_cells('C9:D9')
-            ws['C9'] = f"{muni_p_cnt} Municipal • {brgy_p_cnt} Barangay"
-            ws.merge_cells('E9:G9')
-            ws['E9'] = "Public Works Allocation"
+            ws.merge_cells('A9:C9')
+            permit_parts = []
+            if bldg_perm_cnt:
+                permit_parts.append(f"{bldg_perm_cnt} Bldg")
+            if elec_perm_cnt:
+                permit_parts.append(f"{elec_perm_cnt} Elec")
+            if fenc_perm_cnt:
+                permit_parts.append(f"{fenc_perm_cnt} Fencing")
+            if occ_perm_cnt:
+                permit_parts.append(f"{occ_perm_cnt} Occ")
+            ws['A9'] = " • ".join(permit_parts) if permit_parts else "0 Permits Recorded"
 
-            for cell_id in ['A9', 'C9', 'E9']:
+            ws.merge_cells('D9:E9')
+            ws['D9'] = f"{muni_p_cnt} Municipal • {brgy_p_cnt} Barangay"
+            ws.merge_cells('F9:G9')
+            ws['F9'] = f"{active_violations_cnt} Active • {resolved_violations_cnt} Complied"
+
+            for cell_id in ['A9', 'D9', 'F9']:
                 ws[cell_id].font = Font(name='Segoe UI', size=8, italic=True, color=TEXT_MUTED)
                 ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
 
@@ -5933,32 +5944,40 @@ def reports_view(request):
             story.append(Paragraph(clean_sub_text, doc_sub_style))
             story.append(Spacer(1, 6))
 
-            # 2. Executive 4-KPI Metric Strip Block
-            kpi_title_style = ParagraphStyle('KpiT', fontName=bold_font, fontSize=6.5, leading=8, alignment=1, textColor=colors.HexColor('#475569'))
-            kpi_val_style = ParagraphStyle('KpiV', fontName=bold_font, fontSize=12, leading=14, alignment=1, textColor=NAVY)
+            # 2. Executive 3-KPI Metric Strip Block (Without redundant Total Project Budget)
+            kpi_title_style = ParagraphStyle('KpiT', fontName=bold_font, fontSize=7, leading=8.5, alignment=1, textColor=colors.HexColor('#475569'))
+            kpi_val_style = ParagraphStyle('KpiV', fontName=bold_font, fontSize=13, leading=15, alignment=1, textColor=NAVY)
             kpi_sub_style = ParagraphStyle('KpiS', fontName=main_font, fontSize=6.5, leading=7.5, alignment=1, textColor=SLATE_MUTED)
+
+            permit_sub_items = []
+            if bldg_perm_cnt:
+                permit_sub_items.append(f"{bldg_perm_cnt} Bldg")
+            if elec_perm_cnt:
+                permit_sub_items.append(f"{elec_perm_cnt} Elec")
+            if fenc_perm_cnt:
+                permit_sub_items.append(f"{fenc_perm_cnt} Fencing")
+            if occ_perm_cnt:
+                permit_sub_items.append(f"{occ_perm_cnt} Occ")
+            permits_sub_text = " &bull; ".join(permit_sub_items) if permit_sub_items else "0 Permits Recorded"
 
             kpi_data = [
                 [
                     Paragraph("INFRASTRUCTURE PROJECTS", kpi_title_style),
                     Paragraph("ENGINEERING PERMITS", kpi_title_style),
                     Paragraph("ILLEGAL CONSTRUCTIONS", kpi_title_style),
-                    Paragraph("TOTAL PROJECT BUDGET", kpi_title_style),
                 ],
                 [
                     Paragraph(str(projects_cnt), kpi_val_style),
                     Paragraph(str(permits_cnt), kpi_val_style),
                     Paragraph(str(active_violations_cnt), kpi_val_style),
-                    Paragraph(f"₱ {total_budget_sum:,.2f}", kpi_val_style),
                 ],
                 [
                     Paragraph(f"{muni_p_cnt} Municipal &bull; {brgy_p_cnt} Barangay", kpi_sub_style),
-                    Paragraph(f"{bldg_perm_cnt} Bldg &bull; {occ_perm_cnt} Occ &bull; {elec_perm_cnt} Elec", kpi_sub_style),
+                    Paragraph(permits_sub_text, kpi_sub_style),
                     Paragraph(f"{active_violations_cnt} Active &bull; {resolved_violations_cnt} Complied", kpi_sub_style),
-                    Paragraph("Public Works Allocation", kpi_sub_style),
                 ]
             ]
-            kpi_table = Table(kpi_data, colWidths=[USABLE_WIDTH / 4.0] * 4)
+            kpi_table = Table(kpi_data, colWidths=[USABLE_WIDTH / 3.0] * 3)
             kpi_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
                 ('BOX', (0,0), (-1,-1), 0.75, BORDER_COLOR),
