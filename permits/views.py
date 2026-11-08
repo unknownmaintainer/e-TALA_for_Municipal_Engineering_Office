@@ -5476,7 +5476,7 @@ def reports_view(request):
                     cell.fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
                     cell.border = thin_border
 
-            # 3. Master Accomplishment Matrix Table (Two-Level Grouped Headers: Barangay | Permits | Records (Municipal, Barangay) | Budget (Municipal, Barangay, Total))
+            # 3. Master Accomplishment Matrix Table (Two-Level Grouped Headers: Barangay | Permits | Projects (Municipal, Barangay) | Budget (Municipal, Barangay, Total))
             header_top_idx = 11
             header_sub_idx = 12
             ws.row_dimensions[header_top_idx].height = 20
@@ -5490,7 +5490,7 @@ def reports_view(request):
 
             ws.cell(row=header_top_idx, column=1, value=period_header_label if is_single_barangay else "BARANGAY")
             ws.cell(row=header_top_idx, column=2, value="PERMITS")
-            ws.cell(row=header_top_idx, column=3, value="RECORDS")
+            ws.cell(row=header_top_idx, column=3, value="PROJECTS")
             ws.cell(row=header_top_idx, column=5, value="BUDGET (₱)")
 
             sub_headers = {
@@ -6013,7 +6013,7 @@ def reports_view(request):
                 [
                     Paragraph(period_header_label if is_single_barangay else "BARANGAY", header_cell_style),
                     Paragraph("PERMITS", header_center_style),
-                    Paragraph("RECORDS", header_center_style),
+                    Paragraph("PROJECTS", header_center_style),
                     Paragraph("", header_center_style),
                     Paragraph("BUDGET (₱)", header_center_style),
                     Paragraph("", header_center_style),
