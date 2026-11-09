@@ -9256,6 +9256,21 @@ def seed_demo_online_view(request):
 
     try:
         action = request.GET.get('action', '')
+        if action == 'clean_records' or action == 'wipe_demo':
+            from permits.models import EngineeringRecord, AuditLog
+            deleted_count = EngineeringRecord.objects.all().delete()[0]
+            # Optional: log the reset action
+            if request.user.is_authenticated:
+                AuditLog.objects.create(
+                    user=request.user,
+                    action=f"Cleared all demo records ({deleted_count} deleted) from database"
+                )
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Successfully cleared {deleted_count} engineering records from online database.',
+                'deleted_count': deleted_count
+            })
+
         if action == 'clean_duplicate_backups' or action == 'clean_duplicates':
             from permits.models import AuditLog
             from datetime import timedelta
