@@ -7881,8 +7881,8 @@ def settings_view(request):
             try:
                 from pathlib import Path
                 local_now = timezone.localtime(timezone.now())
-                timestamp_str = local_now.strftime('%Y%m%d_%H%M%S')
-                db_filename = f"etala_db_{timestamp_str}.json"
+                formatted_ts = local_now.strftime('%Y-%m-%d %I.%M%p')
+                db_filename = f"eTala Backup {formatted_ts}.json"
 
                 if backup_format == 'full_zip':
                     zip_buffer, filename, total_records, media_count = export_full_system_zip(user=request.user)

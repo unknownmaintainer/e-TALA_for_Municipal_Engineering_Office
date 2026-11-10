@@ -1543,6 +1543,11 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
     from django.apps import apps
     from django.core import serializers
     from django.db.models import Q
+    from .models import (
+        Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
+        EngineeringRecord, PermitDetail, ProjectDetail, Document,
+        RecordRequirement, Record, AuditLog, LoginAttempt, BlockedIP, UserDevice
+    )
 
     now = timezone.now()
     today_start = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1550,7 +1555,10 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
     # Smart-Skip Check: If a backup was already completed on this calendar day, skip until tomorrow
     if skip_if_already_backed_up_today and not force:
         latest_today = AuditLog.objects.filter(
-            Q(action__icontains='Automated System Backup') | Q(action__icontains='Exported full database backup')
+            Q(action__icontains='Automated System Backup') |
+            Q(action__icontains='Exported full database backup') |
+            Q(action__icontains='Exported complete municipal archive backup') |
+            Q(action__icontains='Exported Complete System Archive')
         ).filter(performed_at__gte=today_start).order_by('-performed_at').first()
 
         if latest_today:
@@ -1567,9 +1575,9 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
             }
 
     local_now = timezone.localtime(now)
-    timestamp_str = local_now.strftime('%Y%m%d_%H%M%S')
-    db_filename = f"etala_db_{timestamp_str}.json"
-    zip_filename = f"eTala Backup {local_now.strftime('%Y-%m-%d %I.%M%p')}.zip"
+    formatted_ts = local_now.strftime('%Y-%m-%d %I.%M%p')
+    db_filename = f"eTala Backup {formatted_ts}.json"
+    zip_filename = f"eTala Backup {formatted_ts}.zip"
 
     if not target_dir:
         env_path = os.getenv('BACKUP_STORAGE_PATH', '').strip()
@@ -1592,11 +1600,6 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
     zip_file_path = base_backup_dir / zip_filename
 
     # 1. Generate Structured Database JSON Snapshot
-    from .models import (
-        Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
-        EngineeringRecord, PermitDetail, ProjectDetail, Document,
-        RecordRequirement, Record, AuditLog, LoginAttempt, BlockedIP, UserDevice
-    )
     models_to_backup = [
         Barangay, Category, RequirementTemplate, RequirementItem, CustomUser, PasswordHistory,
         EngineeringRecord, PermitDetail, ProjectDetail, Document,
@@ -1681,7 +1684,11 @@ def execute_automated_backup(retention_days=14, target_dir=None, user=None, dry_
                 logger.warning(f"Error checking/deleting old backup archive {old_archive}: {e}")
 
     if db_dir.exists():
-        old_files = set(db_dir.glob('eTala_Backup_*.json')) | set(db_dir.glob('etala_db_*.json'))
+        old_files = (
+            set(db_dir.glob('eTala Backup *.json')) |
+            set(db_dir.glob('eTala_Backup_*.json')) |
+            set(db_dir.glob('etala_db_*.json'))
+        )
         for old_file in old_files:
             try:
                 if not old_file.exists():
@@ -1788,7 +1795,8 @@ def get_latest_backup_info(target_dir=None):
     # Check physical backup files for latest timestamp
     newest_physical_time = None
     if base_backup_dir.exists():
-        for f in base_backup_dir.glob('eTala_Backup_*.zip'):
+        zip_files = set(base_backup_dir.glob('eTala Backup *.zip')) | set(base_backup_dir.glob('eTala_Backup_*.zip'))
+        for f in zip_files:
             try:
                 mtime = datetime.datetime.fromtimestamp(f.stat().st_mtime, tz=datetime.timezone.utc)
                 if not newest_physical_time or mtime > newest_physical_time:
@@ -1796,7 +1804,12 @@ def get_latest_backup_info(target_dir=None):
             except Exception:
                 pass
     if db_dir.exists():
-        for f in db_dir.glob('etala_db_*.json'):
+        json_files = (
+            set(db_dir.glob('eTala Backup *.json')) |
+            set(db_dir.glob('eTala_Backup_*.json')) |
+            set(db_dir.glob('etala_db_*.json'))
+        )
+        for f in json_files:
             try:
                 mtime = datetime.datetime.fromtimestamp(f.stat().st_mtime, tz=datetime.timezone.utc)
                 if not newest_physical_time or mtime > newest_physical_time:
@@ -1811,7 +1824,14 @@ def get_latest_backup_info(target_dir=None):
             backup_type = 'Auto'
 
     # Count physical files if available
-    total_snapshots = len(list(db_dir.glob('etala_db_*.json'))) if db_dir.exists() else 0
+    if db_dir.exists():
+        total_snapshots = len(
+            set(db_dir.glob('eTala Backup *.json')) |
+            set(db_dir.glob('eTala_Backup_*.json')) |
+            set(db_dir.glob('etala_db_*.json'))
+        )
+    else:
+        total_snapshots = 0
     total_synced_media = sum(1 for _ in media_dir.rglob('*') if _.is_file()) if media_dir.exists() else 0
 
     return {
