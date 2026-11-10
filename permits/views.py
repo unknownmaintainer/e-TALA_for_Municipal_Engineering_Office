@@ -3747,58 +3747,24 @@ startxref
 
 def get_lgu_document_filename(doc):
     """
-    Concise, standardized document filename for viewing and downloading single files:
-    - Strips noisy prefixes (e.g. '1. ', '02_') and parenthetical instructions '(5 sets)', '(Unified Form)'
-    - Keeps names readable, professional, and concise (~25 to 45 characters total)
-    - Pattern: [Short_Applicant_or_Project]_[Requirement_Name].[ext]
-    Examples:
-      - Juan_Dela_Cruz_Building_Permit_Application.pdf
-      - Juan_Dela_Cruz_Building_Plans.pdf
-      - Evacuation_Center_Program_of_Works.pdf
-      - Stop_Order_Notice_to_Comply.pdf
+    Preserves the document's original uploaded filename for viewing and downloading single files.
+    Falls back to the requirement item or document type name only if no original filename exists.
     """
-    raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
-    _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
-    clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+    raw_fname = (doc.file_name or '').strip()
+    if not raw_fname and doc.file:
+        raw_fname = os.path.basename(str(doc.file.name)).strip()
 
-    rec = doc.engineering_record
-    root_folder = ""
-    if rec:
-        if rec.is_illegal_construction:
-            app = rec.permit_detail.applicant_name.strip() if hasattr(rec, 'permit_detail') and rec.permit_detail and rec.permit_detail.applicant_name else ""
-            if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null', 'under investigation']:
-                root_folder = sanitize_zip_name(app, max_len=35)
-            else:
-                root_folder = sanitize_zip_name(rec.title or "Violation", max_len=35)
-        elif rec.record_type == 'Permit':
-            app = rec.permit_detail.applicant_name.strip() if hasattr(rec, 'permit_detail') and rec.permit_detail and rec.permit_detail.applicant_name else ""
-            if app and app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null']:
-                root_folder = sanitize_zip_name(app, max_len=35)
-            else:
-                root_folder = sanitize_zip_name(rec.title or "Permit", max_len=35)
-        else:
-            root_folder = sanitize_zip_name(rec.title or "Project", max_len=35)
+    if raw_fname:
+        return sanitize_file_name(raw_fname, max_name_len=120)
 
     req_item = doc.requirement_item
-    if req_item:
+    if req_item and req_item.name:
         clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
         clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-        item_file_name = sanitize_zip_name(clean_item_name, max_len=45)
-    elif doc.document_type:
-        clean_type = re.sub(r'\s*\([^\)]*\)', '', doc.document_type).strip()
-        clean_type = re.sub(r'^\d+[\s_.-]*', '', clean_type).strip()
-        item_file_name = sanitize_zip_name(clean_type, max_len=45)
-    else:
-        base_raw, _ = os.path.splitext(os.path.basename(str(raw_fname)))
-        item_file_name = sanitize_zip_name(base_raw, max_len=45)
-
-    if root_folder and root_folder.lower() not in item_file_name.lower():
-        final_name = f"{root_folder} - {item_file_name}{clean_ext}"
-    else:
-        final_name = f"{item_file_name}{clean_ext}"
-
-    final_name = re.sub(r'[\r\n\t"\'<>\/\\|?*:]', '', final_name)
-    return final_name or f"document_{doc.document_id}{clean_ext}"
+        return f"{sanitize_zip_name(clean_item_name, max_len=60)}.pdf"
+    if doc.document_type:
+        return f"{sanitize_zip_name(doc.document_type, max_len=60)}.pdf"
+    return f"document_{doc.document_id}.pdf"
 
 
 def inject_pdf_title(content_bytes, title_str):
@@ -8420,14 +8386,6 @@ def alerts_list_json_view(request):
     return JsonResponse({'items': data})
 
 
-def sanitize_zip_name(raw_name, max_len=40):
-    """Sanitizes raw string and caps length for safe ZIP path creation across operating systems."""
-    if not raw_name:
-        return "item"
-    cleaned = "".join(c for c in str(raw_name) if c.isalnum() or c in (' ', '_', '-')).strip()
-    return cleaned[:max_len].strip() or "item"
-
-
 # ─── ENHANCEMENTS: ZIP DOWNLOAD, BATCH UPLOAD, BULK ENCODING ─────────────────
 
 
@@ -8469,7 +8427,7 @@ def download_category_zip_view(request, record_id, req_id):
     record_short = get_record_export_name(record, include_location=False)
     import re
     clean_raw_parent = re.sub(r'^\d+[\s_.-]*', '', parent_req.requirement_item.name).strip()
-    clean_parent = sanitize_zip_name(clean_raw_parent, max_len=35)
+    clean_parent = sanitize_zip_name(clean_raw_parent, max_len=45)
     filename = f"{record_short} - {clean_parent}.zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')
@@ -8481,7 +8439,7 @@ def download_category_zip_view(request, record_id, req_id):
 
 @login_required
 def download_slot_zip_view(request, record_id, item_id):
-    """Downloads all documents attached to a specific requirement item slot as a ZIP file with concise, clean naming."""
+    """Downloads all documents attached to a specific requirement item slot as a ZIP file, preserving original filenames."""
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     req_item = get_object_or_404(RequirementItem, item_id=item_id)
     docs = Document.objects.filter(engineering_record=record, requirement_item=req_item)
@@ -8492,9 +8450,8 @@ def download_slot_zip_view(request, record_id, item_id):
     import io, zipfile, re
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        total_docs = docs.count()
         used_names = set()
-        for idx, doc in enumerate(docs, start=1):
+        for doc in docs:
             file_obj, _, url = _get_document_stream(doc)
             if not file_obj and url:
                 try:
@@ -8510,28 +8467,24 @@ def download_slot_zip_view(request, record_id, item_id):
                 finally:
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
-                raw_name = doc.file_name or f"document_{doc.document_id}.pdf"
-                clean_raw = sanitize_file_name(raw_name, max_name_len=45)
-                if total_docs > 1:
-                    final_name = f"{idx:02d} {clean_raw}"
-                else:
-                    final_name = clean_raw
+                raw_name = doc.file_name or (os.path.basename(doc.file.name) if doc.file else f"document_{doc.document_id}.pdf")
+                final_name = sanitize_file_name(raw_name, max_name_len=120)
                 
                 count = 2
                 orig_final = final_name
                 while final_name in used_names:
                     parts = orig_final.rsplit('.', 1)
                     if len(parts) == 2:
-                        final_name = f"{parts[0]} (Part {count}).{parts[1]}"
+                        final_name = f"{parts[0]} ({count}).{parts[1]}"
                     else:
-                        final_name = f"{orig_final} (Part {count})"
+                        final_name = f"{orig_final} ({count})"
                     count += 1
                 used_names.add(final_name)
                 zf.writestr(final_name, file_data)
 
     record_short = get_record_export_name(record, include_location=False)
     clean_raw_item = re.sub(r'^\d+[\s_.-]*', '', req_item.name).strip()
-    clean_item = sanitize_zip_name(clean_raw_item, max_len=35)
+    clean_item = sanitize_zip_name(clean_raw_item, max_len=45)
     filename = f"{record_short} - {clean_item}.zip"
     val = buffer.getvalue()
     response = HttpResponse(val, content_type='application/zip')

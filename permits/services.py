@@ -240,23 +240,29 @@ def sanitize_zip_name(raw_name, max_len=80):
     return cleaned or "Item"
 
 
-def sanitize_file_name(raw_filename, max_name_len=80):
-    """Sanitizes filename and extension using clean spaces, preserving complete words."""
+def sanitize_file_name(raw_filename, max_name_len=120):
+    """Preserves the original uploaded filename (including underscores, hyphens, spaces, parentheses) while stripping only unsafe OS path characters."""
     if not raw_filename:
-        return "Document"
-    name_part, ext_part = os.path.splitext(os.path.basename(str(raw_filename)))
-    clean_name = sanitize_zip_name(name_part, max_len=max_name_len)
+        return "Document.pdf"
+    base = os.path.basename(str(raw_filename)).strip()
+    name_part, ext_part = os.path.splitext(base)
+    # Strip only characters illegal in Windows/macOS/Linux/ZIP paths: < > : " / \ | ? * and control chars
+    clean_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', name_part).strip().strip('.')
+    if len(clean_name) > max_name_len:
+        clean_name = clean_name[:max_name_len].strip()
+    if not clean_name:
+        clean_name = "Document"
     clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip()
     return f"{clean_name}{clean_ext}"
 
 
 def get_record_export_name(record, include_location=False):
     """
-    Generates a crystal-clear, concise, and non-confusing name for record exports without underscores.
+    Generates a crystal-clear, concise, and non-confusing name for record exports.
     Format:
-      - Permit: "Permit - [Applicant Name] (#[Permit Number])"
+      - Permit: "Permit - [Applicant Name] ([Permit Number])"
       - Project: "Project - [Project Title]"
-      - Violation: "Violation - [Owner / Structure Name] (#[Notice Number])"
+      - Violation: "Violation - [Owner / Structure Name] ([Notice Number])"
     If include_location is True, appends "(Brgy [Name])" where helpful.
     """
     loc_suffix = f" (Brgy {sanitize_zip_name(record.barangay.barangay_name, max_len=25)})" if (include_location and record.barangay) else ""
@@ -266,14 +272,14 @@ def get_record_export_name(record, include_location=False):
         pnum = ""
         owner = ""
         if hasattr(record, 'permit_detail') and record.permit_detail:
-            pnum = (record.permit_detail.permit_number or '').strip()
+            pnum = sanitize_zip_name((record.permit_detail.permit_number or '').strip().lstrip('#'), max_len=30)
             app = (record.permit_detail.applicant_name or '').strip()
             if app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null', 'under investigation']:
                 owner = sanitize_zip_name(app, max_len=45)
         
         name = owner or sanitize_zip_name(record.display_title or "Unpermitted Structure", max_len=45)
-        if pnum:
-            return f"Violation - {name} (#{pnum})"
+        if pnum and pnum != "Item":
+            return f"Violation - {name} ({pnum})"
         return f"Violation - {name}{loc_suffix}"
 
     # 2. STANDARD PERMITS & REGULARIZED PERMITS
@@ -281,14 +287,14 @@ def get_record_export_name(record, include_location=False):
         pnum = ""
         applicant = ""
         if hasattr(record, 'permit_detail') and record.permit_detail:
-            pnum = (record.permit_detail.permit_number or '').strip()
+            pnum = sanitize_zip_name((record.permit_detail.permit_number or '').strip().lstrip('#'), max_len=30)
             app = (record.permit_detail.applicant_name or '').strip()
             if app.lower() not in ['n/a', 'none', '—', '', 'unknown', 'null']:
                 applicant = sanitize_zip_name(app, max_len=45)
 
         name = applicant or sanitize_zip_name(record.display_title or "Permit Record", max_len=45)
-        if pnum:
-            return f"Permit - {name} (#{pnum})"
+        if pnum and pnum != "Item":
+            return f"Permit - {name} ({pnum})"
         return f"Permit - {name}{loc_suffix}"
 
     # 3. INFRASTRUCTURE PROJECTS
@@ -481,7 +487,8 @@ def generate_record_summary_text(record, user=None):
             is_last = (idx == len(group['items']) - 1)
             prefix = "   └── " if is_last else "   ├── "
             if item.is_fulfilled and item.document:
-                lines.append(f"{prefix}[UPLOADED] {item.requirement_item.name}")
+                doc_fname = sanitize_file_name(item.document.file_name or (item.document.file.name if item.document.file else ''))
+                lines.append(f"{prefix}[UPLOADED] {item.requirement_item.name} -> {doc_fname}")
             elif item.is_waived:
                 lines.append(f"{prefix}[N/A]      {item.requirement_item.name} (Waived / Not Required)")
             else:
@@ -496,7 +503,8 @@ def generate_record_summary_text(record, user=None):
             is_last = (idx == len(standalone_items) - 1)
             prefix = "   └── " if is_last else "   ├── "
             if item.is_fulfilled and item.document:
-                lines.append(f"{prefix}[UPLOADED] {item.requirement_item.name}")
+                doc_fname = sanitize_file_name(item.document.file_name or (item.document.file.name if item.document.file else ''))
+                lines.append(f"{prefix}[UPLOADED] {item.requirement_item.name} -> {doc_fname}")
             elif item.is_waived:
                 lines.append(f"{prefix}[N/A]      {item.requirement_item.name} (Waived / Not Required)")
             else:
@@ -506,12 +514,12 @@ def generate_record_summary_text(record, user=None):
     # Additional attachments
     extra_docs = record.documents.filter(requirement_item__isnull=True)
     if extra_docs.exists():
-        att_folder = f"0{group_idx}_Additional_Attachments" if group_idx < 10 else f"{group_idx}_Additional_Attachments"
+        att_folder = "Incident Evidence" if (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved') else "Supporting Documents"
         lines.append(f"📁 {att_folder}/")
         for idx, edoc in enumerate(extra_docs):
             is_last = (idx == extra_docs.count() - 1)
             prefix = "   └── " if is_last else "   ├── "
-            fname = edoc.file_name or (os.path.basename(edoc.file.name) if edoc.file else 'attachment')
+            fname = sanitize_file_name(edoc.file_name or (os.path.basename(edoc.file.name) if edoc.file else 'attachment'))
             lines.append(f"{prefix}{fname}")
         lines.append("")
 
@@ -556,25 +564,25 @@ def generate_barangay_summary_text(barangay, records, user=None):
         "ARCHIVE FOLDER STRUCTURE",
         "=" * 80,
         "",
-        "📁 01_Municipal_Projects/",
+        "📁 01 Municipal Projects/",
     ]
 
     for rec in records.filter(record_type='Project', project_scope='Municipal'):
         lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
 
     lines.append("")
-    lines.append("📁 02_Barangay_Projects/")
+    lines.append("📁 02 Barangay Projects/")
     for rec in records.filter(record_type='Project', project_scope='Barangay'):
         lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
 
     lines.append("")
-    lines.append("📁 03_Building_Permits/")
+    lines.append("📁 03 Building Permits/")
     for rec in records.filter(record_type='Permit', is_illegal_construction=False):
         lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
 
     if illegal_cases > 0:
         lines.append("")
-        lines.append("📁 04_Illegal_Constructions/")
+        lines.append("📁 04 Illegal Constructions/")
         for rec in records.filter(is_illegal_construction=True):
             lines.append(f"   └── 📁 {get_record_export_name(rec, include_location=False)}/")
 
@@ -592,12 +600,14 @@ def generate_barangay_summary_text(barangay, records, user=None):
 def build_record_zip_buffer(record, stream_getter_func, user=None):
     """
     Generates an in-memory ZIP archive buffer containing all fulfilled documents for an EngineeringRecord.
+    Preserves each document's original uploaded filename while organizing into clean checklist category folders.
     Structure:
       ├── RECORD_SUMMARY.txt
-      ├── 01_Building_Plans/ (Sub-folders only for multi-item parent groups)
-      │   └── Plan_and_Profiles.pdf
-      ├── 03_Specifications.pdf (Direct loose file for standalone requirements)
-      └── 06_Additional_Attachments/ (Photos / miscellaneous)
+      ├── 01 Legal Forms & Clearances/
+      │   └── <Original_Uploaded_Filename.pdf>
+      ├── <Standalone_Original_Filename.pdf>
+      └── Supporting Documents/
+          └── <Original_Attachment_Filename.jpg>
     """
     buffer = io.BytesIO()
     used_paths = set()
@@ -628,7 +638,7 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
             clean_gname = re.sub(r'^\d+[\s_.-]*', '', p_info['name']).strip()
             group_folder_map[p_id] = f"0{g_idx} {clean_gname}" if g_idx < 10 else f"{g_idx} {clean_gname}"
 
-        # 2. Add all documents
+        # 2. Add all documents (preserving their original uploaded filenames)
         for doc in record.documents.select_related('requirement_item', 'requirement_item__parent'):
             try:
                 file_obj, _, url = stream_getter_func(doc)
@@ -645,34 +655,28 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
 
-                    raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
-                    _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
-                    clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+                    raw_fname = doc.file_name or (os.path.basename(doc.file.name) if doc.file else f"document_{doc.document_id}.pdf")
+                    clean_orig_fname = sanitize_file_name(raw_fname, max_name_len=120)
 
                     req_item = doc.requirement_item
                     if req_item:
-                        clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
-                        clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                        item_file_name = sanitize_zip_name(clean_item_name, max_len=45) + clean_ext
-
                         if req_item.parent_id and req_item.parent_id in group_folder_map:
                             folder_prefix = group_folder_map[req_item.parent_id]
-                            file_path = f"{folder_prefix}/{item_file_name}"
+                            file_path = f"{folder_prefix}/{clean_orig_fname}"
                         else:
-                            file_path = item_file_name
+                            file_path = clean_orig_fname
                     else:
-                        clean_extra = sanitize_file_name(raw_fname, max_name_len=45)
                         if doc.document_type == "Incident Evidence" or (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'):
-                            file_path = f"Incident Evidence/{clean_extra}"
+                            file_path = f"Incident Evidence/{clean_orig_fname}"
                         else:
-                            file_path = f"Supporting Documents/{clean_extra}"
+                            file_path = f"Supporting Documents/{clean_orig_fname}"
 
-                    # Prevent duplicate zip path collisions & handle multi-file numbering cleanly
+                    # Prevent duplicate zip path collisions only if two files in the same folder share the exact same name
                     orig_path = file_path
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p} (Part {counter}){ext_p}"
+                        file_path = f"{base_p} ({counter}){ext_p}"
                         counter += 1
                     used_paths.add(file_path)
 
@@ -686,7 +690,8 @@ def build_record_zip_buffer(record, stream_getter_func, user=None):
 
 def build_category_zip_buffer(record, parent_req, stream_getter_func):
     """
-    Generates an in-memory ZIP archive buffer containing all documents under a specific requirement parent category.
+    Generates an in-memory ZIP archive buffer containing all documents under a specific requirement parent category,
+    preserving each file's original uploaded filename.
     """
     parent_item = parent_req.requirement_item
     sub_items = list(parent_item.sub_items.all())
@@ -717,19 +722,14 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
 
-                        raw_fname = req.document.file_name or (req.document.file.name if req.document.file else 'document')
-                        _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
-                        clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
-                        clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req.requirement_item.name).strip()
-                        clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                        item_file_name = sanitize_zip_name(clean_item_name, max_len=45) + clean_ext
-                        file_path = item_file_name
+                        raw_fname = req.document.file_name or (os.path.basename(req.document.file.name) if req.document.file else f"document_{req.document.document_id}.pdf")
+                        file_path = sanitize_file_name(raw_fname, max_name_len=120)
 
                         orig_path = file_path
                         counter = 2
                         while file_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            file_path = f"{base_p} (Part {counter}){ext_p}"
+                            file_path = f"{base_p} ({counter}){ext_p}"
                             counter += 1
                         used_paths.add(file_path)
                         processed_doc_ids.add(req.document.document_id)
@@ -746,20 +746,27 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
 
         for doc in direct_docs:
             try:
-                file_obj, _, _ = stream_getter_func(doc)
+                file_obj, _, url = stream_getter_func(doc)
+                if not file_obj and url:
+                    try:
+                        import requests
+                        r = requests.get(url, timeout=15)
+                        if r.status_code == 200:
+                            file_obj = io.BytesIO(r.content)
+                    except Exception:
+                        pass
                 if file_obj:
                     file_data = file_obj.read()
                     if hasattr(file_obj, 'close'):
                         file_obj.close()
-                    raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
-                    clean_doc_fname = sanitize_file_name(raw_fname, max_name_len=45)
-                    file_path = clean_doc_fname
+                    raw_fname = doc.file_name or (os.path.basename(doc.file.name) if doc.file else f"document_{doc.document_id}.pdf")
+                    file_path = sanitize_file_name(raw_fname, max_name_len=120)
 
                     orig_path = file_path
                     counter = 2
                     while file_path in used_paths:
                         base_p, ext_p = os.path.splitext(orig_path)
-                        file_path = f"{base_p} (Part {counter}){ext_p}"
+                        file_path = f"{base_p} ({counter}){ext_p}"
                         counter += 1
                     used_paths.add(file_path)
                     processed_doc_ids.add(doc.document_id)
@@ -774,18 +781,8 @@ def build_category_zip_buffer(record, parent_req, stream_getter_func):
 
 def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
     """
-    Generates an in-memory ZIP archive buffer containing all documents for an entire Barangay.
-    Clean structure:
-      Barangay_Balilit/
-        ├── BARANGAY_SUMMARY.txt
-        ├── 01_Municipal_Projects/
-        │   └── Water_System_Project/
-        │       ├── RECORD_SUMMARY.txt
-        │       ├── 01_Building_Plans/
-        │       └── 03_Specifications.pdf
-        ├── 02_Barangay_Projects/
-        ├── 03_Building_Permits/
-        └── 04_Illegal_Constructions/
+    Generates an in-memory ZIP archive buffer containing all documents for an entire Barangay,
+    preserving each document's original uploaded filename.
     """
     buffer = io.BytesIO()
     clean_b_name = f"Barangay {sanitize_zip_name(barangay.barangay_name, max_len=30)}"
@@ -806,7 +803,7 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
         )
         unique_key = f"{section}/{base_name}"
         if unique_key in assigned_folders:
-            suffix_label = f"Case #{record.record_id}" if record.is_illegal_construction else f"Rec #{record.record_id}"
+            suffix_label = f"Case {record.record_id}" if record.is_illegal_construction else f"Rec {record.record_id}"
             base_name = f"{base_name} ({suffix_label})"
             unique_key = f"{section}/{base_name}"
             counter = 2
@@ -827,7 +824,7 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
         for record in records:
             section, record_folder = used_record_folders.get(
                 record.record_id,
-                ("01_Municipal_Projects", get_record_export_name(record, include_location=False))
+                ("01 Municipal Projects", get_record_export_name(record, include_location=False))
             )
             rec_prefix = f"{clean_b_name}/{section}/{record_folder}"
 
@@ -874,33 +871,27 @@ def build_barangay_zip_buffer(barangay, stream_getter_func, user=None):
                         if hasattr(file_obj, 'close'):
                             file_obj.close()
 
-                        raw_fname = doc.file_name or (doc.file.name if doc.file else 'document')
-                        _, ext_part = os.path.splitext(os.path.basename(str(raw_fname)))
-                        clean_ext = "".join(c for c in ext_part if c.isalnum() or c == '.').strip() or '.pdf'
+                        raw_fname = doc.file_name or (os.path.basename(doc.file.name) if doc.file else f"document_{doc.document_id}.pdf")
+                        clean_orig_fname = sanitize_file_name(raw_fname, max_name_len=120)
 
                         req_item = doc.requirement_item
                         if req_item:
-                            clean_item_name = re.sub(r'\s*\([^\)]*\)', '', req_item.name).strip()
-                            clean_item_name = re.sub(r'^\d+[\s_.-]*', '', clean_item_name).strip()
-                            item_file_name = sanitize_zip_name(clean_item_name, max_len=45) + clean_ext
-
                             if req_item.parent_id and req_item.parent_id in group_folder_map:
                                 folder_prefix = group_folder_map[req_item.parent_id]
-                                folder_path = f"{rec_prefix}/{folder_prefix}/{item_file_name}"
+                                folder_path = f"{rec_prefix}/{folder_prefix}/{clean_orig_fname}"
                             else:
-                                folder_path = f"{rec_prefix}/{item_file_name}"
+                                folder_path = f"{rec_prefix}/{clean_orig_fname}"
                         else:
-                            clean_extra = sanitize_file_name(raw_fname, max_name_len=50)
                             if doc.document_type == "Incident Evidence" or (record.is_illegal_construction and record.illegal_compliance_status == 'unresolved'):
-                                folder_path = f"{rec_prefix}/Incident Evidence/{clean_extra}"
+                                folder_path = f"{rec_prefix}/Incident Evidence/{clean_orig_fname}"
                             else:
-                                folder_path = f"{rec_prefix}/Supporting Documents/{clean_extra}"
+                                folder_path = f"{rec_prefix}/Supporting Documents/{clean_orig_fname}"
 
                         orig_path = folder_path
                         counter = 2
                         while folder_path in used_paths:
                             base_p, ext_p = os.path.splitext(orig_path)
-                            folder_path = f"{base_p} (Part {counter}){ext_p}"
+                            folder_path = f"{base_p} ({counter}){ext_p}"
                             counter += 1
                         used_paths.add(folder_path)
 
