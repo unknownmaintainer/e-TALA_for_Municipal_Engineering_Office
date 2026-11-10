@@ -10624,15 +10624,6 @@
             background-color: rgba(0, 0, 0, 0.06);
         }
 
-        .custom-app-toast .toast-progress-track {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 3px;
-            width: 100%;
-            opacity: 0.85;
-        }
-
         /* ── Dark Mode Clean Variants ── */
         .dark-mode .custom-app-toast,
         [data-bs-theme="dark"] .custom-app-toast {
@@ -10667,59 +10658,23 @@
             background-color: rgba(255, 255, 255, 0.1);
         }
 
-        /* ── Universal Export / ZIP Progress Toast (Light & Dark Mode) ── */
+        /* ── Universal Export / ZIP Progress Toast (Matches Standard Clean Border) ── */
         .custom-app-toast.zip-download-toast {
             background: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            border-left: 4px solid #0284c7 !important;
-            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-            transition: border-left-color 0.3s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        .custom-app-toast.zip-download-toast.toast-variant-success {
-            border-left-color: #10b981 !important;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.04) !important;
+            transition: border-color 0.25s ease, background-color 0.2s ease, box-shadow 0.2s ease;
         }
         .custom-app-toast.zip-download-toast.toast-variant-danger {
-            border-left-color: #ef4444 !important;
+            border: 1px solid #fecaca !important;
         }
-        .custom-app-toast.zip-download-toast .toast-text-single {
-            color: #0f172a !important;
-            font-weight: 500;
-        }
-        .custom-app-toast.zip-download-toast .toast-status-icon {
-            background: #e0f2fe !important;
-            color: #0284c7 !important;
-        }
-        .custom-app-toast.zip-download-toast .toast-progress-bar {
-            background: #0284c7 !important;
-        }
-
         .dark-mode .custom-app-toast.zip-download-toast,
         [data-bs-theme="dark"] .custom-app-toast.zip-download-toast {
             background: #1e293b !important;
-            border: 1px solid #334155 !important;
-            border-left: 4px solid #38bdf8 !important;
-            box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
-        }
-        .dark-mode .custom-app-toast.zip-download-toast.toast-variant-success,
-        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast.toast-variant-success {
-            border-left-color: #34d399 !important;
+            box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.5) !important;
         }
         .dark-mode .custom-app-toast.zip-download-toast.toast-variant-danger,
         [data-bs-theme="dark"] .custom-app-toast.zip-download-toast.toast-variant-danger {
-            border-left-color: #f87171 !important;
-        }
-        .dark-mode .custom-app-toast.zip-download-toast .toast-text-single,
-        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-text-single {
-            color: #f8fafc !important;
-        }
-        .dark-mode .custom-app-toast.zip-download-toast .toast-status-icon,
-        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-status-icon {
-            background: #0f172a !important;
-            color: #38bdf8 !important;
-        }
-        .dark-mode .custom-app-toast.zip-download-toast .toast-progress-bar,
-        [data-bs-theme="dark"] .custom-app-toast.zip-download-toast .toast-progress-bar {
-            background: #38bdf8 !important;
+            border-color: rgba(239, 68, 68, 0.35) !important;
         }
     </style>
 
@@ -10905,13 +10860,11 @@
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
-                <div class="toast-progress-track" id="${toastId}-bar" style="background: ${iconBg};"></div>
             </div>
             `;
 
             container.insertAdjacentHTML('beforeend', toastHtml);
             const toastEl = document.getElementById(toastId);
-            const pBar = document.getElementById(`${toastId}-bar`);
 
             let timerId = null;
             let startTime = Date.now();
@@ -10921,11 +10874,6 @@
                 if (remainingTime <= 0) {
                     dismissToast(toastId);
                     return;
-                }
-                if (pBar) {
-                    void pBar.offsetWidth; // Force reflow
-                    pBar.style.transition = `width ${remainingTime}ms linear`;
-                    pBar.style.width = '0%';
                 }
                 startTime = Date.now();
                 timerId = setTimeout(() => {
@@ -10940,11 +10888,6 @@
                 }
                 const elapsed = Date.now() - startTime;
                 remainingTime = Math.max(0, remainingTime - elapsed);
-                if (pBar) {
-                    const computedWidth = window.getComputedStyle(pBar).width;
-                    pBar.style.transition = 'none';
-                    pBar.style.width = computedWidth;
-                }
             }
 
             toastEl.addEventListener('mouseenter', pauseTimer);
@@ -10952,7 +10895,7 @@
                 if (remainingTime > 0) startTimer();
             });
 
-            // Start countdown animation
+            // Start auto-dismiss timer
             setTimeout(startTimer, 30);
 
             return toastId;
@@ -11026,13 +10969,13 @@
             const container = document.getElementById('toastContainer');
             if (!container) return null;
 
-            container.querySelectorAll('.zip-download-toast').forEach(t => t.remove());
+            container.querySelectorAll('.custom-app-toast').forEach(t => t.remove());
 
             const toastId = 'dl-toast-' + Date.now();
             const toastHtml = `
             <div id="${toastId}" class="custom-app-toast toast-variant-info zip-download-toast" role="alert" aria-live="assertive" aria-atomic="true">
                 <div class="d-flex align-items-center" style="padding: 12px 14px; gap: 11px;">
-                    <div class="toast-icon-badge" id="${toastId}-badge" style="background: #0284c7;">
+                    <div class="toast-icon-badge" id="${toastId}-badge" style="background: #3b82f6;">
                         <span class="spinner-border spinner-border-sm text-white" style="width: 14px; height: 14px; border-width: 2px;" role="status"></span>
                     </div>
                     <div class="toast-text-single flex-grow-1" id="${toastId}-text" style="min-width: 0;">
@@ -11042,7 +10985,6 @@
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
-                <div class="toast-progress-track" id="${toastId}-bar" style="background: #0284c7; width: 40%; transition: width 0.3s ease, background 0.3s ease;"></div>
             </div>
             `;
             container.insertAdjacentHTML('beforeend', toastHtml);
@@ -11050,23 +10992,9 @@
             const toastEl = document.getElementById(toastId);
             const textEl = document.getElementById(`${toastId}-text`);
             const badgeEl = document.getElementById(`${toastId}-badge`);
-            const barEl = document.getElementById(`${toastId}-bar`);
-
-            let progress = 40;
-            const progressInterval = setInterval(() => {
-                if (progress < 85) {
-                    progress += 10;
-                    if (barEl) barEl.style.width = progress + '%';
-                }
-            }, 500);
 
             return {
                 setSuccess: function(successText) {
-                    clearInterval(progressInterval);
-                    if (barEl) {
-                        barEl.style.width = '100%';
-                        barEl.style.background = '#10b981';
-                    }
                     if (badgeEl) {
                         badgeEl.style.background = '#10b981';
                         badgeEl.innerHTML = '<i class="fa-solid fa-circle-check text-white" style="font-size: 14px;"></i>';
@@ -11075,8 +11003,7 @@
                         textEl.textContent = successText;
                     }
                     if (toastEl) {
-                        toastEl.style.borderLeftColor = '#10b981';
-                        toastEl.classList.remove('toast-variant-info', 'toast-variant-danger');
+                        toastEl.classList.remove('toast-variant-info', 'toast-variant-danger', 'toast-variant-error');
                         toastEl.classList.add('toast-variant-success');
                     }
                     setTimeout(() => {
@@ -11084,11 +11011,6 @@
                     }, 2800);
                 },
                 setError: function(errorText) {
-                    clearInterval(progressInterval);
-                    if (barEl) {
-                        barEl.style.width = '100%';
-                        barEl.style.background = '#ef4444';
-                    }
                     if (badgeEl) {
                         badgeEl.style.background = '#ef4444';
                         badgeEl.innerHTML = '<i class="fa-solid fa-circle-xmark text-white" style="font-size: 14px;"></i>';
@@ -11097,16 +11019,14 @@
                         textEl.textContent = errorText || 'Download failed. Please try again.';
                     }
                     if (toastEl) {
-                        toastEl.style.borderLeftColor = '#ef4444';
                         toastEl.classList.remove('toast-variant-info', 'toast-variant-success');
-                        toastEl.classList.add('toast-variant-danger');
+                        toastEl.classList.add('toast-variant-error');
                     }
                     setTimeout(() => {
                         if (toastEl) dismissToast(toastId);
                     }, 4000);
                 },
                 close: function() {
-                    clearInterval(progressInterval);
                     if (toastEl) dismissToast(toastId);
                 }
             };
