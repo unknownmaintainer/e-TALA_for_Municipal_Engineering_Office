@@ -368,6 +368,10 @@
                             {% endif %}
                         </div>
                     </div>
+                    <div id="singleUploadErrorBanner" class="d-none mt-1.5 p-0 d-flex align-items-center gap-1.5 text-danger fw-medium" style="font-size: 0.76rem; line-height: 1.35;">
+                        <i class="fa-solid fa-circle-exclamation flex-shrink-0" style="font-size: 0.82rem;"></i>
+                        <span id="singleUploadErrorText">File exceeds maximum 50MB limit.</span>
+                    </div>
 
                     <!-- Progressive Selected Multi-Files & Validity Section -->
                     <div id="singleFileSelectedContainer" class="d-none" style="display: flex; flex-direction: column;">
@@ -485,7 +489,11 @@
                                 <div class="text-muted" id="replaceSelectedFileSize" style="font-size: 0.72rem;"></div>
                             </div>
                         </div>
-                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 rounded-2 fw-semibold" style="font-size: 0.72rem;">Ready</span>
+                        <span id="replaceSelectedStatusBadge" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 rounded-2 fw-semibold" style="font-size: 0.72rem;">Ready</span>
+                    </div>
+                    <div id="replaceErrorBanner" class="d-none mt-1.5 p-0 d-flex align-items-center gap-1.5 text-danger fw-medium" style="font-size: 0.76rem; line-height: 1.35;">
+                        <i class="fa-solid fa-circle-exclamation flex-shrink-0" style="font-size: 0.82rem;"></i>
+                        <span id="replaceErrorText">File exceeds maximum 50MB limit.</span>
                     </div>
 
                     <div id="replaceValidityBox" class="validity-preset-card p-2.5 px-3 rounded-3 border mt-2.5 d-none">
@@ -725,26 +733,35 @@ function showSelectedFiles(input) {
         const filesList = Array.from(input.files);
         input.value = ''; // Safely reset after copying array
         const newFiles = [];
+        const errBanner = document.getElementById('singleUploadErrorBanner');
+        const errText = document.getElementById('singleUploadErrorText');
+        const dropzoneEl = document.getElementById('dropZone');
+        let lastValidationErr = '';
+
         for (let i = 0; i < filesList.length; i++) {
             const file = filesList[i];
             if (file.size > 50 * 1024 * 1024) {
+                const szStr = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                lastValidationErr = `"${file.name}" (${szStr}) exceeds the maximum 50MB file size limit.`;
                 if (window.showToast) {
-                    showToast('warning', 'File Too Large', 'File exceeds maximum 50MB limit.');
+                    showToast('error', 'File Too Large', lastValidationErr);
                 }
                 continue;
             }
             const isIllegalReport = document.getElementById('recordRequirementConfig')?.dataset.isIllegal === 'true';
             if (isIllegalReport) {
                 if (!/\.(pdf|jpg|jpeg|png|webp)$/i.test(file.name)) {
+                    lastValidationErr = `"${file.name}" has an unsupported format. Supported: PDF, JPG, PNG, WEBP.`;
                     if (window.showToast) {
-                        showToast('warning', 'Invalid Format', 'Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).');
+                        showToast('error', 'Invalid Format', 'Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).');
                     }
                     continue;
                 }
             } else {
                 if (!/\.pdf$/i.test(file.name)) {
+                    lastValidationErr = `"${file.name}" is not a PDF. Regular engineering records accept PDF (.pdf) only.`;
                     if (window.showToast) {
-                        showToast('warning', 'Invalid Format', 'Regular engineering records accept PDF documents (.pdf) only.');
+                        showToast('error', 'Invalid Format', 'Regular engineering records accept PDF documents (.pdf) only.');
                     }
                     continue;
                 }
@@ -762,6 +779,20 @@ function showSelectedFiles(input) {
             selectedSingleFilesQueue.unshift(...newFiles);
         }
         renderSingleFilesQueue();
+        if (lastValidationErr) {
+            if (errText) errText.textContent = lastValidationErr;
+            if (errBanner) errBanner.classList.remove('d-none');
+            if (dropzoneEl && selectedSingleFilesQueue.length === 0) {
+                dropzoneEl.style.borderColor = '#ef4444';
+                dropzoneEl.style.background = '#fef2f2';
+            }
+        } else {
+            if (errBanner) errBanner.classList.add('d-none');
+            if (dropzoneEl) {
+                dropzoneEl.style.borderColor = '';
+                dropzoneEl.style.background = '';
+            }
+        }
     }
 }
 
@@ -774,6 +805,9 @@ function clearSingleSelectedFile() {
     selectedSingleFilesQueue = [];
     const input = document.getElementById('modalFileInput');
     if (input) input.value = '';
+
+    const errBanner = document.getElementById('singleUploadErrorBanner');
+    if (errBanner) errBanner.classList.add('d-none');
 
     const container = document.getElementById('singleFileSelectedContainer');
     if (container) container.classList.add('d-none');
@@ -791,6 +825,8 @@ function clearSingleSelectedFile() {
     if (dropzone) {
         dropzone.classList.remove('d-none');
         dropzone.style.display = '';
+        dropzone.style.borderColor = '';
+        dropzone.style.background = '';
     }
 
     const submitBtn = document.getElementById('singleUploadSubmitBtn');
@@ -1008,13 +1044,30 @@ function openReplaceDocModal(replaceUrl, currentDocName) {
     const nameEl = document.getElementById('replaceModalDocName');
     const preview = document.getElementById('replaceSelectedPreview');
     const expInput = document.getElementById('replaceExpiryDateInput');
+    const errBanner = document.getElementById('replaceErrorBanner');
+    const dropZone = document.getElementById('replaceDropZone');
+    const submitBtn = document.getElementById('replaceSubmitBtn');
 
     if (form) {
         form.action = replaceUrl;
         form.reset();
     }
     if (nameEl) nameEl.textContent = currentDocName || 'Document';
-    if (preview) preview.classList.add('d-none');
+    if (preview) {
+        preview.classList.add('d-none');
+        preview.style.background = '#f8fafc';
+        preview.style.borderColor = '';
+    }
+    if (errBanner) errBanner.classList.add('d-none');
+    if (dropZone) {
+        dropZone.style.borderColor = '';
+        dropZone.style.background = '';
+    }
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '';
+        submitBtn.style.cursor = '';
+    }
     if (expInput) expInput.value = '';
 
     const repValBox = document.getElementById('replaceValidityBox');
@@ -1035,35 +1088,16 @@ function handleReplaceFileSelect(input) {
     const preview = document.getElementById('replaceSelectedPreview');
     const nameEl = document.getElementById('replaceSelectedFileName');
     const sizeEl = document.getElementById('replaceSelectedFileSize');
+    const statusBadge = document.getElementById('replaceSelectedStatusBadge');
+    const errBanner = document.getElementById('replaceErrorBanner');
+    const errText = document.getElementById('replaceErrorText');
+    const dropZone = document.getElementById('replaceDropZone');
+    const submitBtn = document.getElementById('replaceSubmitBtn');
 
     if (!file) {
         if (preview) preview.classList.add('d-none');
+        if (errBanner) errBanner.classList.add('d-none');
         return;
-    }
-
-    const isIllegalReport = document.getElementById('recordRequirementConfig')?.dataset.isIllegal === 'true';
-    if (isIllegalReport) {
-        if (!/\.(pdf|jpg|jpeg|png|webp)$/i.test(file.name)) {
-            if (window.showToast) {
-                showToast('warning', 'Invalid Format', 'Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).');
-            } else {
-                alert('Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).');
-            }
-            input.value = '';
-            if (preview) preview.classList.add('d-none');
-            return;
-        }
-    } else {
-        if (!/\.pdf$/i.test(file.name)) {
-            if (window.showToast) {
-                showToast('warning', 'Invalid Format', 'Regular engineering records accept PDF documents (.pdf) only.');
-            } else {
-                alert('Regular engineering records accept PDF documents (.pdf) only.');
-            }
-            input.value = '';
-            if (preview) preview.classList.add('d-none');
-            return;
-        }
     }
 
     const ext = file.name.split('.').pop().toLowerCase();
@@ -1078,9 +1112,66 @@ function handleReplaceFileSelect(input) {
         previewIcon.className = `fa-solid ${iconClass}`;
     }
 
+    const formattedSize = (file.size < 1048576 ? (file.size / 1024).toFixed(1) + ' KB' : (file.size / 1048576).toFixed(1) + ' MB');
     if (nameEl) nameEl.textContent = file.name;
-    if (sizeEl) sizeEl.textContent = (file.size < 1048576 ? (file.size / 1024).toFixed(1) + ' KB' : (file.size / 1048576).toFixed(1) + ' MB');
+    if (sizeEl) sizeEl.textContent = formattedSize;
     if (preview) preview.classList.remove('d-none');
+
+    const isIllegalReport = document.getElementById('recordRequirementConfig')?.dataset.isIllegal === 'true';
+    const isTooLarge = file.size > 50 * 1024 * 1024;
+    const isInvalidFormat = isIllegalReport
+        ? !/\.(pdf|jpg|jpeg|png|webp)$/i.test(file.name)
+        : !/\.pdf$/i.test(file.name);
+
+    if (isTooLarge || isInvalidFormat) {
+        const errMsg = isTooLarge
+            ? `File exceeds maximum 50MB limit (${formattedSize}). Please select a file up to 50MB.`
+            : (isIllegalReport
+                ? 'Supported formats: PDF documents (.pdf) and images (JPG, PNG, WEBP).'
+                : 'Regular engineering records accept PDF documents (.pdf) only.');
+        if (preview) {
+            preview.style.background = '#fef2f2';
+            preview.style.borderColor = '#fecaca';
+        }
+        if (dropZone) {
+            dropZone.style.borderColor = '#ef4444';
+            dropZone.style.background = '#fef2f2';
+        }
+        if (statusBadge) {
+            statusBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5 rounded-2 fw-semibold';
+            statusBadge.textContent = isTooLarge ? 'Exceeds 50MB' : 'Invalid Format';
+        }
+        if (errText) errText.textContent = errMsg;
+        if (errBanner) errBanner.classList.remove('d-none');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.55';
+            submitBtn.style.cursor = 'not-allowed';
+        }
+        if (window.showToast) {
+            showToast('error', isTooLarge ? 'File Too Large' : 'Invalid Format', errMsg);
+        }
+        return;
+    }
+
+    if (preview) {
+        preview.style.background = '#f8fafc';
+        preview.style.borderColor = '';
+    }
+    if (dropZone) {
+        dropZone.style.borderColor = '';
+        dropZone.style.background = '';
+    }
+    if (statusBadge) {
+        statusBadge.className = 'badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 rounded-2 fw-semibold';
+        statusBadge.textContent = 'Ready';
+    }
+    if (errBanner) errBanner.classList.add('d-none');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '';
+        submitBtn.style.cursor = '';
+    }
 }
 
 function escapeHtml(text) {

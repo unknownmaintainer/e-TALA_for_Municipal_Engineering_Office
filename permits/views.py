@@ -1,6 +1,5 @@
 import csv
-import datetime
-from datetime import timedelta
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 import io
 import json
@@ -25,10 +24,10 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_http_methods, require_POST
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden, HttpResponseNotAllowed, FileResponse, Http404, StreamingHttpResponse, HttpResponseNotModified
 from django.core.cache import cache
-from django.core.exceptions import PermissionDenied, ValidationError, ImproperlyConfigured
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q, Count, Sum, F, Subquery, OuterRef, Case, When, DateTimeField
+from django.db.models import Q, Count, Sum, F, Subquery, OuterRef, Case, When, DateTimeField, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.core import signing
@@ -36,10 +35,9 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.hashers import check_password, make_password
-from django.contrib.sessions.models import Session
 
 from .models import (
-    CustomUser, Barangay, Category, Record, Document,
+    CustomUser, Barangay, Category, Document,
     AuditLog, LoginAttempt, PasswordHistory,
     EngineeringRecord, PermitDetail, ProjectDetail,
     RequirementTemplate, RequirementItem, RecordRequirement,
@@ -47,7 +45,6 @@ from .models import (
 )
 from .validators import validate_document_file, validate_violation_evidence_file, sanitize_input, validate_password_strength, validate_backlog_year
 from .utils import get_client_ip, process_avatar_image
-from .permissions import role_required, admin_required, staff_or_admin_required, has_role
 from .services import (
     get_office_settings, save_office_settings,
     build_record_zip_buffer, build_category_zip_buffer, build_barangay_zip_buffer,
@@ -56,13 +53,10 @@ from .services import (
     send_document_expiry_alerts, build_activity_logs_csv_rows, filter_engineering_records,
     parse_decimal_safely, send_etala_email,
     parse_device_user_agent, get_client_device_token,
-    dispatch_device_approval_request, dispatch_new_device_login_alert,
+    dispatch_new_device_login_alert,
     execute_automated_backup, get_latest_backup_info,
     export_full_system_zip, restore_full_system_archive
 )
-
-
-from .forms import UserCreationForm, UserEditForm, FlagIllegalConstructionForm, OfficeSettingsForm
 
 logger = logging.getLogger('permits')
 
@@ -225,7 +219,6 @@ def get_per_page(request, default=20):
 
 
 def get_year_choices():
-    from datetime import date
     current_year = date.today().year
     # Allowable backlog years from current_year down to 1995
     db_years = set(
@@ -278,7 +271,6 @@ def mask_email_address(email_str):
 
 def generate_and_dispatch_2fa_otp(user, request, device_name, ip_address):
     """Generates cryptographically secure 6-digit numeric OTP and dispatches via Brevo HTTPS REST API."""
-    import secrets
     otp_code = f"{secrets.randbelow(900000) + 100000:06d}"
 
     # Store 2FA state in session
@@ -326,7 +318,6 @@ def generate_and_dispatch_2fa_otp(user, request, device_name, ip_address):
 
 def generate_and_dispatch_email_change_otp(user, request, new_email):
     """Generates cryptographically secure 6-digit OTP and dispatches to user's CURRENT email to authorize email change."""
-    import secrets
     otp_code = f"{secrets.randbelow(900000) + 100000:06d}"
 
     # Store state in session
@@ -430,7 +421,6 @@ def login_view(request):
             if not user.is_active:
                 LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
                 try:
-                    from django.core.cache import cache
                     cache.clear()
                 except Exception:
                     pass
@@ -492,7 +482,6 @@ def login_view(request):
             is_locked, lockout_msg = check_lockout(login_input, ip_address)
             LoginAttempt.objects.create(email_attempted=login_input, success=False, ip_address=ip_address)
             try:
-                from django.core.cache import cache
                 cache.clear()
             except Exception:
                 pass
@@ -532,7 +521,6 @@ def verify_otp_view(request):
         if attempts >= 5:
             LoginAttempt.objects.create(email_attempted=user.email or user.username, success=False, ip_address=get_client_ip(request))
             try:
-                from django.core.cache import cache
                 cache.clear()
             except Exception:
                 pass
@@ -543,7 +531,6 @@ def verify_otp_view(request):
 
         # Check expiration (10 minutes)
         if expiry_iso:
-            from datetime import datetime
             expiry_dt = datetime.fromisoformat(expiry_iso)
             if timezone.is_aware(timezone.now()) and timezone.is_naive(expiry_dt):
                 expiry_dt = timezone.make_aware(expiry_dt)
@@ -600,7 +587,6 @@ def verify_otp_view(request):
             ip_address = request.session.get('2fa_ip', get_client_ip(request))
             LoginAttempt.objects.create(email_attempted=user.email or user.username, success=False, ip_address=ip_address)
             try:
-                from django.core.cache import cache
                 cache.clear()
             except Exception:
                 pass
@@ -678,7 +664,6 @@ def session_unlock_view(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
-    import json
     password = ''
     try:
         if request.content_type == 'application/json':
@@ -839,10 +824,7 @@ def forgot_password_view(request):
             )
 
             # Asynchronous background email sending for instant UI response
-            import threading
             from django.core.mail import send_mail
-            from django.conf import settings
-            from django.template.loader import render_to_string
 
             subject = 'eTala — Password Reset Request'
             user_full_name = user.full_name or user.get_full_name() or user.username
@@ -854,7 +836,6 @@ def forgot_password_view(request):
 
             def _async_send():
                 try:
-                    from .services import send_etala_email
                     send_etala_email(
                         subject=subject,
                         message=plain_message,
@@ -1161,7 +1142,6 @@ def dashboard_view(request):
     }
 
     # Charts data
-    import json
     # 1. Records per Year (last 5 years)
     years_query = records.filter(year__isnull=False).values('year').annotate(count=Count('record_id')).order_by('year')[:5]
     chart_years = [str(y['year']) for y in years_query]
@@ -1239,7 +1219,6 @@ def ensure_barangay_schema():
 
 
     try:
-        from permits.models import Barangay
         if Barangay.objects.filter(psgc_code__isnull=False).count() < 49:
             OFFICIAL_49_CARIGARA_BARANGAYS = [
                 {"name": "Balilit", "psgc": "0803715001", "lat": 11.2874, "lng": 124.6950},
@@ -1411,7 +1390,6 @@ def barangays_view(request):
     )
 
     if query:
-        import re
         clean_brgy_q = re.sub(r'^(?:barangay|brgy\.?|bgy\.?)\s+', '', query.strip(), flags=re.IGNORECASE).strip()
         if clean_brgy_q.lower() in ('barangay', 'brgy', 'brgy.', 'bgy', 'bgy.'):
             clean_brgy_q = ''
@@ -2121,7 +2099,6 @@ def record_create_step3_view(request):
                 year = int(m_num.group(1))
             elif date_issued_val:
                 try:
-                    from datetime import datetime
                     di_obj = datetime.strptime(date_issued_val, '%Y-%m-%d').date() if isinstance(date_issued_val, str) else date_issued_val
                     year = di_obj.year
                 except Exception:
@@ -2174,7 +2151,6 @@ def record_create_step3_view(request):
             if date_issued_val:
                 try:
                     if isinstance(date_issued_val, str):
-                        from datetime import datetime
                         parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
                     else:
                         parsed_d = date_issued_val
@@ -2206,7 +2182,6 @@ def record_create_step3_view(request):
             if record.date_completed:
                 try:
                     if isinstance(record.date_completed, str):
-                        from datetime import datetime
                         parsed_dc = datetime.strptime(record.date_completed, '%Y-%m-%d').date()
                     else:
                         parsed_dc = record.date_completed
@@ -2353,7 +2328,6 @@ def record_create_view(request):
             date_issued_val = None
             if date_issued_str:
                 try:
-                    from datetime import datetime
                     parsed_di = datetime.strptime(date_issued_str, '%Y-%m-%d').date()
                     if parsed_di.year < 1995:
                         messages.error(request, "Invalid Date Issued: Cannot be prior to 1995.")
@@ -2396,7 +2370,6 @@ def record_create_view(request):
             date_completed_val = None
             if date_completed_str:
                 try:
-                    from datetime import datetime
                     parsed_dc = datetime.strptime(date_completed_str, '%Y-%m-%d').date()
                     if parsed_dc.year < 1995:
                         messages.error(request, "Invalid Date Completed: Cannot be prior to 1995.")
@@ -2794,9 +2767,8 @@ def record_detail_view(request, record_id):
         active_tab = 'records'
         back_fallback_url = reverse('records_browse')
 
-    import datetime
     today = timezone.now().date()
-    thirty_days_later = today + datetime.timedelta(days=30)
+    thirty_days_later = today + timedelta(days=30)
 
     trashed_by_user = None
     if record.status == 'archived':
@@ -2847,7 +2819,6 @@ def record_detail_view(request, record_id):
 
 def clean_req_sort_key(name):
     """Sort key for requirement names: strips codes like '(a.1)' and lowercases."""
-    import re
     if not name:
         return ''
     return re.sub(r'\s*\([a-z]\.\d+\)', '', str(name)).strip().lower()
@@ -2918,7 +2889,7 @@ def record_requirement_detail_view(request, record_id, req_id):
     fulfilled_sub = sum(1 for s in sub_reqs if s.is_fulfilled) if sub_reqs else (1 if req.is_fulfilled else 0)
 
     today = timezone.now().date()
-    thirty_days_later = today + datetime.timedelta(days=30)
+    thirty_days_later = today + timedelta(days=30)
 
     context = {
         'record': record,
@@ -2941,7 +2912,7 @@ def record_requirement_detail_view(request, record_id, req_id):
 def update_illegal_status_view(request, record_id):
     """Updates illegal construction status / compliance regularization status for a record."""
     if request.user.role not in ['staff', 'admin']:
-        return HttpResponseForbidden("Unauthorized")
+        raise PermissionDenied("You do not have permission to modify violation status.")
     record = get_object_or_404(EngineeringRecord, record_id=record_id)
     if request.method == 'POST':
         status_val = request.POST.get('illegal_compliance_status', '').strip()
@@ -2955,7 +2926,7 @@ def update_illegal_status_view(request, record_id):
             action_msg = "Flagged as Illegal Construction." if record.is_illegal_construction else "Unflagged Illegal Construction."
             log_audit(request.user, action_msg, target_record_id=record.record_id, request=request)
             messages.success(request, action_msg)
-        elif status_val in ['unresolved', 'pending_permit']:
+        elif status_val in ['unresolved', 'pending_permit', 'resolved']:
             record.is_illegal_construction = True
             record.illegal_compliance_status = status_val
             record.save()
@@ -2964,9 +2935,10 @@ def update_illegal_status_view(request, record_id):
             messages.success(request, f"Regularization status updated to '{lbl}'.")
         elif status_val == 'remove':
             record.is_illegal_construction = False
+            record.illegal_compliance_status = None
             record.save()
-            log_audit(request.user, "Removed Illegal Construction flag", target_record_id=record.record_id, request=request)
-            messages.success(request, "Illegal construction flag removed.")
+            log_audit(request.user, f"Removed violation flag from record '{record.title}'", target_record_id=record.record_id, request=request)
+            messages.success(request, "Violation flag removed. Record is now a standard record.")
             
     referer = request.META.get('HTTP_REFERER')
     if referer:
@@ -2989,18 +2961,32 @@ def regularize_record_view(request, record_id):
         return redirect('record_detail', record_id=record.record_id)
 
     if request.method == 'POST':
-        permit_type = sanitize_input(request.POST.get('permit_type', 'Building Permit')).strip()
+        permit_type = sanitize_input(request.POST.get('permit_type', 'Building')).strip()
+        if permit_type.endswith(' Permit'):
+            permit_type_key = permit_type[:-7].strip()
+        else:
+            permit_type_key = permit_type
+        permit_type_label = f"{permit_type_key} Permit" if not permit_type_key.endswith('Permit') else permit_type_key
+
         permit_number = sanitize_input(request.POST.get('permit_number', '')).strip()
         applicant_name = sanitize_input(request.POST.get('applicant_name', '')).strip()
         building_type = sanitize_input(request.POST.get('building_type', '')).strip()
 
         if not permit_number or not applicant_name or not building_type:
-            messages.error(request, "Permit Number, Applicant Name, and Building Type are all required to regularize this record.")
+            messages.error(request, "Permit Number, Property Owner, and Building Type are all required to regularize this record.")
+            return redirect('record_detail', record_id=record.record_id)
+
+        # Prevent duplicate permit numbers across active records
+        dup_permit = PermitDetail.objects.filter(
+            permit_number__iexact=permit_number
+        ).exclude(engineering_record__status='archived').exclude(engineering_record_id=record.record_id).select_related('engineering_record').first()
+        if dup_permit:
+            messages.error(request, f"Permit No. '{permit_number}' is already used by another record.")
             return redirect('record_detail', record_id=record.record_id)
 
         # Update or create PermitDetail
         permit_detail, created = PermitDetail.objects.get_or_create(engineering_record=record)
-        permit_detail.permit_type = permit_type
+        permit_detail.permit_type = permit_type_key
         permit_detail.permit_number = permit_number
         permit_detail.applicant_name = applicant_name
         permit_detail.building_type = building_type
@@ -3023,7 +3009,7 @@ def regularize_record_view(request, record_id):
 
         # Auto-populate checklist slots for the regularized permit type
         if not record.requirements.exists():
-            template = RequirementTemplate.objects.filter(record_type='Permit', subtype=permit_type, is_active=True).first()
+            template = RequirementTemplate.objects.filter(record_type='Permit', subtype=permit_type_key, is_active=True).first()
             if not template:
                 template = RequirementTemplate.objects.filter(record_type='Permit', subtype='Building', is_active=True).first()
             if template:
@@ -3040,7 +3026,7 @@ def regularize_record_view(request, record_id):
         )
         messages.success(
             request,
-            f"Official Permit #{permit_number} successfully issued. Record regularized into official {permit_type}."
+            f"Official Permit #{permit_number} successfully issued. Record regularized into official {permit_type_label}."
         )
         origin_param = request.POST.get('from', '').strip() or 'records'
         redirect_url = reverse('record_detail', kwargs={'record_id': record.record_id}) + f"?from={origin_param}"
@@ -3093,7 +3079,6 @@ def flag_illegal_construction_view(request):
         # Parse date discovered or default to today
         if date_discovered_str:
             try:
-                from datetime import datetime
                 date_discovered = datetime.strptime(date_discovered_str, '%Y-%m-%d').date()
                 if date_discovered > timezone.localdate():
                     messages.error(request, "Date Inspected cannot be in the future.")
@@ -3142,7 +3127,7 @@ def flag_illegal_construction_view(request):
         # Store in PermitDetail for applicant/violator tracking & structure categorization
         PermitDetail.objects.create(
             engineering_record=record,
-            permit_type='Violation Report',
+            permit_type=violation_type or 'No Building Permit',
             applicant_name=owner_name or '',
             building_type=structure_type if structure_type else ''
         )
@@ -3155,7 +3140,6 @@ def flag_illegal_construction_view(request):
         for photo_file in uploaded_photos:
             if photo_file:
                 try:
-                    from django.core.exceptions import ValidationError
                     validate_violation_evidence_file(photo_file)
                     
                     is_image = photo_file.name.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
@@ -3183,44 +3167,6 @@ def flag_illegal_construction_view(request):
         return redirect('record_detail', record_id=record.record_id)
 
     return redirect('records_browse')
-
-
-
-@login_required
-def update_illegal_status_view(request, record_id):
-    """
-    Updates the violation compliance status or removes the violation flag.
-    """
-    if request.user.role not in ['staff', 'admin']:
-        raise PermissionDenied("You do not have permission to modify violation status.")
-
-    record = get_object_or_404(EngineeringRecord, record_id=record_id)
-    if request.method == 'POST':
-        status_action = request.POST.get('illegal_compliance_status', '').strip()
-        if status_action == 'remove':
-            record.is_illegal_construction = False
-            record.illegal_compliance_status = None
-            record.save()
-            log_audit(
-                request.user,
-                f"Removed violation flag from record '{record.title}'",
-                target_record_id=record.record_id,
-                request=request
-            )
-            messages.success(request, "Violation flag removed. Record is now a standard record.")
-        elif status_action in ['unresolved', 'pending_permit', 'resolved']:
-            record.illegal_compliance_status = status_action
-            record.save()
-            log_audit(
-                request.user,
-                f"Updated violation status to '{status_action}' for record '{record.title}'",
-                target_record_id=record.record_id,
-                request=request
-            )
-            messages.success(request, "Violation status updated.")
-            
-    return redirect('record_detail', record_id=record.record_id)
-
 
 
 @login_required
@@ -3436,7 +3382,6 @@ def record_edit_view(request, record_id):
                     if date_issued_val:
                         try:
                             if isinstance(date_issued_val, str):
-                                from datetime import datetime
                                 parsed_d = datetime.strptime(date_issued_val, '%Y-%m-%d').date()
                             else:
                                 parsed_d = date_issued_val
@@ -3505,7 +3450,6 @@ def record_edit_view(request, record_id):
             if record.date_completed:
                 try:
                     if isinstance(record.date_completed, str):
-                        from datetime import datetime
                         parsed_dc = datetime.strptime(record.date_completed, '%Y-%m-%d').date()
                     else:
                         parsed_dc = record.date_completed
@@ -3617,9 +3561,6 @@ def _get_document_stream(doc):
     Robustly resolves a Document file object across local storage, subdirectories,
     Supabase Storage, and in-memory fallbacks. Prevents [Errno 2] No such file errors.
     """
-    import mimetypes
-    import io
-    from django.conf import settings
 
     file_name = doc.file_name or (doc.file.name if doc.file else 'document')
     fn_lower = file_name.lower()
@@ -3937,11 +3878,10 @@ def document_upload_view(request, record_id):
                 messages.error(request, f"File '{f.name}' rejected: {err_msg}")
                 return redirect('record_detail', record_id=record.record_id)
 
-        import datetime
         parsed_expiry_date = None
         if expiry_date:
             try:
-                parsed_expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                parsed_expiry_date = datetime.strptime(expiry_date, '%Y-%m-%d').date()
                 if parsed_expiry_date < timezone.localdate():
                     err_msg = "Past expiry date is not allowed. Expiration date must be today or a future date."
                     if is_ajax:
@@ -4118,8 +4058,7 @@ def document_replace_view(request, record_id, document_id):
         expiry_date = expiry_date.strip()
         if expiry_date:
             try:
-                import datetime
-                parsed_exp = datetime.datetime.strptime(expiry_date, '%Y-%m-%d').date()
+                parsed_exp = datetime.strptime(expiry_date, '%Y-%m-%d').date()
                 if parsed_exp < timezone.localdate():
                     err_msg = "Past expiry date is not allowed. Expiration date must be today or a future date."
                     if is_ajax:
@@ -4567,14 +4506,9 @@ def reports_view(request):
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("Only authorized staff and Administrators can view summary reports.")
 
-    from django.db.models import Sum, Count, Q, Value, DecimalField
     valid_permit_q = Q(record_type='Permit') & (Q(is_illegal_construction=False) | Q(is_illegal_construction=True, illegal_compliance_status='resolved'))
     master_record_q = Q(record_type='Project') | valid_permit_q
-    from django.db.models.functions import Coalesce
-    from decimal import Decimal
-    from django.http import JsonResponse
     import calendar
-    from datetime import datetime
 
     # 1. Get filter parameters
     selected_record_type = request.GET.get('record_type', '').strip()
@@ -4747,7 +4681,6 @@ def reports_view(request):
         tab_base_records = tab_base_records.filter(barangay_id=selected_barangay)
     clean_report_q = ''
     if search_query:
-        import re
         clean_report_q = re.sub(r'^(?:barangay|brgy\.?|bgy\.?)\s+', '', search_query.strip(), flags=re.IGNORECASE).strip()
         if clean_report_q.lower() in ('barangay', 'brgy', 'brgy.', 'bgy', 'bgy.'):
             clean_report_q = ''
@@ -4847,7 +4780,6 @@ def reports_view(request):
             if export_format == 'excel':
                 import openpyxl
                 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-                from django.http import HttpResponse
 
                 wb = openpyxl.Workbook()
                 ws = wb.active
@@ -4952,7 +4884,6 @@ def reports_view(request):
                 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                 from reportlab.lib import colors
                 from io import BytesIO
-                from django.http import HttpResponse
 
                 buffer = BytesIO()
                 doc = SimpleDocTemplate(
@@ -5336,7 +5267,6 @@ def reports_view(request):
         if export_format == 'excel':
             import openpyxl
             from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-            from django.http import HttpResponse
 
             wb = openpyxl.Workbook()
             # ── Sheet 1: Accomplishment Report (Summary) ───────────────────
@@ -5765,10 +5695,6 @@ def reports_view(request):
             from reportlab.pdfbase import pdfmetrics
             from reportlab.pdfbase.ttfonts import TTFont
             from io import BytesIO
-            from django.http import HttpResponse
-            from django.conf import settings
-            from django.db.models import Sum, Count, Q
-            import os
 
             font_candidates = [
                 (os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans.ttf'), os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans-Bold.ttf')),
@@ -6570,7 +6496,6 @@ def reports_view(request):
 
 @login_required
 def activity_logs_view(request):
-    from django.core.cache import cache
     if request.user.role not in ['admin', 'staff']:
         raise PermissionDenied("You do not have permission to view activity logs.")
 
@@ -7658,8 +7583,6 @@ def profile_view(request):
 
 # ─── ADMIN SETTINGS ──────────────────────────────────────────────────────────
 
-import os
-
 
 @login_required
 def settings_view(request):
@@ -8333,21 +8256,6 @@ def projects_view(request):
     return redirect(f"{reverse('records_browse')}?record_type=Project")
 
 
-# ─── CUSTOM ERROR HANDLERS ──────────────────────────────────────────────────
-
-def bad_request(request, exception=None):
-    return render(request, 'errors/400.html', status=400)
-
-def forbidden(request, exception=None):
-    return render(request, 'errors/403.html', status=403)
-
-def page_not_found(request, exception=None):
-    return render(request, 'errors/404.html', status=404)
-
-def server_error(request):
-    return render(request, 'errors/500.html', status=500)
-
-
 @login_required
 def alerts_list_json_view(request):
     alert_type = request.GET.get('type', 'expired')  # 'expired' or 'expiring'
@@ -8425,7 +8333,6 @@ def download_category_zip_view(request, record_id, req_id):
 
     buffer = build_category_zip_buffer(record, parent_req, _get_document_stream)
     record_short = get_record_export_name(record, include_location=False)
-    import re
     clean_raw_parent = re.sub(r'^\d+[\s_.-]*', '', parent_req.requirement_item.name).strip()
     clean_parent = sanitize_zip_name(clean_raw_parent, max_len=45)
     filename = f"{record_short} - {clean_parent}.zip"
@@ -8447,7 +8354,6 @@ def download_slot_zip_view(request, record_id, item_id):
         messages.warning(request, f"No files found for '{req_item.name}' to download.")
         return redirect('record_detail', record_id=record.record_id)
 
-    import io, zipfile, re
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
         used_names = set()
@@ -8597,8 +8503,7 @@ def batch_upload_documents_view(request, record_id):
                     parsed_expiry_date = None
                     if raw_expiry:
                         try:
-                            import datetime
-                            parsed_expiry_date = datetime.datetime.strptime(raw_expiry, '%Y-%m-%d').date()
+                            parsed_expiry_date = datetime.strptime(raw_expiry, '%Y-%m-%d').date()
                             if parsed_expiry_date < timezone.localdate():
                                 messages.warning(request, f"File '{f.name}': Past expiry date was rejected. Expiry date must be in the future.")
                                 parsed_expiry_date = None
@@ -8992,7 +8897,6 @@ def notification_sync_action_view(request):
                 'has_urgent_alerts': data.get('has_urgent_alerts', False),
             })
 
-        import json
         if request.body:
             try:
                 data = json.loads(request.body.decode('utf-8'))
@@ -9210,7 +9114,6 @@ def seed_demo_online_view(request):
     try:
         action = request.GET.get('action', '')
         if action == 'clean_records' or action == 'wipe_demo':
-            from permits.models import EngineeringRecord, AuditLog
             deleted_count = EngineeringRecord.objects.all().delete()[0]
             # Optional: log the reset action
             if request.user.is_authenticated:
@@ -9225,8 +9128,6 @@ def seed_demo_online_view(request):
             })
 
         if action == 'clean_duplicate_backups' or action == 'clean_duplicates':
-            from permits.models import AuditLog
-            from datetime import timedelta
             # Find duplicate backup logs on online server
             backup_logs = list(AuditLog.objects.filter(action__icontains='Automated System Backup').order_by('performed_at'))
             deleted_ids = []
