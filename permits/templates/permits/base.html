@@ -12482,10 +12482,12 @@
                     if (id) existingMap[id] = el;
                 });
 
-                // Reconcile items
+                // Reconcile items — build set of server IDs for stale-removal
+                const serverIds = new Set();
                 notifs.forEach(n => {
                     const nid = String(n.id || '');
                     if (!nid || deletedList.includes(nid)) return;
+                    serverIds.add(nid);
 
                     let isRead = n.is_read;
                     if (unreadList.includes(nid)) {
@@ -12495,13 +12497,24 @@
                     }
 
                     if (existingMap[nid]) {
-                        // Update existing item attributes without destroying user focus
+                        // Update existing item in-place (title, time, read state)
                         const el = existingMap[nid];
                         el.setAttribute('data-server-read', isRead ? 'true' : 'false');
                         if (isRead) {
                             el.classList.remove('is-unread-item');
                         } else {
                             el.classList.add('is-unread-item');
+                        }
+                        // Update text content so count/time refresh without duplicating
+                        const titleEl = el.querySelector('.notification-item-title');
+                        if (titleEl) {
+                            titleEl.textContent = n.action || '';
+                            titleEl.title = n.action || '';
+                        }
+                        const timeEl = el.querySelector('.notification-subtext');
+                        if (timeEl) {
+                            timeEl.textContent = n.time || '';
+                            timeEl.title = n.time || '';
                         }
                     } else {
                         // Create brand new incoming notification element
@@ -12546,6 +12559,24 @@
                         }
                     }
                 });
+
+                // Remove stale DOM items no longer in server response (prevents duplicate notifications)
+                Object.keys(existingMap).forEach(oldId => {
+                    if (!serverIds.has(oldId)) {
+                        existingMap[oldId].remove();
+                    }
+                });
+
+                // Show/hide empty state
+                const remaining = container.querySelectorAll('.notification-item');
+                const emptyEl = document.getElementById('noNotificationsEmptyState');
+                if (emptyEl) {
+                    if (remaining.length === 0) {
+                        emptyEl.classList.remove('d-none');
+                    } else {
+                        emptyEl.classList.add('d-none');
+                    }
+                }
 
                 updateNotificationBadges();
             })

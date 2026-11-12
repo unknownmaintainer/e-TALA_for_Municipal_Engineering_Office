@@ -79,6 +79,8 @@ def recent_notifications(request):
     alerts = []
     
     # 1. Security failed login alert (System-wide for Admins only)
+    #    Uses a STABLE notif_id so the notification updates in-place instead of
+    #    creating duplicates every time a new failed login attempt arrives.
     twenty_four_hours_ago = timezone.now() - datetime.timedelta(hours=24)
     if request.user.role == 'admin' or request.user.is_superuser:
         recent_failed = LoginAttempt.objects.filter(success=False, timestamp__gte=twenty_four_hours_ago).order_by('-timestamp')
@@ -88,7 +90,7 @@ def recent_notifications(request):
             local_ts = timezone.localtime(latest_failed.timestamp)
             time_str = local_ts.strftime('%b %d, %Y • %I:%M %p')
             alert_action = f'{failed_count} Failed Login Attempt{"s" if failed_count > 1 else ""}'
-            notif_id = f"sec_{latest_failed.pk}"
+            notif_id = "sec_failed_logins"
             alerts.append({
                 'id': notif_id,
                 'type': 'security',
@@ -188,7 +190,14 @@ def recent_notifications(request):
             'performed_at': timezone.now(),
         })
 
-
+    # Clean up stale per-PK security notification audit entries (migration from sec_{pk} to sec_failed_logins)
+    _cleanup_key = f"notif_sec_cleanup_{request.user.pk}"
+    if not cache.get(_cleanup_key):
+        AuditLog.objects.filter(
+            user=request.user,
+            action__regex=r'^NOTIF_(READ|DELETED):sec_\d+$'
+        ).delete()
+        cache.set(_cleanup_key, True, 60 * 60 * 24)  # don't repeat for 24h
 
     # Fetch read/deleted notification IDs from database for cross-device sync
     user_actions = AuditLog.objects.filter(
@@ -210,15 +219,12 @@ def recent_notifications(request):
         target_str = str(target_id).strip()
         if target_str in saved_set:
             return True
-        # Security alerts must ONLY match their exact ID so new failed login batches are not suppressed
-        if target_str.startswith('sec_'):
-            return False
         action_slug = slugify(action_text) if action_text else ''
         if action_slug and action_slug in saved_set:
             return True
         for s in saved_set:
             s_str = str(s).strip()
-            if not s_str or s_str.startswith('sec_'):
+            if not s_str:
                 continue
             if s_str == target_str or s_str == action_slug or s_str.startswith(f"{target_str}_") or target_str.startswith(f"{s_str}_") or (action_slug and (s_str.startswith(f"{action_slug}_") or action_slug.startswith(f"{s_str}_"))):
                 return True
