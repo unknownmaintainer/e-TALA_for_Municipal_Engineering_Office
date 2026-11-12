@@ -4793,46 +4793,46 @@ def reports_view(request):
 
                 ws.merge_cells('A1:H1')
                 ws['A1'] = "REPUBLIC OF THE PHILIPPINES • PROVINCE OF LEYTE • MUNICIPALITY OF CARIGARA"
-                ws['A1'].font = Font(name='Segoe UI', size=9, bold=True, color='475569')
+                ws['A1'].font = Font(name='Arial', size=9, bold=True, color='475569')
                 ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
 
                 ws.merge_cells('A2:H2')
                 ws['A2'] = "MUNICIPAL ENGINEERING OFFICE • BUILDING OFFICIAL REGULATORY DIVISION"
-                ws['A2'].font = Font(name='Segoe UI', size=11, bold=True, color=NAVY_HEX)
+                ws['A2'].font = Font(name='Arial', size=11, bold=True, color=NAVY_HEX)
                 ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
 
                 ws.merge_cells('A3:H3')
                 ws['A3'] = f"ANNUAL ILLEGAL CONSTRUCTION & COMPLIANCE SUMMARY REPORT ({compliance_yr_label.upper()})"
-                ws['A3'].font = Font(name='Segoe UI', size=13, bold=True, color=NAVY_HEX)
+                ws['A3'].font = Font(name='Arial', size=13, bold=True, color=NAVY_HEX)
                 ws['A3'].alignment = Alignment(horizontal='center', vertical='center')
 
                 ws.merge_cells('A4:H4')
                 ws['A4'] = f"Mandated Under P.D. 1096 (National Building Code of the Philippines) • Generated: {timezone.localtime().strftime('%B %d, %Y %I:%M %p')}"
-                ws['A4'].font = Font(name='Segoe UI', size=9, italic=True, color='64748B')
+                ws['A4'].font = Font(name='Arial', size=9, italic=True, color='64748B')
                 ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
 
                 # KPI Summary Box
-                ws.cell(row=6, column=2, value="TOTAL VIOLATIONS RECORDED").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
-                ws.cell(row=7, column=2, value=c_total).font = Font(name='Segoe UI', size=18, bold=True, color='DC2626')
+                ws.cell(row=6, column=2, value="TOTAL VIOLATIONS RECORDED").font = Font(name='Arial', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=2, value=c_total).font = Font(name='Arial', size=18, bold=True, color='DC2626')
                 ws.cell(row=7, column=2).alignment = Alignment(horizontal='center', vertical='center')
 
-                ws.cell(row=6, column=4, value="COMPLIED / REGULARIZED").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
-                ws.cell(row=7, column=4, value=c_resolved).font = Font(name='Segoe UI', size=18, bold=True, color='16A34A')
+                ws.cell(row=6, column=4, value="COMPLIED / REGULARIZED").font = Font(name='Arial', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=4, value=c_resolved).font = Font(name='Arial', size=18, bold=True, color='16A34A')
                 ws.cell(row=7, column=4).alignment = Alignment(horizontal='center', vertical='center')
 
-                ws.cell(row=6, column=6, value="PENDING / UNRESOLVED").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
-                ws.cell(row=7, column=6, value=c_active).font = Font(name='Segoe UI', size=18, bold=True, color='D97706')
+                ws.cell(row=6, column=6, value="PENDING / UNRESOLVED").font = Font(name='Arial', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=6, value=c_active).font = Font(name='Arial', size=18, bold=True, color='D97706')
                 ws.cell(row=7, column=6).alignment = Alignment(horizontal='center', vertical='center')
 
-                ws.cell(row=6, column=8, value="COMPLIANCE RESOLUTION RATE").font = Font(name='Segoe UI', size=9, bold=True, color='64748B')
-                ws.cell(row=7, column=8, value=f"{c_rate}%").font = Font(name='Segoe UI', size=18, bold=True, color='2563EB')
+                ws.cell(row=6, column=8, value="COMPLIANCE RESOLUTION RATE").font = Font(name='Arial', size=9, bold=True, color='64748B')
+                ws.cell(row=7, column=8, value=f"{c_rate}%").font = Font(name='Arial', size=18, bold=True, color='2563EB')
                 ws.cell(row=7, column=8).alignment = Alignment(horizontal='center', vertical='center')
 
                 # Detail Table Headers
                 headers = ["#", "CONTROL NO.", "VIOLATOR / APPLICANT", "LOCATION (BARANGAY)", "TYPE OF STRUCTURE / VIOLATION", "DATE RECORDED", "STATUS", "PERMIT NO. (IF COMPLIED)"]
                 for col_idx, h in enumerate(headers, 1):
                     c = ws.cell(row=9, column=col_idx, value=h)
-                    c.font = Font(name='Segoe UI', size=9, bold=True, color='FFFFFF')
+                    c.font = Font(name='Arial', size=9, bold=True, color='FFFFFF')
                     c.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
                     c.alignment = Alignment(horizontal='center' if col_idx in [1, 2, 6, 7] else ('left' if col_idx in [3, 4, 5] else 'center'), vertical='center')
 
@@ -4840,22 +4840,38 @@ def reports_view(request):
                 for idx, r in enumerate(comp_records, 1):
                     applicant_val = (r.permit_detail.applicant_name if (hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.applicant_name) else r.title) or 'N/A'
                     date_val = r.created_at.strftime('%b %d, %Y') if r.created_at else 'N/A'
-                    ws.cell(row=curr_row, column=1, value=idx).alignment = Alignment(horizontal='center', vertical='center')
-                    ws.cell(row=curr_row, column=2, value=f"#{r.record_id}").alignment = Alignment(horizontal='center', vertical='center')
-                    ws.cell(row=curr_row, column=3, value=applicant_val)
-                    ws.cell(row=curr_row, column=4, value=r.barangay.barangay_name if r.barangay else 'Carigara')
-                    ws.cell(row=curr_row, column=5, value=r.title or 'Illegal Construction')
-                    ws.cell(row=curr_row, column=6, value=date_val).alignment = Alignment(horizontal='center', vertical='center')
+                    c1 = ws.cell(row=curr_row, column=1, value=idx)
+                    c1.font = Font(name='Arial', size=9, color='64748B')
+                    c1.alignment = Alignment(horizontal='center', vertical='center')
+
+                    c2 = ws.cell(row=curr_row, column=2, value=f"#{r.record_id}")
+                    c2.font = Font(name='Arial', size=9, bold=True, color=NAVY_HEX)
+                    c2.alignment = Alignment(horizontal='center', vertical='center')
+
+                    c3 = ws.cell(row=curr_row, column=3, value=applicant_val)
+                    c3.font = Font(name='Arial', size=9, bold=True, color='0F172A')
+
+                    c4 = ws.cell(row=curr_row, column=4, value=r.barangay.barangay_name if r.barangay else 'Carigara')
+                    c4.font = Font(name='Arial', size=9, color='0F172A')
+
+                    c5 = ws.cell(row=curr_row, column=5, value=r.title or 'Illegal Construction')
+                    c5.font = Font(name='Arial', size=9, color='0F172A')
+
+                    c6 = ws.cell(row=curr_row, column=6, value=date_val)
+                    c6.font = Font(name='Arial', size=9, color='64748B')
+                    c6.alignment = Alignment(horizontal='center', vertical='center')
 
                     st_cell = ws.cell(row=curr_row, column=7, value="COMPLIED (PERMIT ISSUED)" if r.illegal_compliance_status == 'resolved' else "ACTIVE VIOLATION")
                     st_cell.alignment = Alignment(horizontal='center', vertical='center')
                     if r.illegal_compliance_status == 'resolved':
-                        st_cell.font = Font(name='Segoe UI', size=9, bold=True, color='16A34A')
+                        st_cell.font = Font(name='Arial', size=9, bold=True, color='16A34A')
                     else:
-                        st_cell.font = Font(name='Segoe UI', size=9, bold=True, color='DC2626')
+                        st_cell.font = Font(name='Arial', size=9, bold=True, color='DC2626')
 
                     p_no = r.permit_detail.permit_number if hasattr(r, 'permit_detail') and r.permit_detail and r.permit_detail.permit_number else '-'
-                    ws.cell(row=curr_row, column=8, value=p_no).alignment = Alignment(horizontal='center', vertical='center')
+                    c8 = ws.cell(row=curr_row, column=8, value=p_no)
+                    c8.font = Font(name='Arial', size=9, color='0F172A')
+                    c8.alignment = Alignment(horizontal='center', vertical='center')
 
                     for c_i in range(1, 9):
                         cell = ws.cell(row=curr_row, column=c_i)
@@ -5298,27 +5314,27 @@ def reports_view(request):
             # 1. Centered Formal Header Block
             ws.merge_cells('A1:G1')
             ws['A1'] = "REPUBLIC OF THE PHILIPPINES • PROVINCE OF LEYTE"
-            ws['A1'].font = Font(name='Segoe UI', size=9, bold=True, color='475569')
+            ws['A1'].font = Font(name='Arial', size=9, bold=True, color='475569')
             ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
 
             ws.merge_cells('A2:G2')
             ws['A2'] = "MUNICIPALITY OF CARIGARA"
-            ws['A2'].font = Font(name='Segoe UI', size=12, bold=True, color=NAVY_HEX)
+            ws['A2'].font = Font(name='Arial', size=12, bold=True, color=NAVY_HEX)
             ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
 
             ws.merge_cells('A3:G3')
             ws['A3'] = "OFFICE OF THE MUNICIPAL ENGINEER"
-            ws['A3'].font = Font(name='Segoe UI', size=13, bold=True, color=NAVY_HEX)
+            ws['A3'].font = Font(name='Arial', size=13, bold=True, color=NAVY_HEX)
             ws['A3'].alignment = Alignment(horizontal='center', vertical='center')
 
             ws.merge_cells('A4:G4')
             ws['A4'] = clean_doc_title
-            ws['A4'].font = Font(name='Segoe UI', size=11, bold=True, color=GOLD_HEX)
+            ws['A4'].font = Font(name='Arial', size=11, bold=True, color=GOLD_HEX)
             ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
 
             ws.merge_cells('A5:G5')
             ws['A5'] = clean_sub_text
-            ws['A5'].font = Font(name='Segoe UI', size=9, italic=True, color=TEXT_MUTED)
+            ws['A5'].font = Font(name='Arial', size=9, italic=True, color=TEXT_MUTED)
             ws['A5'].alignment = Alignment(horizontal='center', vertical='center')
 
             # 2. Executive 3-KPI Metric Strip Block (Aligned to 7-Column Table A..G)
@@ -5331,7 +5347,7 @@ def reports_view(request):
             ws['F7'] = "ILLEGAL CONSTRUCTIONS"
 
             for cell_id in ['A7', 'D7', 'F7']:
-                ws[cell_id].font = Font(name='Segoe UI', size=8.5, bold=True, color='475569')
+                ws[cell_id].font = Font(name='Arial', size=8.5, bold=True, color='475569')
                 ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
 
             ws.merge_cells('A8:C8')
@@ -5342,7 +5358,7 @@ def reports_view(request):
             ws['F8'] = violations_cnt
 
             for cell_id in ['A8', 'D8', 'F8']:
-                ws[cell_id].font = Font(name='Segoe UI', size=11, bold=True, color=NAVY_HEX)
+                ws[cell_id].font = Font(name='Arial', size=11, bold=True, color=NAVY_HEX)
                 ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
 
             ws.merge_cells('A9:C9')
@@ -5363,7 +5379,7 @@ def reports_view(request):
             ws['F9'] = f"{active_violations_cnt} Active • {resolved_violations_cnt} Complied"
 
             for cell_id in ['A9', 'D9', 'F9']:
-                ws[cell_id].font = Font(name='Segoe UI', size=8, italic=True, color=TEXT_MUTED)
+                ws[cell_id].font = Font(name='Arial', size=8, italic=True, color=TEXT_MUTED)
                 ws[cell_id].alignment = Alignment(horizontal='center', vertical='center')
 
             for r_idx in range(7, 10):
@@ -5403,7 +5419,7 @@ def reports_view(request):
             for r_i in (header_top_idx, header_sub_idx):
                 for c_i in range(1, 8):
                     hc = ws.cell(row=r_i, column=c_i)
-                    hc.font = Font(name='Segoe UI', size=9.5 if r_i == header_top_idx else 9, bold=True, color='FFFFFF')
+                    hc.font = Font(name='Arial', size=9.5 if r_i == header_top_idx else 9, bold=True, color='FFFFFF')
                     hc.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
                     hc.border = thin_border
                     if r_i == header_top_idx:
@@ -5415,6 +5431,7 @@ def reports_view(request):
             exp_tot_muni_budget = Decimal('0.00')
             exp_tot_brgy_budget = Decimal('0.00')
             ZERO_GRAY = '94A3B8'
+            CURRENCY_FORMAT = '[$₱-3409] #,##0.00'
 
             for row_data in export_table_rows:
                 seq_idx = row_data['seq']
@@ -5435,40 +5452,40 @@ def reports_view(request):
                 # Col 1: Barangay
                 c1 = ws.cell(row=row_idx, column=1, value=row_data['label'])
                 c1.alignment = Alignment(horizontal='left', vertical='center')
-                c1.font = Font(name='Segoe UI', size=9.5, bold=True, color=TEXT_DARK)
+                c1.font = Font(name='Arial', size=9.5, bold=True, color=TEXT_DARK)
 
                 # Col 2: Permits
                 c2 = ws.cell(row=row_idx, column=2, value=pm_c)
                 c2.alignment = Alignment(horizontal='center', vertical='center')
-                c2.font = Font(name='Segoe UI', size=9.5, bold=(pm_c > 0), color=TEXT_DARK if pm_c > 0 else ZERO_GRAY)
+                c2.font = Font(name='Arial', size=9.5, bold=(pm_c > 0), color=TEXT_DARK if pm_c > 0 else ZERO_GRAY)
 
                 # Col 3: Records -> Municipal
                 c3 = ws.cell(row=row_idx, column=3, value=m_c)
                 c3.alignment = Alignment(horizontal='center', vertical='center')
-                c3.font = Font(name='Segoe UI', size=9.5, bold=(m_c > 0), color=TEXT_DARK if m_c > 0 else ZERO_GRAY)
+                c3.font = Font(name='Arial', size=9.5, bold=(m_c > 0), color=TEXT_DARK if m_c > 0 else ZERO_GRAY)
 
                 # Col 4: Records -> Barangay
                 c4 = ws.cell(row=row_idx, column=4, value=b_c)
                 c4.alignment = Alignment(horizontal='center', vertical='center')
-                c4.font = Font(name='Segoe UI', size=9.5, bold=(b_c > 0), color=TEXT_DARK if b_c > 0 else ZERO_GRAY)
+                c4.font = Font(name='Arial', size=9.5, bold=(b_c > 0), color=TEXT_DARK if b_c > 0 else ZERO_GRAY)
 
                 # Col 5: Budget -> Municipal
                 c5 = ws.cell(row=row_idx, column=5, value=m_bud)
                 c5.alignment = Alignment(horizontal='right', vertical='center')
-                c5.font = Font(name='Segoe UI', size=9.5, bold=(m_bud > 0), color=TEXT_DARK if m_bud > 0 else ZERO_GRAY)
-                c5.number_format = '₱#,##0.00'
+                c5.font = Font(name='Arial', size=9.5, bold=(m_bud > 0), color=TEXT_DARK if m_bud > 0 else ZERO_GRAY)
+                c5.number_format = CURRENCY_FORMAT
 
                 # Col 6: Budget -> Barangay
                 c6 = ws.cell(row=row_idx, column=6, value=b_bud)
                 c6.alignment = Alignment(horizontal='right', vertical='center')
-                c6.font = Font(name='Segoe UI', size=9.5, bold=(b_bud > 0), color=TEXT_DARK if b_bud > 0 else ZERO_GRAY)
-                c6.number_format = '₱#,##0.00'
+                c6.font = Font(name='Arial', size=9.5, bold=(b_bud > 0), color=TEXT_DARK if b_bud > 0 else ZERO_GRAY)
+                c6.number_format = CURRENCY_FORMAT
 
                 # Col 7: Budget -> Total (Bold Green when > 0, Light Gray when 0)
                 c7 = ws.cell(row=row_idx, column=7, value=b_sum)
                 c7.alignment = Alignment(horizontal='right', vertical='center')
-                c7.font = Font(name='Segoe UI', size=9.5, bold=(b_sum > 0), color='15803D' if b_sum > 0 else ZERO_GRAY)
-                c7.number_format = '₱#,##0.00'
+                c7.font = Font(name='Arial', size=9.5, bold=(b_sum > 0), color='15803D' if b_sum > 0 else ZERO_GRAY)
+                c7.number_format = CURRENCY_FORMAT
 
                 for col_i in range(1, 8):
                     cell = ws.cell(row=row_idx, column=col_i)
@@ -5481,35 +5498,35 @@ def reports_view(request):
             ws.row_dimensions[tot_row_idx].height = 24
 
             tot_lbl = ws.cell(row=tot_row_idx, column=1, value="TOTAL")
-            tot_lbl.font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
+            tot_lbl.font = Font(name='Arial', size=9.5, bold=True, color=NAVY_HEX)
             tot_lbl.alignment = Alignment(horizontal='left', vertical='center')
 
             c_perm = ws.cell(row=tot_row_idx, column=2, value=permits_cnt)
-            c_perm.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_perm.font = Font(name='Arial', size=10, bold=True, color=NAVY_HEX)
             c_perm.alignment = Alignment(horizontal='center', vertical='center')
 
             c_muni = ws.cell(row=tot_row_idx, column=3, value=muni_p_cnt)
-            c_muni.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_muni.font = Font(name='Arial', size=10, bold=True, color=NAVY_HEX)
             c_muni.alignment = Alignment(horizontal='center', vertical='center')
 
             c_brgy = ws.cell(row=tot_row_idx, column=4, value=brgy_p_cnt)
-            c_brgy.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_brgy.font = Font(name='Arial', size=10, bold=True, color=NAVY_HEX)
             c_brgy.alignment = Alignment(horizontal='center', vertical='center')
 
             c_mbud = ws.cell(row=tot_row_idx, column=5, value=float(exp_tot_muni_budget))
-            c_mbud.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_mbud.font = Font(name='Arial', size=10, bold=True, color=NAVY_HEX)
             c_mbud.alignment = Alignment(horizontal='right', vertical='center')
-            c_mbud.number_format = '₱#,##0.00'
+            c_mbud.number_format = CURRENCY_FORMAT
 
             c_bbud = ws.cell(row=tot_row_idx, column=6, value=float(exp_tot_brgy_budget))
-            c_bbud.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_bbud.font = Font(name='Arial', size=10, bold=True, color=NAVY_HEX)
             c_bbud.alignment = Alignment(horizontal='right', vertical='center')
-            c_bbud.number_format = '₱#,##0.00'
+            c_bbud.number_format = CURRENCY_FORMAT
 
             c_bud = ws.cell(row=tot_row_idx, column=7, value=float(total_budget_sum))
-            c_bud.font = Font(name='Segoe UI', size=10, bold=True, color='15803D')
+            c_bud.font = Font(name='Arial', size=10, bold=True, color='15803D')
             c_bud.alignment = Alignment(horizontal='right', vertical='center')
-            c_bud.number_format = '₱#,##0.00'
+            c_bud.number_format = CURRENCY_FORMAT
 
             for col_idx in range(1, 8):
                 cell = ws.cell(row=tot_row_idx, column=col_idx)
@@ -5519,7 +5536,7 @@ def reports_view(request):
             # 5. Footer Timestamp Note
             footer_row_idx = tot_row_idx + 2
             ws.merge_cells(start_row=footer_row_idx, start_column=1, end_row=footer_row_idx, end_column=7)
-            ws.cell(row=footer_row_idx, column=1, value=f"eTala • Carigara, Leyte • Generated: {gen_timestamp}").font = Font(name='Segoe UI', size=8, italic=True, color=TEXT_MUTED)
+            ws.cell(row=footer_row_idx, column=1, value=f"eTala • Carigara, Leyte • Generated: {gen_timestamp}").font = Font(name='Arial', size=8, italic=True, color=TEXT_MUTED)
 
             ws.column_dimensions['A'].width = 28
             ws.column_dimensions['B'].width = 14
@@ -5535,17 +5552,17 @@ def reports_view(request):
 
             ws_p.merge_cells('A1:H1')
             ws_p['A1'] = "REPUBLIC OF THE PHILIPPINES • PROVINCE OF LEYTE • MUNICIPALITY OF CARIGARA"
-            ws_p['A1'].font = Font(name='Segoe UI', size=9, bold=True, color='475569')
+            ws_p['A1'].font = Font(name='Arial', size=9, bold=True, color='475569')
             ws_p['A1'].alignment = Alignment(horizontal='center', vertical='center')
 
             ws_p.merge_cells('A2:H2')
             ws_p['A2'] = "OFFICE OF THE MUNICIPAL ENGINEER • INFRASTRUCTURE PROJECT LIST"
-            ws_p['A2'].font = Font(name='Segoe UI', size=12, bold=True, color=NAVY_HEX)
+            ws_p['A2'].font = Font(name='Arial', size=12, bold=True, color=NAVY_HEX)
             ws_p['A2'].alignment = Alignment(horizontal='center', vertical='center')
 
             ws_p.merge_cells('A3:H3')
             ws_p['A3'] = f"Listing of Completed Projects &bull; {clean_sub_text}".replace('&bull;', '•')
-            ws_p['A3'].font = Font(name='Segoe UI', size=9, italic=True, color=TEXT_MUTED)
+            ws_p['A3'].font = Font(name='Arial', size=9, italic=True, color=TEXT_MUTED)
             ws_p['A3'].alignment = Alignment(horizontal='center', vertical='center')
 
             p_headers = ["#", "BARANGAY", "PROJECT NAME", "CATEGORY", "CONTRACTOR", "FUNDING SOURCE", "BUDGET / COST (₱)", "DATE COMPLETED"]
@@ -5554,7 +5571,7 @@ def reports_view(request):
 
             for col_i, h_text in enumerate(p_headers, 1):
                 c = ws_p.cell(row=p_head_row, column=col_i, value=h_text)
-                c.font = Font(name='Segoe UI', size=9.5, bold=True, color='FFFFFF')
+                c.font = Font(name='Arial', size=9.5, bold=True, color='FFFFFF')
                 c.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
                 c.alignment = Alignment(horizontal='center' if col_i in [1, 8] else ('right' if col_i == 7 else 'left'), vertical='center')
                 c.border = thin_border
@@ -5567,36 +5584,36 @@ def reports_view(request):
 
                 c1 = ws_p.cell(row=curr_p_row, column=1, value=p_item['seq'])
                 c1.alignment = Alignment(horizontal='center', vertical='center')
-                c1.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+                c1.font = Font(name='Arial', size=9, color=TEXT_MUTED)
 
                 c2 = ws_p.cell(row=curr_p_row, column=2, value=p_item['barangay'])
                 c2.alignment = Alignment(horizontal='left', vertical='center')
-                c2.font = Font(name='Segoe UI', size=9.5, bold=True, color=TEXT_DARK)
+                c2.font = Font(name='Arial', size=9.5, bold=True, color=TEXT_DARK)
 
                 c3 = ws_p.cell(row=curr_p_row, column=3, value=p_item['name'])
                 c3.alignment = Alignment(horizontal='left', vertical='center')
-                c3.font = Font(name='Segoe UI', size=9, color=TEXT_DARK)
+                c3.font = Font(name='Arial', size=9, color=TEXT_DARK)
 
                 c4 = ws_p.cell(row=curr_p_row, column=4, value=p_item['category'])
                 c4.alignment = Alignment(horizontal='left', vertical='center')
-                c4.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+                c4.font = Font(name='Arial', size=9, color=TEXT_MUTED)
 
                 c5 = ws_p.cell(row=curr_p_row, column=5, value=p_item['contractor'])
                 c5.alignment = Alignment(horizontal='left', vertical='center')
-                c5.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+                c5.font = Font(name='Arial', size=9, color=TEXT_MUTED)
 
                 c6 = ws_p.cell(row=curr_p_row, column=6, value=p_item['funding_source'])
                 c6.alignment = Alignment(horizontal='left', vertical='center')
-                c6.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+                c6.font = Font(name='Arial', size=9, color=TEXT_MUTED)
 
                 c7 = ws_p.cell(row=curr_p_row, column=7, value=float(p_item['budget']))
                 c7.alignment = Alignment(horizontal='right', vertical='center')
-                c7.font = Font(name='Segoe UI', size=9.5, bold=True, color='15803D')
-                c7.number_format = '₱#,##0.00'
+                c7.font = Font(name='Arial', size=9.5, bold=True, color='15803D')
+                c7.number_format = CURRENCY_FORMAT
 
                 c8 = ws_p.cell(row=curr_p_row, column=8, value=p_item['date_completed'])
                 c8.alignment = Alignment(horizontal='center', vertical='center')
-                c8.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+                c8.font = Font(name='Arial', size=9, color=TEXT_MUTED)
 
                 for col_i in range(1, 9):
                     cell = ws_p.cell(row=curr_p_row, column=col_i)
@@ -5608,7 +5625,7 @@ def reports_view(request):
             sub_start_row = curr_p_row + 3
             ws_p.merge_cells(start_row=sub_start_row, start_column=1, end_row=sub_start_row, end_column=4)
             lbl_top = ws_p.cell(row=sub_start_row, column=1, value="PROJECT BUDGET SUB-TOTALS BY FUNDING SOURCE")
-            lbl_top.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            lbl_top.font = Font(name='Arial', size=10, bold=True, color=NAVY_HEX)
             lbl_top.alignment = Alignment(horizontal='left', vertical='center')
 
             sub_headers = ["#", "FUNDING SOURCE CATEGORY", "PROJECTS COUNT", "SUBTOTAL BUDGET (₱)"]
@@ -5617,7 +5634,7 @@ def reports_view(request):
 
             for c_i, h_txt in enumerate(sub_headers, 1):
                 c = ws_p.cell(row=sub_head_idx, column=c_i, value=h_txt)
-                c.font = Font(name='Segoe UI', size=9, bold=True, color='FFFFFF')
+                c.font = Font(name='Arial', size=9, bold=True, color='FFFFFF')
                 c.fill = PatternFill(start_color=NAVY_HEX, end_color=NAVY_HEX, fill_type='solid')
                 c.alignment = Alignment(horizontal='center' if c_i in [1, 3] else ('right' if c_i == 4 else 'left'), vertical='center')
                 c.border = thin_border
@@ -5632,20 +5649,20 @@ def reports_view(request):
 
                 c1 = ws_p.cell(row=sub_row_tracker, column=1, value=s_idx)
                 c1.alignment = Alignment(horizontal='center', vertical='center')
-                c1.font = Font(name='Segoe UI', size=9, color=TEXT_MUTED)
+                c1.font = Font(name='Arial', size=9, color=TEXT_MUTED)
 
                 c2 = ws_p.cell(row=sub_row_tracker, column=2, value=s_data['label'])
                 c2.alignment = Alignment(horizontal='left', vertical='center')
-                c2.font = Font(name='Segoe UI', size=9.5, bold=True, color=TEXT_DARK)
+                c2.font = Font(name='Arial', size=9.5, bold=True, color=TEXT_DARK)
 
                 c3 = ws_p.cell(row=sub_row_tracker, column=3, value=s_data['count'])
                 c3.alignment = Alignment(horizontal='center', vertical='center')
-                c3.font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
+                c3.font = Font(name='Arial', size=9.5, bold=True, color=NAVY_HEX)
 
                 c4 = ws_p.cell(row=sub_row_tracker, column=4, value=float(s_data['budget']))
                 c4.alignment = Alignment(horizontal='right', vertical='center')
-                c4.font = Font(name='Segoe UI', size=9.5, bold=True, color='15803D')
-                c4.number_format = '₱#,##0.00'
+                c4.font = Font(name='Arial', size=9.5, bold=True, color='15803D')
+                c4.number_format = CURRENCY_FORMAT
 
                 for col_i in range(1, 5):
                     ws_p.cell(row=sub_row_tracker, column=col_i).border = thin_border
@@ -5655,17 +5672,17 @@ def reports_view(request):
             ws_p.row_dimensions[sub_row_tracker].height = 24
             ws_p.cell(row=sub_row_tracker, column=1, value="")
             tot_sub_lbl = ws_p.cell(row=sub_row_tracker, column=2, value="TOTAL ALL FUNDING SOURCES")
-            tot_sub_lbl.font = Font(name='Segoe UI', size=9.5, bold=True, color=NAVY_HEX)
+            tot_sub_lbl.font = Font(name='Arial', size=9.5, bold=True, color=NAVY_HEX)
             tot_sub_lbl.alignment = Alignment(horizontal='left', vertical='center')
 
             c_tot_cnt = ws_p.cell(row=sub_row_tracker, column=3, value=grand_total_projects_count)
-            c_tot_cnt.font = Font(name='Segoe UI', size=10, bold=True, color=NAVY_HEX)
+            c_tot_cnt.font = Font(name='Arial', size=10, bold=True, color=NAVY_HEX)
             c_tot_cnt.alignment = Alignment(horizontal='center', vertical='center')
 
             c_tot_bud = ws_p.cell(row=sub_row_tracker, column=4, value=float(grand_total_projects_budget))
-            c_tot_bud.font = Font(name='Segoe UI', size=10, bold=True, color='15803D')
+            c_tot_bud.font = Font(name='Arial', size=10, bold=True, color='15803D')
             c_tot_bud.alignment = Alignment(horizontal='right', vertical='center')
-            c_tot_bud.number_format = '₱#,##0.00'
+            c_tot_bud.number_format = CURRENCY_FORMAT
 
             for col_i in range(1, 5):
                 cell = ws_p.cell(row=sub_row_tracker, column=col_i)
