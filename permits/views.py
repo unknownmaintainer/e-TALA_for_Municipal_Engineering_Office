@@ -4899,7 +4899,29 @@ def reports_view(request):
                 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
                 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                 from reportlab.lib import colors
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
                 from io import BytesIO
+
+                font_candidates = [
+                    (os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans.ttf'), os.path.join(settings.BASE_DIR, 'assets', 'fonts', 'DejaVuSans-Bold.ttf')),
+                    (r'C:\Windows\Fonts\segoeui.ttf', r'C:\Windows\Fonts\segoeuib.ttf'),
+                    ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+                ]
+
+                font_registered = False
+                for reg_path, bold_path in font_candidates:
+                    try:
+                        if os.path.exists(reg_path) and os.path.exists(bold_path):
+                            pdfmetrics.registerFont(TTFont('AppUnicode', reg_path))
+                            pdfmetrics.registerFont(TTFont('AppUnicode-Bold', bold_path))
+                            font_registered = True
+                            break
+                    except Exception:
+                        continue
+
+                main_font = 'AppUnicode' if font_registered else 'Helvetica'
+                bold_font = 'AppUnicode-Bold' if font_registered else 'Helvetica-Bold'
 
                 buffer = BytesIO()
                 doc = SimpleDocTemplate(
@@ -4917,8 +4939,8 @@ def reports_view(request):
                 DARK_TEXT = colors.HexColor('#0F172A')
                 SLATE_MUTED = colors.HexColor('#64748B')
 
-                title_style = ParagraphStyle('CTitle', fontName='Helvetica-Bold', fontSize=14, leading=16, alignment=1, textColor=NAVY)
-                sub_style = ParagraphStyle('CSub', fontName='Helvetica', fontSize=8.5, leading=11, alignment=1, textColor=SLATE_MUTED)
+                title_style = ParagraphStyle('CTitle', fontName=bold_font, fontSize=14, leading=16, alignment=1, textColor=NAVY)
+                sub_style = ParagraphStyle('CSub', fontName=main_font, fontSize=8.5, leading=11, alignment=1, textColor=SLATE_MUTED)
 
                 story.append(Paragraph("<b>MUNICIPAL ENGINEERING OFFICE &bull; CARIGARA, LEYTE</b>", sub_style))
                 story.append(Spacer(1, 2))
@@ -4951,9 +4973,9 @@ def reports_view(request):
 
                 # Details Table (landscape letter printable width: 720)
                 pdf_col_widths = [24, 76, 150, 110, 160, 65, 75, 60]
-                th_style = ParagraphStyle('TH', fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=1, textColor=colors.white)
-                td_style = ParagraphStyle('TD', fontName='Helvetica', fontSize=7, leading=8.5, textColor=DARK_TEXT)
-                td_center = ParagraphStyle('TDC', fontName='Helvetica', fontSize=7, leading=8.5, alignment=1, textColor=DARK_TEXT)
+                th_style = ParagraphStyle('TH', fontName=bold_font, fontSize=7.5, leading=9, alignment=1, textColor=colors.white)
+                td_style = ParagraphStyle('TD', fontName=main_font, fontSize=7, leading=8.5, textColor=DARK_TEXT)
+                td_center = ParagraphStyle('TDC', fontName=main_font, fontSize=7, leading=8.5, alignment=1, textColor=DARK_TEXT)
 
                 pdf_table_data = [[
                     Paragraph("#", th_style),
@@ -5431,7 +5453,7 @@ def reports_view(request):
             exp_tot_muni_budget = Decimal('0.00')
             exp_tot_brgy_budget = Decimal('0.00')
             ZERO_GRAY = '94A3B8'
-            CURRENCY_FORMAT = '[$₱-3409] #,##0.00'
+            CURRENCY_FORMAT = '[$₱-1C09] #,##0.00'
 
             for row_data in export_table_rows:
                 seq_idx = row_data['seq']
